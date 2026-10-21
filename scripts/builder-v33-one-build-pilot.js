@@ -6,6 +6,7 @@
   'use strict';
   const SCRIPT_ID = 'algzawy-builder-one-pilot';
   const STOP_EVENT = '__algzawy_stop_builder-v33-one-build-pilot';
+  const ATTEMPT_EVENT = '__algzawy_attempt_builder-v33-one-build-pilot';
   const API = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const BUILDINGS = [
     ['main','المبنى الرئيسي'],['barracks','الثكنات'],['stable','الأسطبل'],
@@ -69,14 +70,18 @@
   function revoke() {
     revoked=true;
     if (controller) controller.abort();
-    button.disabled=true;
-    button.textContent='موقوف من الغزاوي';
+    button.disabled=false; // This button only shows contact on a blocked attempt.
+    button.textContent='محاولة التشغيل — تواصل مع الغزاوي';
     status.textContent='تم إيقاف اختبار البناء بواسطة الغزاوي.';
   }
   document.addEventListener(STOP_EVENT,revoke,{once:true});
   refreshChoices();
   button.addEventListener('click',async () => {
-    if (revoked || busy || submitted || button.disabled) return;
+    if (revoked) {
+      document.dispatchEvent(new Event(ATTEMPT_EVENT));
+      return;
+    }
+    if (busy || submitted || button.disabled) return;
     const id=select.value;
     const selected=BUILDINGS.find(([key]) => key === id);
     if (!selected || !findButton(id)) {
