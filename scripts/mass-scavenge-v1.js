@@ -245,7 +245,7 @@
             let fallbackClicks = 0;
             const groupDigit = raw => {
                 const ar = '١٢٣٤٥';
-                const m = String(raw || '').match(/(?:تشغيل\\s*المجموعة|مجموعة)\\s*([1-5١-٥])/);
+                const m = String(raw || '').match(/(?:تشغيل\s*المجموعة|مجموعة)\s*([1-5١-٥])/);
                 if (!m) return 0;
                 return ar.includes(m[1]) ? ar.indexOf(m[1]) + 1 : Number(m[1]);
             };
