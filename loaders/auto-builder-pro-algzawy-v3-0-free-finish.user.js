@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.0 Free Finish)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.2
+// @version      0.1.3
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/game.php?village=*&screen=main*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_auto-builder-pro-algzawy-v3-0-free-finish';
-  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   let active = false;
   let executing = false;
   let everStarted = false;
