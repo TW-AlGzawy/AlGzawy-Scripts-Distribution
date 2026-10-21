@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         AlGzawy - Global Switch Test (Pilot)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.1
+// @version      0.2.0
 // @description  اختبار تفعيل وإيقاف سكربتات الغزاوي دون تنفيذ أي أوامر لعبة
 // @author       AlGzawy
 // @include      https://*.tribalwars.*/game.php*
 // @grant        GM_xmlhttpRequest
-// @connect      raw.githubusercontent.com
+// @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/global-switch-pilot.user.js
 // @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/global-switch-pilot.user.js
@@ -14,9 +14,9 @@
 
 (function () {
   'use strict';
-  const URL = 'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/control/status.json';
+  const URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const PANEL_ID = 'algzawy-global-switch-pilot-notice';
-  const POLL_MS = 30000;
+  const POLL_MS = 5000;
   const MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   let pending = false;
   let lastRevision = null;
@@ -58,7 +58,7 @@
         GM_xmlhttpRequest({
           method: 'GET',
           url: URL + '?_=' + Date.now(),
-          timeout: 10000,
+          timeout: 6000,
           headers: { 'Cache-Control': 'no-cache' },
           onload: response => {
             if (response.status !== 200) return reject(new Error('HTTP ' + response.status));
@@ -92,7 +92,10 @@
     if (document.visibilityState === 'visible') void readPolicy();
   }
   void readPolicy();
-  window.setInterval(readPolicy, POLL_MS);
+  // Poll every 5s while the game is visible; refresh immediately on focus.
+  window.setInterval(() => {
+    if (document.visibilityState !== 'hidden') void readPolicy();
+  }, POLL_MS);
   window.addEventListener('focus', checkWhenVisible);
   window.addEventListener('pageshow', checkWhenVisible);
   document.addEventListener('visibilitychange', checkWhenVisible);
