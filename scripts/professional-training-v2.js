@@ -1,0 +1,449 @@
+// ==UserScript==
+// @name         تدريب وحدات احترافي محسّن
+// @namespace    http://tampermonkey.net/
+// @version      2.1
+// @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
+// @match        https://*/*=train*
+// @grant        GM_setValue
+// @grant        GM_getValue
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════════════
+    // ⚙️ إعدادات التدريب - يمكنك تعديلها حسب احتياجك
+    // ═══════════════════════════════════════════════════════════════
+
+    const CONFIG = {
+        // تفعيل/تعطيل التدريب التلقائي
+        AUTO_TRAIN: true,
+
+        // تحديث الصفحة تلقائياً (بالدقائق)
+        AUTO_REFRESH_MINUTES: 3,
+
+        // فاصل زمني عام بين محاولات التدريب (بالثواني)
+        GLOBAL_INTERVAL_SECONDS: 15,
+
+        // تحديث لوحة التحكم (بالثواني) - زيادة هذا الرقم تقلل استهلاك الذاكرة
+        PANEL_UPDATE_SECONDS: 30,
+
+        // ═══════════════════════════════════════════════════════════
+        // 🎯 إعدادات الوحدات
+        // ═══════════════════════════════════════════════════════════
+        units: {
+            spear: {
+                enabled: true,
+                targetCount: 300,
+                priority: 8,
+                name: 'مقاتل الرمح'
+            },
+            sword: {
+                enabled: true,
+                targetCount: 150,
+                priority: 7,
+                name: 'مقاتل السيف'
+            },
+            axe: {
+                enabled: false,
+                targetCount: 350,
+                priority: 5,
+                name: 'مقاتل الفأس'
+            },
+            spy: {
+                enabled: false,
+                targetCount: 100,
+                priority: 8,
+                name: 'كشافة'
+            },
+            light: {
+                enabled: true,
+                targetCount: 500,
+                priority: 1,
+                name: 'فارس خفيف'
+            },
+            heavy: {
+                enabled: false,
+                targetCount: 0,
+                priority: 6,
+                name: 'فارس ثقيل'
+            },
+            ram: {
+                enabled: false,
+                targetCount: 30,
+                priority: 10,
+                name: 'محطمة الحائط'
+            },
+            catapult: {
+                enabled: false,
+                targetCount: 20,
+                priority: 8,
+                name: 'مقلاع'
+            }
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📊 نظام تتبع الإحصائيات المحسّن
+    // ═══════════════════════════════════════════════════════════════
+
+    const STATS_KEY = 'tribal_wars_training_stats';
+    let statsCache = null; // كاش للإحصائيات لتقليل عمليات القراءة
+
+    function getStats() {
+        if (statsCache) return statsCache;
+
+        const defaultStats = {};
+        Object.keys(CONFIG.units).forEach(unit => {
+            defaultStats[unit] = { trained: 0, attempts: 0, lastTrained: null };
+        });
+
+        try {
+            statsCache = GM_getValue(STATS_KEY, defaultStats);
+        } catch(e) {
+            console.warn('⚠️ خطأ في قراءة الإحصائيات، استخدام القيم الافتراضية');
+            statsCache = defaultStats;
+        }
+
+        return statsCache;
+    }
+
+    function saveStats(stats) {
+        statsCache = stats;
+        try {
+            GM_setValue(STATS_KEY, stats);
+        } catch(e) {
+            console.warn('⚠️ خطأ في حفظ الإحصائيات');
+        }
+    }
+
+    function updateStats(unitId, success) {
+        const stats = getStats();
+        if (!stats[unitId]) {
+            stats[unitId] = { trained: 0, attempts: 0, lastTrained: null };
+        }
+        stats[unitId].attempts++;
+        if (success) {
+            stats[unitId].trained++;
+            stats[unitId].lastTrained = new Date().toISOString();
+        }
+        saveStats(stats);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎨 إنشاء لوحة التحكم المحسّنة
+    // ═══════════════════════════════════════════════════════════════
+
+    let panelUpdateInterval = null;
+
+    function createControlPanel() {
+        // حذف اللوحة القديمة إن وجدت
+        const oldPanel = document.getElementById('training-bot-panel');
+        if (oldPanel) {
+            oldPanel.remove();
+        }
+
+        const panel = document.createElement('div');
+        panel.id = 'training-bot-panel';
+        panel.style.cssText = `
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 99999;
+            font-family: Arial, sans-serif;
+            min-width: 300px;
+            max-width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+            direction: rtl;
+        `;
+
+        updatePanelContent(panel);
+        document.body.appendChild(panel);
+    }
+
+    function updatePanelContent(panel) {
+        const stats = getStats();
+
+        let html = `
+            <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 18px;">🤖 بوت التدريب المحسّن</h3>
+                <div style="font-size: 11px; opacity: 0.8; margin-top: 5px;">
+                    التحديث: ${CONFIG.AUTO_REFRESH_MINUTES} دقيقة
+                </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 5px; margin-bottom: 10px; font-size: 12px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>⏱️ الفاصل:</span>
+                    <span style="font-weight: bold;">${CONFIG.GLOBAL_INTERVAL_SECONDS}ث</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>🔄 الحالة:</span>
+                    <span id="bot-status" style="font-weight: bold; color: #4ade80;">نشط</span>
+                </div>
+            </div>
+
+            <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px; opacity: 0.9;">
+                📋 الوحدات المفعلة:
+            </div>
+        `;
+
+        // ترتيب الوحدات حسب الأولوية
+        const sortedUnits = Object.entries(CONFIG.units)
+            .filter(([_, config]) => config.enabled)
+            .sort((a, b) => a[1].priority - b[1].priority);
+
+        if (sortedUnits.length === 0) {
+            html += `
+                <div style="background: rgba(255,255,255,0.15); padding: 10px; border-radius: 5px; text-align: center; font-size: 11px;">
+                    ⚠️ لا توجد وحدات مفعلة
+                </div>
+            `;
+        } else {
+            sortedUnits.forEach(([unitId, config]) => {
+                const unitStats = stats[unitId] || { trained: 0, attempts: 0 };
+                const targetText = config.targetCount > 0 ? `/${config.targetCount}` : '/∞';
+                const progress = config.targetCount > 0
+                    ? Math.min(100, (unitStats.trained / config.targetCount) * 100).toFixed(0)
+                    : 0;
+
+                html += `
+                    <div style="background: rgba(255,255,255,0.15); padding: 8px; border-radius: 5px; margin-bottom: 6px; font-size: 11px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-weight: bold;">${config.name}</span>
+                            <span style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px; font-size: 10px;">
+                                أولوية ${config.priority}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 10px; opacity: 0.9;">
+                            <span>تم: <strong>${unitStats.trained}${targetText}</strong></span>
+                            <span>محاولات: ${unitStats.attempts}</span>
+                        </div>
+                        ${config.targetCount > 0 ? `
+                            <div style="background: rgba(0,0,0,0.2); height: 4px; border-radius: 2px; margin-top: 4px; overflow: hidden;">
+                                <div style="background: #4ade80; height: 100%; width: ${progress}%;"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 10px; opacity: 0.7; text-align: center;">
+                آخر تحديث: ${new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
+            </div>
+        `;
+
+        panel.innerHTML = html;
+    }
+
+    function setupPanelUpdates() {
+        // إلغاء التحديث القديم إن وجد
+        if (panelUpdateInterval) {
+            clearInterval(panelUpdateInterval);
+        }
+
+        // تحديث اللوحة بشكل أقل تكراراً لتوفير الذاكرة
+        panelUpdateInterval = setInterval(() => {
+            const panel = document.getElementById('training-bot-panel');
+            if (panel) {
+                updatePanelContent(panel);
+            }
+        }, CONFIG.PANEL_UPDATE_SECONDS * 1000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎯 دالة التدريب الذكية المحسّنة
+    // ═══════════════════════════════════════════════════════════════
+
+    function trainUnit(unitId, config) {
+        const stats = getStats();
+        const unitStats = stats[unitId] || { trained: 0 };
+
+        // التحقق من الوصول للهدف
+        if (config.targetCount > 0 && unitStats.trained >= config.targetCount) {
+            console.log(`✅ ${config.name}: وصل للهدف (${unitStats.trained}/${config.targetCount})`);
+            return false;
+        }
+
+        const unitMax = document.querySelector(`#${unitId}_0_a`);
+        const unitInput = document.querySelector(`#${unitId}_0`);
+        const trainBtn = document.querySelector('input.btn.btn-recruit[type="submit"]');
+
+        if (!trainBtn) {
+            console.log(`❌ ${config.name}: زر التدريب غير موجود`);
+            return false;
+        }
+
+        if (trainBtn.disabled) {
+            console.log(`⚠️ ${config.name}: الموارد غير كافية`);
+            updateStats(unitId, false);
+            return false;
+        }
+
+        if (unitMax && unitInput) {
+            unitMax.click();
+
+            setTimeout(() => {
+                const inputValue = parseInt(unitInput.value) || 0;
+
+                if (inputValue >= 1) {
+                    trainBtn.click();
+                    console.log(`✅ ${config.name}: تم التدريب! (${inputValue} وحدة)`);
+                    updateStats(unitId, true);
+
+                    // تحديث الحالة في اللوحة
+                    const statusEl = document.getElementById('bot-status');
+                    if (statusEl) {
+                        statusEl.textContent = `تدريب ${config.name}`;
+                        statusEl.style.color = '#fbbf24';
+                        setTimeout(() => {
+                            if (statusEl) {
+                                statusEl.textContent = 'نشط';
+                                statusEl.style.color = '#4ade80';
+                            }
+                        }, 2000);
+                    }
+
+                    return true;
+                } else {
+                    console.log(`⚠️ ${config.name}: لا توجد وحدات متاحة`);
+                    updateStats(unitId, false);
+                    return false;
+                }
+            }, 500 + Math.random() * 500);
+        }
+
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔄 نظام التدريب الدوري المحسّن
+    // ═══════════════════════════════════════════════════════════════
+
+    let trainingTimeout = null;
+
+    function startTrainingCycle() {
+        if (!CONFIG.AUTO_TRAIN) {
+            console.log('⏸️ التدريب التلقائي معطل');
+            return;
+        }
+
+        const sortedUnits = Object.entries(CONFIG.units)
+            .filter(([_, config]) => config.enabled)
+            .sort((a, b) => a[1].priority - b[1].priority);
+
+        if (sortedUnits.length === 0) {
+            console.log('⚠️ لا توجد وحدات مفعلة للتدريب');
+            return;
+        }
+
+        let currentIndex = 0;
+
+        function trainNext() {
+            if (currentIndex >= sortedUnits.length) {
+                currentIndex = 0;
+            }
+
+            const [unitId, config] = sortedUnits[currentIndex];
+            console.log(`🎯 محاولة: ${config.name}`);
+
+            trainUnit(unitId, config);
+            currentIndex++;
+
+            // استخدام setTimeout بدلاً من setInterval لتوفير الذاكرة
+            trainingTimeout = setTimeout(trainNext, CONFIG.GLOBAL_INTERVAL_SECONDS * 1000);
+        }
+
+        // بدء الدورة
+        trainingTimeout = setTimeout(trainNext, 2000);
+    }
+
+    function stopTrainingCycle() {
+        if (trainingTimeout) {
+            clearTimeout(trainingTimeout);
+            trainingTimeout = null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔄 نظام التحديث التلقائي للصفحة
+    // ═══════════════════════════════════════════════════════════════
+
+    let refreshTimeout = null;
+
+    function setupAutoRefresh() {
+        if (CONFIG.AUTO_REFRESH_MINUTES > 0) {
+            const refreshInterval = CONFIG.AUTO_REFRESH_MINUTES * 60 * 1000;
+            console.log(`🔄 التحديث التلقائي كل ${CONFIG.AUTO_REFRESH_MINUTES} دقيقة`);
+
+            refreshTimeout = setTimeout(() => {
+                console.log('🔄 تحديث الصفحة...');
+                location.reload();
+            }, refreshInterval);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🧹 تنظيف الموارد عند مغادرة الصفحة
+    // ═══════════════════════════════════════════════════════════════
+
+    function cleanup() {
+        stopTrainingCycle();
+
+        if (panelUpdateInterval) {
+            clearInterval(panelUpdateInterval);
+            panelUpdateInterval = null;
+        }
+
+        if (refreshTimeout) {
+            clearTimeout(refreshTimeout);
+            refreshTimeout = null;
+        }
+
+        statsCache = null;
+    }
+
+    window.addEventListener('beforeunload', cleanup);
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🚀 تشغيل البوت
+    // ═══════════════════════════════════════════════════════════════
+
+    function init() {
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('🤖 بوت التدريب المحسّن - النسخة 2.1');
+        console.log('💾 تحسينات الأداء: استهلاك أقل للذاكرة');
+        console.log('═══════════════════════════════════════════════════════');
+
+        // إنشاء لوحة التحكم
+        createControlPanel();
+
+        // إعداد تحديثات اللوحة
+        setupPanelUpdates();
+
+        // بدء نظام التدريب
+        startTrainingCycle();
+
+        // تفعيل التحديث التلقائي
+        setupAutoRefresh();
+
+        const enabledCount = Object.values(CONFIG.units).filter(u => u.enabled).length;
+        console.log(`✅ البوت يعمل! الوحدات المفعلة: ${enabledCount}`);
+    }
+
+    // تشغيل البوت عند تحميل الصفحة
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+})();
