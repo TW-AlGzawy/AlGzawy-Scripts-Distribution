@@ -243,6 +243,18 @@ async function loadUsers(){
    }
  }catch(err){toast(errorArabic(err),true);}
 }
+async function adminGlobal(action){
+ const headers=adminHeaders();if(!headers)return;
+ try{
+   const d=await api('admin/global',{method:action===null?'GET':'POST',auth:false,headers,...(action===null?{}:{body:{enabled:action}})});
+   state.global=d.global;updateCloud();
+   $('adminGlobalMessage').textContent='الحالة الحالية: '+(state.global.enabled?'ON — تشغيل':'OFF — إيقاف')+' | Revision: '+state.global.revision;
+   toast('تم تحديث حالة التحكم المركزي');
+ }catch(err){toast(errorArabic(err),true);}
+}
+$('adminGlobalRefresh').addEventListener('click',()=>adminGlobal(null));
+$('adminGlobalOn').addEventListener('click',()=>{if(confirm('تشغيل جميع سكربتات الزبائن المتصلة بالمنظومة؟'))adminGlobal(true);});
+$('adminGlobalOff').addEventListener('click',()=>{if(confirm('إيقاف جميع سكربتات الزبائن المرتبطة بالنظام؟'))adminGlobal(false);});
 $('adminLoad').addEventListener('click',loadUsers);
 $('createUser').addEventListener('click',async()=>{
  const headers=adminHeaders();if(!headers)return;
