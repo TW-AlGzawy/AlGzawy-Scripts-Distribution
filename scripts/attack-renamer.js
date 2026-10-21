@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Auto Incoming Attack Renamer
-// @version      0.1.1
+// @version      0.1.2
 // @description  Incoming attacks only; native Tribal Wars QuickEdit UI; configurable and off by default
 // ==/UserScript==
 (function () {
@@ -43,9 +43,11 @@
   const allowed=()=>settings.enabled && localStorage.getItem(LOCAL)!=='false' &&
     localStorage.getItem(HUMAN)!=='1' && !document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection');
   const skipRow = row => {
-    const img = row.querySelector('img');
-    const src = (img?.getAttribute('src')||'').toLowerCase();
-    return src.includes('support') || row.classList.contains('support');
+    // Refuse to rename an unknown command type or a support command.
+    const imgs=[...row.querySelectorAll('img')];
+    const srcs=imgs.map(img=>(img.getAttribute('src')||'').toLowerCase());
+    if(row.classList.contains('support') || srcs.some(src=>src.includes('support'))) return true;
+    return !row.classList.contains('attack') && !srcs.some(src=>/command\/attack|\/attack\.(png|svg|gif)/.test(src));
   };
   const commandId = row => {
     const link = [...row.querySelectorAll('a[href*="info_command"]')][0];
@@ -54,16 +56,22 @@
   };
   // Only native QuickEdit form controls are used. Do not construct undocumented
   // game-server requests or replace an incoming attack with an arbitrary API call.
-  const nativeRename = (row,name) => {
+  const nativeRename = async (row,name) => {
     const edit=row.querySelector('.rename-icon');
     if (!edit) return false;
     edit.click();
-    const entry=row.querySelector('input[type="text"]');
-    if (!entry || !entry.offsetParent) return false;
+    // Native QuickEdit may render its editor asynchronously.
+    let entry=null;
+    for(let n=0;n<8;n++){
+      entry=row.querySelector('input[type="text"]');
+      if(entry && entry.getClientRects().length>0)break;
+      await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!entry || !entry.getClientRects().length) return false;
     entry.value=name;
     entry.dispatchEvent(new Event('input',{bubbles:true}));
     entry.dispatchEvent(new Event('change',{bubbles:true}));
-    const saveButton=row.querySelector('input[type="button"],button.quickedit-save,button[type="submit"]');
+    const saveButton=row.querySelector('input[type="button"],input[type="submit"],button.quickedit-save,button[type="submit"]');
     if(!saveButton || saveButton.disabled) return false;
     saveButton.click();
     return true;
@@ -86,7 +94,7 @@
         if(label.startsWith('['+settings.prefix+']')){processed.add(id);continue;}
         if(settings.skipCustom && label && !/^(attack|هجوم|angriff|aanval|ataque)(?:\s|$|\d)/i.test(label))continue;
         const name='['+settings.prefix+'] هجوم #'+id;
-        if(!nativeRename(row,name)) {status('واجهة تغيير الاسم غير متاحة لهذا الهجوم');break;}
+        if(!await nativeRename(row,name)) {status('واجهة تغيير الاسم غير متاحة لهذا الهجوم');break;}
         processed.add(id);
         attempted++;
         status('طلب تسمية '+attempted+' هجوم — ينتظر تأكيد اللعبة');
