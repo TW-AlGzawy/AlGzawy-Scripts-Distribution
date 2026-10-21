@@ -244,7 +244,7 @@
             async function dispatchAvailableGroups() {
                 const attempted = new Set();
                 let consecutiveEmptyChecks = 0;
-                for (let n = 0; n < 40; n++) {
+                for (let n = 0; n < 120; n++) { // allow slow group calculations
                     if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
                     if (hasHumanCheck()) {
                         localStorage.setItem('algzawy_human_verification_pause', '1');
@@ -273,13 +273,13 @@
                             .map((button,index) => ({index,button,row:button.closest('tr')}));
                     }
                     if (!tasks.length) {
-                        if (++consecutiveEmptyChecks >= 4) break;
+                        if (++consecutiveEmptyChecks >= (attempted.size ? 4 : 120)) break;
                         await wait(500);
                         continue;
                     }
                     consecutiveEmptyChecks = 0;
                     const task = tasks.find(task => !attempted.has(task.index) && isReady(task.button));
-                    if (!task) break;
+                    if (!task) { if (tasks.every(x => attempted.has(x.index))) break; await wait(500); continue; }
                     attempted.add(task.index); // one attempt per group per run
                     console.log('[AlGzawy] Group '+(task.index+1)+' click requested');
                     task.button.click();
