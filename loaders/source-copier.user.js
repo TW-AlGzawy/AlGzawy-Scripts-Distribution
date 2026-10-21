@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] ناسخ المصدر - AlGzawy Helper
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.0
+// @version      0.1.1
 // @description  نسخة Beta للتجربة بموافقة المستخدم فقط وربط Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -22,6 +22,8 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/source-copier.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "source-copier";
+  const LOCAL_KEY = "algzawy_local_enabled_" + ID;
+  const HUMAN_KEY = "algzawy_human_verification_pause";
   const HAS_GM_API = true;
   const POLL_MS = 5000;
   const REQUEST_TIMEOUT = 6000;
@@ -243,7 +245,8 @@
       if (everStarted) revoked = true;
     }
     active = false;
-    ensureBlockedLauncher();
+    if (reason === 'local') clearBlockedLauncher();
+    else ensureBlockedLauncher();
     if (reason === 'disabled') message(STOP_MESSAGE);
     if (reason === 'offline') message('تعذر التحقق من حالة سكربتات الغزاوي، تم إيقافها مؤقتًا لحين عودة الاتصال.');
   }
@@ -259,6 +262,8 @@
         stopCore('disabled'); return;
       }
       lastRevision = String(status.revision);
+      if (sessionStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
+      if (localStorage.getItem(LOCAL_KEY)==='false') { stopCore('local'); return; }
       clearBlockedLauncher();
       if (revoked) {
         // Old listeners in some source scripts cannot be unwired safely.
@@ -282,6 +287,8 @@
             stopCore('disabled'); return;
           }
           lastRevision = String(checkAgain.revision);
+          if (sessionStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
+          if (localStorage.getItem(LOCAL_KEY)==='false') { stopCore('local'); return; }
           startCore(code);
         } finally { executing = false; }
       }
@@ -293,6 +300,8 @@
     }
   }
   document.addEventListener(ATTEMPT_EVENT, () => message(STOP_MESSAGE, true));
+  document.addEventListener('algzawy-local-control-changed',()=>{void checkPolicy();});
+  document.addEventListener('algzawy-human-verification',()=>{sessionStorage.setItem(HUMAN_KEY,'1');stopCore('human');});
   checkPolicy();
   // Active-tab checks only, to limit Cloudflare Free plan usage.
   window.setInterval(() => { if (document.visibilityState !== 'hidden') void checkPolicy(); }, POLL_MS);
