@@ -1,5 +1,17 @@
 # AlGzawy Scripts — GitHub Distribution
 
+## تحديث تجريبي للسكربتات الأساسية — 21 أكتوبر 2026
+
+**تم نشر تحديثات برمجية وليست معتمدة داخل اللعبة بعد.** نسخة الإغارات الجديدة v9.2.1، النهب A/B/C، البناء، التدريب، وتنبيه المخازن، مع لوحة تحكم موحّدة للمستخدم. لا يزال Tampermonkey مطلوبًا، ويجب تجربة كل سكربت على حساب اختباري قبل الاعتماد.
+
+- [تثبيت لوحة AlGzawy Control Center](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js)
+- [تثبيت تنبيه المخازن](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js)
+- [سجل الإصلاحات ونتائج الفحص المطلوبة](docs/BETA-REFRESH-2026-10-21.md)
+
+**تنبيه:** من قرر استخدام Bot 2 للنهب عليه تعطيل جميع بوتات النهب الأخرى منعًا للتداخل. نسخة AlG_farm وFarm Monster خارج فهرس التوزيع الموصى به. تحديث السكربتات المحلية يتطلب إعادة تحميل صفحة اللعبة بعد تحديث Tampermonkey.
+
+
+
 > **BETA TEST DISTRIBUTION — ليس إنتاجًا معتمدًا**
 
 **تاريخ التوزيع:** 21 أكتوبر 2026 · **المرشحة للاختبار:** 26 · **موقوفة للمراجعة:** 5 · **مجتازة الاختبار داخل اللعبة:** تجربة رمح واحد وتجربة بناء واحد فقط.
