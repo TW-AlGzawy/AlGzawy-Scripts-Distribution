@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Auto Incoming Attack Renamer
-// @version      0.1.0
+// @version      0.1.1
 // @description  Incoming attacks only; native Tribal Wars QuickEdit UI; configurable and off by default
 // ==/UserScript==
 (function () {
@@ -84,7 +84,7 @@
         if (!/^\d+$/.test(id) || processed.has(id))continue;
         const label=(row.querySelector('.quickedit-label')?.textContent||'').trim();
         if(label.startsWith('['+settings.prefix+']')){processed.add(id);continue;}
-        if(settings.skipCustom && label && !/^(attack|هجوم|angriff|aanval|ataque|at[a-z]+que)\b/i.test(label))continue;
+        if(settings.skipCustom && label && !/^(attack|هجوم|angriff|aanval|ataque)(?:\s|$|\d)/i.test(label))continue;
         const name='['+settings.prefix+'] هجوم #'+id;
         if(!nativeRename(row,name)) {status('واجهة تغيير الاسم غير متاحة لهذا الهجوم');break;}
         processed.add(id);
