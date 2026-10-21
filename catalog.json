@@ -241,5 +241,7 @@
   "control_center_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js",
   "audit_date": "2026-10-21",
   "last_release_type": "beta-code-only-no-live-game-certification",
-  "superseded_raid_engines": "only 9.2.1 active in distribution; older raid engine copies archived privately"
+  "superseded_raid_engines": "only 9.2.1 active in distribution; older raid engine copies archived privately",
+  "safety_guard_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-human-guard.user.js",
+  "group_scavenge_note": "v9.2.2 fixes external UI repeated id=sendMass, walks sendRowN 0..4, mock dispatch test passed; real game test outstanding"
 }
