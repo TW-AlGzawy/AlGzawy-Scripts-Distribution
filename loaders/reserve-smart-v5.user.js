@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] 🎯 Smart Reserve Pro v5.0 - IMPROVED
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.2
+// @version      0.1.3
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @match        https://*.tribalwars.ae/game.php*screen=map*
 // @match        https://*.tribalwars.ae/game.php*screen=ally&mode=reservations*
@@ -33,7 +33,7 @@
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_reserve-smart-v5';
-  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   let active = false;
   let executing = false;
   let everStarted = false;
