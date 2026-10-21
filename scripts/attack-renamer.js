@@ -1,0 +1,105 @@
+// ==UserScript==
+// @name         [AlGzawy BETA] Auto Incoming Attack Renamer
+// @version      0.1.0
+// @description  Incoming attacks only; native Tribal Wars QuickEdit UI; configurable and off by default
+// ==/UserScript==
+(function () {
+  'use strict';
+  const panelId = 'algzawy-incoming-renamer-panel';
+  if (document.getElementById(panelId)) return;
+  const screen = new URLSearchParams(location.search);
+  if (screen.get('screen') !== 'overview' && screen.get('screen') !== 'overview_villages') return;
+  const KEY = 'algzawy_incoming_renamer_v01';
+  const HUMAN = 'algzawy_human_verification_pause';
+  const LOCAL = 'algzawy_local_enabled_attack-renamer';
+  let settings;
+  try { settings = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) { settings = {}; }
+  settings = Object.assign({enabled:false,prefix:'AlGzawy',skipCustom:true},settings);
+  const panel = document.createElement('section');
+  panel.id = panelId;
+  panel.dir = 'rtl';
+  panel.style.cssText='position:fixed;top:210px;right:12px;z-index:999991;width:253px;background:#f8fafc;color:#152538;border:1px solid #b8c7d3;border-radius:12px;box-shadow:0 6px 20px #0004;font:12px/1.7 Tahoma,Arial;overflow:hidden';
+  panel.innerHTML='<header id="algzawy-renamer-drag" style="background:#153b53;color:#fff;padding:8px;cursor:move;touch-action:none;user-select:none">🏷️ AlGzawy — تسمية الهجمات القادمة</header>'+
+    '<div id="algzawy-renamer-body" style="padding:10px">'+
+    '<label><input id="algzawy-renamer-enabled" type="checkbox"> تفعيل التسمية تلقائيًا</label>'+
+    '<label style="display:block;margin:8px 0">البادئة <input id="algzawy-renamer-prefix" type="text" maxlength="24" style="width:115px"></label>'+
+    '<label><input id="algzawy-renamer-skip" type="checkbox"> عدم تغيير الأسماء المخصصة</label>'+
+    '<div id="algzawy-renamer-status" aria-live="polite" style="font-size:11px;color:#475569;margin-top:8px">متوقف</div></div>';
+  document.body.appendChild(panel);
+  const el = name => document.getElementById('algzawy-renamer-'+name);
+  el('enabled').checked = !!settings.enabled;
+  el('skip').checked = settings.skipCustom !== false;
+  el('prefix').value = String(settings.prefix).slice(0,24);
+  const status = msg => { el('status').textContent = msg; };
+  const save=()=>{
+    settings.enabled=el('enabled').checked;
+    settings.skipCustom=el('skip').checked;
+    settings.prefix=el('prefix').value.trim().slice(0,24)||'AlGzawy';
+    localStorage.setItem(KEY,JSON.stringify(settings));
+    status(settings.enabled?'تم تفعيل مراقبة الهجمات':'متوقف');
+    if (settings.enabled) scan();
+  };
+  ['enabled','skip','prefix'].forEach(id => el(id).addEventListener('change',save));
+  const allowed=()=>settings.enabled && localStorage.getItem(LOCAL)!=='false' &&
+    localStorage.getItem(HUMAN)!=='1' && !document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection');
+  const skipRow = row => {
+    const img = row.querySelector('img');
+    const src = (img?.getAttribute('src')||'').toLowerCase();
+    return src.includes('support') || row.classList.contains('support');
+  };
+  const commandId = row => {
+    const link = [...row.querySelectorAll('a[href*="info_command"]')][0];
+    if (!link) return '';
+    try {return new URL(link.href,location.href).searchParams.get('id')||'';}catch(_){return '';}
+  };
+  // Only native QuickEdit form controls are used. Do not construct undocumented
+  // game-server requests or replace an incoming attack with an arbitrary API call.
+  const nativeRename = (row,name) => {
+    const edit=row.querySelector('.rename-icon');
+    if (!edit) return false;
+    edit.click();
+    const entry=row.querySelector('input[type="text"]');
+    if (!entry || !entry.offsetParent) return false;
+    entry.value=name;
+    entry.dispatchEvent(new Event('input',{bubbles:true}));
+    entry.dispatchEvent(new Event('change',{bubbles:true}));
+    const saveButton=row.querySelector('input[type="button"],button.quickedit-save,button[type="submit"]');
+    if(!saveButton || saveButton.disabled) return false;
+    saveButton.click();
+    return true;
+  };
+  const processed = new Set();
+  let busy=false;
+  async function scan() {
+    if (!allowed() || busy) return;
+    busy=true;
+    try {
+      const rows = [...document.querySelectorAll('#commands_incomings .command-row,#incomings_table .command-row')];
+      if (!rows.length) {status('لم تُكتشف قائمة هجمات قادمة في هذه الصفحة');return;}
+      let attempted=0;
+      for(const row of rows) {
+        if(!allowed())break;
+        if(skipRow(row))continue;
+        const id=commandId(row);
+        if (!/^\d+$/.test(id) || processed.has(id))continue;
+        const label=(row.querySelector('.quickedit-label')?.textContent||'').trim();
+        if(label.startsWith('['+settings.prefix+']')){processed.add(id);continue;}
+        if(settings.skipCustom && label && !/^(attack|هجوم|angriff|aanval|ataque|at[a-z]+que)\b/i.test(label))continue;
+        const name='['+settings.prefix+'] هجوم #'+id;
+        if(!nativeRename(row,name)) {status('واجهة تغيير الاسم غير متاحة لهذا الهجوم');break;}
+        processed.add(id);
+        attempted++;
+        status('طلب تسمية '+attempted+' هجوم — ينتظر تأكيد اللعبة');
+        await new Promise(resolve=>setTimeout(resolve,1200));
+      }
+      if(!attempted && allowed() && rows.length)status('تم الفحص — لا هجمات جديدة قابلة للتسمية');
+    }catch(e){console.warn('[AlGzawy Renamer]',e);status('خطأ في واجهة تسمية الهجمات');}
+    finally{busy=false;}
+  }
+  let drag=null;const handle=document.getElementById('algzawy-renamer-drag');
+  handle.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,top:panel.offsetTop,left:panel.offsetLeft};handle.setPointerCapture?.(e.pointerId);});
+  handle.addEventListener('pointermove',e=>{if(!drag)return;panel.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';panel.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';panel.style.right='auto';});
+  handle.addEventListener('pointerup',()=>{drag=null;});
+  setInterval(scan,15000);
+  if(settings.enabled)setTimeout(scan,1000);
+})();
