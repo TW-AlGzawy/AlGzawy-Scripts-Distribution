@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
-// @version      3.3
+// @version      3.3.1
 // @description  مدير قرية متكامل: إنهاء تلقائي، التزام بالترتيب، واجهة قابلة للتخصيص، مع إصلاح حذف المباني بعد بنائها بشكل موثوق.
 // @author       AlGzawy & Manus (Improved)
 // @match        https://*/game.php?village=*&screen=main*
@@ -109,14 +109,16 @@
 
     // ================== إصلاح حذف المباني ==================
     async function clickBuildButton(buttonElement, buildingId) {
-        if (!buttonElement || buttonElement.hasClass("btn-disabled")) return false;
+        if (!buttonElement || !buttonElement.length || buttonElement.hasClass("btn-disabled") || buttonElement.prop('disabled')) return false;
 
-        const queueElement = document.getElementById("buildqueue");
+        // An empty building queue often has no #buildqueue element at all.
+        // Observe the main content and re-select the queue as it is created.
+        const queueElement = document.getElementById("content_value") || document.body;
         if (!queueElement) return false;
 
         // دالة لالتقاط لقطة من محتوى الجدول (نصوص الصفوف المهمة)
         const getQueueSnapshot = () => {
-            const rows = Array.from(queueElement.rows);
+            const rows = Array.from(document.querySelectorAll('#buildqueue tr'));
             // استبعاد الصفوف التي تحتوي على رأس الجدول أو صفوف فارغة
             const relevantRows = rows.filter(row => {
                 const text = row.innerText.trim();
@@ -130,9 +132,8 @@
 
         const before = getQueueSnapshot();
 
-        // الضغط على الزر
-        buttonElement[0].click();
-
+        // Observe before clicking so that fast Ajax responses cannot be missed.
+        // Wait for DOM confirmation; never remove a planned building on click alone.
         // انتظار تغيير في الجدول باستخدام MutationObserver مع مهلة 3 ثواني
         const waitForChange = new Promise((resolve) => {
             const mutationObserver = new MutationObserver(() => {
@@ -143,6 +144,7 @@
                 }
             });
             mutationObserver.observe(queueElement, { childList: true, subtree: true, characterData: true });
+            buttonElement[0].click();
             setTimeout(() => {
                 mutationObserver.disconnect();
                 resolve(false);
@@ -210,10 +212,7 @@
                         const alreadyBuilding = $(`#buildqueue tr:contains("${nameMap[nextBuilding]}")`).length > 0 ||
                                                 $(`#buildqueue tr:contains("${nextBuilding}")`).length > 0;
                         if (alreadyBuilding) {
-                            console.log(`[Builder] ${nameMap[nextBuilding]} قيد الإنشاء بالفعل، إزالته من الطابور.`);
-                            buildingQueue.shift();
-                            saveData();
-                            updateUI();
+                            console.log(`[Builder] ${nameMap[nextBuilding]} قيد الإنشاء؛ الاحتفاظ بالطلب التالي حتى تأكيد بنائه.`);
                         }
                     }
                 } else {
