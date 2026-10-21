@@ -269,7 +269,7 @@
         stopCore('disabled'); return;
       }
       lastRevision = String(status.revision);
-      if (sessionStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
+      if (localStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
       if (localStorage.getItem(LOCAL_KEY)==='false') { stopCore('local'); return; }
       clearBlockedLauncher();
       if (revoked) {
@@ -294,7 +294,7 @@
             stopCore('disabled'); return;
           }
           lastRevision = String(checkAgain.revision);
-          if (sessionStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
+          if (localStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
           if (localStorage.getItem(LOCAL_KEY)==='false') { stopCore('local'); return; }
           startCore(code);
         } finally { executing = false; }
@@ -307,8 +307,9 @@
     }
   }
   document.addEventListener(ATTEMPT_EVENT, () => message(STOP_MESSAGE, true));
+  window.addEventListener('storage',e=>{if(e.key===HUMAN_KEY&&e.newValue==='1')stopCore('human');else if(e.key===LOCAL_KEY)void checkPolicy();});
   document.addEventListener('algzawy-local-control-changed',()=>{void checkPolicy();});
-  document.addEventListener('algzawy-human-verification',()=>{sessionStorage.setItem(HUMAN_KEY,'1');stopCore('human');});
+  document.addEventListener('algzawy-human-verification',()=>{localStorage.setItem(HUMAN_KEY,'1');stopCore('human');});
   checkPolicy();
   // Active-tab checks only, to limit Cloudflare Free plan usage.
   window.setInterval(() => { if (document.visibilityState !== 'hidden') void checkPolicy(); }, POLL_MS);
