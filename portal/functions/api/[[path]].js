@@ -96,6 +96,17 @@ async function handler(req,env){
   }
   if(path[0]==='admin'){
     if(!adminOK(req,env))return bad('unauthorized',401);
+    if(path[1]==='global'&&path.length===2){
+      if(req.method==='GET')return reply({ok:true,global:await globalState(env)});
+      if(req.method!=='POST')return bad('method_not_allowed',405);
+      let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(!input||typeof input.enabled!=='boolean'||Object.keys(input).length!==1)return bad('invalid_enabled');
+      const n=input.enabled?1:0;
+      const changed=await env.DB.prepare(
+        "UPDATE global_control SET enabled=?, revision=revision+1, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=1 AND enabled<>? RETURNING enabled,revision,updated_at"
+      ).bind(n,n).first();
+      return reply({ok:true,global:changed?{enabled:changed.enabled===1,revision:changed.revision,updated_at:changed.updated_at}:await globalState(env)});
+    }
     if(path[1]==='users'&&path.length===2){
       if(req.method==='GET'){
         const x=await env.DB.prepare('SELECT id,label,active,created_at FROM portal_users ORDER BY created_at DESC LIMIT 200').all();
