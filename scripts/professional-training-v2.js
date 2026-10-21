@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تدريب وحدات احترافي محسّن
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.2
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
@@ -79,7 +79,11 @@
                 targetCount: 20,
                 priority: 8,
                 name: 'مقلاع'
-            }
+            },
+            archer: { enabled: false, targetCount: 0, priority: 9, name: 'رامي السهام' },
+            marcher: { enabled: false, targetCount: 0, priority: 9, name: 'رامي سهام على الحصان' },
+            snob: { enabled: false, targetCount: 0, priority: 10, name: 'نبيل (إن أتيح في صفحة التدريب)' },
+            militia: { enabled: false, targetCount: 0, priority: 10, name: 'ميليشيا (إن أتيح)' }
         }
     };
 
@@ -88,6 +92,25 @@
     // ═══════════════════════════════════════════════════════════════
 
     const STATS_KEY = 'tribal_wars_training_stats';
+    const SETTINGS_KEY = 'algzawy_training_v22_user_settings';
+    try {
+        const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+        if (typeof saved.enabled === 'boolean') CONFIG.AUTO_TRAIN = saved.enabled;
+        if (saved.units && typeof saved.units === 'object') {
+            for (const [id, original] of Object.entries(CONFIG.units)) {
+                const x = saved.units[id]; if (!x) continue;
+                if (typeof x.enabled === 'boolean') original.enabled = x.enabled;
+                if (Number.isFinite(x.targetCount)) original.targetCount = Math.max(0, Math.min(1000000, Math.floor(x.targetCount)));
+                if (Number.isFinite(x.priority)) original.priority = Math.max(1, Math.min(20,Math.floor(x.priority)));
+                if (Number.isFinite(x.maxBatch)) original.maxBatch = Math.max(0,Math.min(10000,Math.floor(x.maxBatch)));
+            }
+        }
+    } catch (e) { console.warn('[AlGzawy Training] saved settings invalid', e); }
+    function saveUserSettings() {
+        const units = {};
+        for (const [id,x] of Object.entries(CONFIG.units)) units[id] = { enabled:x.enabled, targetCount:x.targetCount, priority:x.priority, maxBatch:x.maxBatch||0 };
+        localStorage.setItem(SETTINGS_KEY,JSON.stringify({enabled:CONFIG.AUTO_TRAIN,units}));
+    }
     let statsCache = null; // كاش للإحصائيات لتقليل عمليات القراءة
 
     function getStats() {
@@ -124,7 +147,7 @@
         }
         stats[unitId].attempts++;
         if (success) {
-            stats[unitId].trained++;
+            stats[unitId].trained += Math.max(1,Number(arguments[2])||1);
             stats[unitId].lastTrained = new Date().toISOString();
         }
         saveStats(stats);
@@ -164,6 +187,21 @@
         `;
 
         updatePanelContent(panel);
+        panel.addEventListener('change', event => {
+            const el = event.target;
+            if (el.id === 'algzawy-training-enabled') CONFIG.AUTO_TRAIN = el.checked;
+            else if (el.dataset.unit && CONFIG.units[el.dataset.unit]) {
+                const unit = CONFIG.units[el.dataset.unit];
+                if (el.dataset.field === 'enabled') unit.enabled = el.checked;
+                if (el.dataset.field === 'targetCount') unit.targetCount = Math.max(0,Math.min(1000000,Number(el.value)||0));
+                if (el.dataset.field === 'priority') unit.priority = Math.max(1,Math.min(20,Number(el.value)||1));
+                if (el.dataset.field === 'maxBatch') unit.maxBatch = Math.max(0,Math.min(10000,Number(el.value)||0));
+            }
+            saveUserSettings();
+            stopTrainingCycle();
+            if (CONFIG.AUTO_TRAIN) startTrainingCycle();
+            updatePanelContent(panel);
+        });
         document.body.appendChild(panel);
     }
 
@@ -173,6 +211,7 @@
         let html = `
             <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
                 <h3 style="margin: 0; font-size: 18px;">🤖 بوت التدريب المحسّن</h3>
+                <label style="display:block;margin-top:6px"><input id="algzawy-training-enabled" type="checkbox" ${CONFIG.AUTO_TRAIN ? 'checked':''}> تشغيل التدريب التلقائي</label>
                 <div style="font-size: 11px; opacity: 0.8; margin-top: 5px;">
                     التحديث: ${CONFIG.AUTO_REFRESH_MINUTES} دقيقة
                 </div>
@@ -190,8 +229,18 @@
             </div>
 
             <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px; opacity: 0.9;">
-                📋 الوحدات المفعلة:
+                📋 إعدادات الوحدات (تُحفظ تلقائيًا):
             </div>
+            <div style="max-height:200px;overflow:auto;background:#ffffff20;padding:5px">
+            ${Object.entries(CONFIG.units).map(([id,u])=>
+              '<div style="display:grid;grid-template-columns:1fr 55px 40px 55px;gap:3px;align-items:center;margin:3px 0">'+
+              '<label><input type="checkbox" data-unit="'+id+'" data-field="enabled" '+(u.enabled?'checked':'')+'>'+u.name+'</label>'+
+              '<input type="number" min="0" title="الهدف" data-unit="'+id+'" data-field="targetCount" value="'+u.targetCount+'" style="width:50px">'+
+              '<input type="number" min="1" max="20" title="الأولوية" data-unit="'+id+'" data-field="priority" value="'+u.priority+'" style="width:35px">'+
+              '<input type="number" min="0" title="حد أقصى للدفعة؛ 0 = المتاح" data-unit="'+id+'" data-field="maxBatch" value="'+(u.maxBatch||0)+'" style="width:50px">'+
+              '</div>').join('')}
+            </div>
+            <div style="font-size:10px">الحقول: الهدف | الأولوية | أقصى دفعة (0 = المتاح)</div>
         `;
 
         // ترتيب الوحدات حسب الأولوية
@@ -264,6 +313,7 @@
     // ═══════════════════════════════════════════════════════════════
 
     function trainUnit(unitId, config) {
+        if (!CONFIG.AUTO_TRAIN || sessionStorage.getItem('algzawy_human_verification_pause')==='1') return false;
         const stats = getStats();
         const unitStats = stats[unitId] || { trained: 0 };
 
@@ -275,7 +325,8 @@
 
         const unitMax = document.querySelector(`#${unitId}_0_a`);
         const unitInput = document.querySelector(`#${unitId}_0`);
-        const trainBtn = document.querySelector('input.btn.btn-recruit[type="submit"]');
+        // Restrict submissions to the form that owns this unit.
+        const trainBtn = unitInput && unitInput.closest('form')?.querySelector('input.btn-recruit[type="submit"], button.btn-recruit[type="submit"], input[type="submit"].btn');
 
         if (!trainBtn) {
             console.log(`❌ ${config.name}: زر التدريب غير موجود`);
@@ -294,10 +345,16 @@
             setTimeout(() => {
                 const inputValue = parseInt(unitInput.value) || 0;
 
-                if (inputValue >= 1) {
+                if (!CONFIG.AUTO_TRAIN || sessionStorage.getItem('algzawy_human_verification_pause')==='1') return;
+                const remaining = config.targetCount > 0 ? config.targetCount-(getStats()[unitId]?.trained||0) : inputValue;
+                const desired = Math.min(inputValue, Math.max(0,remaining), config.maxBatch>0 ? config.maxBatch : inputValue);
+                if (desired >= 1 && !trainBtn.disabled) {
+                    unitInput.value = String(desired);
+                    unitInput.dispatchEvent(new Event('input',{bubbles:true}));
+                    unitInput.dispatchEvent(new Event('change',{bubbles:true}));
                     trainBtn.click();
-                    console.log(`✅ ${config.name}: تم التدريب! (${inputValue} وحدة)`);
-                    updateStats(unitId, true);
+                    console.log(`[AlGzawy] Training request sent ${config.name} x${desired} (server confirmation not verified)`);
+                    updateStats(unitId, true, desired);
 
                     // تحديث الحالة في اللوحة
                     const statusEl = document.getElementById('bot-status');
@@ -348,6 +405,7 @@
         let currentIndex = 0;
 
         function trainNext() {
+            if (!CONFIG.AUTO_TRAIN || sessionStorage.getItem('algzawy_human_verification_pause')==='1') return;
             if (currentIndex >= sortedUnits.length) {
                 currentIndex = 0;
             }
