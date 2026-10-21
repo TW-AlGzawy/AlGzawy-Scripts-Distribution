@@ -194,20 +194,13 @@
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js"
     },
     {
-      "id": "incoming-renamer",
-      "name": "AlGzawy — تسمية الهجمات القادمة",
-      "version": "0.1.0",
-      "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/incoming-renamer.user.js",
-      "note": "Opt-in; uses in-game mass incoming label form when present, will safely no-op if unsupported"
-    },
-    {
       "id": "attack-renamer",
       "name": "تسمية الهجمات القادمة — AlGzawy BETA",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "test_status": "needs-live-test",
       "release_note": "User opt-in. Only native QuickEdit incoming rows; no gameplay verification yet.",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js",
+      "note": "Uses native QuickEdit; skip support/unknown commands; no game test"
     }
   ],
   "held_for_review": [
@@ -236,6 +229,11 @@
       "id": "farm-monster",
       "name": "وحش النهب legacy",
       "reason": "retired-from-public-catalog-use-bot-farm-2"
+    },
+    {
+      "id": "incoming-renamer",
+      "name": "Alternative bulk incoming tagger",
+      "reason": "superseded by conservative attack-renamer; do not enable both"
     }
   ],
   "control_center_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js",
