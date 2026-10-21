@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy - Global Switch Test (Pilot)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.0
+// @version      0.1.1
 // @description  اختبار تفعيل وإيقاف سكربتات الغزاوي دون تنفيذ أي أوامر لعبة
 // @author       AlGzawy
 // @include      https://*.tribalwars.*/game.php*
@@ -45,7 +45,7 @@
     const details = document.createElement('div');
     details.textContent = message;
     const rev = document.createElement('small');
-    rev.textContent = 'Revision: ' + String(revision ?? 'unknown') + ' | Pilot only';
+    rev.textContent = 'Revision: ' + String(revision ?? 'unknown') + ' | آخر تحقق: ' + new Date().toLocaleTimeString('ar') + ' | Pilot only';
     rev.style.display = 'block';
     panel.append(title, details, rev);
   }
@@ -74,6 +74,7 @@
         throw new Error('Invalid response');
       }
       lastRevision = status.revision;
+      console.info('[AlGzawy Pilot] policy verified:', status.enabled ? 'ON' : 'OFF', 'revision', lastRevision);
       if (status.enabled) {
         render(true, 'هذا اختبار اتصال فقط، دون تشغيل أي بوت.', lastRevision);
       } else {
@@ -87,6 +88,12 @@
     }
   }
 
+  function checkWhenVisible() {
+    if (document.visibilityState === 'visible') void readPolicy();
+  }
   void readPolicy();
   window.setInterval(readPolicy, POLL_MS);
+  window.addEventListener('focus', checkWhenVisible);
+  window.addEventListener('pageshow', checkWhenVisible);
+  document.addEventListener('visibilitychange', checkWhenVisible);
 })();
