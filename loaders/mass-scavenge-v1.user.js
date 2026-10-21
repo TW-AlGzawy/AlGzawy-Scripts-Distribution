@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] الإغارات الجماعية v9.2.1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.2.1
+// @version      0.2.2
 // @description  v9.2.1 engine, explicit available groups 1-5, Cloudflare global control; beta
 // @include      https://*/*=scavenge_mass*
 // @run-at       document-end
@@ -243,7 +243,7 @@
       // Immediately notify the training engine, including its pending submit guard.
       try { document.dispatchEvent(new Event(STOP_EVENT)); } catch (e) { console.warn('[AlGzawy] stop event failed', e); }
       try { stopExecution(); } catch (e) { console.warn('[AlGzawy] stop hook failed', e); }
-      if (everStarted) revoked = true;
+      if (everStarted) { revoked = true; sessionStorage.removeItem('algzawy_resume_' + ID + '_' + String(lastRevision)); }
     }
     active = false;
     if (reason === 'local') clearBlockedLauncher();
@@ -270,7 +270,7 @@
         // Old listeners in some source scripts cannot be unwired safely.
         // Reload once to resume a clean lifecycle, without asking users to reinstall.
         if (document.visibilityState === 'visible') {
-          const tag = 'algzawy_resume_' + String(status.revision);
+          const tag = 'algzawy_resume_' + ID + '_' + String(status.revision);
           if (sessionStorage.getItem(tag) !== '1') {
             sessionStorage.setItem(tag, '1');
             window.location.reload();
