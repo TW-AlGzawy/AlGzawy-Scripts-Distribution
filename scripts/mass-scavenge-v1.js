@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         سكربت الغزاوي للإغارات (الإصدار 9.2 - لوحة تحكم مطورة)
 // @namespace    http://tampermonkey.net/
-// @version      9.2.1
+// @version      9.2.2
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -182,6 +182,7 @@
             const reloadInMinutes = (reloadInterval / 60000).toFixed(2);
             console.log(`[سكربت الغزاوي] تم جدولة إعادة تحميل الصفحة خلال ${reloadInMinutes} دقيقة.`);
             setTimeout(() => {
+                if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
                 console.log("[سكربت الغزاوي] جاري إعادة تحميل الصفحة الآن...");
                 location.reload();
             }, reloadInterval);
@@ -233,50 +234,57 @@
 
             await new Promise(resolve => setTimeout(resolve, settings.delayAfterCalc));
 
-            console.log("[سكربت الغزاوي] البحث عن زر 'تشغيل المجموعة'...");
-            await waitAndClick('#sendMass');
-
-            // BETA 9.2.1: prefer explicit visible group 1..5 actions when the
-            // mass-scavenge UI exposes them, without clicking a group twice.
-            // Otherwise keep the original #sendMass workflow, bounded to five
-            // operations (the supported group count).
-            console.log("[AlGzawy] بدء تنفيذ المجموعات 1-5.");
-            const groupAlreadyClicked = new Set();
-            let fallbackClicks = 0;
-            const groupDigit = raw => {
-                const ar = '١٢٣٤٥';
-                const m = String(raw || '').match(/(?:تشغيل\s*المجموعة|مجموعة)\s*([1-5١-٥])/);
-                if (!m) return 0;
-                return ar.includes(m[1]) ? ar.indexOf(m[1]) + 1 : Number(m[1]);
-            };
-            const findGroupButtons = () => {
-                return Array.from(document.querySelectorAll('button, input[type="button"], a.btn'))
-                    .map(el => ({el, num: groupDigit(el.innerText || el.value || el.textContent)}))
-                    .filter(x => x.num >= 1 && x.num <= 5 && x.el.offsetParent !== null && !x.el.disabled)
-                    .sort((a,b) => a.num-b.num);
-            };
-            (function startFinalClickingLoop() {
-                if (!GM_getValue('isBotEnabled', true)) return;
-                const groups = findGroupButtons();
-                if (groups.length) {
-                    const next = groups.find(x => !groupAlreadyClicked.has(x.num));
-                    if (!next) { schedulePageReload(); return; }
-                    groupAlreadyClicked.add(next.num);
-                    next.el.click();
-                    console.log('[AlGzawy] Clicked available group ' + next.num);
-                    setTimeout(startFinalClickingLoop, Math.max(350,settings.delayBetweenGroups));
-                    return;
+            // MassScavenge generates one #sendRowN per village group.
+            // Every group action has the SAME id="sendMass", so querySelector('#sendMass')
+            // always repeats the FIRST action. Iterate the actual rows instead.
+            const maxGroupCount = 5;
+            const isReady = el => !!el && el.getClientRects().length > 0 && !el.disabled;
+            const hasHumanCheck = () => !!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection');
+            const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+            async function dispatchAvailableGroups() {
+                const attempted = new Set();
+                let consecutiveEmptyChecks = 0;
+                for (let n = 0; n < 40; n++) {
+                    if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
+                    if (hasHumanCheck()) {
+                        localStorage.setItem('algzawy_human_verification_pause', '1');
+                        document.dispatchEvent(new Event('algzawy-human-verification'));
+                        console.warn('[AlGzawy] human verification; group dispatch paused');
+                        return;
+                    }
+                    const rows = [...document.querySelectorAll('[id^="sendRow"]')].filter(row => /^sendRow\d+$/.test(row.id));
+                    const tasks = rows
+                        .map(row => ({row, index: Number(row.id.slice('sendRow'.length)), button:row.querySelector('input[id="sendMass"],button[id="sendMass"]')}))
+                        .filter(task => task.index >= 0 && task.index < maxGroupCount)
+                        .sort((a,b) => a.index - b.index);
+                    if (!tasks.length) {
+                        if (++consecutiveEmptyChecks >= 4) break;
+                        await wait(500);
+                        continue;
+                    }
+                    consecutiveEmptyChecks = 0;
+                    const task = tasks.find(task => !attempted.has(task.index) && isReady(task.button));
+                    if (!task) break;
+                    attempted.add(task.index); // one attempt per group per run
+                    console.log('[AlGzawy] Group '+(task.index+1)+' click requested');
+                    task.button.click();
+                    // The external UI removes sendRowN on completion. A click alone
+                    // is NOT proof that the game's server accepted the squad requests.
+                    let removed = false;
+                    for (let retry = 0; retry < 20; retry++) {
+                        await wait(250);
+                        if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
+                        if (!document.getElementById('sendRow'+task.index)) { removed = true; break; }
+                    }
+                    if (!removed) {
+                        console.warn('[AlGzawy] Group '+(task.index+1)+' not removed; stop to prevent duplicate send');
+                        return;
+                    }
+                    await wait(Math.max(350, settings.delayBetweenGroups));
                 }
-                const sendButton = document.querySelector('#sendMass');
-                if (fallbackClicks < 5 && sendButton && sendButton.offsetParent !== null && !sendButton.disabled) {
-                    fallbackClicks++;
-                    sendButton.click();
-                    console.log('[AlGzawy] fallback sendMass ' + fallbackClicks + '/5');
-                    setTimeout(startFinalClickingLoop, Math.max(350,settings.delayBetweenGroups));
-                } else {
-                    schedulePageReload();
-                }
-            })();
+                if (GM_getValue('isBotEnabled',true)) schedulePageReload();
+            }
+            await dispatchAvailableGroups();
 
         } catch (error) {
             if (error.message !== 'تم إيقاف البوت يدوياً.') {
