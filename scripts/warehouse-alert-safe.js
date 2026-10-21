@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         AlGzawy Warehouse Alert — client-only beta
-// @version      0.1.1
+// @version      0.1.2
 // @description  Monitor stock percentages, with user selected warning threshold.
 // ==/UserScript==
 (function () {
@@ -39,12 +39,14 @@
   };
   const getResources=()=>{
     const ids=['wood','stone','iron'];
-    return ids.map(id=>({id,amount:numeric(document.getElementById(id)?.textContent)}));
+    const game = typeof game_data !== 'undefined' ? game_data : {};
+    const village = game.village || {};
+    return ids.map(id=>({id,amount:numeric(document.getElementById(id)?.textContent || village[id])}));
   };
   const capacity=()=>{
     const g=typeof game_data !== 'undefined' ? game_data : {};
     const v=g.village||{};
-    const possible=[v.storage_max,v.storage_capacity,numeric(document.getElementById('storage')?.textContent),v.storage];
+    const possible=[v.max_storage,v.storage_max,v.storage_capacity,numeric(document.getElementById('storage')?.textContent),v.storage];
     return possible.map(numeric).find(x=>Number.isFinite(x)&&x>0)||0;
   };
   function check(){
