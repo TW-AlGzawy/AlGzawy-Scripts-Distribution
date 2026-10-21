@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] مركز التحكم الموحد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.2
+// @version      0.1.3
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -109,7 +109,7 @@
   resume.style.display='none';
   resume.addEventListener('click',()=>{
     if (challengeIsVisible()) {alert('أكمل التحقق البشري في اللعبة أولًا.');return;}
-    sessionStorage.removeItem(HUMAN_KEY);
+    localStorage.removeItem(HUMAN_KEY);
     location.reload();
   });
   const note=document.createElement('div');
@@ -149,15 +149,16 @@
       .some(el=>el.getClientRects().length>0);
   }
   function checkHuman(){
-    if (challengeIsVisible() && sessionStorage.getItem(HUMAN_KEY)!=='1'){
-      sessionStorage.setItem(HUMAN_KEY,'1');
+    if (challengeIsVisible() && localStorage.getItem(HUMAN_KEY)!=='1'){
+      localStorage.setItem(HUMAN_KEY,'1');
       document.dispatchEvent(new Event('algzawy-human-verification'));
     }
-    const paused=sessionStorage.getItem(HUMAN_KEY)==='1';
+    const paused=localStorage.getItem(HUMAN_KEY)==='1';
     warning.textContent=paused?'⚠️ تم إيقاف الأتمتة بسبب التحقق البشري.':'';
     resume.style.display=paused?'inline-block':'none';
   }
   checkHuman();
+  window.addEventListener('storage',e=>{if(e.key===HUMAN_KEY || (e.key||'').startsWith('algzawy_local_enabled_')) {toggles.forEach((cb,i)=>cb.checked=localStorage.getItem(key(items[i][0]))!=='false');checkHuman();}});
   setInterval(checkHuman,1500);
   function checkCloud() {
     GM_xmlhttpRequest({method:'GET',url:ENDPOINT+'?t='+Date.now(),timeout:6000,
