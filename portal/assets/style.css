@@ -4,3 +4,5 @@
 .editor-input{width:130px!important;flex-shrink:0;border:1px solid #36516c;border-radius:8px;background:#0a1726;color:#effaff;padding:8px;font:inherit}
 .editor-input[type=checkbox]{width:19px!important;height:19px;accent-color:#39e4b8}
 .login-modal:has(.editor-input){max-height:87vh;overflow:auto}
+
+.owner-entrance{background:transparent;color:#6f95a4;border:0;text-decoration:underline;text-underline-offset:4px;margin-inline-start:10px;font-size:10px}.owner-entrance:hover{color:#7becce}
