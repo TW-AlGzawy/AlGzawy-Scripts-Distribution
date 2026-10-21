@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Human Verification Safety Guard
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.0
+// @version      0.1.1
 // @description  Always-on, local safety observer: pauses managed bot loaders if a human-verification challenge appears.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -26,7 +26,11 @@
   ];
   const challengeVisible=()=>selectors.some(selector=>{
     try {
-      return [...document.querySelectorAll(selector)].some(el=>el.getClientRects().length>0);
+      return [...document.querySelectorAll(selector)].some(el=>{
+        const rect=el.getBoundingClientRect();
+        const style=window.getComputedStyle(el);
+        return rect.width>20&&rect.height>20&&style.display!=='none'&&style.visibility!=='hidden'&&style.opacity!=='0';
+      });
     } catch(_){return false;}
   });
   let banner;
