@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] الإغارات الجماعية v9.2.1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.2.2
+// @version      0.2.3
 // @description  v9.2.1 engine, explicit available groups 1-5, Cloudflare global control; beta
 // @include      https://*/*=scavenge_mass*
 // @run-at       document-end
@@ -32,7 +32,7 @@
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_mass-scavenge-v1';
-  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   let active = false;
   let executing = false;
   let everStarted = false;
