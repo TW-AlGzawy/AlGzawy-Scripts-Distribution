@@ -54,9 +54,7 @@
 ### النهب والإغارات
 
 - [Bot  2نهب — `bot-farm-2`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js)
-- [وحش النهب - غزااوي — `farm-monster`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/farm-monster.user.js)
-- [AlG_farm — `alg-farm`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-farm.user.js)
-- [اغارات جماعي غزااوي — `mass-scavenge-v1`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js)
+- [الإغارات الجماعية v9.2.1 — `mass-scavenge-v1`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js)
 
 ### السوق والموارد والإرسال
 
@@ -73,6 +71,8 @@
 
 ### أدوات وتنبيهات
 
+- [تنبيه المخازن بالنسبة المحددة — `warehouse-alert-safe`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js)
+
 - [The Holy Grail LLLLL - Complete Per-Tab Settings with Bot Detection Sound — `holy-grail`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/holy-grail.user.js)
 - [بوت صقل متكامل — `polish-all-in-one`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/polish-all-in-one.user.js)
 - [Tribal Wars Helper - AlGzawy Edition — `tribal-wars-helper`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js)
@@ -84,6 +84,10 @@
 
 - [تدريب رمح واحد](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/spear-training-pilot.user.js): اختبار داخل اللعبة PASS. ليس اختبار تدريب مستمر.
 - [محاولة بناء مبنى واحد](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/builder-v33-one-build-pilot.user.js): اختبار داخل اللعبة PASS لمرة واحدة. ليس محرك V3.3 الكامل.
+
+## موقوفة أو مؤجلة للمراجعة
+
+- بوتات النهب القديمة `alg-farm` و`farm-monster` أزيلت من الفهرس الموصى به؛ لا تشغّلها إلى جانب `bot-farm-2`. الروابط التاريخية تظل مرجعًا للرجوع حتى الانتهاء من اختبارات النسخة البديلة.
 
 ## لم تُنشر حتى مراجعتها
 
