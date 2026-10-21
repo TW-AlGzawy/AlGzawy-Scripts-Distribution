@@ -192,6 +192,14 @@
       "version": "0.1.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js"
+    },
+    {
+      "id": "incoming-renamer",
+      "name": "AlGzawy — تسمية الهجمات القادمة",
+      "version": "0.1.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/incoming-renamer.user.js",
+      "note": "Opt-in; uses in-game mass incoming label form when present, will safely no-op if unsupported"
     }
   ],
   "held_for_review": [
