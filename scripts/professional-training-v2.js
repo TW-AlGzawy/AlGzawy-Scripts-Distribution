@@ -305,7 +305,8 @@
         // تحديث اللوحة بشكل أقل تكراراً لتوفير الذاكرة
         panelUpdateInterval = setInterval(() => {
             const panel = document.getElementById('training-bot-panel');
-            if (panel) {
+            if (panel && !panel.contains(document.activeElement)) {
+                // Do not discard the user's focused editing field every 30s.
                 updatePanelContent(panel);
             }
         }, CONFIG.PANEL_UPDATE_SECONDS * 1000);
