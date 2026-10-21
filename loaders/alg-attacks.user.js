@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] AlG_attacks
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.3
+// @version      0.1.4
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-end
@@ -224,6 +224,13 @@
         typeof GM_info !== 'undefined' ? GM_info : undefined,
         typeof unsafeWindow !== 'undefined' ? unsafeWindow : window
       ];
+      // The source expects unsafeWindow.ALGZAWY_ATK_SETTINGS. The generic
+      // loader previously never created it, causing a startup exception.
+      const settingsPrefix = 'algzawy_attacks_';
+      const defaults = {isRunning:false,botToken:'',chatId:'',checkInterval:60,reminderMins:60,alertSound:true,showVillage:true};
+      const settings = {};
+      for (const key of Object.keys(defaults)) settings[key] = GM_getValue(settingsPrefix + key,defaults[key]);
+      if (typeof unsafeWindow !== 'undefined') unsafeWindow.ALGZAWY_ATK_SETTINGS = settings;
       // Preserve existing grants and DOM access. Only timer scheduling through local bindings is tracked.
       const fn = new Function('setInterval', 'setTimeout', 'clearInterval', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', ...gmNames, code);
       fn(...clock.functions, ...gmValues);
