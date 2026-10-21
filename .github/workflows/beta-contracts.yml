@@ -1,0 +1,17 @@
+name: AlGzawy BETA static contracts
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
+  workflow_dispatch:
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/algzawy-beta-contracts.test.mjs
