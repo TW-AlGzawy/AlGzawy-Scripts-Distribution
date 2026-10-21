@@ -2,7 +2,7 @@
 // @name         [AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      0.1.3
-// @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
+// @description  Builder engine 3.3.2; safer confirmation before queue removal; BETA awaiting real-game QA
 // @match        https://*/game.php?village=*&screen=main*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
