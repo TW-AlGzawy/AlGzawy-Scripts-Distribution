@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Auto Builder - عربي (ثابت + الأكاديمية)
-// @version      0.6.1
+// @version      0.6.2
 // @description  بناء تلقائي للمباني + حفظ حالة التشغيل + دعم الأكاديمية
 // @author       غزااوي
 // @match        https://*/game.php?village=*&screen=main*
@@ -138,9 +138,11 @@ function startScript() {
 
         if (currentQueue >= buildingObject.buildingQueueLength) return;
 
-        let wood = +document.getElementById("wood").textContent;
-        let stone = +document.getElementById("stone").textContent;
-        let iron = +document.getElementById("iron").textContent;
+        // Thousands separators vary between game locales (e.g. 1.234).
+        const resource = id => Number((document.getElementById(id)?.textContent || '').replace(/[^0-9]/g, ''));
+        let wood = resource('wood');
+        let stone = resource('stone');
+        let iron = resource('iron');
 
         let woodCost = +row.querySelector(".cost_wood").dataset.cost;
         let stoneCost = +row.querySelector(".cost_stone").dataset.cost;
@@ -159,6 +161,8 @@ function stopScript() {
 }
 
 function buildBuilding(building) {
+    // A previously scheduled build must not execute after the player presses Stop.
+    if (!scriptStatus) { isBuilding = false; return; }
     $.ajax({
         url: `/game.php?village=${game_data.village.id}&screen=main&ajaxaction=upgrade_building&type=main&`,
         type: "post",
@@ -178,20 +182,42 @@ function buildBuilding(building) {
         if (!res.error) {
             buildingObject.buildingQueue.shift();
             saveQueue();
-            document.querySelectorAll("#autoBuilderTable tr")[3]?.remove();
+            renderBuildingQueue();
+            refreshVisibleGameQueue();
         }
     }).always(() => isBuilding = false);
 }
 
 /* ================= UI ================= */
 
+// Synchronize the game build queue from the current page without a full reload.
+async function refreshVisibleGameQueue() {
+    try {
+        const result = await fetch(location.href, { credentials: 'same-origin', cache: 'no-store' });
+        if (!result.ok) return;
+        const fresh = new DOMParser().parseFromString(await result.text(), 'text/html');
+        const updated = fresh.querySelector('#buildqueue');
+        const current = document.querySelector('#buildqueue');
+        if (current && updated) current.replaceWith(document.importNode(updated, true));
+        else if (!current && updated) document.querySelector('#content_value')?.prepend(document.importNode(updated, true));
+    } catch (e) { console.warn('[AlGzawy Builder] Could not sync game queue', e); }
+}
+
+function renderBuildingQueue() {
+    document.querySelectorAll('#autoBuilderTable tr[data-algzawy-queue-row]').forEach(el => el.remove());
+    buildingObject.buildingQueue.forEach(addBuildingRow);
+}
+
 function addBuildingRow(b) {
     let tr = document.createElement("tr");
+    tr.dataset.algzawyQueueRow = '1';
     tr.innerHTML =
         `<td>${b}</td><td class="delete-icon-large" style="cursor:pointer"></td>`;
     tr.querySelector("td:last-child").onclick = () => {
-        buildingObject.buildingQueue =
-            buildingObject.buildingQueue.filter(x => x !== b);
+        const rows = Array.from(document.querySelectorAll('#autoBuilderTable tr[data-algzawy-queue-row]'));
+        const index = rows.indexOf(tr);
+        if (index < 0) return;
+        buildingObject.buildingQueue.splice(index, 1); // remove one item, not all duplicates
         saveQueue();
         tr.remove();
     };
