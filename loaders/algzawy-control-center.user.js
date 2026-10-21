@@ -48,7 +48,8 @@
     ['reserve-smart-v4','حجز Smart v4'],
     ['reserve-smart-v5','حجز Smart v5'],
     ['auto-reserve-barbarians','حجز القرى البربرية'],
-    ['alg-coins','AlG_COINS']
+    ['alg-coins','AlG_COINS'],
+    ['attack-renamer','تسمية الهجمات القادمة']
   );
   const key = id => 'algzawy_local_enabled_' + id;
   const host = document.createElement('section');
@@ -80,7 +81,7 @@
   const advanced=document.createElement('details');
   advanced.style.cssText='border-top:1px solid #e2e8f0;margin-top:8px;padding-top:6px;max-height:30vh;overflow:auto';
   const summary=document.createElement('summary');
-  summary.textContent='سكربتات إضافية (15) — عرض الخيارات';
+  summary.textContent='سكربتات إضافية (16) — عرض الخيارات';
   summary.style.cssText='cursor:pointer;color:#475569;font-size:11px';
   advanced.appendChild(summary);
   const makeButton=(text,color)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.style.cssText='border:1px solid #cad5e0;background:#fff;color:'+color+';border-radius:9px;padding:6px 11px;cursor:pointer;font-size:11px';return b;};
