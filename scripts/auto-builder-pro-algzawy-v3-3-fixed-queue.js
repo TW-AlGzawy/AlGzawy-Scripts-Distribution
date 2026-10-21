@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
-// @version      3.3.1
+// @version      3.3.2
 // @description  مدير قرية متكامل: إنهاء تلقائي، التزام بالترتيب، واجهة قابلة للتخصيص، مع إصلاح حذف المباني بعد بنائها بشكل موثوق.
 // @author       AlGzawy & Manus (Improved)
 // @match        https://*/game.php?village=*&screen=main*
@@ -157,13 +157,7 @@
             return true;
         }
 
-        // تحقق إضافي: هل الزر أصبح معطلاً أو اختفى؟
-        const currentButton = $(buttonElement);
-        if (currentButton.hasClass("btn-disabled") || !currentButton.is(":visible")) {
-            console.log(`[Builder] يبدو أن بناء ${buildingId} بدأ (الزر أصبح معطلاً).`);
-            return true;
-        }
-
+        // Button disabled/hidden alone is NOT reliable server acceptance; keep pending.
         console.log(`[Builder] فشل بدء بناء ${buildingId}`);
         return false;
     }
@@ -217,10 +211,7 @@
                     }
                 } else {
                     // المبنى غير موجود في هذه القرية
-                    console.log(`[Builder] المبنى ${nextBuilding} غير موجود في هذه القرية، تم حذفه من القائمة.`);
-                    buildingQueue.shift();
-                    saveData();
-                    updateUI();
+                    console.log(`[Builder] المبنى ${nextBuilding} غير ظاهر حاليًا؛ الاحتفاظ به بالقائمة بدل إسقاط الطلب.`);
                 }
             }
             updateUI();
