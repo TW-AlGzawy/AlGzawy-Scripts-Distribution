@@ -40,6 +40,7 @@ function show(section){
  window.scrollTo({top:0,behavior:'instant'});
 }
 document.querySelectorAll('[data-section]').forEach(el=>el.addEventListener('click',()=>show(el.dataset.section)));
+$('ownerEntrance').addEventListener('click',()=>{ $('adminNav').hidden=false;show('admin'); });
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 $('heroConnect').addEventListener('click',()=>show('devices'));
 $('heroStart').addEventListener('click',()=>state.user?$('catalog').scrollIntoView({behavior:'smooth'}):openLogin());
