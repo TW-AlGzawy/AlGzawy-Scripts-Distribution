@@ -2,7 +2,7 @@
 // @name         [AlGzawy BETA] تسمية الهجمات القادمة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      0.1.1
-// @description  User-configurable native QuickEdit incoming attack renamer; OFF by default; Cloudflare controlled
+// @description  Incoming attack native QuickEdit optional labels; source 0.1.1; BETA not game-tested
 // @match        https://*.tribalwars.ae/game.php*screen=overview*
 // @match        https://*.tribalwars.net/game.php*screen=overview*
 // @match        https://*.tribalwars.com/game.php*screen=overview*
