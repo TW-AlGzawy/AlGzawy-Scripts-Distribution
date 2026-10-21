@@ -1,0 +1,31 @@
+name: AlGzawy Cloud Portal checks
+on:
+  push:
+    paths:
+      - "portal/**"
+      - "loaders/algzawy-cloud-bridge.user.js"
+      - "tests/portal-contract.test.mjs"
+      - ".github/workflows/algzawy-portal-ci.yml"
+  pull_request:
+    paths:
+      - "portal/**"
+      - "loaders/algzawy-cloud-bridge.user.js"
+      - "tests/portal-contract.test.mjs"
+      - ".github/workflows/algzawy-portal-ci.yml"
+permissions:
+  contents: read
+jobs:
+  portal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JavaScript syntax
+        run: |
+          node --check portal/assets/app.js
+          node --check "portal/functions/api/[[path]].js"
+          node --check loaders/algzawy-cloud-bridge.user.js
+      - name: Portal and D1 contract tests
+        run: node --test tests/portal-contract.test.mjs
