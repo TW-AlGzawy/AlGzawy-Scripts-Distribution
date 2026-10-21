@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08111e">
+  <meta name="description" content="AlGzawy Cloud Control — تحكم بسكربتات حرب القبائل بسهولة وأمان من خلال حسابك.">
+  <title>AlGzawy Cloud Control | مركز السكربتات</title>
+  <link rel="stylesheet" href="./assets/style.css">
+  <script defer src="./assets/app.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="AlGzawy Cloud الرئيسية">
+        <span class="brand-mark">A<span>G</span></span>
+        <span class="brand-copy"><strong>AlGzawy</strong><small>CLOUD CONTROL</small></span>
+      </a>
+      <div class="side-divider"></div>
+      <div class="side-label">القائمة الرئيسية</div>
+      <nav class="side-nav" aria-label="القائمة الرئيسية">
+        <button type="button" class="nav-link active" data-section="scripts"><span class="nav-emoji">◫</span> مركز السكربتات <span class="nav-arrow">←</span></button>
+        <button type="button" class="nav-link" data-section="devices"><span class="nav-emoji">▣</span> ربط اللعبة <span class="nav-arrow">←</span></button>
+        <button type="button" class="nav-link" data-section="account"><span class="nav-emoji">♙</span> الحساب والاشتراك <span class="nav-arrow">←</span></button>
+        <button type="button" class="nav-link" data-section="admin"><span class="nav-emoji">⚙</span> إدارة الزبائن <span class="nav-arrow">←</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-tip">
+          <span class="tip-icon">✦</span>
+          <strong>تحكم عن بُعد</strong>
+          <p>فعّل سكربتاتك من الموقع. تُزامن الإعدادات مع اللعبة عند ربط المتصفح.</p>
+        </div>
+        <div class="side-footer"><span class="online-indicator"></span> AlGzawy · BETA <span>v1.0</span></div>
+      </div>
+    </aside>
+    <div class="main-column">
+      <header class="topbar">
+        <div class="topbar-start">
+          <button type="button" id="menuBtn" class="icon-button mobile-menu" aria-label="القائمة">☰</button>
+          <span class="breadcrumb">التحكم السحابي</span><span class="crumb-separator">/</span><strong id="crumbCurrent">السكربتات</strong>
+        </div>
+        <div class="topbar-actions">
+          <span id="cloudState" class="pill pill-neutral"><span class="dot"></span> جاري فحص الخدمة</span>
+          <button id="loginOpen" type="button" class="button button-primary button-sm">تسجيل الدخول <span>←</span></button>
+          <button id="logoutButton" type="button" class="button button-ghost button-sm" hidden>تسجيل الخروج</button>
+          <span class="avatar" aria-label="الحساب">AG</span>
+        </div>
+      </header>
+      <main>
+        <section id="section-scripts" class="section active">
+          <div class="hero">
+            <div class="hero-copy">
+              <div class="eyebrow"><span class="eyebrow-light"></span> نظام AlGzawy الجديد</div>
+              <h1>سكربتاتك كلها،<br><span>تحت تحكمك.</span></h1>
+              <p>اختر ما تريد تشغيله، اضبط إعداداتك، واترك الباقي للنظام. إدارة بسيطة من موقع واحد بدل القوائم المتعددة داخل اللعبة.</p>
+              <div class="hero-buttons">
+                <button id="heroStart" type="button" class="button button-primary">ابدأ إدارة سكربتاتك <span>↖</span></button>
+                <button id="heroConnect" type="button" class="button button-outline">ربط اللعبة <span>↗</span></button>
+              </div>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+              <div class="visual-ring ring-one"></div><div class="visual-ring ring-two"></div>
+              <div class="visual-core"><div>AG</div><small>CONTROL</small></div>
+              <div class="floating-chip chip-one"><span>✓</span> Cloud Sync</div>
+              <div class="floating-chip chip-two"><span>⌘</span> Smart Control</div>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <article class="metric"><div class="metric-icon blue">▦</div><div><small>إجمالي السكربتات</small><strong id="metricAll">—</strong></div></article>
+            <article class="metric"><div class="metric-icon green">✓</div><div><small>السكربتات المفعلة</small><strong id="metricOn">—</strong></div></article>
+            <article class="metric"><div class="metric-icon gold">◉</div><div><small>الحساب</small><strong id="metricAccount" class="metric-text">غير متصل</strong></div></article>
+          </div>
+          <div class="section-title-row">
+            <div><div class="section-kicker">مكتبة السكربتات</div><h2>اختر الأدوات المناسبة لك</h2><p>السكربتات التي لا تحتاجها أبقها متوقفة. تشغيل السكربتات يتطلب تثبيت ملفاتها عبر Tampermonkey حاليًا.</p></div>
+            <div class="bulk-controls"><button id="activateAll" type="button" class="button button-outline button-sm" disabled>تشغيل الكل</button><button id="deactivateAll" type="button" class="button button-danger button-sm" disabled>إيقاف الكل</button></div>
+          </div>
+          <div class="toolbar">
+            <label class="searchbox"><span>⌕</span><input type="search" id="searchInput" placeholder="ابحث عن سكربت..." autocomplete="off" aria-label="البحث عن سكربت"></label>
+            <div id="filters" class="filter-row" role="group" aria-label="فئات السكربتات">
+              <button class="filter active" data-filter="all">الكل</button>
+              <button class="filter" data-filter="raids">الإغارات والنهب</button>
+              <button class="filter" data-filter="build">البناء</button>
+              <button class="filter" data-filter="training">التدريب</button>
+              <button class="filter" data-filter="resources">الموارد</button>
+              <button class="filter" data-filter="military">الهجمات والإرسال</button>
+              <button class="filter" data-filter="tools">أدوات إضافية</button>
+            </div>
+          </div>
+          <div id="catalog" class="script-grid" aria-live="polite"><div class="empty-state">جارٍ تحميل السكربتات...</div></div>
+          <div class="subtle-note"><span>ⓘ</span> <span>سكربتات BETA قيد التطوير والاختبار. قد تختلف صلاحية استخدامها حسب قواعد عالم اللعبة. الإيقاف يمنع العمليات الجديدة المدعومة ولا يسترجع الطلبات المرسلة مسبقًا.</span></div>
+        </section>
+        <section id="section-devices" class="section">
+          <div class="page-header"><span class="section-kicker">ربط جهازك</span><h1>اربط اللعبة بالموقع</h1><p>بعد تسجيل الدخول يمكنك توليد رمز ربط مؤقت، ثم إدخاله في سكربت AlGzawy Cloud Bridge مرة واحدة على متصفحك.</p></div>
+          <div class="onboarding">
+            <div class="step-card"><span class="step-number">01</span><div><h3>ثبّت Tampermonkey</h3><p>يعمل المحرك داخل متصفح اللعبة. موقع Cloudflare وحده لا يستطيع تنفيذ السكربتات داخل اللعبة.</p></div></div>
+            <div class="step-card"><span class="step-number">02</span><div><h3>ثبّت AlGzawy Cloud Bridge</h3><p>هذا السكربت يزامن اختيارات موقعك مع مفاتيح تشغيل سكربتاتك المثبتة.</p><a class="text-link" target="_blank" rel="noopener noreferrer" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js">تثبيت رابط الربط ↗</a></div></div>
+            <div class="step-card"><span class="step-number">03</span><div><h3>أنشئ رمزًا مؤقتًا للربط</h3><p>انسخ الرمز إلى واجهة السكربت داخل اللعبة. ينتهي خلال خمس دقائق ولا يستخدم إلا مرة واحدة.</p>
+              <button id="makePair" type="button" class="button button-primary" disabled>إنشاء رمز الربط</button>
+              <div id="pairResult" class="pair-result" hidden><label>رمز الربط المؤقت</label><code id="pairCode"></code><button id="copyPair" type="button" class="button button-outline button-sm">نسخ الرمز</button><small>انسخ أيضًا عنوان موقعك من شريط المتصفح والصقه في خانة عنوان البوابة داخل السكربت.</small></div>
+            </div></div>
+          <div class="note-panel"><strong>مهم لراحة المستخدم</strong><p>في هذه المرحلة يتم تثبيت سكربتات اللعبة المرغوبة مرة واحدة، بالإضافة إلى Cloud Bridge. من الموقع تتغير حالتها دون تعديل أكواد Tampermonkey يدويًا. التحويل إلى إضافة متصفح واحدة لجميع المحركات مرحلة لاحقة، ولا نعلنها جاهزة الآن.</p></div>
+        </section>
+        <section id="section-account" class="section">
+          <div class="page-header"><span class="section-kicker">حسابي</span><h1>معلومات الحساب</h1><p>حسابك مُدار بواسطة AlGzawy. لا نطلب كلمة مرور حرب القبائل ولا نحتاج بيانات الدخول إلى اللعبة.</p></div>
+          <div class="account-card"><div class="account-avatar">AG</div><div><small>المستخدم</small><h2 id="accountName">لم تسجّل الدخول بعد</h2><p id="accountStatus">سجّل الدخول بمفتاح الوصول الذي تسلمته من الإدارة لتغيير تفعيل سكربتاتك.</p></div></div>
+          <div class="note-panel"><strong>أمان الحساب</strong><p>يُحفظ مفتاح الوصول في جلسة المتصفح فقط، ولا يُرسل إلى GitHub أو إلى سكربتات اللعبة. رمز الربط ينشئ اعتماد جهاز مستقل قابلًا للإلغاء من جانب الإدارة.</p></div>
+        </section>
+        <section id="section-admin" class="section">
+          <div class="page-header"><span class="section-kicker">الإدارة</span><h1>إدارة حسابات الزبائن</h1><p>خاص بالمالك. أدخل رمز إدارة البوابة لإضافة حسابات وإيقاف وصولها. لا تشارك مفتاح الإدارة مع المستخدمين.</p></div>
+          <div class="admin-grid">
+            <div class="settings-card"><h3>تأكيد صلاحيات الإدارة</h3><label for="adminSecret">مفتاح الإدارة</label><input id="adminSecret" type="password" autocomplete="off" placeholder="PORTAL_ADMIN_TOKEN"><button id="adminLoad" type="button" class="button button-primary">عرض المستخدمين</button><p class="field-note">يُستخدم مؤقتًا في الصفحة ولا يُحفظ محليًا.</p></div>
+            <div class="settings-card"><h3>إضافة زبون</h3><label for="newUser">اسم الزبون</label><input id="newUser" type="text" maxlength="80" placeholder="اسم الحساب"><button id="createUser" type="button" class="button button-outline">إنشاء مفتاح وصول</button><div id="createdSecret" class="generated-secret" hidden></div></div>
+          </div>
+          <div class="settings-card users-card"><h3>الحسابات الموجودة</h3><div id="adminUsers" class="users-list"><p>سجل الدخول ببيانات الإدارة لاستعراض الحسابات.</p></div></div>
+          <a class="text-link" href="https://algzawy-control-api.karm-saleh-usa2.workers.dev/admin" target="_blank" rel="noopener noreferrer">فتح لوحة الإيقاف المركزي القديمة ↗</a>
+        </section>
+      </main>
+      <footer class="footer"><span>© AlGzawy Cloud Control · جميع الحقوق محفوظة</span><span>Cloudflare Free · Secure Sync · BETA</span></footer>
+    </div>
+  </div>
+  <div id="loginOverlay" class="modal-overlay" hidden>
+    <section class="login-modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <button id="closeLogin" type="button" class="modal-close" aria-label="إغلاق">×</button>
+      <div class="login-logo">AG</div>
+      <div class="section-kicker">مرحبًا بك</div><h2 id="loginTitle">الدخول إلى حساب AlGzawy</h2>
+      <p>أدخل مفتاح الوصول الذي استلمته من إدارة المنظومة. لا تدخل بيانات حساب اللعبة هنا.</p>
+      <label for="accessToken">مفتاح وصول المستخدم</label>
+      <input id="accessToken" type="password" spellcheck="false" autocomplete="off" placeholder="alg_u_••••••••••••">
+      <button id="loginSubmit" type="button" class="button button-primary button-full">تسجيل الدخول ←</button>
+      <p id="loginMessage" class="login-message" role="alert"></p>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
