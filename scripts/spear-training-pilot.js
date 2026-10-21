@@ -29,6 +29,7 @@ let currentUnit = 0;
 let trainingTimer = null;
 let pendingSubmitTimer = null;
 let policyAllowed = true;
+let lastError = null;
 const ATTEMPT_EVENT = '__algzawy_attempt_spear-training-pilot';
 
 function createUI() {
@@ -64,6 +65,13 @@ function updateUI() {
         return;
     }
     btn.disabled = false;
+    if (lastError) {
+        status.textContent = lastError;
+        status.style.color = '#f56565';
+        btn.textContent = 'إعادة المحاولة';
+        btn.style.background = '#9a6324';
+        return;
+    }
     if (isRunning) {
         status.textContent = 'يعمل';
         status.style.color = '#48bb78';
@@ -78,6 +86,7 @@ function updateUI() {
 }
 
 function stopPilotWithError(reason) {
+    lastError = reason;
     isRunning = false;
     GM_setValue('algzawy_spear_pilot_running', false);
     if (trainingTimer !== null) clearTimeout(trainingTimer);
@@ -85,8 +94,6 @@ function stopPilotWithError(reason) {
     trainingTimer = null;
     pendingSubmitTimer = null;
     updateUI();
-    const status = document.getElementById('algzawy-spear-pilot-status');
-    if (status) status.textContent = reason;
     console.warn('[AlGzawy Spear Pilot]', reason);
 }
 
@@ -172,6 +179,7 @@ function toggleBot() {
         return;
     }
     isRunning = !isRunning;
+    lastError = null;
     GM_setValue('algzawy_spear_pilot_running', isRunning);
 
     if (isRunning) {
