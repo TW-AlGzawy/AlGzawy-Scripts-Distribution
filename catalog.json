@@ -212,10 +212,6 @@
       "name": "AlG_Set_Arrival_Time"
     },
     {
-      "id": "alg-scavenge",
-      "name": "AlG_scavenge"
-    },
-    {
       "id": "alg-farm",
       "name": "AlG_farm legacy",
       "reason": "retired-from-public-catalog-use-bot-farm-2"
@@ -228,5 +224,6 @@
   ],
   "control_center_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js",
   "audit_date": "2026-10-21",
-  "last_release_type": "beta-code-only-no-live-game-certification"
+  "last_release_type": "beta-code-only-no-live-game-certification",
+  "superseded_raid_engines": "only 9.2.1 active in distribution; older raid engine copies archived privately"
 }
