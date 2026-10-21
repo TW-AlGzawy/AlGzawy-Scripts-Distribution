@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy Spear Training Pilot (unobfuscated)
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @match        https://*/*=train*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -24,12 +24,12 @@ const CONFIG = {
     }
 };
 
-let isRunning = GM_getValue('algzawy_spear_pilot_running', false);
+let isRunning = false; // pilot always requires explicit manual start after page navigation
 let currentUnit = 0;
 let trainingTimer = null;
 let pendingSubmitTimer = null;
 let policyAllowed = true;
-let stats = {}; // one-shot pilot counter, intentionally not persisted
+const ATTEMPT_EVENT = '__algzawy_attempt_spear-training-pilot';
 
 function createUI() {
     const old = document.getElementById('algzawy-spear-pilot-panel');
@@ -58,11 +58,12 @@ function updateUI() {
     if (!policyAllowed) {
         status.textContent = 'موقوف من الغزاوي';
         status.style.color = '#f56565';
-        btn.textContent = 'موقوف';
-        btn.disabled = true;
+        btn.textContent = 'محاولة التشغيل — تواصل مع الغزاوي';
+        btn.disabled = false;
         btn.style.background = '#555';
         return;
     }
+    btn.disabled = false;
     if (isRunning) {
         status.textContent = 'يعمل';
         status.style.color = '#48bb78';
@@ -76,42 +77,77 @@ function updateUI() {
     }
 }
 
+function stopPilotWithError(reason) {
+    isRunning = false;
+    GM_setValue('algzawy_spear_pilot_running', false);
+    if (trainingTimer !== null) clearTimeout(trainingTimer);
+    if (pendingSubmitTimer !== null) clearTimeout(pendingSubmitTimer);
+    trainingTimer = null;
+    pendingSubmitTimer = null;
+    updateUI();
+    const status = document.getElementById('algzawy-spear-pilot-status');
+    if (status) status.textContent = reason;
+    console.warn('[AlGzawy Spear Pilot]', reason);
+}
+
+function findTrainingSubmit(input) {
+    // The recruit button does not consistently have the .btn-recruit class.
+    // Limit the lookup to the form that owns the spear field; never click
+    // another game's button or submit an arbitrary form.
+    const form = input?.form || input?.closest('form');
+    if (!form) return null;
+    const candidates = Array.from(
+        form.querySelectorAll('input[type="submit"], button[type="submit"], input.btn-recruit, button.btn-recruit')
+    ).filter(button => !button.disabled);
+    if (candidates.length === 0) return null;
+    const matching = candidates.filter(button => {
+        const caption = [button.value, button.textContent, button.name, button.id, button.className]
+            .filter(Boolean).join(' ');
+        return /recruit|train|قم\s*بالتدريب|تدريب/i.test(caption);
+    });
+    return matching.length === 1 ? matching[0] : (candidates.length === 1 ? candidates[0] : null);
+}
+
 function trainUnit(unitId) {
-    if (!policyAllowed || !isRunning) return;
+    if (!policyAllowed || !isRunning || unitId !== 'spear') return;
     const config = CONFIG.UNITS[unitId];
     if (!config || !config.enabled) return;
 
-    const current = stats[unitId] || 0;
-    if (config.target > 0 && current >= config.target) return;
+    const input = document.querySelector('#spear_0');
+    const trainBtn = findTrainingSubmit(input);
+    if (!input || !trainBtn || trainBtn.disabled) {
+        stopPilotWithError('لم يتم العثور على زر تدريب الرماح الصحيح');
+        return;
+    }
 
-    const maxBtn = document.querySelector(`#${unitId}_0_a`);
-    const input = document.querySelector(`#${unitId}_0`);
-    const trainBtn = input && input.closest('form')?.querySelector('input[type="submit"].btn-recruit');
-
-    if (!maxBtn || !input || !trainBtn || trainBtn.disabled) return;
-
-    maxBtn.click();
-    // Limit the pilot to a single spear, regardless of the maximum available.
-    const available = parseInt(input.value, 10) || 0;
-    if (available < 1) return;
+    // This pilot deliberately never clicks the game's maximum-unit button.
+    // It sets ONE spear and validates the value again immediately before click.
     input.value = '1';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (input.value.trim() !== '1') {
+        stopPilotWithError('تعذر تثبيت الكمية على رمح واحد');
+        return;
+    }
 
+    if (pendingSubmitTimer !== null) clearTimeout(pendingSubmitTimer);
     pendingSubmitTimer = setTimeout(() => {
         pendingSubmitTimer = null;
-        if (!policyAllowed || !isRunning || trainBtn.disabled) return;
-        const amount = parseInt(input.value) || 0;
-        if (amount === 1) {
-            // Disarm BEFORE submitting: game navigation must not restart the pilot.
-            isRunning = false;
-            GM_setValue('algzawy_spear_pilot_running', false);
-            if (trainingTimer) clearTimeout(trainingTimer);
-            trainBtn.click();
-            stats[unitId] = (stats[unitId] || 0) + amount;
-            updateUI();
+        if (!policyAllowed || !isRunning || trainBtn.disabled || !trainBtn.isConnected) return;
+        if (input.value.trim() !== '1') {
+            stopPilotWithError('تغيرت الكمية قبل التدريب؛ تم إلغاء الإرسال');
+            return;
         }
-    }, 200);
+        // Disarm BEFORE clicking: even if the game navigates, the bot will not
+        // resume without an explicit new click. The click is not proof of success.
+        isRunning = false;
+        GM_setValue('algzawy_spear_pilot_running', false);
+        if (trainingTimer !== null) clearTimeout(trainingTimer);
+        trainingTimer = null;
+        trainBtn.click();
+        console.info('[AlGzawy Spear Pilot] Clicked recruit for ONE spear; verify queue in game.');
+        updateUI();
+    }, 250);
 }
 
 function startCycle() {
@@ -124,14 +160,17 @@ function startCycle() {
         if (!policyAllowed || !isRunning) return;
         trainUnit(active[currentUnit]);
         currentUnit = (currentUnit + 1) % active.length;
-        trainingTimer = setTimeout(loop, CONFIG.TRAINING_INTERVAL * 1000);
+        if (isRunning && policyAllowed) trainingTimer = setTimeout(loop, CONFIG.TRAINING_INTERVAL * 1000);
     }
 
     loop();
 }
 
 function toggleBot() {
-    if (!policyAllowed) return;
+    if (!policyAllowed) {
+        document.dispatchEvent(new Event(ATTEMPT_EVENT));
+        return;
+    }
     isRunning = !isRunning;
     GM_setValue('algzawy_spear_pilot_running', isRunning);
 
@@ -148,8 +187,9 @@ function toggleBot() {
 
 function init() {
     if (!policyAllowed) return;
-    createUI();
-    if (isRunning) startCycle();
+    isRunning = false;
+    GM_setValue('algzawy_spear_pilot_running', false);
+    createUI(); // Never start automatically on reload.
 }
 
 
