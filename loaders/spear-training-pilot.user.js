@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy PILOT] تدريب الرماح فقط — غزااوي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.2
+// @version      0.1.3
 // @description  اختبار تدريب الرماح فقط دون تمويه، مع إيقاف جماعي حقيقي من Cloudflare
 // @match        https://*/*=train*
 // @run-at       document-end
@@ -35,6 +35,7 @@
   let stopExecution = () => {};
   let checkInProgress = false;
   let lastRevision = 'initial';
+  let automaticNoticeKey = null; // per page load, not persisted across page navigation
 
   function requestText(url) {
     return new Promise((resolve, reject) => {
@@ -54,8 +55,10 @@
     // Automatic notices appear once per revision, but EVERY manual attempt opens the notice again.
     const noticeKey = 'algzawy_notice_' + lastRevision + '_' + (text === STOP_MESSAGE ? 'disabled' : 'offline');
     if (!force) {
-      try { if (sessionStorage.getItem(noticeKey) === '1') return; } catch (_) {}
-      try { sessionStorage.setItem(noticeKey, '1'); } catch (_) {}
+      // Avoid repeated notices from the 5-second poll on THIS page only.
+      // New page navigation creates a fresh loader and shows the notice again.
+      if (automaticNoticeKey === noticeKey) return;
+      automaticNoticeKey = noticeKey;
     }
     // A manual attempt intentionally replaces any existing alert, without accumulating dialogs.
     const existing = document.querySelector('[data-algzawy-global-notice]');
