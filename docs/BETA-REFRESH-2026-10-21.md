@@ -23,8 +23,8 @@
 - **OFF** for a single script prevents its next execution and cancels timers tracked by that loader. Existing third-party events and in-flight network requests may not be cancellable.
 - **OFF** for all is the local customer preference, not the central publisher switch.
 - Cloudflare Worker `/status` continues to be the only publisher-level global control.
-- The controller detects common human-verification DOM markers; on detection it stores a session-scoped pause, broadcasts an event to supported loaders, and requires manual clearance before resuming. It does **not** solve or bypass any CAPTCHA.
-- If another bot does not use a patched loader or runs independently, universal stopping is **not guaranteed**. Further engine-level guards and game QA required.
+- The controller detects common human-verification DOM markers; on detection it stores a origin-local, persistent pause shared across tabs for the same Tribal Wars hostname, broadcasts an event to supported loaders, and requires manual clearance before resuming. It does **not** solve or bypass any CAPTCHA.
+- All **25 catalogued beta loaders** now understand local ON/OFF, shared verification pauses, and per-script restart markers. Independently running old Tampermonkey scripts remain outside the manager. In-flight network requests and DOM event handlers originating in old engines are **not guaranteed** to stop. Further engine-level guards and game QA required.
 - The controller is not a replacement for Tampermonkey or a browser extension.
 
 ## Mandatory tests in the game
@@ -45,8 +45,11 @@
 - The mass-scavenge beta imports an external third-party UI dependency that can change without notice.
 - `alg-farm` previously had an absent settings bridge in its generic loader, now patched. The user's *Cloudflare ON but offline* observation also requires network/HTTP inspection on their machine; it was not reproduced here.
 - Exact incoming-attack **renaming** is not implemented. Existing `alg-attacks` is an attack **alert/Telegram** engine.
-- Recovery/comparison of the historical advanced send-automation and minting versions remains pending; the existing user-confirmed working variants remain untouched.
+- The user's uploaded Tampermonkey archive contains **AlGzawy - بوت الصقل المطور [v1.5]**; its loader points to legacy `AlG_COINS.js`. That **engine is already present unchanged** in `scripts/alg-coins.js`, and its public loader is now labeled as the advanced AlGzawy minting bot. Do not run `alg-coins` together with `polish-all-in-one` until tested.
+- The archive also contains **Set Arrival Time [v1.4]**, which points to legacy `AlG_Set_Arrival_Time.js` (present in the private archive). The 81 KB obfuscated legacy engine was **not deployed**. The current working `send-automation` engine was preserved rather than replaced without validation.
+- The archive includes `.storage.json` files that may contain personal settings or credentials; **never publish the full backup archive or stored tokens** to the public repository.
 - Native Cloudflare site and browser extension were only proposed, **not built**.
+- Cross-tab stopping applies to tabs on the **same website origin**. Separate worlds/domains and computers need a future server-side session control design if verification-pause propagation is required.
 - Legacy farming variants remain accessible as source for rollback but are hidden from the public beta catalog rather than destroyed.
 - Do not install multiple bots targeting the same action on the same game page simultaneously.
 
