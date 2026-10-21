@@ -19,21 +19,24 @@
       "name": "Auto Builder Pro - AlGzawy (V3.0 Free Finish)",
       "version": "3.0",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-0-free-finish.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-0-free-finish.user.js",
+      "user_report": "user-reported-working-prior-to-2026-10-21-refresh"
     },
     {
       "id": "auto-builder-pro-algzawy-v3-3-fixed-queue",
       "name": "Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)",
-      "version": "3.3",
+      "version": "3.3.1",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js",
+      "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
     },
     {
       "id": "bot-farm-2",
       "name": "Bot  2نهب",
-      "version": "0.1",
+      "version": "0.2.0",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
+      "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
     },
     {
       "id": "training-edition",
@@ -73,16 +76,18 @@
     {
       "id": "mass-scavenge-v1",
       "name": "اغارات جماعي غزااوي",
-      "version": "1.3",
+      "version": "9.2.1",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
+      "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
     },
     {
       "id": "send-automation",
       "name": "بوت ارساليات - غزااوي",
       "version": "3.2.4",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
+      "user_report": "user-reported-working-prior-to-2026-10-21-refresh"
     },
     {
       "id": "market-bot-v7",
@@ -96,14 +101,16 @@
       "name": "بوت صقل متكامل",
       "version": "3.1",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/polish-all-in-one.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/polish-all-in-one.user.js",
+      "user_report": "user-reported-working-prior-to-2026-10-21-refresh"
     },
     {
       "id": "professional-training-v2",
       "name": "تدريب وحدات احترافي محسّن",
-      "version": "2.1",
+      "version": "2.2",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js",
+      "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
     },
     {
       "id": "professional-training",
@@ -138,14 +145,16 @@
       "name": "🎯 Smart Reserve Pro v5.0 - IMPROVED",
       "version": "5.0",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v5.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v5.user.js",
+      "user_report": "user-reported-working-prior-to-2026-10-21-refresh"
     },
     {
       "id": "auto-reserve-barbarians",
       "name": "🤖 Auto Reserve Barbarians PRO",
       "version": "6.3",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-reserve-barbarians.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-reserve-barbarians.user.js",
+      "user_report": "user-reported-working-prior-to-2026-10-21-refresh"
     },
     {
       "id": "alg-coins",
@@ -166,28 +175,23 @@
       "name": "AlG_balance",
       "version": "unversioned",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js"
-    },
-    {
-      "id": "alg-farm",
-      "name": "AlG_farm",
-      "version": "unversioned",
-      "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-farm.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js",
+      "user_report": "user-reported-working-prior-to-2026-10-21-refresh"
     },
     {
       "id": "auto-builder-ar-v061",
       "name": "Auto Builder - عربي (ثابت + الأكاديمية)",
-      "version": "0.6.1",
+      "version": "0.6.2",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v061.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v061.user.js",
+      "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
     },
     {
-      "id": "farm-monster",
-      "name": "وحش النهب - غزااوي",
-      "version": "0.1",
+      "id": "warehouse-alert-safe",
+      "name": "تنبيه امتلاء المخازن (BETA)",
+      "version": "0.1.0",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/farm-monster.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js"
     }
   ],
   "held_for_review": [
@@ -210,6 +214,19 @@
     {
       "id": "alg-scavenge",
       "name": "AlG_scavenge"
+    },
+    {
+      "id": "alg-farm",
+      "name": "AlG_farm legacy",
+      "reason": "retired-from-public-catalog-use-bot-farm-2"
+    },
+    {
+      "id": "farm-monster",
+      "name": "وحش النهب legacy",
+      "reason": "retired-from-public-catalog-use-bot-farm-2"
     }
-  ]
+  ],
+  "control_center_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js",
+  "audit_date": "2026-10-21",
+  "last_release_type": "beta-code-only-no-live-game-certification"
 }
