@@ -7,7 +7,7 @@
 
 | Area | Public loader | Source engine | Changes |
 |---|---|---|---|
-| Mass scavenge | `loaders/mass-scavenge-v1.user.js` | `scripts/mass-scavenge-v1.js` | User-supplied v9.2 retained as private original; beta v9.2.1 adds numbered group 1-5 detection and bounded fallback. It still depends on the third-party `shinko-to-kuma.com/scripts/massScavenge.js` UI script. **Not live verified.** |
+| Mass scavenge | `loaders/mass-scavenge-v1.user.js` | `scripts/mass-scavenge-v1.js` | User-supplied v9.2 retained as private original; beta v9.2.2 adds numbered group 1-5 detection and bounded fallback. It still depends on the third-party `shinko-to-kuma.com/scripts/massScavenge.js` UI script. **Not live verified.** |
 | Farm | `loaders/bot-farm-2.user.js` | `scripts/bot-farm-2.js` | v0.2 controls for A/B/C, min/max delay, village navigation, local Start/Stop. **Not live verified.** |
 | Builder V3.3 | `loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js` | `scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js` | v3.3.1 empty build queue and observe-before-click, retain pending items without proof. **Not live verified.** |
 | Builder Arabic | `loaders/auto-builder-ar-v061.user.js` | `scripts/auto-builder-ar-v061.js` | v0.6.2 replace build queue DOM from fresh game page, fix duplicate queue item removal and resource parsing. **Not live verified.** |
@@ -56,3 +56,9 @@
 ## Rollback
 
 Use GitHub history to restore any earlier blob from the commits preceding this beta refresh. The private central repository preserves historical readable sources. Any actual game-side action triggered by a bot cannot be rolled back by Git.
+
+## Update — 2026-10-21, continuation
+
+- Mass-scavenge v9.2.2 iterates `sendRow0..4` and avoids submitting the same group twice on a page. Actual DOM and server success need an in-game test. The third-party mass-scavenge loader remains externally hosted.
+- Added `attack-renamer` beta with native Tribal Wars QuickEdit support, limited to incoming attack rows, no game API emulation. It is **disabled by default** to avoid unintentionally overwriting attack names; users opt in from its local panel. Default label detection and server confirmation require real game QA.
+- The Control Center now lists **26** loaders; renamer appears under advanced options. Installation is separate from the center itself.
