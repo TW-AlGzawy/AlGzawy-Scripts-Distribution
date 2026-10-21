@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] تسمية الهجمات القادمة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.0
+// @version      0.1.1
 // @description  User-configurable native QuickEdit incoming attack renamer; OFF by default; Cloudflare controlled
 // @match        https://*.tribalwars.ae/game.php*screen=overview*
 // @match        https://*.tribalwars.net/game.php*screen=overview*
@@ -29,7 +29,7 @@
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_attack-renamer';
-  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   let active = false;
   let executing = false;
   let everStarted = false;
