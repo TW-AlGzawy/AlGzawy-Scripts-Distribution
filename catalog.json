@@ -1,0 +1,215 @@
+{
+  "schema": 1,
+  "channel": "beta",
+  "source_of_truth": "https://algzawy-control-api.karm-saleh-usa2.workers.dev/status",
+  "installed_pilot_ids": [
+    "spear-training-pilot",
+    "builder-v33-one-build-pilot"
+  ],
+  "published_candidates": [
+    {
+      "id": "auto-builder-ar-v054",
+      "name": "Auto Builder - عربي",
+      "version": "0.5.4",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v054.user.js"
+    },
+    {
+      "id": "auto-builder-pro-algzawy-v3-0-free-finish",
+      "name": "Auto Builder Pro - AlGzawy (V3.0 Free Finish)",
+      "version": "3.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-0-free-finish.user.js"
+    },
+    {
+      "id": "auto-builder-pro-algzawy-v3-3-fixed-queue",
+      "name": "Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)",
+      "version": "3.3",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js"
+    },
+    {
+      "id": "bot-farm-2",
+      "name": "Bot  2نهب",
+      "version": "0.1",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js"
+    },
+    {
+      "id": "training-edition",
+      "name": "Bot-تدريب-- AlGzawy Edition",
+      "version": "1.2",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/training-edition.user.js"
+    },
+    {
+      "id": "light",
+      "name": "Light",
+      "version": "1.0.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/light.user.js"
+    },
+    {
+      "id": "train-master-b",
+      "name": "TW Train Master (Light + Axe + Spear) - Control Panel (B)",
+      "version": "1.4.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/train-master-b.user.js"
+    },
+    {
+      "id": "holy-grail",
+      "name": "The Holy Grail LLLLL - Complete Per-Tab Settings with Bot Detection Sound",
+      "version": "3.1",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/holy-grail.user.js"
+    },
+    {
+      "id": "tribal-wars-helper",
+      "name": "Tribal Wars Helper - AlGzawy Edition",
+      "version": "2.3",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js"
+    },
+    {
+      "id": "mass-scavenge-v1",
+      "name": "اغارات جماعي غزااوي",
+      "version": "1.3",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js"
+    },
+    {
+      "id": "send-automation",
+      "name": "بوت ارساليات - غزااوي",
+      "version": "3.2.4",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js"
+    },
+    {
+      "id": "market-bot-v7",
+      "name": "بوت السوق غزااوي (v7.0)",
+      "version": "7.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/market-bot-v7.user.js"
+    },
+    {
+      "id": "polish-all-in-one",
+      "name": "بوت صقل متكامل",
+      "version": "3.1",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/polish-all-in-one.user.js"
+    },
+    {
+      "id": "professional-training-v2",
+      "name": "تدريب وحدات احترافي محسّن",
+      "version": "2.1",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js"
+    },
+    {
+      "id": "professional-training",
+      "name": "تدريب وحدات احترافي",
+      "version": "1.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training.user.js"
+    },
+    {
+      "id": "source-copier",
+      "name": "ناسخ المصدر - AlGzawy Helper",
+      "version": "1.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/source-copier.user.js"
+    },
+    {
+      "id": "reserve-correct-v2",
+      "name": "🎯 Correct Reserve v2.0",
+      "version": "2.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-correct-v2.user.js"
+    },
+    {
+      "id": "reserve-smart-v4",
+      "name": "🎯 Smart Reserve Pro v4.0 - FINAL",
+      "version": "4.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v4.user.js"
+    },
+    {
+      "id": "reserve-smart-v5",
+      "name": "🎯 Smart Reserve Pro v5.0 - IMPROVED",
+      "version": "5.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v5.user.js"
+    },
+    {
+      "id": "auto-reserve-barbarians",
+      "name": "🤖 Auto Reserve Barbarians PRO",
+      "version": "6.3",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-reserve-barbarians.user.js"
+    },
+    {
+      "id": "alg-coins",
+      "name": "AlG_COINS",
+      "version": "unversioned",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-coins.user.js"
+    },
+    {
+      "id": "alg-attacks",
+      "name": "AlG_attacks",
+      "version": "unversioned",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js"
+    },
+    {
+      "id": "alg-balance",
+      "name": "AlG_balance",
+      "version": "unversioned",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js"
+    },
+    {
+      "id": "alg-farm",
+      "name": "AlG_farm",
+      "version": "unversioned",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-farm.user.js"
+    },
+    {
+      "id": "auto-builder-ar-v061",
+      "name": "Auto Builder - عربي (ثابت + الأكاديمية)",
+      "version": "0.6.1",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v061.user.js"
+    },
+    {
+      "id": "farm-monster",
+      "name": "وحش النهب - غزااوي",
+      "version": "0.1",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/farm-monster.user.js"
+    }
+  ],
+  "held_for_review": [
+    {
+      "id": "attack-alert-legacy-loader",
+      "name": "AlGzawy - تنبيه الهجمات (Telegram)"
+    },
+    {
+      "id": "warehouse-alert",
+      "name": "Bot-تنبيه المخزن - AlGzawy Edition (الإصدار النهائي 1.7)"
+    },
+    {
+      "id": "captcha-solver",
+      "name": "سكربت حل الكابتشا التلقائي (غزااوي)"
+    },
+    {
+      "id": "alg-set-arrival-time",
+      "name": "AlG_Set_Arrival_Time"
+    },
+    {
+      "id": "alg-scavenge",
+      "name": "AlG_scavenge"
+    }
+  ]
+}
