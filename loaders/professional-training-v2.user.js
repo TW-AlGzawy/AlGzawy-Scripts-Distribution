@@ -2,7 +2,7 @@
 // @name         [AlGzawy BETA] تدريب وحدات احترافي محسّن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      0.1.3
-// @description  نسخة Beta للتجربة بموافقة المستخدم فقط وربط Cloudflare
+// @description  Training engine 2.2.1; per-unit control, request tracking; BETA awaiting real-game QA
 // @match        https://*/*=train*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
