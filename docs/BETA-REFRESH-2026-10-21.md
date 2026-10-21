@@ -65,7 +65,7 @@ Use GitHub history to restore any earlier blob from the commits preceding this b
 
 ## Additional beta work (same date)
 
-- **MassScavenge 9.2.4**: v9.2.1 matched visible group *labels*, but the external Shinko script actually renders `sendRowN` elements and multiple input buttons all with `id=sendMass`; the new loop targets row identity. In-memory stub validation passed for zero-based five groups, one-based five groups and a stuck group. Test source: `tests/mass-scavenge-groups.test.mjs`. The UI removes a row on its own timer, therefore this check does **not** confirm server dispatch success.
+- **MassScavenge 9.2.4**: v9.2.4 matched visible group *labels*, but the external Shinko script actually renders `sendRowN` elements and multiple input buttons all with `id=sendMass`; the new loop targets row identity. In-memory stub validation passed for zero-based five groups, one-based five groups and a stuck group. Test source: `tests/mass-scavenge-groups.test.mjs`. The UI removes a row on its own timer, therefore this check does **not** confirm server dispatch success.
 - **Incoming renaming**: recommend only [attack-renamer](../loaders/attack-renamer.user.js) (native QuickEdit, requires explicit attack marker, skip existing custom names); [incoming-renamer](../loaders/incoming-renamer.user.js) was an alternate experimental bulk-form candidate and is **retired from the catalog** to prevent overlapping renaming logic. No in-game success has been verified.
 - **Independent always-on human-verification guard**: [installer](../loaders/algzawy-human-guard.user.js) handles visible challenge markers and propagates an origin-wide local pause. User must finish the challenge manually. It does not stop old scripts installed outside managed loaders.
 - **Warehouse monitor 0.1.2**: now prefers `game_data.village.max_storage` (the field used by the user's historical warehouse script) and has UI fallbacks. Does **not** copy hardcoded Telegram credentials from the historical v1.7 script into public releases. Any exposed historical bot token should be rotated.
@@ -80,3 +80,16 @@ Use GitHub history to restore any earlier blob from the commits preceding this b
 - **Not verified:** actual game actions, backend Cloudflare ON/OFF, browser Tampermonkey permission compatibility, third-party mass-scavenge runtime, scheduled send accuracy.
 - Training now uses village-scoped settings, is OFF by default, and labels counters as submitted requests (not confirmed troops).
 - Explicit disclaimer: game servers may prohibit browser automation; check the relevant world's script rules before use.
+
+## Continuation checkpoint — 2026-10-21 (final static review)
+
+- Current mass-scavenge engine **v9.2.4**, group-index normalization 0–4/1–5, attempts only once per group, waits for UI row change. This is **not proof** the Tribal Wars server accepted any request.
+- Builder **v3.3.2** no longer treats a changing countdown/timer string as a successful new build; queue requests remain pending without stable queue row-count confirmation.
+- Training **v2.2.1** preserves focused settings fields during UI refresh, and describes unconfirmed counts as requests rather than server-confirmed units.
+- Optional incoming-attack renamer **v0.1.2** is OFF by default, uses only native QuickEdit UI, and refuses unrecognized command/support rows. Actual rename outcomes need in-game QA.
+- `AlG_attacks` loader now creates the `unsafeWindow.ALGZAWY_ATK_SETTINGS` bridge required by its engine (was an identifiable startup exception).
+- Unified control panel **v0.1.6** has 26 locally controlled beta scripts, draggable/minimizable display, visible human-verification warning, and shared same-origin pause; all 26 loaders now use unique blocked-launcher IDs to avoid shared ID interference.
+- JavaScript parse checks **26/26 engines and 26/26 loaders PASS** using `new Function` equivalent; this is a static syntax check only.
+- GitHub static contracts were added at `tests/algzawy-beta-contracts.test.mjs` with workflow `.github/workflows/beta-contracts.yml`. **CI pass is not confirmed** by this report. Static tests do not simulate a real authenticated Tribal Wars session.
+- **Not implemented as a hosted Cloudflare website/browser extension**. The userscripts still require installation in Tampermonkey.
+- Open: verify live mass-scavenge send groups 1–5, precise incoming rename, builder and troop recruiting server confirmations, older advanced delivery timing variant, Cloudflare ON/network diagnostic on the user's browser, 26-script concurrent-stop behavior under load.
