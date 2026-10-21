@@ -139,6 +139,16 @@ async function handler(req,env){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     return reply({ok:true,user,global,scripts:await settingsFor(env,user.id)});
   }
+  if(path[0]==='scripts'&&path[1]==='bulk'&&path.length===2&&req.method==='POST'){
+    let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+    if(!payload||typeof payload.enabled!=='boolean')return bad('invalid_enabled');
+    // One request/transaction rather than 26 separate requests, for Free-plan quotas.
+    const stmts=GROUPS.map(([id])=>env.DB.prepare(
+      "INSERT INTO portal_preferences(user_id,script_id,enabled,settings_json,updated_at) VALUES(?,?,?,'{}',datetime('now')) ON CONFLICT(user_id,script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at"
+    ).bind(user.id,id,payload.enabled?1:0));
+    await env.DB.batch(stmts);
+    return reply({ok:true,count:GROUPS.length,enabled:payload.enabled});
+  }
   if(path[0]==='scripts'&&path.length===2&&req.method==='PUT'){
     const id=path[1];if(!IDS.has(id))return bad('unknown_script',404);
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
