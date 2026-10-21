@@ -15,6 +15,11 @@
 (function () {
   'use strict';
   if (document.getElementById('algzawy-unified-control')) return;
+  // If several scripts are disabled, show one shared warning launcher
+  // instead of stacking identical cards over the game's interface.
+  const css = document.createElement('style');
+  css.textContent = '[id^="algzawy-blocked-"] ~ [id^="algzawy-blocked-"] { display:none !important; }';
+  (document.head||document.documentElement).appendChild(css);
   const ENDPOINT = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const HUMAN_KEY = 'algzawy_human_verification_pause';
   const POS_KEY = 'algzawy_unified_panel_position';
