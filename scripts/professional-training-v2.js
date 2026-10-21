@@ -313,7 +313,7 @@
     // ═══════════════════════════════════════════════════════════════
 
     function trainUnit(unitId, config) {
-        if (!CONFIG.AUTO_TRAIN || sessionStorage.getItem('algzawy_human_verification_pause')==='1') return false;
+        if (!CONFIG.AUTO_TRAIN || localStorage.getItem('algzawy_human_verification_pause')==='1') return false;
         const stats = getStats();
         const unitStats = stats[unitId] || { trained: 0 };
 
@@ -345,7 +345,7 @@
             setTimeout(() => {
                 const inputValue = parseInt(unitInput.value) || 0;
 
-                if (!CONFIG.AUTO_TRAIN || sessionStorage.getItem('algzawy_human_verification_pause')==='1') return;
+                if (!CONFIG.AUTO_TRAIN || localStorage.getItem('algzawy_human_verification_pause')==='1') return;
                 const remaining = config.targetCount > 0 ? config.targetCount-(getStats()[unitId]?.trained||0) : inputValue;
                 const desired = Math.min(inputValue, Math.max(0,remaining), config.maxBatch>0 ? config.maxBatch : inputValue);
                 if (desired >= 1 && !trainBtn.disabled) {
@@ -405,7 +405,7 @@
         let currentIndex = 0;
 
         function trainNext() {
-            if (!CONFIG.AUTO_TRAIN || sessionStorage.getItem('algzawy_human_verification_pause')==='1') return;
+            if (!CONFIG.AUTO_TRAIN || localStorage.getItem('algzawy_human_verification_pause')==='1') return;
             if (currentIndex >= sortedUnits.length) {
                 currentIndex = 0;
             }
