@@ -5,7 +5,7 @@
 **تم نشر تحديثات برمجية وليست معتمدة داخل اللعبة بعد.** قائمة المفاتيح الجديدة تدعم الإيقاف المحلي ومراقبة التحقق البشري في تبويبات الموقع نفسه، ولا تضمن إيقاف الطلبات الجارية في كل المحركات القديمة. نسخة الإغارات الجديدة v9.2.2، النهب A/B/C، البناء، التدريب، وتنبيه المخازن، مع لوحة تحكم موحّدة للمستخدم (26 مفتاحًا، الإضافية ضمن قسم قابل للطي). لا يزال Tampermonkey مطلوبًا، ويجب تجربة كل سكربت على حساب اختباري قبل الاعتماد.
 
 - **[تثبيت مراقبة التحقق البشري المستقلة — موصى به دائمًا](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-human-guard.user.js)** — تعمل حتى دون فتح لوحة التحكم، وتوقف البوتات المتوافقة داخل نفس نطاق اللعبة؛ لا تتجاوز التحقق.
-- [تثبيت تسمية الهجمات القادمة](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/incoming-renamer.user.js) — معطلة افتراضيًا، وتتطلب نموذج تسمية مدعومًا داخل صفحة الهجمات القادمة.
+- [تثبيت تسمية الهجمات القادمة](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js) — QuickEdit، معطّل افتراضيًا.
 - [تثبيت لوحة AlGzawy Control Center](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js)
 - [تثبيت تنبيه المخازن](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js)
 - [سجل الإصلاحات ونتائج الفحص المطلوبة](docs/BETA-REFRESH-2026-10-21.md)
@@ -73,7 +73,7 @@
 
 ### أدوات وتنبيهات
 
-- [تسمية الهجمات القادمة — `incoming-renamer`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/incoming-renamer.user.js)
+- [تسمية الهجمات القادمة — `attack-renamer`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js)
 - [المراقب المستقل للتحقق البشري](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-human-guard.user.js)
 
 - [تسمية الهجمات القادمة (اختيارية، متوقفة افتراضيًا) — `attack-renamer`](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js)
