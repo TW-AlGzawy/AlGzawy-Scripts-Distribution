@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] بوت الصقل المطور AlG_COINS
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.3
+// @version      0.1.4
 // @description  AlGzawy advanced minting/market engine recovered from prior v1.5 loader; requires live verification
 // @include      https://*.tribalwars.*/game.php?*screen=snob*
 // @include      https://*.tribalwars.*/game.php?*screen=market*mode=call*
@@ -33,7 +33,7 @@
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_alg-coins';
-  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   let active = false;
   let executing = false;
   let everStarted = false;
