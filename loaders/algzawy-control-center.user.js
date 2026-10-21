@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] مركز التحكم الموحد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.5
+// @version      0.1.6
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -154,10 +154,23 @@
     return Array.from(document.querySelectorAll('#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection'))
       .some(el=>el.getClientRects().length>0);
   }
+  function showHumanWarning() {
+    if(document.getElementById('algzawy-verification-warning')) return;
+    const box=document.createElement('div');
+    box.id='algzawy-verification-warning';box.dir='rtl';
+    box.setAttribute('role','alert');
+    box.style.cssText='position:fixed;top:12%;left:50%;transform:translateX(-50%);z-index:2147483646;width:min(440px,90vw);box-sizing:border-box;background:#fff4ed;color:#8d1c0c;border:2px solid #e65c41;border-radius:12px;padding:16px;box-shadow:0 6px 30px #0005;font:14px/1.7 Tahoma,Arial;text-align:center';
+    const msg=document.createElement('p');msg.textContent='⚠️ ظهرت حماية التحقق البشري. تم إيقاف السكربتات المُدارة. أكمل التحقق يدويًا قبل الاستئناف.';
+    const close=document.createElement('button');close.type='button';close.textContent='فهمت';
+    close.style.cssText='padding:6px 18px;background:#b53220;color:#fff;border:0;border-radius:7px;cursor:pointer';
+    close.addEventListener('click',()=>box.remove());box.append(msg,close);document.body.appendChild(box);
+    try { if(typeof Notification!=='undefined' && Notification.permission==='granted') new Notification('AlGzawy — تحقق بشري',{body:'تم إيقاف السكربتات. أكمل التحقق في اللعبة.'}); }catch(_){}
+  }
   function checkHuman(){
     if (challengeIsVisible() && localStorage.getItem(HUMAN_KEY)!=='1'){
       localStorage.setItem(HUMAN_KEY,'1');
       document.dispatchEvent(new Event('algzawy-human-verification'));
+      showHumanWarning();
     }
     const paused=localStorage.getItem(HUMAN_KEY)==='1';
     warning.textContent=paused?'⚠️ تم إيقاف الأتمتة بسبب التحقق البشري.':'';
