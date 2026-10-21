@@ -1,13 +1,18 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] اغارات جماعي غزااوي
+// @name         [AlGzawy BETA] الإغارات الجماعية v9.2.1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.0
-// @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
+// @version      0.2.0
+// @description  v9.2.1 engine, explicit available groups 1-5, Cloudflare global control; beta
 // @include      https://*/*=scavenge_mass*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_info
+// @require      https://code.jquery.com/jquery-3.6.0.min.js
+// @require      https://code.jquery.com/ui/1.12.1/jquery-ui.min.js
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js
 // @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js
 // ==/UserScript==
@@ -18,7 +23,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/mass-scavenge-v1.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "mass-scavenge-v1";
-  const HAS_GM_API = false;
+  const HAS_GM_API = true;
   const POLL_MS = 5000;
   const REQUEST_TIMEOUT = 6000;
   const STOP_EVENT = '__algzawy_stop_' + ID.replace(/[^a-zA-Z0-9_-]/g, '_');
