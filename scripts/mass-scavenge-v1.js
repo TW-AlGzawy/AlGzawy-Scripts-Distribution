@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         سكربت الغزاوي للإغارات (الإصدار 9.2 - لوحة تحكم مطورة)
 // @namespace    http://tampermonkey.net/
-// @version      9.2.2
+// @version      9.2.3
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -252,11 +252,26 @@
                         console.warn('[AlGzawy] human verification; group dispatch paused');
                         return;
                     }
+                    // Some mass-scavenge UI versions number rows 0–4, others 1–5.
+                    // Some expose only repeated [id=sendMass] buttons.
                     const rows = [...document.querySelectorAll('[id^="sendRow"]')].filter(row => /^sendRow\d+$/.test(row.id));
-                    const tasks = rows
-                        .map(row => ({row, index: Number(row.id.slice('sendRow'.length)), button:row.querySelector('input[id="sendMass"],button[id="sendMass"]')}))
-                        .filter(task => task.index >= 0 && task.index < maxGroupCount)
-                        .sort((a,b) => a.index - b.index);
+                    const rawIndexes = rows.map(row => Number(row.id.slice('sendRow'.length)));
+                    const zeroBased = rawIndexes.includes(0);
+                    let tasks = rows.map(row => ({
+                        row,
+                        index: Number(row.id.slice('sendRow'.length)) - (zeroBased ? 0 : 1),
+                        button: row.querySelector('[id="sendMass"]')
+                    })).filter(task => task.index >= 0 && task.index < maxGroupCount)
+                      .sort((a,b) => a.index - b.index);
+                    if (!tasks.length) {
+                        const buttons = [...document.querySelectorAll('[id="sendMass"]')]
+                            .filter(isReady)
+                            .filter(el => !/^(حساب|calculate|calcular|bereken)/i.test((el.value||el.textContent||'').trim()));
+                        // One unmatched #sendMass can still be the calculator. Never
+                        // repeat it blindly. Require 2+ group controls for fallback.
+                        if (buttons.length >= 2) tasks = buttons.slice(0, maxGroupCount)
+                            .map((button,index) => ({index,button,row:button.closest('tr')}));
+                    }
                     if (!tasks.length) {
                         if (++consecutiveEmptyChecks >= 4) break;
                         await wait(500);
@@ -274,7 +289,8 @@
                     for (let retry = 0; retry < 20; retry++) {
                         await wait(250);
                         if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
-                        if (!document.getElementById('sendRow'+task.index)) { removed = true; break; }
+                        if (task.row && !task.row.isConnected) { removed = true; break; }
+                        if (!task.row && (!task.button.isConnected || task.button.disabled)) { removed = true; break; }
                     }
                     if (!removed) {
                         console.warn('[AlGzawy] Group '+(task.index+1)+' not removed; stop to prevent duplicate send');
