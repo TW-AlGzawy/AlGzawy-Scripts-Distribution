@@ -116,18 +116,15 @@
         const queueElement = document.getElementById("content_value") || document.body;
         if (!queueElement) return false;
 
-        // دالة لالتقاط لقطة من محتوى الجدول (نصوص الصفوف المهمة)
+        // Only stable queue row count confirms a new build. Timer text can
+        // change every second and MUST NOT count as a successful build.
         const getQueueSnapshot = () => {
-            const rows = Array.from(document.querySelectorAll('#buildqueue tr'));
-            // استبعاد الصفوف التي تحتوي على رأس الجدول أو صفوف فارغة
-            const relevantRows = rows.filter(row => {
-                const text = row.innerText.trim();
-                return text !== "" && !row.classList.contains("header-row") && !text.includes("قائمة الانتظار") && !text.includes("Queue");
-            });
-            return {
-                count: relevantRows.length,
-                texts: relevantRows.map(row => row.innerText.trim())
-            };
+            const all = Array.from(document.querySelectorAll('#buildqueue tr'));
+            const realRows = all.filter(row => row.querySelector('td') &&
+                !row.classList.contains('header-row') &&
+                !row.classList.contains('no_buildings') &&
+                !/قائمة الانتظار|build queue|no buildings/i.test(row.textContent || ''));
+            return {count: realRows.length};
         };
 
         const before = getQueueSnapshot();
@@ -138,7 +135,7 @@
         const waitForChange = new Promise((resolve) => {
             const mutationObserver = new MutationObserver(() => {
                 const after = getQueueSnapshot();
-                if (after.count !== before.count || !arraysEqual(after.texts, before.texts)) {
+                if (after.count > before.count) {
                     mutationObserver.disconnect();
                     resolve(true);
                 }
@@ -163,7 +160,8 @@
     }
 
     async function processBuilding() {
-        if (!isRunning || isProcessing) return;
+        if (!isRunning || isProcessing || localStorage.getItem('algzawy_human_verification_pause') === '1' ||
+            localStorage.getItem('algzawy_local_enabled_auto-builder-pro-algzawy-v3-3-fixed-queue') === 'false') return;
         isProcessing = true;
         try {
             // إنهاء المباني المجانية
