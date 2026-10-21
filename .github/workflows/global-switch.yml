@@ -1,0 +1,86 @@
+name: Global Scripts Switch
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Set all managed scripts to enabled or disabled'
+        required: true
+        type: choice
+        options:
+          - disable
+          - enable
+
+permissions:
+  contents: write
+
+concurrency:
+  group: algzawy-global-scripts-switch
+  cancel-in-progress: false
+
+jobs:
+  switch:
+    name: Update global script status
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Update global status
+        env:
+          SWITCH_ACTION: ${{ inputs.action }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          action = os.environ["SWITCH_ACTION"]
+          if action not in ("disable", "enable"):
+              raise SystemExit("Invalid switch action")
+
+          path = Path("control/status.json")
+          status = json.loads(path.read_text(encoding="utf-8"))
+          if status.get("schema") != 1 or type(status.get("enabled")) is not bool:
+              raise SystemExit("Unexpected control/status.json structure")
+          revision = status.get("revision")
+          if type(revision) is not int or revision < 0:
+              raise SystemExit("Invalid control/status.json revision")
+
+          desired = action == "enable"
+          if status["enabled"] == desired:
+              print(f"Already {'enabled' if desired else 'disabled'}; no change required")
+          else:
+              status["enabled"] = desired
+              status["revision"] = revision + 1
+              status["updated_at"] = (
+                  datetime.now(timezone.utc)
+                  .replace(microsecond=0)
+                  .isoformat()
+                  .replace("+00:00", "Z")
+              )
+              path.write_text(
+                  json.dumps(status, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              print(f"Global scripts {'enabled' if desired else 'disabled'}")
+          PY
+
+      - name: Commit updated status if necessary
+        shell: bash
+        run: |
+          git add control/status.json
+          if git diff --cached --quiet; then
+            echo "No status change to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "control: switch all scripts (${{ inputs.action }})"
+          git push origin HEAD:main
