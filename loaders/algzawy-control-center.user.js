@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] مركز التحكم الموحد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.1
+// @version      0.1.2
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -31,11 +31,29 @@
     ['polish-all-in-one','الصقل'],
     ['warehouse-alert-safe','تنبيه المخازن']
   ];
+  const coreIds = new Set(items.map(([id])=>id));
+  items.push(
+    ['auto-builder-ar-v054','البناء العربي القديم v0.54'],
+    ['auto-builder-pro-algzawy-v3-0-free-finish','البناء V3.0'],
+    ['training-edition','تدريب AlGzawy Edition'],
+    ['light','Light'],
+    ['train-master-b','Train Master B'],
+    ['holy-grail','Holy Grail'],
+    ['tribal-wars-helper','Tribal Wars Helper'],
+    ['market-bot-v7','بوت السوق'],
+    ['professional-training','التدريب الاحترافي القديم'],
+    ['source-copier','ناسخ المصدر'],
+    ['reserve-correct-v2','حجز Correct v2'],
+    ['reserve-smart-v4','حجز Smart v4'],
+    ['reserve-smart-v5','حجز Smart v5'],
+    ['auto-reserve-barbarians','حجز القرى البربرية'],
+    ['alg-coins','AlG_COINS']
+  );
   const key = id => 'algzawy_local_enabled_' + id;
   const host = document.createElement('section');
   host.id = 'algzawy-unified-control';
   host.setAttribute('dir','rtl');
-  host.style.cssText = 'position:fixed;top:64px;left:20px;z-index:2147483000;width:285px;max-width:90vw;background:#fafbfc;color:#243246;border:1px solid #d4dbe4;border-radius:13px;box-shadow:0 8px 28px #0005;font:12px/1.6 Tahoma,Arial;overflow:hidden';
+  host.style.cssText = 'position:fixed;top:64px;left:20px;z-index:2147483000;width:285px;max-width:90vw;max-height:86vh;overflow:auto;background:#fafbfc;color:#243246;border:1px solid #d4dbe4;border-radius:13px;box-shadow:0 8px 28px #0005;font:12px/1.6 Tahoma,Arial;overflow:hidden';
   const header=document.createElement('div');
   header.id='algzawy-control-drag';
   header.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#edf2f7;cursor:move;touch-action:none;user-select:none';
@@ -58,6 +76,12 @@
   intro.append(label,cloud);
   const collection=document.createElement('div');
   collection.style.cssText='max-height:38vh;overflow:auto';
+  const advanced=document.createElement('details');
+  advanced.style.cssText='border-top:1px solid #e2e8f0;margin-top:8px;padding-top:6px;max-height:30vh;overflow:auto';
+  const summary=document.createElement('summary');
+  summary.textContent='سكربتات إضافية (15) — عرض الخيارات';
+  summary.style.cssText='cursor:pointer;color:#475569;font-size:11px';
+  advanced.appendChild(summary);
   const makeButton=(text,color)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.style.cssText='border:1px solid #cad5e0;background:#fff;color:'+color+';border-radius:9px;padding:6px 11px;cursor:pointer;font-size:11px';return b;};
   function emitChange(){document.dispatchEvent(new Event('algzawy-local-control-changed'));}
   function addItem(id,name){
@@ -67,7 +91,8 @@
     const cb=document.createElement('input');cb.type='checkbox';cb.checked=localStorage.getItem(key(id)) !== 'false';
     cb.title='تشغيل أو إيقاف '+name;
     cb.addEventListener('change',()=>{localStorage.setItem(key(id),cb.checked?'true':'false');emitChange();});
-    row.append(text,cb);collection.appendChild(row);
+    row.append(text,cb);
+    (coreIds.has(id)?collection:advanced).appendChild(row);
     return cb;
   }
   const toggles=items.map(([id,name])=>addItem(id,name));
@@ -90,7 +115,7 @@
   const note=document.createElement('div');
   note.style.cssText='font-size:10px;color:#64748b;margin-top:8px';
   note.textContent='تتحكم في السكربتات المثبتة والمدعومة فقط. لا تتجاوز إيقاف الإدارة.';
-  body.append(intro,collection,actions,warning,resume,note);host.append(header,body);
+  body.append(intro,collection,advanced,actions,warning,resume,note);host.append(header,body);
   (document.body||document.documentElement).appendChild(host);
   minimize.addEventListener('click',()=>{
     const collapse=body.style.display!=='none';
