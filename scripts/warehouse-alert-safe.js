@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         AlGzawy Warehouse Alert — client-only beta
-// @version      0.1.0
+// @version      0.1.1
 // @description  Monitor stock percentages, with user selected warning threshold.
 // ==/UserScript==
 (function () {
@@ -44,13 +44,13 @@
   const capacity=()=>{
     const g=typeof game_data !== 'undefined' ? game_data : {};
     const v=g.village||{};
-    const possible=[v.storage_max,v.storage_capacity,v.storage,numeric(document.getElementById('storage')?.textContent)];
+    const possible=[v.storage_max,v.storage_capacity,numeric(document.getElementById('storage')?.textContent),v.storage];
     return possible.map(numeric).find(x=>Number.isFinite(x)&&x>0)||0;
   };
   function check(){
     const c=capacity();
     const resource=getResources();
-    if(!c || resource.every(r=>!r.amount)){q('status').textContent='تعذر قراءة السعة/الموارد من هذه الصفحة';return;}
+    if(!c){q('status').textContent='تعذر قراءة السعة/الموارد من هذه الصفحة';return;}
     const peak=Math.max(...resource.map(r=>r.amount/c*100));
     const most=resource.find(r=>r.amount/c*100===peak);
     q('status').textContent='أعلى امتلاء: '+Math.round(peak)+'% ('+({'wood':'خشب','stone':'طين','iron':'حديد'}[most.id])+')';
