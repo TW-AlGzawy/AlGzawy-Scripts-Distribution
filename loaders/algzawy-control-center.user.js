@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] مركز التحكم الموحد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.3
+// @version      0.1.4
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -28,6 +28,7 @@
     ['professional-training-v2','التدريب التلقائي'],
     ['send-automation','الإرساليات'],
     ['alg-attacks','تنبيه الهجمات'],
+    ['incoming-renamer','تسمية الهجمات القادمة'],
     ['polish-all-in-one','الصقل'],
     ['warehouse-alert-safe','تنبيه المخازن']
   ];
