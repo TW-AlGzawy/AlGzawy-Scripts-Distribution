@@ -76,7 +76,7 @@
     {
       "id": "mass-scavenge-v1",
       "name": "اغارات جماعي غزااوي",
-      "version": "9.2.3",
+      "version": "9.2.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
@@ -196,7 +196,7 @@
     {
       "id": "attack-renamer",
       "name": "تسمية الهجمات القادمة — AlGzawy BETA",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "test_status": "needs-live-test",
       "release_note": "User opt-in. Only native QuickEdit incoming rows; no gameplay verification yet.",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js",
