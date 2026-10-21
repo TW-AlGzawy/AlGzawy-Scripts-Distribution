@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         سكربت الغزاوي للإغارات (الإصدار 9.2 - لوحة تحكم مطورة)
 // @namespace    http://tampermonkey.net/
-// @version      9.2.3
+// @version      9.2.4
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -244,6 +244,7 @@
             async function dispatchAvailableGroups() {
                 const attempted = new Set();
                 let consecutiveEmptyChecks = 0;
+                let indexBase = null; // preserve 0-based/1-based choice after first row disappears
                 for (let n = 0; n < 120; n++) { // allow slow group calculations
                     if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
                     if (hasHumanCheck()) {
@@ -256,10 +257,10 @@
                     // Some expose only repeated [id=sendMass] buttons.
                     const rows = [...document.querySelectorAll('[id^="sendRow"]')].filter(row => /^sendRow\d+$/.test(row.id));
                     const rawIndexes = rows.map(row => Number(row.id.slice('sendRow'.length)));
-                    const zeroBased = rawIndexes.includes(0);
+                    if (indexBase === null && rawIndexes.length) indexBase = rawIndexes.includes(0) ? 0 : 1;
                     let tasks = rows.map(row => ({
                         row,
-                        index: Number(row.id.slice('sendRow'.length)) - (zeroBased ? 0 : 1),
+                        index: Number(row.id.slice('sendRow'.length)) - (indexBase || 0),
                         button: row.querySelector('[id="sendMass"]')
                     })).filter(task => task.index >= 0 && task.index < maxGroupCount)
                       .sort((a,b) => a.index - b.index);
