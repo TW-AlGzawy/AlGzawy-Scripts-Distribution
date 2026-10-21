@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy PILOT] تدريب الرماح فقط — غزااوي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.1
+// @version      0.1.2
 // @description  اختبار تدريب الرماح فقط دون تمويه، مع إيقاف جماعي حقيقي من Cloudflare
 // @match        https://*/*=train*
 // @run-at       document-end
@@ -25,6 +25,9 @@
   const REQUEST_TIMEOUT = 6000;
   const STOP_EVENT = '__algzawy_stop_' + ID.replace(/[^a-zA-Z0-9_-]/g, '_');
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
+  const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
+  const ATTEMPT_EVENT = '__algzawy_attempt_spear-training-pilot';
+  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
   let active = false;
   let executing = false;
   let everStarted = false;
@@ -47,16 +50,23 @@
     });
   }
 
-  function message(text) {
-    // Shared, per-tab notice: dismissing it must not trigger a new modal every 30 seconds.
+  function message(text, force = false) {
+    // Automatic notices appear once per revision, but EVERY manual attempt opens the notice again.
     const noticeKey = 'algzawy_notice_' + lastRevision + '_' + (text === STOP_MESSAGE ? 'disabled' : 'offline');
-    try { if (sessionStorage.getItem(noticeKey) === '1') return; } catch (_) {}
-    try { sessionStorage.setItem(noticeKey, '1'); } catch (_) {}
-    // One visible notice even when several managed scripts are installed on the same page.
-    if (document.querySelector('[data-algzawy-global-notice]')) return;
+    if (!force) {
+      try { if (sessionStorage.getItem(noticeKey) === '1') return; } catch (_) {}
+      try { sessionStorage.setItem(noticeKey, '1'); } catch (_) {}
+    }
+    // A manual attempt intentionally replaces any existing alert, without accumulating dialogs.
+    const existing = document.querySelector('[data-algzawy-global-notice]');
+    if (existing) {
+      if (!force) return;
+      existing.remove();
+    }
     const attach = () => {
       if (document.querySelector('[data-algzawy-global-notice]')) return;
       const box = document.createElement('div');
+      box.setAttribute('data-algzawy-notice-owner', ID);
       box.setAttribute('data-algzawy-global-notice', '1');
       box.setAttribute('role', 'alertdialog');
       box.setAttribute('aria-live', 'assertive');
@@ -68,15 +78,49 @@
       const p = document.createElement('p');
       p.textContent = text;
       p.style.margin = '10px 0';
+      const contact = document.createElement('a');
+      contact.href = CONTACT_URL;
+      contact.target = '_blank';
+      contact.rel = 'noopener noreferrer';
+      contact.textContent = 'تواصل مع غزااوي على Telegram — @Karam_AlGzawy';
+      contact.style.cssText = 'display:inline-block;margin:0 5px 10px;padding:9px 15px;background:#087f84;color:white;border-radius:8px;text-decoration:none;font-weight:bold';
       const close = document.createElement('button');
       close.type = 'button'; close.textContent = 'حسنًا';
       close.style.cssText='border:0;border-radius:7px;padding:7px 20px;color:#fff;background:#8a483b;cursor:pointer';
       close.addEventListener('click', () => box.remove());
-      box.append(title, p, close);
+      box.append(title, p, contact, close);
       (document.body || document.documentElement).appendChild(box);
     };
     if (document.body || document.documentElement) attach();
     else document.addEventListener('DOMContentLoaded', attach, { once: true });
+  }
+
+  function ensureBlockedLauncher() {
+    if (document.getElementById('algzawy-spear-pilot-panel')) return;
+    if (document.getElementById(BLOCKED_PANEL_ID)) return;
+    const parent = document.body || document.documentElement;
+    if (!parent) return;
+    const panel = document.createElement('div');
+    panel.id = BLOCKED_PANEL_ID;
+    panel.setAttribute('dir', 'rtl');
+    panel.style.cssText = 'position:fixed;top:12px;right:12px;background:#1a202c;color:#fff;border-radius:8px;padding:10px;z-index:99999;font:12px/1.6 Tahoma,Arial;box-shadow:0 3px 12px #0007';
+    const heading = document.createElement('div');
+    heading.textContent = 'AlGzawy — تدريب الرماح (موقوف)';
+    heading.style.cssText = 'color:#4fd1c7;font-weight:bold;margin-bottom:8px';
+    const attempt = document.createElement('button');
+    attempt.type = 'button';
+    attempt.textContent = 'محاولة تشغيل البوت';
+    attempt.style.cssText = 'padding:7px 13px;border:0;background:#c55550;color:#fff;border-radius:6px;cursor:pointer';
+    attempt.addEventListener('click', () => message(STOP_MESSAGE, true));
+    panel.append(heading, attempt);
+    parent.appendChild(panel);
+  }
+
+  function clearBlockedLauncher() {
+    const panel = document.getElementById(BLOCKED_PANEL_ID);
+    if (panel) panel.remove();
+    const notice = document.querySelector('[data-algzawy-global-notice][data-algzawy-notice-owner="spear-training-pilot"]');
+    if (notice) notice.remove();
   }
 
   function scopedClock() {
@@ -194,6 +238,7 @@
       if (everStarted) revoked = true;
     }
     active = false;
+    if (!everStarted) ensureBlockedLauncher();
     if (reason === 'disabled') message(STOP_MESSAGE);
     if (reason === 'offline') message('تعذر التحقق من حالة سكربتات الغزاوي، تم إيقافها مؤقتًا لحين عودة الاتصال.');
   }
@@ -209,6 +254,7 @@
         stopCore('disabled'); return;
       }
       lastRevision = String(status.revision);
+      clearBlockedLauncher();
       if (revoked) {
         // Old listeners in some source scripts cannot be unwired safely.
         // Reload once to resume a clean lifecycle, without asking users to reinstall.
@@ -241,6 +287,7 @@
       checkInProgress = false;
     }
   }
+  document.addEventListener(ATTEMPT_EVENT, () => message(STOP_MESSAGE, true));
   checkPolicy();
   // Active-tab checks only, to limit Cloudflare Free plan usage.
   window.setInterval(() => { if (document.visibilityState !== 'hidden') void checkPolicy(); }, POLL_MS);
