@@ -62,3 +62,12 @@ Use GitHub history to restore any earlier blob from the commits preceding this b
 - Mass-scavenge v9.2.2 iterates `sendRow0..4` and avoids submitting the same group twice on a page. Actual DOM and server success need an in-game test. The third-party mass-scavenge loader remains externally hosted.
 - Added `attack-renamer` beta with native Tribal Wars QuickEdit support, limited to incoming attack rows, no game API emulation. It is **disabled by default** to avoid unintentionally overwriting attack names; users opt in from its local panel. Default label detection and server confirmation require real game QA.
 - The Control Center now lists **26** loaders; renamer appears under advanced options. Installation is separate from the center itself.
+
+## Additional beta work (same date)
+
+- **MassScavenge 9.2.2**: v9.2.1 matched visible group *labels*, but the external Shinko script actually renders `sendRowN` elements and multiple input buttons all with `id=sendMass`; the new loop targets row identity. In-memory stub validation passed for 5, 3 and a stuck group. The UI removes a row on its own timer, therefore this check does **not** confirm server dispatch success.
+- **Incoming renaming**: new [managed beta](../loaders/incoming-renamer.user.js) uses the in-game mass-label form (`name=label_format`, `name=label`), checks for attack-marked rows and command IDs, defaults OFF, and deliberately refuses actions on unsupported DOM. Requires live UI confirmation.
+- **Independent always-on human-verification guard**: [installer](../loaders/algzawy-human-guard.user.js) handles visible challenge markers and propagates an origin-wide local pause. User must finish the challenge manually. It does not stop old scripts installed outside managed loaders.
+- **Warehouse monitor 0.1.2**: now prefers `game_data.village.max_storage` (the field used by the user's historical warehouse script) and has UI fallbacks. Does **not** copy hardcoded Telegram credentials from the historical v1.7 script into public releases. Any exposed historical bot token should be rotated.
+- **Service verification limitation**: Cloudflare `/status` was unreachable from this execution environment, so there is no successful live ON/OFF server check for this release. The operator must test from their browser.
+- **Game rules**: Automation and userscripts may require world-specific approval or be prohibited. Verify server-specific rules before distributing or using the bots.
