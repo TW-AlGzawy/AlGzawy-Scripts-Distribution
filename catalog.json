@@ -25,7 +25,7 @@
     {
       "id": "auto-builder-pro-algzawy-v3-3-fixed-queue",
       "name": "Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)",
-      "version": "3.3.1",
+      "version": "3.3.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
@@ -76,7 +76,7 @@
     {
       "id": "mass-scavenge-v1",
       "name": "اغارات جماعي غزااوي",
-      "version": "9.2.2",
+      "version": "9.2.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
@@ -107,7 +107,7 @@
     {
       "id": "professional-training-v2",
       "name": "تدريب وحدات احترافي محسّن",
-      "version": "2.2",
+      "version": "2.3",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated"
@@ -189,7 +189,7 @@
     {
       "id": "warehouse-alert-safe",
       "name": "تنبيه امتلاء المخازن (BETA)",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js"
     },
@@ -243,5 +243,6 @@
   "last_release_type": "beta-code-only-no-live-game-certification",
   "superseded_raid_engines": "only 9.2.1 active in distribution; older raid engine copies archived privately",
   "safety_guard_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-human-guard.user.js",
-  "group_scavenge_note": "v9.2.2 fixes external UI repeated id=sendMass, walks sendRowN 0..4, mock dispatch test passed; real game test outstanding"
+  "group_scavenge_note": "v9.2.2 fixes external UI repeated id=sendMass, walks sendRowN 0..4, mock dispatch test passed; real game test outstanding",
+  "last_regression_suite": "node --test tests/mass-scavenge-groups.test.mjs"
 }
