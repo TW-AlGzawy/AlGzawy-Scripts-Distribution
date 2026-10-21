@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تدريب وحدات احترافي محسّن
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
@@ -17,7 +17,7 @@
 
     const CONFIG = {
         // تفعيل/تعطيل التدريب التلقائي
-        AUTO_TRAIN: true,
+        AUTO_TRAIN: false, // opt-in: never start recruiting just from installing the beta loader
 
         // تحديث الصفحة تلقائياً (بالدقائق)
         AUTO_REFRESH_MINUTES: 3,
@@ -91,8 +91,10 @@
     // 📊 نظام تتبع الإحصائيات المحسّن
     // ═══════════════════════════════════════════════════════════════
 
-    const STATS_KEY = 'tribal_wars_training_stats';
-    const SETTINGS_KEY = 'algzawy_training_v22_user_settings';
+    // Counts and targets must be per village, not accidentally shared across an entire account.
+    const VILLAGE = typeof game_data !== 'undefined' && game_data.village ? String(game_data.village.id) : 'unknown';
+    const STATS_KEY = 'tribal_wars_training_stats_' + VILLAGE;
+    const SETTINGS_KEY = 'algzawy_training_v22_user_settings_' + VILLAGE;
     try {
         const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
         if (typeof saved.enabled === 'boolean') CONFIG.AUTO_TRAIN = saved.enabled;
@@ -199,7 +201,8 @@
             }
             saveUserSettings();
             stopTrainingCycle();
-            if (CONFIG.AUTO_TRAIN) startTrainingCycle();
+            if (refreshTimeout) { clearTimeout(refreshTimeout); refreshTimeout = null; }
+            if (CONFIG.AUTO_TRAIN) { startTrainingCycle(); setupAutoRefresh(); }
             updatePanelContent(panel);
         });
         document.body.appendChild(panel);
@@ -271,7 +274,7 @@
                             </span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 10px; opacity: 0.9;">
-                            <span>تم: <strong>${unitStats.trained}${targetText}</strong></span>
+                            <span>طلبات إرسال: <strong>${unitStats.trained}${targetText}</strong></span>
                             <span>محاولات: ${unitStats.attempts}</span>
                         </div>
                         ${config.targetCount > 0 ? `
@@ -438,7 +441,7 @@
     let refreshTimeout = null;
 
     function setupAutoRefresh() {
-        if (CONFIG.AUTO_REFRESH_MINUTES > 0) {
+        if (CONFIG.AUTO_TRAIN && CONFIG.AUTO_REFRESH_MINUTES > 0) {
             const refreshInterval = CONFIG.AUTO_REFRESH_MINUTES * 60 * 1000;
             console.log(`🔄 التحديث التلقائي كل ${CONFIG.AUTO_REFRESH_MINUTES} دقيقة`);
 
