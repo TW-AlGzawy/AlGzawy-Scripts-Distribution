@@ -1,0 +1,151 @@
+// ==UserScript==
+// @name         [AlGzawy BETA] مركز التحكم الموحد
+// @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
+// @version      0.1.0
+// @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
+// @match        https://*.tribalwars.ae/game.php*
+// @match        https://*.tribalwars.net/game.php*
+// @match        https://*.tribalwars.com/game.php*
+// @run-at       document-end
+// @grant        GM_xmlhttpRequest
+// @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
+// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js
+// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js
+// ==/UserScript==
+(function () {
+  'use strict';
+  if (document.getElementById('algzawy-unified-control')) return;
+  const ENDPOINT = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
+  const HUMAN_KEY = 'algzawy_human_verification_pause';
+  const POS_KEY = 'algzawy_unified_panel_position';
+  const MIN_KEY = 'algzawy_unified_panel_collapsed';
+  const items = [
+    ['mass-scavenge-v1','الإغارات الجماعية'],
+    ['bot-farm-2','بوت النهب A/B/C'],
+    ['alg-balance','موازنة الموارد'],
+    ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء التلقائي'],
+    ['auto-builder-ar-v061','البناء العربي'],
+    ['professional-training-v2','التدريب التلقائي'],
+    ['send-automation','الإرساليات'],
+    ['alg-attacks','تنبيه الهجمات'],
+    ['polish-all-in-one','الصقل']
+  ];
+  const key = id => 'algzawy_local_enabled_' + id;
+  const host = document.createElement('section');
+  host.id = 'algzawy-unified-control';
+  host.setAttribute('dir','rtl');
+  host.style.cssText = 'position:fixed;top:64px;left:20px;z-index:2147483000;width:285px;max-width:90vw;background:#fafbfc;color:#243246;border:1px solid #d4dbe4;border-radius:13px;box-shadow:0 8px 28px #0005;font:12px/1.6 Tahoma,Arial;overflow:hidden';
+  const header=document.createElement('div');
+  header.id='algzawy-control-drag';
+  header.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#edf2f7;cursor:move;touch-action:none;user-select:none';
+  const heading=document.createElement('strong');
+  heading.textContent='AlGzawy Control Center';
+  const minimize=document.createElement('button');
+  minimize.type='button'; minimize.textContent='−';
+  minimize.setAttribute('aria-label','تصغير أو تكبير');
+  minimize.style.cssText='border:0;background:transparent;font-size:17px;cursor:pointer';
+  header.append(heading,minimize);
+  const body=document.createElement('div');
+  body.style.cssText='padding:10px 12px';
+  const intro=document.createElement('div');
+  intro.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:9px';
+  const label=document.createElement('span');
+  label.textContent='التحكم المحلي بالسكربتات';
+  const cloud=document.createElement('span');
+  cloud.textContent='Cloudflare: تحقق...';
+  cloud.style.cssText='font-size:10px;background:#e2e8f0;color:#334155;border-radius:20px;padding:2px 6px';
+  intro.append(label,cloud);
+  const collection=document.createElement('div');
+  collection.style.cssText='max-height:38vh;overflow:auto';
+  const makeButton=(text,color)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.style.cssText='border:1px solid #cad5e0;background:#fff;color:'+color+';border-radius:9px;padding:6px 11px;cursor:pointer;font-size:11px';return b;};
+  function emitChange(){document.dispatchEvent(new Event('algzawy-local-control-changed'));}
+  function addItem(id,name){
+    const row=document.createElement('label');
+    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:5px 0;gap:8px;cursor:pointer';
+    const text=document.createElement('span');text.textContent=name;
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=localStorage.getItem(key(id)) !== 'false';
+    cb.title='تشغيل أو إيقاف '+name;
+    cb.addEventListener('change',()=>{localStorage.setItem(key(id),cb.checked?'true':'false');emitChange();});
+    row.append(text,cb);collection.appendChild(row);
+    return cb;
+  }
+  const toggles=items.map(([id,name])=>addItem(id,name));
+  const actions=document.createElement('div');
+  actions.style.cssText='display:flex;justify-content:space-between;gap:8px;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:8px';
+  const allOn=makeButton('تشغيل الكل','#15803d');
+  const allOff=makeButton('إيقاف الكل','#b91c1c');
+  allOn.addEventListener('click',()=>{items.forEach(([id],i)=>{localStorage.setItem(key(id),'true');toggles[i].checked=true;});emitChange();});
+  allOff.addEventListener('click',()=>{items.forEach(([id],i)=>{localStorage.setItem(key(id),'false');toggles[i].checked=false;});emitChange();});
+  actions.append(allOff,allOn);
+  const warning=document.createElement('div');
+  warning.style.cssText='margin-top:9px;font-size:11px;color:#b91c1c';
+  const resume=makeButton('استئناف بعد إتمام التحقق يدويًا','#075985');
+  resume.style.display='none';
+  resume.addEventListener('click',()=>{
+    if (challengeIsVisible()) {alert('أكمل التحقق البشري في اللعبة أولًا.');return;}
+    sessionStorage.removeItem(HUMAN_KEY);
+    location.reload();
+  });
+  const note=document.createElement('div');
+  note.style.cssText='font-size:10px;color:#64748b;margin-top:8px';
+  note.textContent='تتحكم في السكربتات المثبتة والمدعومة فقط. لا تتجاوز إيقاف الإدارة.';
+  body.append(intro,collection,actions,warning,resume,note);host.append(header,body);
+  (document.body||document.documentElement).appendChild(host);
+  minimize.addEventListener('click',()=>{
+    const collapse=body.style.display!=='none';
+    body.style.display=collapse?'none':'';
+    minimize.textContent=collapse?'+':'−';
+    localStorage.setItem(MIN_KEY,collapse?'true':'false');
+  });
+  if (localStorage.getItem(MIN_KEY)==='true') {body.style.display='none';minimize.textContent='+';}
+  let drag=null;
+  header.addEventListener('pointerdown',e=>{
+    if (e.target===minimize) return;
+    drag={x:e.clientX,y:e.clientY,top:host.offsetTop,left:host.offsetLeft};
+    if (header.setPointerCapture) header.setPointerCapture(e.pointerId);
+  });
+  header.addEventListener('pointermove',e=>{
+    if(!drag)return;
+    host.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';
+    host.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';
+  });
+  header.addEventListener('pointerup',()=>{
+    if(!drag)return;
+    drag=null;
+    localStorage.setItem(POS_KEY,JSON.stringify({top:host.style.top,left:host.style.left}));
+  });
+  try {
+    const pos=JSON.parse(localStorage.getItem(POS_KEY)||'null');
+    if(pos && pos.top && pos.left){host.style.top=pos.top;host.style.left=pos.left;}
+  } catch (_) {}
+  function challengeIsVisible() {
+    return Array.from(document.querySelectorAll('#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection'))
+      .some(el=>el.getClientRects().length>0);
+  }
+  function checkHuman(){
+    if (challengeIsVisible() && sessionStorage.getItem(HUMAN_KEY)!=='1'){
+      sessionStorage.setItem(HUMAN_KEY,'1');
+      document.dispatchEvent(new Event('algzawy-human-verification'));
+    }
+    const paused=sessionStorage.getItem(HUMAN_KEY)==='1';
+    warning.textContent=paused?'⚠️ تم إيقاف الأتمتة بسبب التحقق البشري.':'';
+    resume.style.display=paused?'inline-block':'none';
+  }
+  checkHuman();
+  setInterval(checkHuman,1500);
+  function checkCloud() {
+    GM_xmlhttpRequest({method:'GET',url:ENDPOINT+'?t='+Date.now(),timeout:6000,
+      headers:{'Cache-Control':'no-cache'},
+      onload:r=>{
+        let valid=false,enabled=false;
+        try {const x=JSON.parse(r.responseText);valid=r.status===200&&x.schema===1&&typeof x.enabled==='boolean';enabled=x.enabled;}catch(_){}
+        cloud.textContent=valid?(enabled?'Cloudflare ON':'Cloudflare OFF'):'Cloudflare: غير متصل';
+        cloud.style.color=valid?(enabled?'#166534':'#b91c1c'):'#92400e';
+      },
+      onerror:()=>cloud.textContent='Cloudflare: غير متصل',
+      ontimeout:()=>cloud.textContent='Cloudflare: مهلة الاتصال'
+    });
+  }
+  checkCloud();
+  setInterval(checkCloud,30000);
+})();
