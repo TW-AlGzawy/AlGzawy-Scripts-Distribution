@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy PILOT] تدريب الرماح فقط — غزااوي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.0
+// @version      0.1.1
 // @description  اختبار تدريب الرماح فقط دون تمويه، مع إيقاف جماعي حقيقي من Cloudflare
 // @match        https://*/*=train*
 // @run-at       document-end
