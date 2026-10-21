@@ -6,6 +6,7 @@
 
 - [كود واجهة الموقع](portal/index.html)
 - [دليل نشر الموقع مجانًا على Cloudflare](portal/README.md)
+- [خطوات إنشاء الموقع وربط Cloudflare باللغة العربية](portal/SETUP-AR.md)
 - [AlGzawy Cloud Bridge — ربط المتصفح بالموقع](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js)
 - [مخطط D1 الإضافي](portal/schema.sql)
 
