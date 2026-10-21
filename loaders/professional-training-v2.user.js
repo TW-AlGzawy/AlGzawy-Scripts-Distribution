@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] تدريب وحدات احترافي محسّن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.2
+// @version      0.1.3
 // @description  نسخة Beta للتجربة بموافقة المستخدم فقط وربط Cloudflare
 // @match        https://*/*=train*
 // @run-at       document-end
@@ -29,7 +29,7 @@
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_professional-training-v2';
-  const BLOCKED_PANEL_ID = 'algzawy-spear-blocked-launcher';
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   let active = false;
   let executing = false;
   let everStarted = false;
