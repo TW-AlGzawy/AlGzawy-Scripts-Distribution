@@ -8,7 +8,7 @@ const source=read('portal/functions/api/[[path]].js');
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const ui=read('portal/assets/app.js'),html=read('portal/index.html');
 const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.html');
-const catalog=JSON.parse(read('portal/catalog.json')).items;
+const catalog=JSON.parse(read('catalog.json')).published_candidates;
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 class DB{
   constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];this.vault=[];this.scriptControls=[];}
@@ -249,4 +249,26 @@ test('Access vault encrypts stored keys, allows owner-only reveal and rotates ac
  assert.equal((await api(db,'me',{token:created.accessKey})).status,401);
  assert.equal((await api(db,'me',{token:changed.json.accessKey})).status,200);
  assert.ok(db.events.some(x=>x.event_type==='owner_revealed_access_key'));
+});
+
+test('Catalog is private and subscriber-visible entries come solely from per-user grants',async()=>{
+ const db=new DB();
+ const before=await api(db,'catalog');assert.equal(before.status,401);
+ const created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Scoped catalog'}})).json;
+ const userToken=created.accessKey,id=created.user.id;
+ let list=await api(db,'catalog',{token:userToken});
+ assert.equal(list.status,200);assert.equal(list.json.items.length,0);
+ await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
+ list=await api(db,'catalog',{token:userToken});
+ assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,25);
+ await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
+ assert.equal((await api(db,'catalog',{token:userToken})).status,403);
+});
+test('Front end removes public static catalog fallback and sends CSRF on session DELETE',()=>{
+ assert.doesNotMatch(ui,/fetch\(['"]\.\/catalog\.json/);
+ assert.match(ui,/\!\(path==='session'&&options\.method==='POST'\)/);
+ assert.match(ui,/api\('session',\{method:'DELETE'\}\)/);
+ assert.match(ui,/setInterval\(\(\)=>\{void verifySession\(\);\},5\*60\*1000\)/);
+ assert.match(ui,/globallyDisabled/);
 });
