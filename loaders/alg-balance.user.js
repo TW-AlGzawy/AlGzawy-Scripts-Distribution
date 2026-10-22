@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] AlG_balance
+// @name         تجريبي - الغزااوي - موازنة الموارد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-end
@@ -67,7 +67,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] AlG_balance",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - موازنة الموارد",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
