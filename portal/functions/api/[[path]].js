@@ -43,6 +43,46 @@ async function digest(value,secret){
 function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');if(typeof env.PORTAL_ADMIN_TOKEN!=='string'||env.PORTAL_ADMIN_TOKEN.length<32)items.push('PORTAL_ADMIN_TOKEN');return items;}
 function envOK(env){return setupMissing(env).length===0;}
 function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
+
+const ADMIN_COOKIE='algzawy_admin_session';
+const ADMIN_TTL=1800; // Short-lived, HttpOnly owner session; no D1 migration.
+const adminCookie=(value,age)=>ADMIN_COOKIE+'='+value+'; Path=/api/admin; Max-Age='+age+'; Secure; HttpOnly; SameSite=Strict';
+function constantEqual(a,b){
+  if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;
+  let diff=0;for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);
+  return diff===0;
+}
+async function adminMac(env,message){
+  const secret=encoder.encode(env.PORTAL_HASH_PEPPER+':'+env.PORTAL_ADMIN_TOKEN);
+  const key=await crypto.subtle.importKey('raw',secret,{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const value=await crypto.subtle.sign('HMAC',key,encoder.encode(message));
+  return [...new Uint8Array(value)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function sameOrigin(req){
+  const origin=req.headers.get('Origin');
+  return !origin||origin===new URL(req.url).origin;
+}
+async function newAdminSession(env){
+  const now=Math.floor(Date.now()/1000);
+  const unsigned=now+'.'+(now+ADMIN_TTL)+'.'+bytes(16);
+  return {cookie:adminCookie(unsigned+'.'+await adminMac(env,'session:'+unsigned),ADMIN_TTL),
+          csrfToken:await adminMac(env,'csrf:'+unsigned),expiresAt:now+ADMIN_TTL};
+}
+async function readAdminSession(req,env){
+  const match=(req.headers.get('Cookie')||'').match(new RegExp('(?:^|;\\s*)'+ADMIN_COOKIE+'=([^;]+)'));
+  if(!match||match[1].length>180)return null;
+  const parts=match[1].split('.');
+  if(parts.length!==4)return null;
+  const [issued,expires,nonce,signature]=parts;
+  const now=Math.floor(Date.now()/1000);
+  if(!/^\\d{10}$/.test(issued)||!/^\\d{10}$/.test(expires)||!/^[0-9a-f]{32}$/.test(nonce)
+    ||!/^[0-9a-f]{64}$/.test(signature)||Number(expires)-Number(issued)!==ADMIN_TTL
+    ||Number(issued)>now+30||Number(expires)<=now)return null;
+  const unsigned=issued+'.'+expires+'.'+nonce;
+  if(!constantEqual(signature,await adminMac(env,'session:'+unsigned)))return null;
+  return {csrfToken:await adminMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
+}
+
 async function bodyJSON(req){const text=await req.text();if(text.length>4096)throw new Error('too_large');return JSON.parse(text);}
 function checkName(name){return typeof name==='string'&&name.trim().length>=2&&name.trim().length<=80;}
 async function globalState(env){
@@ -142,7 +182,34 @@ async function handler(req,env){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
   }
   if(path[0]==='admin'){
-    if(!adminOK(req,env))return bad('unauthorized',401);
+    if(path[1]==='session'&&path.length===2){
+      if(req.method==='POST'){
+        if(!sameOrigin(req))return bad('origin_invalid',403);
+        let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+        if(typeof data?.token!=='string'||data.token.length<32||data.token.length>1024)return bad('unauthorized',401);
+        const supplied=await digest(data.token,env.PORTAL_HASH_PEPPER);
+        const expected=await digest(env.PORTAL_ADMIN_TOKEN,env.PORTAL_HASH_PEPPER);
+        if(!constantEqual(supplied,expected))return bad('unauthorized',401);
+        const session=await newAdminSession(env);
+        return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt},200,{'Set-Cookie':session.cookie});
+      }
+      const session=await readAdminSession(req,env);
+      if(!session)return bad('unauthorized',401);
+      if(req.method==='GET')return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt});
+      if(req.method==='DELETE'){
+        if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+        return reply({ok:true},200,{'Set-Cookie':adminCookie('',0)});
+      }
+      return bad('method_not_allowed',405);
+    }
+    // Preserve existing Bearer-admin API callers; browser owner portal uses
+    // short-lived HttpOnly cookies plus per-session CSRF verification.
+    const legacyAdmin=adminOK(req,env);
+    const session=legacyAdmin?null:await readAdminSession(req,env);
+    if(!legacyAdmin&&!session)return bad('unauthorized',401);
+    if(session&&req.method!=='GET'&&req.method!=='HEAD'){
+      if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+    }
     if(path[1]==='global'&&path.length===2){
       if(req.method==='GET')return reply({ok:true,global:await globalState(env)});
       if(req.method!=='POST')return bad('method_not_allowed',405);
