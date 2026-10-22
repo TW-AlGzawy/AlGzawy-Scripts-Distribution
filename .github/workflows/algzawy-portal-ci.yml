@@ -26,6 +26,7 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check portal/assets/app.js
+          node --check portal/admin/admin.js
           node --check "portal/functions/api/[[path]].js"
           node --check loaders/algzawy-cloud-bridge.user.js
       - name: Portal and D1 contract tests
