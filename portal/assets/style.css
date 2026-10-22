@@ -6,3 +6,23 @@
 .login-modal:has(.editor-input){max-height:87vh;overflow:auto}
 
 .owner-entrance{background:transparent;color:#6f95a4;border:0;text-decoration:underline;text-underline-offset:4px;margin-inline-start:10px;font-size:10px}.owner-entrance:hover{color:#7becce}
+
+/* Login-only entrance: absolutely no public catalog visible until sign-in. */
+.auth-locked .app-shell{display:none!important}
+.auth-locked .modal-overlay{display:grid!important}
+.auth-locked .modal-close{display:none}
+.auth-locked .login-modal{max-width:470px;border-color:#358f80;box-shadow:0 20px 80px #000a}
+.auth-locked .login-modal::before{content:'ALGZAWY CLOUD CONTROL';display:block;letter-spacing:2px;font-size:10px;color:#38e4b9;margin-bottom:17px;text-align:center}
+.login-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:18px;font-size:11px}
+.login-footer a{color:#53d9bb;text-decoration:underline;text-underline-offset:4px}
+.login-footer button{border:0;background:none;color:#7695ab;text-decoration:underline;cursor:pointer;font-size:10px}
+.login-privacy{font-size:10px!important;color:#7791a5!important}
+.subscription-selector{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:42vh;overflow:auto;margin:14px 0}
+.subscription-selector label{display:flex;align-items:center;gap:7px;padding:8px!important;background:#12283d;border:1px solid #31536b;border-radius:8px;cursor:pointer;font-size:11px!important}
+.subscription-selector input{accent-color:#35d9ae;width:17px;height:17px}
+.owner-detail{max-width:780px!important;width:min(96vw,780px)!important;max-height:90vh;overflow:auto}
+.owner-detail .button{min-height:36px}
+.device-detail{border:1px solid #36516a;border-radius:9px;padding:10px;margin-top:8px;color:#c0d3db;font-size:11px}
+.owner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.owner-actions .button{width:auto!important}
+@media(max-width:600px){.subscription-selector{grid-template-columns:1fr}}
