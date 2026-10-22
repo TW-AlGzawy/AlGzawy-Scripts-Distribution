@@ -94,7 +94,7 @@ async function subscriberMac(env,message){
 async function newSubscriberSession(env,user){
  const issued=Math.floor(Date.now()/1000),expires=issued+SUB_TTL;
  const unsigned=[issued,expires,user.id,bytes(16)].join('.');
- return {cookie:subscriberCookie(unsigned+'.'+await subscriberMac(env,unsigned),SUB_TTL),
+ return {cookie:subscriberCookie(unsigned+'.'+await subscriberMac(env,unsigned+':'+user.access_hash),SUB_TTL),
    csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:expires};
 }
 async function readSubscriberSession(req,env){
@@ -108,10 +108,10 @@ async function readSubscriberSession(req,env){
    ||!/^[0-9a-f]{64}$/.test(signature)||Number(expires)-Number(issued)!==SUB_TTL
    ||Number(expires)<=now||Number(issued)>now+30)return null;
  const unsigned=[issued,expires,id,nonce].join('.');
- if(!constantEqual(signature,await subscriberMac(env,unsigned)))return null;
- const user=await env.DB.prepare('SELECT id,label FROM portal_users WHERE id=? AND active=1').bind(id).first();
- if(!user||!(await subscriptionOK(env,id)))return null;
- return {user,csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
+ const record=await env.DB.prepare('SELECT id,label,access_hash FROM portal_users WHERE id=? AND active=1').bind(id).first();
+ if(!record||!(await subscriptionOK(env,id)))return null;
+ if(!constantEqual(signature,await subscriberMac(env,unsigned+':'+record.access_hash)))return null;
+ return {user:{id:record.id,label:record.label},csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
 }
 
 const parseHex=str=>new Uint8Array((str.match(/../g)||[]).map(x=>Number.parseInt(x,16)));
@@ -244,7 +244,7 @@ async function handler(req,env){
       if(!sameOrigin(req))return bad('origin_invalid',403);
       let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
       if(typeof input?.accessKey!=='string'||!/^alg_u_[a-f0-9]{64}$/.test(input.accessKey))return bad('unauthorized',401);
-      const user=await env.DB.prepare('SELECT id,label FROM portal_users WHERE access_hash=? AND active=1')
+      const user=await env.DB.prepare('SELECT id,label,access_hash FROM portal_users WHERE access_hash=? AND active=1')
         .bind(await digest(input.accessKey,env.PORTAL_HASH_PEPPER)).first();
       if(!user||!(await subscriptionOK(env,user.id)))return bad('unauthorized',401);
       const session=await newSubscriberSession(env,user);
