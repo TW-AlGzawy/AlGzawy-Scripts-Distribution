@@ -458,6 +458,56 @@ async function handler(req,env){
     return bad('not_found',404);
   }
 
+  // Auto License V2: pairing is authorized by the subscriber's existing
+  // first-party 7-day HttpOnly session, not by a code or an external cookie.
+  // Only the FIRST device is automatically approved; all replacements require
+  // an owner to revoke the previous approved device.
+  if(path[0]==='device'&&path[1]==='auto-enroll'&&path.length===2){
+    if(req.method!=='POST')return bad('method_not_allowed',405);
+    const session=await readSubscriberSession(req,env);
+    if(!session)return bad('unauthorized',401);
+    if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+    if(!(await subscriptionOK(env,session.user.id)))return bad('subscription_inactive',403);
+    let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+    const pub=input?.publicKey,nonce=input?.nonce;
+    if(typeof nonce!=='string'||!/^[0-9a-f-]{36}$/i.test(nonce)
+      ||!pub||typeof pub!=='object'||pub.kty!=='EC'||pub.crv!=='P-256'
+      ||typeof pub.x!=='string'||typeof pub.y!=='string'
+      ||pub.x.length!==43||pub.y.length!==43
+      ||Object.keys(pub).some(k=>!['kty','crv','x','y','ext','key_ops','alg'].includes(k)))return bad('invalid_public_key');
+    try{await crypto.subtle.importKey('jwk',pub,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);}
+    catch(_){return bad('invalid_public_key');}
+    const userId=session.user.id;
+    const devices=await env.DB.prepare('SELECT k.device_id,k.public_key_json,k.approved FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1').bind(userId).all();
+    const rows=devices.results||[];
+    // Identical key: recover a previously approved enrollment, without
+    // creating another active device. The frontend then proves key possession.
+    const existing=rows.find(x=>{
+      try{const stored=JSON.parse(x.public_key_json);return stored.kty==='EC'&&stored.crv==='P-256'&&stored.x===pub.x&&stored.y===pub.y;}
+      catch(_){return false;}
+    });
+    if(existing?.approved===1)return reply({ok:true,deviceId:existing.device_id,status:'approved',nonce});
+    if(rows.some(x=>x.approved===1))return bad('device_already_linked',409);
+    // Reuse pending identical key only if it can be approved atomically.
+    const id=existing?.device_id||crypto.randomUUID();
+    if(!existing){
+      const inertHash=await digest('auto-device-'+bytes(32),env.PORTAL_HASH_PEPPER);
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO portal_devices(id,user_id,device_hash,active) VALUES(?,?,?,1)').bind(id,userId,inertHash),
+        env.DB.prepare('INSERT INTO portal_device_keys(device_id,user_id,public_key_json,approved,first_ip,last_ip,user_agent) VALUES(?,?,?,0,?,?,?)')
+          .bind(id,userId,JSON.stringify({kty:'EC',crv:'P-256',x:pub.x,y:pub.y}),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180))
+      ]);
+    }
+    // Single atomic conditional statement is important for concurrent tabs:
+    // one device wins while any other device remains unapproved.
+    const approval=await env.DB.prepare(
+      'UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=? AND approved=0 '
+      +'AND NOT EXISTS(SELECT 1 FROM portal_device_keys WHERE user_id=? AND approved=1 AND device_id<>?) RETURNING device_id'
+    ).bind(id,userId,userId,id).first();
+    if(!approval)return bad('device_already_linked',409);
+    await accessEvent(env,req,userId,id,'device_auto_approved');
+    return reply({ok:true,deviceId:id,status:'approved',nonce},201);
+  }
   if(path[0]==='device'&&path[1]==='claim'&&path.length===2&&req.method==='POST'){
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
     if(typeof data?.code!=='string'||!/^alg_p_[a-f0-9]{64}$/.test(data.code))return bad('invalid_code');
