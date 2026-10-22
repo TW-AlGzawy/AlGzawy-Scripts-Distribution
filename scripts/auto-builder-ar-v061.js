@@ -199,6 +199,7 @@ async function refreshVisibleGameQueue() {
         const updated = fresh.querySelector('#buildqueue');
         const current = document.querySelector('#buildqueue');
         if (current && updated) current.replaceWith(document.importNode(updated, true));
+        else if (current && !updated) current.remove(); // refresh after final queue cancellation
         else if (!current && updated) document.querySelector('#content_value')?.prepend(document.importNode(updated, true));
     } catch (e) { console.warn('[AlGzawy Builder] Could not sync game queue', e); }
 }
