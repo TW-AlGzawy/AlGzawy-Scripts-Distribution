@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] تسمية الهجمات القادمة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.4
+// @version      0.1.5
 // @description  Incoming attack native QuickEdit optional labels; source 0.1.1; BETA not game-tested
 // @match        https://*.tribalwars.ae/game.php*screen=overview*
 // @match        https://*.tribalwars.net/game.php*screen=overview*
