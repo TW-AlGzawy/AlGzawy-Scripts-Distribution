@@ -22,8 +22,8 @@ for(const item of published) {
     new vm.Script(loader,{filename:item.id+'.user.js'});
     assert.match(loader,new RegExp('const ID = "'+item.id+'";'));
     assert.ok(loader.includes('algzawy-control-api.karm-saleh-usa2.workers.dev/status'));
-    assert.match(loader,/localStorage\\.getItem\\(LOCAL_KEY\\)\\s*===\\s*'false'/);
-    assert.match(loader,/localStorage\\.getItem\\(HUMAN_KEY\\)\\s*===\\s*'1'/);
+    assert.match(loader,/localStorage\.getItem\(LOCAL_KEY\)\s*===\s*'false'/);
+    assert.match(loader,/localStorage\.getItem\(HUMAN_KEY\)\s*===\s*'1'/);
     assert.ok(loader.includes("const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;"));
     assert.ok(loader.includes("window.addEventListener('storage'"));
     assert.equal(item.test_status,'needs-live-test','Do not certify untested bot code');
