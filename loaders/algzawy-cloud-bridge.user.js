@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
+// @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.5
+// @version      1.0
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
