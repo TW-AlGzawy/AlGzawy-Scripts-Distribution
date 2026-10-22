@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         Auto Builder Pro - AlGzawy (V3.0 Free Finish)
-// @version      3.0
+// @name         تجريبي - الغزااوي - البناء الاحترافي القديم
+// @version      1.0
 // @description  مدير قرية متكامل: إنهاء تلقائي (3د)، التزام صارم بالترتيب، واجهة قابلة لتغيير الحجم، وتحريك حر.
 // @author       AlGzawy & Manus
 // @match        https://*/game.php?village=*&screen=main*
