@@ -44,7 +44,7 @@
                         <span id="minimize-btn" title="تصغير" style="font-weight: bold; font-size: 16px;">—</span>
                         <span id="maximize-btn" title="تكبير" style="display: none; font-weight: bold; font-size: 16px;">+</span>
                     </div>
-                    <h4 style="margin:0; color: #542e0a; order: 2; font-size: 14px;">سكربت الاغارات - AlGzawy</h4>
+                    <h4 style="margin:0; color: #542e0a; order: 2; font-size: 14px;">تجريبي - الغزااوي - الإغارات الجماعية</h4>
                 </div>
                 <div id="algzawy-body" style="padding: 10px; text-align: center;">
                     <button id="toggle-bot-btn" class="btn" style="width: 100%; margin-bottom: 10px;"></button>
