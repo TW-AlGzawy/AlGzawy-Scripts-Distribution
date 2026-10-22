@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] AlG_balance
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-end
