@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy] جامع الجوائز التلقائي
+// @name         تجريبي - الغزااوي - جامع الجوائز التلقائي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.tribalwars.ae/game.php*
@@ -67,7 +67,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"جامع الجوائز التلقائي",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - جامع الجوائز التلقائي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
