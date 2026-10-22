@@ -113,6 +113,22 @@ async function readSubscriberSession(req,env){
  if(!user||!(await subscriptionOK(env,id)))return null;
  return {user,csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
 }
+
+const parseHex=str=>new Uint8Array((str.match(/../g)||[]).map(x=>Number.parseInt(x,16)));
+async function vaultKey(env){
+ if(typeof env.PORTAL_ACCESS_ENCRYPTION_KEY!=='string'||!/^[a-f0-9]{64}$/i.test(env.PORTAL_ACCESS_ENCRYPTION_KEY))return null;
+ return crypto.subtle.importKey('raw',parseHex(env.PORTAL_ACCESS_ENCRYPTION_KEY),{name:'AES-GCM'},false,['encrypt','decrypt']);
+}
+async function protectAccessKey(env,raw){
+ const key=await vaultKey(env);if(!key)return null;
+ const iv=crypto.getRandomValues(new Uint8Array(12));
+ const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encoder.encode(raw)));
+ return {iv:[...iv].map(x=>x.toString(16).padStart(2,'0')).join(''),value:[...encrypted].map(x=>x.toString(16).padStart(2,'0')).join('')};
+}
+async function revealAccessKey(env,row){
+ const key=await vaultKey(env);if(!key)return null;
+ return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:parseHex(row.iv)},key,parseHex(row.encrypted_key)));
+}
 async function bodyJSON(req){const text=await req.text();if(text.length>4096)throw new Error('too_large');return JSON.parse(text);}
 function checkName(name){return typeof name==='string'&&name.trim().length>=2&&name.trim().length<=80;}
 async function globalState(env){
@@ -298,6 +314,30 @@ async function handler(req,env){
       return reply({ok:true,global:changed?{enabled:changed.enabled===1,revision:changed.revision,updated_at:changed.updated_at}:await globalState(env)});
     }
 
+
+    if(path[1]==='users'&&path.length===4&&path[3]==='access-key'){
+      const uid=path[2];
+      const user=await env.DB.prepare('SELECT id,label,active FROM portal_users WHERE id=?').bind(uid).first();
+      if(!user)return bad('not_found',404);
+      if(!(await vaultKey(env)))return bad('vault_not_configured',503);
+      if(req.method==='GET'){
+        const record=await env.DB.prepare('SELECT encrypted_key,iv FROM portal_access_key_vault WHERE user_id=?').bind(uid).first();
+        if(!record)return bad('key_not_recoverable',404);
+        const accessKey=await revealAccessKey(env,record);
+        await accessEvent(env,req,uid,null,'owner_revealed_access_key');
+        return reply({ok:true,accessKey});
+      }
+      if(req.method==='POST'){
+        const accessKey='alg_u_'+bytes(32),encrypted=await protectAccessKey(env,accessKey);
+        await env.DB.batch([
+          env.DB.prepare('UPDATE portal_users SET access_hash=? WHERE id=?').bind(await digest(accessKey,env.PORTAL_HASH_PEPPER),uid),
+          env.DB.prepare("INSERT INTO portal_access_key_vault(user_id,encrypted_key,iv) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET encrypted_key=excluded.encrypted_key,iv=excluded.iv,updated_at=datetime('now')").bind(uid,encrypted.value,encrypted.iv)
+        ]);
+        await accessEvent(env,req,uid,null,'owner_rotated_access_key');
+        return reply({ok:true,accessKey});
+      }
+      return bad('method_not_allowed',405);
+    }
     if(path[1]==='users'&&path.length===4&&path[3]==='entitlements'){
       const uid=path[2];
       const owner=await env.DB.prepare('SELECT id,label,active FROM portal_users WHERE id=?').bind(uid).first();
@@ -358,7 +398,12 @@ async function handler(req,env){
         let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
         if(!checkName(data?.label))return bad('invalid_name');
         const id=crypto.randomUUID(),accessKey='alg_u_'+bytes(32),hash=await digest(accessKey,env.PORTAL_HASH_PEPPER);
-        await env.DB.prepare('INSERT INTO portal_users (id,label,access_hash,active) VALUES (?,?,?,1)').bind(id,data.label.trim(),hash).run();
+        const sealed=await protectAccessKey(env,accessKey);
+        if(!sealed)return bad('vault_not_configured',503);
+        await env.DB.batch([
+          env.DB.prepare('INSERT INTO portal_users (id,label,access_hash,active) VALUES (?,?,?,1)').bind(id,data.label.trim(),hash),
+          env.DB.prepare('INSERT INTO portal_access_key_vault(user_id,encrypted_key,iv) VALUES (?,?,?)').bind(id,sealed.value,sealed.iv)
+        ]);
         return reply({ok:true,user:{id,label:data.label.trim()},accessKey},201);
       }
     }
