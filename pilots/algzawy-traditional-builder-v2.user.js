@@ -510,6 +510,17 @@
       if(old&&fresh)old.replaceWith(document.importNode(fresh,true));
       else if(old&&!fresh)old.remove();
       else if(!old&&fresh)document.querySelector('#content_value')?.prepend(document.importNode(fresh,true));
+      // Reflect verified village levels from a fresh page response without
+      // changing queue priority or injecting full-page scripts.
+      if(templateMode==='template'){
+        for(const step of templateSteps){
+          const selector='#main_buildrow_'+step.id+' .mw';
+          const newLevel=html.querySelector(selector);
+          const oldLevel=document.querySelector(selector);
+          if(newLevel&&oldLevel)oldLevel.textContent=newLevel.textContent;
+        }
+        renderTemplate();
+      }
       return true;
     }catch(error){console.warn('[AlG Traditional Builder] queue refresh failed',error);return false;}
   }
@@ -518,9 +529,9 @@
     return queue?Math.max(0,queue.rows.length-2):0;
   }
   function canBuild(){
-    if(!isRunning||processing||!policyOK()||buildingQueue.length===0)return false;
-    if(currentBuildCount()>=queueLength)return false;
-    return true;
+    if(!isRunning||processing||!policyOK())return false;
+    if(templateMode==='template')return templateSteps.length>0;
+    return buildingQueue.length>0&&currentBuildCount()<queueLength;
   }
   // V3.3's free finishing behavior, hardened: use only the game's
   // explicit no-cost button. Never click paid/coin/regular instant buttons.
@@ -547,11 +558,9 @@
       if(style.display==='none'||style.visibility==='hidden'||btn.getClientRects().length===0)continue;
       const remaining=getRemainingSeconds(btn.closest('tr'));
       if(remaining!==null&&(remaining<=0||remaining>=180))continue;
-      // A free-finish control shown by the game is the authority if there
-      // is no accessible countdown. Do not synthesize requests/endpoints.
       instantPending=true;lastInstantAt=Date.now();
       try{
-        if(!isRunning||!policyOK())return false;
+        if(!isRunning||!policyOK()){instantPending=false;return false;}
         btn.click();
         status('تم الضغط على زر الإنهاء المجاني المتاح — انتظار تحديث اللعبة.','normal');
         instantTimer=setTimeout(()=>{
@@ -566,60 +575,109 @@
     }
     return false;
   }
+  function activePlan(){
+    if(templateMode!=='template')return buildingQueue.length
+      ?{id:buildingQueue[0],mode:'manual',version:templateVersion}:null;
+    const step=nextTemplateStep();
+    if(!step)return null;
+    if(step.level===null)return null; // UNKNOWN level is never zero or completed
+    if(templateIssued&&(
+      templateIssued.id!==step.id||templateIssued.level<step.level
+      ||Date.now()-templateIssued.at>=90000
+    ))templateIssued=null;
+    // A pending accepted upgrade must finish (or time out with renewed
+    // verification) before any additional construction requests.
+    if(templateIssued||currentBuildCount()>0)return null;
+    return {id:step.id,mode:'template',version:templateVersion,
+      level:step.level,target:step.target};
+  }
+  function canContinue(plan){
+    if(!isRunning||!policyOK()||plan.mode!==templateMode
+       ||templateVersion!==plan.version)return false;
+    if(plan.mode==='manual')
+      return buildingQueue[0]===plan.id&&currentBuildCount()<queueLength;
+    const next=nextTemplateStep();
+    return next&&next.id===plan.id&&next.level===plan.level
+      &&next.level!==null&&next.level<plan.target
+      &&!templateIssued&&currentBuildCount()===0;
+  }
   function cycle(){
     if(!isRunning||!policyOK())return;
+    if(templateMode==='template'){
+      // Fetch refreshed building levels and the actual game queue on a
+      // measured cadence; never assume an AJAX acceptance means completed.
+      if(!processing&&Date.now()-templateRefreshAt>=22000){
+        templateRefreshAt=Date.now();
+        void refreshVisibleGameQueue();
+      }
+      if(!templateSteps.length)return;
+      if(!nextTemplateStep()){
+        isRunning=false;saveStatus();endLoop();renderQueue();
+        status('✓ اكتمل القالب بجميع المستويات المطلوبة — توقف البناء تلقائيًا.','normal');
+        return;
+      }
+    }
     if(finishFreeBuilding())return;
     if(!canBuild())return;
-    const next=buildingQueue[0];
-    const row=document.getElementById('main_buildrow_'+next);
+    const plan=activePlan();
+    if(!plan)return;
+    const row=document.getElementById('main_buildrow_'+plan.id);
     if(!row)return;
-    const cost=id=>{
-      const costRow=row.querySelector('.cost_'+id);
-      return Number(costRow?.dataset.cost);
-    };
-    const amounts=['wood','stone','iron'];
-    if(amounts.some(id=>{
-      const needed=cost(id);
-      return !Number.isFinite(needed)||needed<0||number(document.getElementById(id)?.textContent)<needed;
+    const costs=['wood','stone','iron'];
+    if(costs.some(id=>{
+      const from=row.querySelector('.cost_'+id)?.dataset.cost;
+      const needed=from===undefined?NaN:Number(from);
+      return !Number.isFinite(needed)||needed<0
+        ||number(document.getElementById(id)?.textContent)<needed;
     }))return;
     processing=true;
     pendingTimer=setTimeout(()=>{
       pendingTimer=null;
-      if(!canContinue(next)){processing=false;return;}
-      doBuild(next);
+      if(!canContinue(plan)){processing=false;return;}
+      doBuild(plan);
     },1500+Math.floor(Math.random()*2000));
   }
-  function canContinue(id){
-    return isRunning&&policyOK()&&buildingQueue[0]===id&&currentBuildCount()<queueLength;
-  }
-  function doBuild(id){
-    if(!canContinue(id)){processing=false;return;}
+  function doBuild(plan){
+    if(!canContinue(plan)){processing=false;return;}
     if(!window.$||typeof $.ajax!=='function'){
       processing=false;status('لم يتم العثور على واجهة اللعبة اللازمة للبناء.','error');return;
     }
+    const countBefore=currentBuildCount();
     $.ajax({
       url:'/game.php?village='+encodeURIComponent(ID)+'&screen=main&ajaxaction=upgrade_building&type=main&',
       type:'post',
-      data:{id,force:1,destroy:0,source:ID,h:gd.csrf},
+      data:{id:plan.id,force:1,destroy:0,source:ID,h:gd.csrf},
       headers:{'Accept':'application/json, text/javascript, */*; q=0.01','TribalWars-Ajax':1}
     }).done(response=>{
-      let parsed=response;
-      if(typeof response==='string')parsed=readJSON(response,null);
-      // Keep the traditional engine's established successful-ack semantics.
-      // Never remove a planned build on malformed/error responses.
+      const parsed=typeof response==='string'?readJSON(response,null):response;
+      if(!isRunning||!policyOK()||templateVersion!==plan.version||templateMode!==plan.mode)return;
       if(!parsed||typeof parsed!=='object'||parsed.error){
         status('رفضت اللعبة طلب البناء أو أعادت استجابة غير صالحة.','warn');return;
       }
-      // The server accepted this build, so remove exactly ONE planned item.
-      if(buildingQueue[0]===id){
+      // Require explicit acceptance or an observed increase in the game queue;
+      // a timer tick, "no error", or old level text are insufficient proof.
+      const accepted=Boolean(parsed.response?.success||parsed.success===true
+        ||(typeof parsed.success==='string'&&parsed.success)
+        ||currentBuildCount()>countBefore);
+      if(!accepted){
+        isRunning=false;saveStatus();endLoop();renderQueue();
+        status('تعذر تأكيد قبول طلب البناء. تم إيقاف المحرك منعًا للتكرار؛ تحقق من اللعبة ثم أعد التشغيل.','error');
+        return;
+      }
+      if(plan.mode==='template'){
+        templateIssued={id:plan.id,level:plan.level,at:Date.now()};
+        status('✓ قُبل بناء '+LABELS[plan.id]+'. سننتظر اكتمال المستوى '+(plan.level+1)+
+          ' قبل المتابعة في القالب.','normal');
+        renderTemplate();
+      }else if(buildingQueue[0]===plan.id){
         buildingQueue.shift();
         saveQueue();renderQueue();
+        status('قُبل طلب بناء '+LABELS[plan.id]+' وتم تحديث القائمة اليدوية.','normal');
       }
-      status('أُرسل طلب بناء '+LABELS[id]+' وتم تحديث القائمة.','normal');
       void refreshVisibleGameQueue();
     }).fail(()=>{
-      status('فشل إرسال طلب البناء؛ ستتم إعادة المحاولة في الفحص التالي.','error');
-    }).always(()=>{processing=false;renderStatus();});
+      if(!stoppedByPolicy)status('فشل إرسال طلب البناء؛ لن نحذف المهمة وسنعاود الفحص.','error');
+    }).always(()=>{processing=false;});
   }
   function beginLoop(){
     if(loop||stoppedByPolicy)return;
