@@ -76,7 +76,7 @@
       &&Number.isInteger(step.target)&&step.target>0&&step.target<=50).slice(0,BUILDINGS.length)
     :[];
   let templateMode=storedTemplate?.mode==='template'&&templateSteps.length>0?'template':'manual';
-  let templateIssued=null,templateRefreshAt=0,templateVersion=0;
+  let templateIssued=null,templateRefreshAt=0,templateVersion=0,templateRefreshing=false;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
   const elements={};
@@ -581,13 +581,18 @@
     const step=nextTemplateStep();
     if(!step)return null;
     if(step.level===null)return null; // UNKNOWN level is never zero or completed
-    if(templateIssued&&(
-      templateIssued.id!==step.id||templateIssued.level<step.level
-      ||Date.now()-templateIssued.at>=90000
-    ))templateIssued=null;
+    if(templateIssued&&(templateIssued.id!==step.id||templateIssued.level<step.level)){
+      templateIssued=null;
+    }else if(templateIssued&&Date.now()-templateIssued.at>=90000){
+      // Never reissue an accepted order when we could not verify completion:
+      // stop rather than risk building an additional unintended level.
+      isRunning=false;saveStatus();endLoop();renderQueue();
+      status('تعذر تأكيد اكتمال البناء خلال 90 ثانية. أوقفت القالب منعًا لإرسال بناء مكرر؛ راجع قائمة اللعبة.','error');
+      return null;
+    }
     // A pending accepted upgrade must finish (or time out with renewed
     // verification) before any additional construction requests.
-    if(templateIssued||currentBuildCount()>0)return null;
+    if(templateIssued||templateRefreshing||currentBuildCount()>0)return null;
     return {id:step.id,mode:'template',version:templateVersion,
       level:step.level,target:step.target};
   }
@@ -606,11 +611,13 @@
     if(templateMode==='template'){
       // Fetch refreshed building levels and the actual game queue on a
       // measured cadence; never assume an AJAX acceptance means completed.
-      if(!processing&&Date.now()-templateRefreshAt>=22000){
+      if(!processing&&!templateRefreshing&&Date.now()-templateRefreshAt>=22000){
         templateRefreshAt=Date.now();
-        void refreshVisibleGameQueue();
+        templateRefreshing=true;
+        void refreshVisibleGameQueue().finally(()=>{templateRefreshing=false;});
+        return;
       }
-      if(!templateSteps.length)return;
+      if(templateRefreshing||!templateSteps.length)return;
       if(!nextTemplateStep()){
         isRunning=false;saveStatus();endLoop();renderQueue();
         status('✓ اكتمل القالب بجميع المستويات المطلوبة — توقف البناء تلقائيًا.','normal');
