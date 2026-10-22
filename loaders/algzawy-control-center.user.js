@@ -47,7 +47,6 @@
     ['tribal-wars-helper','Tribal Wars Helper'],
     ['market-bot-v7','بوت السوق'],
     ['professional-training','التدريب الاحترافي القديم'],
-    ['source-copier','ناسخ المصدر'],
     ['reserve-correct-v2','حجز Correct v2'],
     ['reserve-smart-v4','حجز Smart v4'],
     ['reserve-smart-v5','حجز Smart v5'],
