@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Auto Incoming Attack Renamer
-// @version      0.1.2
+// @name         تجريبي - الغزااوي - تسمية الهجمات
+// @version      1.0
 // @description  Incoming attacks only; native Tribal Wars QuickEdit UI; configurable and off by default
 // ==/UserScript==
 (function () {
