@@ -92,7 +92,7 @@ test('builder 3.3.4 starts on either main-page query order and reports engine fa
   const engine=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
   const loader=read('loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js');
   assert.match(engine,/\/\/ @version\s+3\.3\.4/);
-  assert.match(loader,/\/\/ @version\s+0\.1\.7/);
+  assert.match(loader,/\/\/ @version\s+0\.1\.8/);
   assert.ok(loader.includes('@match        https://*/game.php?village=*&screen=main*'));
   assert.ok(loader.includes('@match        https://*/game.php?screen=main*&village=*'));
   assert.ok(loader.includes('if(!hasPortalLicense()){stopCore(\'license\');return;}'));
