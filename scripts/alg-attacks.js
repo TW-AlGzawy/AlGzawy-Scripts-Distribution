@@ -1,5 +1,5 @@
-// Customer release version: 1.0
-// AlGzawy customer label: تجريبي - الغزااوي - تنبيه الهجمات
+// @version      1.0
+// @name         تجريبي - الغزااوي - تنبيه الهجمات
 (function () {
     'use strict';
 
