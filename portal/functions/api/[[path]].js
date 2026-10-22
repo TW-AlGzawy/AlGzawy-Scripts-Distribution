@@ -82,6 +82,37 @@ async function readAdminSession(req,env){
   return {csrfToken:await adminMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
 }
 
+
+const SUB_COOKIE='algzawy_subscriber_session';
+const SUB_TTL=4*24*60*60; // 96 hours: more than three complete days
+const subscriberCookie=(value,age)=>SUB_COOKIE+'='+value+'; Path=/api; Max-Age='+age+'; Secure; HttpOnly; SameSite=Strict';
+async function subscriberMac(env,message){
+ const key=await crypto.subtle.importKey('raw',encoder.encode(env.PORTAL_HASH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const signed=await crypto.subtle.sign('HMAC',key,encoder.encode('subscriber:'+message));
+ return [...new Uint8Array(signed)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function newSubscriberSession(env,user){
+ const issued=Math.floor(Date.now()/1000),expires=issued+SUB_TTL;
+ const unsigned=[issued,expires,user.id,bytes(16)].join('.');
+ return {cookie:subscriberCookie(unsigned+'.'+await subscriberMac(env,unsigned),SUB_TTL),
+   csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:expires};
+}
+async function readSubscriberSession(req,env){
+ const match=(req.headers.get('Cookie')||'').match(new RegExp('(?:^|;\\s*)'+SUB_COOKIE+'=([^;]+)'));
+ if(!match||match[1].length>350)return null;
+ const parts=match[1].split('.');
+ if(parts.length!==5)return null;
+ const [issued,expires,id,nonce,signature]=parts,now=Math.floor(Date.now()/1000);
+ if(!/^[0-9]{10}$/.test(issued)||!/^[0-9]{10}$/.test(expires)
+   ||!/^[A-Za-z0-9_-]{5,100}$/.test(id)||!/^[0-9a-f]{32}$/.test(nonce)
+   ||!/^[0-9a-f]{64}$/.test(signature)||Number(expires)-Number(issued)!==SUB_TTL
+   ||Number(expires)<=now||Number(issued)>now+30)return null;
+ const unsigned=[issued,expires,id,nonce].join('.');
+ if(!constantEqual(signature,await subscriberMac(env,unsigned)))return null;
+ const user=await env.DB.prepare('SELECT id,label FROM portal_users WHERE id=? AND active=1').bind(id).first();
+ if(!user||!(await subscriptionOK(env,id)))return null;
+ return {user,csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
+}
 async function bodyJSON(req){const text=await req.text();if(text.length>4096)throw new Error('too_large');return JSON.parse(text);}
 function checkName(name){return typeof name==='string'&&name.trim().length>=2&&name.trim().length<=80;}
 async function globalState(env){
@@ -181,9 +212,36 @@ async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
-  if(req.method==='GET'&&path[0]==='catalog'&&path.length===1)return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+  if(req.method==='GET'&&path[0]==='catalog'&&path.length===1){
+    // Never reveal catalog names to anonymous portal visitors via the public API.
+    const hasAdmin=adminOK(req,env)||!!(await readAdminSession(req,env));
+    const currentUser=hasAdmin?null:(await bearer(req,env,'user'))||(await readSubscriberSession(req,env))?.user;
+    if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
+    return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+  }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
+  }
+
+  if(path[0]==='session'&&path.length===1){
+    if(req.method==='POST'){
+      if(!sameOrigin(req))return bad('origin_invalid',403);
+      let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(typeof input?.accessKey!=='string'||!/^alg_u_[a-f0-9]{64}$/.test(input.accessKey))return bad('unauthorized',401);
+      const user=await env.DB.prepare('SELECT id,label FROM portal_users WHERE access_hash=? AND active=1')
+        .bind(await digest(input.accessKey,env.PORTAL_HASH_PEPPER)).first();
+      if(!user||!(await subscriptionOK(env,user.id)))return bad('unauthorized',401);
+      const session=await newSubscriberSession(env,user);
+      return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt},200,{'Set-Cookie':session.cookie});
+    }
+    const session=await readSubscriberSession(req,env);
+    if(!session)return bad('unauthorized',401);
+    if(req.method==='GET')return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt});
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+      return reply({ok:true},200,{'Set-Cookie':subscriberCookie('',0)});
+    }
+    return bad('method_not_allowed',405);
   }
   if(path[0]==='admin'){
     if(path[1]==='session'&&path.length===2){
@@ -346,8 +404,14 @@ async function handler(req,env){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     return reply({ok:true,global,user:{label:device.label},scripts:await settingsFor(env,device.user_id)});
   }
-  const user=await bearer(req,env,'user');
+  const header=req.headers.get('Authorization')||'';
+  const cookieSession=header?null:await readSubscriberSession(req,env);
+  const user=cookieSession?.user||(header?await bearer(req,env,'user'):null);
   if(!user)return bad('unauthorized',401);
+  if(cookieSession&&req.method!=='GET'&&req.method!=='HEAD'){
+    if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',cookieSession.csrfToken))
+      return bad('csrf_invalid',403);
+  }
   if(!(await subscriptionOK(env,user.id)))return bad('subscription_inactive',403);
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
