@@ -73,7 +73,7 @@ $('loginSubmit').addEventListener('click',async()=>{
    state.csrf=session.csrfToken;
    $('accessToken').value='';
    const me=await api('me');
-   setUser(me);closeLogin();await loadCatalog();toast('أهلًا بك — الجلسة صالحة لأربعة أيام');
+   setUser(me);closeLogin();await loadCatalog();toast('أهلًا بك — الجلسة صالحة لسبعة أيام');
  }catch(err){
    state.csrf='';$('loginMessage').textContent=errorArabic(err);
  }finally{btn.disabled=false;}
