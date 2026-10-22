@@ -11,14 +11,16 @@ const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.h
 const catalog=JSON.parse(read('portal/catalog.json')).items;
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 class DB{
-  constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];}
+  constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];this.vault=[];this.scriptControls=[];}
   prepare(sql){const db=this;return {
     args:[],bind(...args){this.args=args;return this;},
     async first(){const a=this.args;
       if(sql.includes('FROM global_control'))return {...db.global};
       if(sql.startsWith('UPDATE global_control')){if(db.global.enabled===a[0])return null;db.global.enabled=a[0];db.global.revision++;return {...db.global};}
       if(sql.includes('FROM portal_users WHERE access_hash')){const u=db.users.find(x=>x.access_hash===a[0]&&x.active===1);return u?{id:u.id,label:u.label}:null;}
-      if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
+      if(sql.includes('SELECT id,label FROM portal_users WHERE id=? AND active=1')){const u=db.users.find(x=>x.id===a[0]&&x.active===1);return u?{id:u.id,label:u.label}:null;}
+       if(sql.includes('SELECT encrypted_key,iv FROM portal_access_key_vault'))return db.vault.find(x=>x.user_id===a[0])||null;
+       if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
       if(sql.includes('SELECT active,expires_at FROM portal_subscriptions'))return db.subs.find(x=>x.user_id===a[0])||null;
       if(sql.includes('SELECT settings_json FROM portal_preferences')){const x=db.prefs.find(v=>v.user_id===a[0]&&v.script_id===a[1]);return x?{settings_json:x.settings_json}:null;}
       if(sql.includes('FROM portal_device_keys k JOIN portal_users u')){
@@ -33,7 +35,8 @@ class DB{
       throw Error('Unexpected FIRST: '+sql);
     },
     async all(){const a=this.args;
-      if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
+      if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
+       if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
       if(sql.includes('SELECT id,label,active,created_at FROM portal_users'))return {results:db.users};
       if(sql.includes('FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(v=>v.user_id===a[0])};
@@ -41,7 +44,10 @@ class DB{
       throw Error('Unexpected ALL: '+sql);
     },
     async run(){const a=this.args;
-      if(sql.startsWith('INSERT INTO portal_users')){db.users.push({id:a[0],label:a[1],access_hash:a[2],active:1});return {meta:{changes:1}};}
+      if(sql.startsWith('INSERT INTO portal_access_key_vault')){const old=db.vault.find(x=>x.user_id===a[0]);if(old){old.encrypted_key=a[1];old.iv=a[2];}else db.vault.push({user_id:a[0],encrypted_key:a[1],iv:a[2]});return {meta:{changes:1}};}
+       if(sql.startsWith('UPDATE portal_users SET access_hash=')){const u=db.users.find(x=>x.id===a[1]);if(u)u.access_hash=a[0];return {meta:{changes:u?1:0}};}
+       if(sql.startsWith('INSERT INTO portal_script_controls')){const old=db.scriptControls.find(x=>x.id===a[0]);if(old)old.enabled=a[1];else db.scriptControls.push({id:a[0],enabled:a[1]});return {meta:{changes:1}};}
+       if(sql.startsWith('INSERT INTO portal_users')){db.users.push({id:a[0],label:a[1],access_hash:a[2],active:1});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_entitlements')){const old=db.grants.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old)old.allowed=a[2];else db.grants.push({user_id:a[0],script_id:a[1],allowed:a[2]});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_preferences')){const old=db.prefs.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old){old.enabled=a[2];if(a.length>3)old.settings_json=a[3];}else db.prefs.push({user_id:a[0],script_id:a[1],enabled:a[2],settings_json:a[3]||'{}'});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_pair_codes')){db.codes.push({code_hash:a[0],user_id:a[1],expires_at:a[2],consumed_at:null});return {meta:{changes:1}};}
@@ -61,7 +67,7 @@ class DB{
   async batch(stmts){for(const stmt of stmts)await stmt.run();}
 }
 const admin='z'.repeat(40),pepper='p'.repeat(40);
-const env=db=>({DB:db,PORTAL_ADMIN_TOKEN:admin,PORTAL_HASH_PEPPER:pepper});
+const env=db=>({DB:db,PORTAL_ADMIN_TOKEN:admin,PORTAL_HASH_PEPPER:pepper,PORTAL_ACCESS_ENCRYPTION_KEY:'f'.repeat(64)});
 async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={}){
  const h=new Headers(headers);if(token)h.set('Authorization','Bearer '+token);if(cookie)h.set('Cookie',cookie);
  if(body!==undefined)h.set('Content-Type','application/json');
