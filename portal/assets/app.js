@@ -45,7 +45,7 @@ function show(section){
 }
 document.querySelectorAll('[data-section]').forEach(el=>el.addEventListener('click',()=>show(el.dataset.section)));
 $('ownerEntrance').addEventListener('click',()=>{ $('adminNav').hidden=false;show('admin'); });
-$('ownerSignIn').addEventListener('click',()=>{document.body.classList.remove('auth-locked');$('loginOverlay').hidden=true;$('adminNav').hidden=false;show('admin');void loadCatalog();});
+$('ownerSignIn').addEventListener('click',()=>{document.querySelector('.app-shell').hidden=false;document.body.classList.remove('auth-locked');$('loginOverlay').hidden=true;$('adminNav').hidden=false;show('admin');void loadCatalog();});
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 $('heroConnect').addEventListener('click',()=>show('devices'));
 $('heroStart').addEventListener('click',()=>state.user?$('catalog').scrollIntoView({behavior:'smooth'}):openLogin());
@@ -59,7 +59,7 @@ function signOut(showNotice=true){
  state.token='';state.user=null;state.prefs={};sessionStorage.removeItem('algzawy_portal_access');
  $('loginOpen').hidden=false;$('logoutButton').hidden=true;$('makePair').disabled=true;
  $('activateAll').disabled=true;$('deactivateAll').disabled=true;
- document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;
+ document.querySelector('.app-shell').hidden=true;document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;
  updateAccount();render();
  if(showNotice)toast('تم تسجيل الخروج');
 }
@@ -79,6 +79,7 @@ $('loginSubmit').addEventListener('click',async()=>{
 });
 $('accessToken').addEventListener('keydown',e=>{if(e.key==='Enter')$('loginSubmit').click();});
 function setUser(data){
+ document.querySelector('.app-shell').hidden=false;
  document.body.classList.remove('auth-locked');
  state.user=data.user;state.global=data.global;state.prefs=data.scripts||{};
  $('loginOpen').hidden=true;$('logoutButton').hidden=false;
