@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         Bot 2 نهب — AlGzawy configurable BETA
-// @version      0.2.0
+// @name         تجريبي - الغزااوي - بوت النهب
+// @version      1.0
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
