@@ -197,7 +197,7 @@
                 // ── تذييل ──
                 '<div style="text-align:center;padding-top:8px;border-top:1px solid #c1a264;">' +
                     '<button id="alg-update-btn" style="background:none;border:none;color:#0055cc;cursor:pointer;text-decoration:underline;font-size:11px;padding:0;">تحقق من التحديثات</button>' +
-                    '<div style="color:#542e0a;font-size:11px;margin-top:3px;">الإصدار: 1.5</div>' +
+                    '<div style="color:#542e0a;font-size:11px;margin-top:3px;">الإصدار: 1.0</div>' +
                     '<div style="color:#7d510f;font-size:10px;margin-top:3px;">&copy; جميع الحقوق محفوظة - AlGzawy</div>' +
                 '</div>' +
 
@@ -312,7 +312,7 @@
                     if (r.status === 200) {
                         var m = r.responseText.match(/@version\s+([\d.]+)/);
                         if (m && m[1] > '1.5') {
-                            alert('تحديث جديد متوفر!\nالإصدار الحالي: 1.5\nالإصدار الجديد: ' + m[1] + '\nيرجى تحديث السكربت.');
+                            alert('تحديث جديد متوفر!\nالإصدار الحالي: 1.0\nالإصدار الجديد: ' + m[1] + '\nيرجى تحديث السكربت.');
                             btn.textContent = 'يوجد تحديث!';
                             btn.style.color = 'red';
                         } else {
