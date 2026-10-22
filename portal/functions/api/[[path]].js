@@ -211,12 +211,9 @@ function validateSettings(id,raw){
   if(raw===undefined)return null;
   if(!raw||typeof raw!=='object'||Array.isArray(raw))return undefined;
   if(id==='bot-farm-2'){
-    const keys=Object.keys(raw);
-    if(keys.some(x=>!['template','minDelay','maxDelay','switchVillages'].includes(x)))return undefined;
-    const template=raw.template||'A', minDelay=Number(raw.minDelay??1000),maxDelay=Number(raw.maxDelay??2000);
-    if(!['A','B','C'].includes(template)||!Number.isInteger(minDelay)||!Number.isInteger(maxDelay)||
-       minDelay<500||maxDelay>60000||minDelay>maxDelay||typeof raw.switchVillages!=='boolean')return undefined;
-    return {template,minDelay,maxDelay,switchVillages:raw.switchVillages};
+    // No portal-side farm settings: A/B/C and timing live in the game's bot UI.
+    // Ignore legacy stored portal options when toggling ON/OFF.
+    return {};
   }
   if(id==='warehouse-alert-safe'){
     if(Object.keys(raw).some(x=>x!=='percent')||!Number.isInteger(raw.percent)||raw.percent<50||raw.percent>100)return undefined;

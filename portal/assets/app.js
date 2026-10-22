@@ -85,7 +85,7 @@ function setUser(data){
  state.user=data.user;state.global=data.global;state.prefs=data.scripts||{};
  $('loginOpen').hidden=true;$('logoutButton').hidden=false;
  $('makePair').disabled=false;$('activateAll').disabled=false;$('deactivateAll').disabled=false;
- updateAccount();updateCloud();render();
+ updateAccount();updateCloud();render();closeLogin();
 }
 function updateAccount(){
  $('metricAccount').textContent=state.user?'نشط':'غير متصل';
@@ -225,7 +225,14 @@ async function init(){
  try{
    const session=await api('session');state.csrf=session.csrfToken;
    setUser(await api('me'));await loadCatalog();
- }catch(_){state.csrf='';}
+ }catch(err){
+   if(!state.user){
+     state.csrf='';
+     if(!['unauthorized','subscription_inactive'].includes(err?.message||'')){
+       $('loginMessage').textContent='تعذر التحقق من الجلسة؛ حدّث الصفحة بعد التأكد من الاتصال.';
+     }
+   }
+ }
  if(!state.user){document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;}
  void refreshCloud();
  async function verifySession(){
