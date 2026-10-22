@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
     paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
+  pull_request:
+    paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
   workflow_dispatch:
 jobs:
   static-checks:
@@ -14,4 +16,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: node --check scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js
       - run: node --test tests/algzawy-beta-contracts.test.mjs
