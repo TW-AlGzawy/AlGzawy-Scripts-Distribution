@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Bot-تدريب-- AlGzawy Edition
+// @name         تجريبي - الغزااوي - التدريب البديل
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/*=train*
 // @run-at       document-end
@@ -67,7 +67,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Bot-تدريب-- AlGzawy Edition",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - التدريب البديل",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
