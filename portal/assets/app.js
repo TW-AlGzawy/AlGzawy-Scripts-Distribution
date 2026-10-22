@@ -9,7 +9,7 @@ let toastTimer=null;
 const toast=(text,error=false)=>{const el=$('toast');el.textContent=text;el.classList.toggle('error',error);el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,4400);};
 async function api(path,options={}){
  const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...options.headers};
- if(options.method&&options.method!=='GET'&&path!=='session'&&state.csrf)headers['X-ALG-USER-CSRF']=state.csrf;
+ if(options.method&&options.method!=='GET'&&!(path==='session'&&options.method==='POST')&&state.csrf)headers['X-ALG-USER-CSRF']=state.csrf;
  const response=await fetch('/api/'+path,{method:options.method||'GET',cache:'no-store',credentials:'same-origin',headers,body:options.body?JSON.stringify(options.body):undefined});
  let data={};
  try{data=await response.json();}catch(_){}
@@ -26,7 +26,8 @@ const errorArabic=err=>({
  global_status_unavailable:'تعذر قراءة مفتاح التحكم المركزي.',
  expired_or_used_code:'رمز الربط منتهي الصلاحية أو مستخدم.',
  invalid_script_settings:'الإعدادات المدخلة غير صالحة.',
- service_unavailable:'تعذر الاتصال بقاعدة البيانات أو الخدمة.',
+ $1
+ script_globally_disabled:'هذا السكربت موقوف من الإدارة مؤقتًا.',
  invalid_enabled:'قيمة التشغيل غير صحيحة.',
  invalid_name:'أدخل اسم مستخدم من حرفين إلى 80 حرفًا.'
 })[String(err?.message||'')]||'حدث خطأ: '+String(err?.message||err);
@@ -107,25 +108,23 @@ function renderCounters(){
 }
 async function loadCatalog(){
  try{const d=await api('catalog',{auth:false});state.catalog=d.items||[];}
- catch(_){
-   try{const r=await fetch('./catalog.json',{cache:'no-store'});state.catalog=(await r.json()).items||[];}
-   catch(e){state.catalog=[];toast('تعذر تحميل فهرس السكربتات',true);}
- }
+ catch(err){state.catalog=[];toast('تعذر تحميل الفهرس المحمي: '+errorArabic(err),true);}
  render();
 }
 function card(item){
  const prefs=state.prefs[item.id]||{enabled:false,settings:{}};
- const on=!!(state.user&&prefs.enabled);
+ const globallyDisabled=prefs.globallyEnabled===false;
+ const on=!!(state.user&&prefs.enabled&&!globallyDisabled);
  const el=h('article','script-card');
  const top=h('div','script-top');const ico=h('div','script-icon',icons[item.category]||'✦');
  const toggle=h('button','script-toggle');toggle.type='button';toggle.setAttribute('role','switch');toggle.setAttribute('aria-label','تفعيل '+item.name);
- toggle.setAttribute('aria-checked',String(on));toggle.setAttribute('title',on?'إيقاف':'تشغيل');
+ toggle.setAttribute('aria-checked',String(on));toggle.disabled=globallyDisabled;toggle.setAttribute('title',globallyDisabled?'موقوف من الإدارة':on?'إيقاف':'تشغيل');
  toggle.addEventListener('click',()=>{if(!state.user){openLogin();return;}void toggleScript(item.id,!on,toggle);});
  top.append(ico,toggle);el.append(top);
  if(item.featured)el.append(h('span','featured-tag','★ أساسي'));
  el.append(h('h3','',item.name),h('p','',item.description||categories[item.category]||''));
  const bottom=h('div','script-bottom');
- const stateText=h('span','script-state'+(on?' active':''),!state.user?'يتطلب تسجيل دخول':(on?(state.global?.enabled?'مفعل':'محدد — مركزيًا OFF'):'متوقف'));
+ const stateText=h('span','script-state'+(on?' active':''),!state.user?'يتطلب تسجيل دخول':globallyDisabled?'موقوف من الإدارة':(on?(state.global?.enabled?'مفعل':'محدد — مركزيًا OFF'):'متوقف'));
  const acts=h('div','script-actions');
  const install=h('a','script-link','تثبيت ↗');install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';install.title='تثبيت السكربت عبر Tampermonkey';
  acts.append(install);
@@ -146,7 +145,7 @@ async function toggleScript(id,enabled,button){
  try{
    const old=state.prefs[id]||{enabled:false,settings:{}};
    const result=await api('scripts/'+encodeURIComponent(id),{method:'PUT',body:{enabled,settings:old.settings||{}}});
-   state.prefs[id]={allowed:true,enabled:result.enabled,settings:result.settings};
+   state.prefs[id]={...old,allowed:true,enabled:result.enabled,settings:result.settings};
    render();toast(enabled?'تم تفعيل السكربت — سيصل التغيير للمتصفح المربوط':'تم إيقاف السكربت');
  }catch(err){button.disabled=false;toast(errorArabic(err),true);}
 }
@@ -161,7 +160,9 @@ async function bulk(enabled){
  $('activateAll').disabled=$('deactivateAll').disabled=true;
  try{
    await api('scripts/bulk',{method:'POST',body:{enabled}});
-   Object.keys(state.prefs).forEach(id=>{if(state.prefs[id].allowed)state.prefs[id].enabled=enabled;});
+    Object.keys(state.prefs).forEach(id=>{
+      if(state.prefs[id].allowed&&(!enabled||state.prefs[id].globallyEnabled!==false))state.prefs[id].enabled=enabled;
+    });
    toast(enabled?'تم حفظ تشغيل الكل — لا تُشغّل بدائل متعارضة معًا':'تم حفظ إيقاف الكل');render();
  }catch(err){toast(errorArabic(err),true);}
  finally{$('activateAll').disabled=$('deactivateAll').disabled=!state.user;}
@@ -226,7 +227,24 @@ async function init(){
  }catch(_){state.csrf='';}
  if(!state.user){document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;}
  void refreshCloud();
- window.addEventListener('focus',()=>{if(document.visibilityState==='visible')void refreshCloud();});
+ async function verifySession(){
+   if(!state.user||document.visibilityState==='hidden')return;
+   try{
+     const session=await api('session');
+     const fresh=await api('me');
+     if(!state.user)return;
+     state.csrf=session.csrfToken;state.user=fresh.user;state.global=fresh.global;state.prefs=fresh.scripts||{};
+     updateAccount();updateCloud();render();
+   }catch(err){
+     if(String(err?.message||'')==='unauthorized'){
+       signOut(false);toast('انتهت صلاحية الجلسة. سجّل الدخول مجددًا.',true);
+     }
+   }
+ }
+ window.addEventListener('focus',()=>{
+   if(document.visibilityState==='visible'){void refreshCloud();void verifySession();}
+ });
+ setInterval(()=>{void verifySession();},5*60*1000);
  setInterval(()=>{if(document.visibilityState==='visible')void refreshCloud();},90000);
 }
 void init();
