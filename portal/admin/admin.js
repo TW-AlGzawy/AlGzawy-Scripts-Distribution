@@ -119,7 +119,38 @@ async function editSubscription(user){
  const close=h('button','modal-close','×');close.type='button';close.addEventListener('click',()=>overlay.remove());
  box.append(close,h('div','section-kicker','AlGzawy — حماية الاشتراكات'),h('h2','',user.label),h('p','',
    'أنت وحدك تحدد السكربتات المسموحة لهذا الزبون. أي سكربت غير محدد لن يحصل على إذن التشغيل حتى لو كان ملف Tampermonkey مثبتًا.'));
- const selector=h('div','subscription-selector'),allowed=new Set(data.allowedIds||[]),checks=[];
+ // Owner-only key management: encrypted vault, never persist revealed secrets in UI state.
+ const keyPanel=h('div','device-detail');
+ keyPanel.append(h('strong','','مفتاح وصول المشترك'));
+ const keyValue=h('code','generated-secret','••••••••');
+ keyValue.style.direction='ltr';keyValue.style.display='block';keyValue.style.userSelect='text';
+ const keyActions=h('div','owner-actions');
+ const reveal=h('button','button button-outline button-sm','عرض المفتاح'),copy=h('button','button button-outline button-sm','نسخ المفتاح');
+ const rotate=h('button','button button-danger button-sm','إصدار مفتاح جديد');
+ let currentKey='';
+ reveal.type=copy.type=rotate.type='button';copy.disabled=true;
+ reveal.addEventListener('click',async()=>{
+   try{
+     const r=await api('admin/users/'+encodeURIComponent(user.id)+'/access-key');
+     currentKey=r.accessKey;keyValue.textContent=currentKey;copy.disabled=false;
+     toast('تم عرض مفتاح الوصول؛ احفظه بصورة آمنة.');
+   }catch(err){
+     if(err.message==='key_not_recoverable')toast('هذا مفتاح قديم محفوظ كـHash فقط؛ يمكن إصدار مفتاح جديد.',true);
+     else toast(errorArabic(err),true);
+   }
+ });
+ copy.addEventListener('click',async()=>{
+   if(!currentKey)return;
+   try{await navigator.clipboard.writeText(currentKey);toast('تم نسخ مفتاح الوصول');}catch(_){toast('تعذر النسخ',true);}
+ });
+ rotate.addEventListener('click',async()=>{
+   if(!confirm('إصدار مفتاح جديد سيلغي المفتاح السابق، وسيحتاج الزبون إلى تسجيل الدخول مجددًا بعد انتهاء جلسته. متابعة؟'))return;
+   try{const r=await api('admin/users/'+encodeURIComponent(user.id)+'/access-key',{method:'POST',body:{}});
+     currentKey=r.accessKey;keyValue.textContent=currentKey;copy.disabled=false;toast('تم إصدار مفتاح وصول جديد');
+   }catch(err){toast(errorArabic(err),true);}
+ });
+ keyActions.append(reveal,copy,rotate);keyPanel.append(keyValue,keyActions);box.append(keyPanel);
+  const selector=h('div','subscription-selector'),allowed=new Set(data.allowedIds||[]),checks=[];
  for(const item of state.catalog){
    const label=h('label');const input=h('input');input.type='checkbox';input.checked=allowed.has(item.id);
    label.append(input,h('span','',item.name));selector.append(label);checks.push({id:item.id,input});
