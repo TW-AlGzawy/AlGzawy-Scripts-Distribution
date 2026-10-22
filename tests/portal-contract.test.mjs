@@ -30,13 +30,19 @@ class DB{
       }
       if(sql.includes('SELECT device_id FROM portal_device_keys'))return db.keys.find(x=>x.device_id===a[0]&&x.user_id===a[1])||null;
       if(sql.startsWith('UPDATE portal_pair_codes')){const x=db.codes.find(v=>v.code_hash===a[1]&&v.consumed_at===null&&v.expires_at>a[2]);if(!x)return null;x.consumed_at=a[0];return {user_id:x.user_id};}
+       if(sql.startsWith('UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=? AND approved=0')){
+         const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]&&v.approved===0);
+         if(!k||db.keys.some(v=>v.user_id===a[2]&&v.approved===1&&v.device_id!==a[3]))return null;
+         k.approved=1;return {device_id:k.device_id};
+       }
        if(sql.startsWith('UPDATE portal_device_keys SET last_counter=')){
         const x=db.keys.find(v=>v.device_id===a[1]&&v.last_counter<a[2]);if(!x)return null;x.last_counter=a[0];return {device_id:x.device_id};
       }
       throw Error('Unexpected FIRST: '+sql);
     },
     async all(){const a=this.args;
-      if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
+      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved}))};
+       if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
        if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
       if(sql.includes('FROM portal_users u LEFT JOIN portal_archived_users a'))return {results:db.users.map(x=>({...x,archived:db.archived.some(y=>y.user_id===x.id)?1:0}))};
@@ -540,4 +546,32 @@ test('Cloudflare shared device signer keeps the same P-256 key across trusted ga
  parent.postMessage=()=>{untrustedReply=true;};
  await callbacks[0]({source:parent,origin:'https://malicious.example',data:{scope:'algzawy-device-v1',requestId:crypto.randomUUID(),action:'publicKey'}});
  assert.equal(untrustedReply,false,'untrusted origin cannot request a key or signature');
+});
+
+test('Auto License V2 accepts only signed-in first device, rejects another and requires owner revoke',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Auto License User'}})).json;
+ const uid=created.user.id,token=created.accessKey;
+ await api(db,'admin/users/'+uid+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
+ const login=await api(db,'session',{method:'POST',body:{accessKey:token}});
+ const cookie=login.setCookie.split(';')[0],headers={'X-ALG-USER-CSRF':login.json.csrfToken};
+ const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+ const pub=await crypto.subtle.exportKey('jwk',pair.publicKey),nonce=crypto.randomUUID();
+ const enroll=p=>api(db,'device/auto-enroll',{method:'POST',cookie,headers,body:{nonce,publicKey:p}});
+ assert.equal((await api(db,'device/auto-enroll',{method:'POST',body:{nonce,publicKey:pub}})).status,401);
+ assert.equal((await api(db,'device/auto-enroll',{method:'POST',cookie,body:{nonce,publicKey:pub}})).status,403);
+ const first=await enroll(pub);assert.equal(first.status,201);assert.equal(first.json.status,'approved');assert.equal(first.json.nonce,nonce);
+ const id=first.json.deviceId;
+ assert.equal((await enroll(pub)).json.deviceId,id);
+ const other=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+ const pub2=await crypto.subtle.exportKey('jwk',other.publicKey);
+ const denied=await enroll(pub2);assert.equal(denied.status,409);assert.equal(denied.json.error,'device_already_linked');
+ const ts=Date.now(),counter=ts*1024;
+ const signature=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(id+'|'+ts+'|'+counter+'|/api/device/state'));
+ const signed={'X-ALG-DEVICE-ID':id,'X-ALG-TIMESTAMP':String(ts),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':base64url(new Uint8Array(signature))};
+ assert.equal((await api(db,'device/state',{headers:signed})).status,200);
+ assert.equal((await api(db,'device/state',{headers:signed})).status,401);
+ await api(db,'admin/users/'+uid+'/devices/'+id+'/revoke',{method:'POST',token:admin,body:{}});
+ const replacement=await enroll(pub2);
+ assert.equal(replacement.status,201);assert.notEqual(replacement.json.deviceId,id);
+ assert.equal(db.keys.filter(x=>x.approved===1&&x.user_id===uid).length,1);
 });
