@@ -26,6 +26,66 @@
     'train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians',
     'holy-grail','tribal-wars-helper'
   ];
+  // Pin state is TAB-local convenience, never an authentication or licensing proof.
+  // A duplicated tab may inherit sessionStorage, so a live-tab handshake clears
+  // inherited pins when the original tab is still open.
+  const TAB_ID_KEY='algzawy_tab_instance_v1';
+  const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
+  const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
+  const scriptLabels={"mass-scavenge-v1":"الإغارات الجماعية","bot-farm-2":"بوت النهب A/B/C","alg-balance":"موازنة الموارد","auto-builder-pro-algzawy-v3-3-fixed-queue":"البناء الاحترافي","auto-builder-ar-v061":"البناء التقليدي","professional-training-v2":"بوت التدريب المحسّن","send-automation":"الإرساليات الدقيقة","attack-renamer":"تسمية الهجمات القادمة","alg-attacks":"تنبيه الهجمات","warehouse-alert-safe":"تنبيه امتلاء المخازن","polish-all-in-one":"بوت الصقل المتكامل","alg-coins":"الصقل المتطور AlGzawy","market-bot-v7":"بوت السوق","auto-builder-ar-v054":"البناء العربي V0.54","auto-builder-pro-algzawy-v3-0-free-finish":"البناء V3.0","training-edition":"تدريب AlGzawy Edition","professional-training":"تدريب احترافي","light":"تدريب Light","train-master-b":"Train Master B","reserve-smart-v5":"Smart Reserve V5","reserve-smart-v4":"Smart Reserve V4","reserve-correct-v2":"Correct Reserve V2","auto-reserve-barbarians":"حجز القرى البربرية","holy-grail":"The Holy Grail","tribal-wars-helper":"جامع الجوائز التلقائي"};
+  let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
+  sessionStorage.setItem(TAB_ID_KEY,tabId);
+  sessionStorage.removeItem(TAB_READY_KEY);
+  const processId=crypto.randomUUID();
+  let tabReady=false;
+  const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('algzawy-tab-pins-bridge-v1'):null;
+  function eraseClonedPins(){
+    for(const id of known)sessionStorage.removeItem(TAB_PIN_PREFIX+id);
+    tabId=crypto.randomUUID();sessionStorage.setItem(TAB_ID_KEY,tabId);
+    sessionStorage.removeItem(TAB_READY_KEY);
+    tabReady=false;
+  }
+  if(channel)channel.addEventListener('message',event=>{
+    const data=event.data;
+    if(!data||data.tabId!==tabId||data.sender===processId)return;
+    if(data.type==='probe'&&tabReady)channel.postMessage({type:'alive',tabId,sender:processId});
+    if(data.type==='alive'&&!tabReady)eraseClonedPins();
+  });
+  // Fail closed in browsers without BroadcastChannel; those cannot detect
+  // a cloned tab inheriting the same sessionStorage.
+  if(channel){
+    channel.postMessage({type:'probe',tabId,sender:processId});
+    setTimeout(()=>{
+      tabReady=true;
+      sessionStorage.setItem(TAB_READY_KEY,tabId);
+      document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
+      renderPinControls();
+    },450);
+  }
+  window.addEventListener('pagehide',()=>{sessionStorage.removeItem(TAB_READY_KEY);channel?.close();});
+  const pinned=id=>tabReady&&sessionStorage.getItem(TAB_PIN_PREFIX+id)===tabId;
+  function setTabPin(id,on){
+    if(!tabReady||!known.includes(id))return;
+    if(on)sessionStorage.setItem(TAB_PIN_PREFIX+id,tabId);
+    else sessionStorage.removeItem(TAB_PIN_PREFIX+id);
+    document.dispatchEvent(new Event('algzawy-tab-pin-changed'));
+    renderPinControls();
+  }
+  function renderPinControls(){
+    const holder=document.getElementById('algzawy-cloud-tab-list');
+    if(!holder)return;
+    holder.replaceChildren();
+    if(!channel){holder.textContent='هذا المتصفح لا يدعم عزل التبويبات المطلوب.';return;}
+    if(!tabReady){holder.textContent='التحقق من هوية التبويب...';return;}
+    for(const id of known){
+      const label=document.createElement('label');label.style.cssText='display:flex;gap:7px;align-items:center;margin:3px 0;padding:4px;border-bottom:1px solid #31565a';
+      const input=document.createElement('input');input.type='checkbox';input.checked=pinned(id);
+      input.setAttribute('aria-label','تثبيت '+scriptLabels[id]+' في هذا التبويب');
+      input.addEventListener('change',()=>setTabPin(id,input.checked));
+      const text=document.createElement('span');text.textContent=scriptLabels[id]||id;
+      label.append(input,text);holder.appendChild(label);
+    }
+  }
   const storageKey=id=>'algzawy_local_enabled_'+id;
   const connection={
     origin:String(GM_getValue(keys.origin,'')||''),
@@ -235,6 +295,7 @@
       '<label style="display:block;margin-top:7px">رمز الربط المؤقت من الموقع<input id="algzawy-cloud-code" type="text" autocomplete="off" placeholder="alg_p_..." style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط المتصفح</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
+      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:170px;overflow-y:auto"></div></details>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
       '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
@@ -290,6 +351,7 @@
     hdr.addEventListener('pointermove',e=>{if(!drag)return;card.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';card.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';card.style.bottom='auto';});
     hdr.addEventListener('pointerup',()=>{drag=null;});
     linked();
+    renderPinControls();
   }
   function start(){
     render();
