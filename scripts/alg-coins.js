@@ -1,5 +1,5 @@
-// Customer release version: 1.0
-// AlGzawy customer label: تجريبي - الغزااوي - الصقل المتطور
+// @version      1.0
+// @name         تجريبي - الغزااوي - الصقل المتطور
 (function () {
     'use strict';
 
