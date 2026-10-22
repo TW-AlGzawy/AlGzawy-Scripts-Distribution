@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] The Holy Grail LLLLL - Complete Per-Tab Settings with Bot Detection Sound
+// @name         تجريبي - الغزااوي - المساعد المتكامل
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
 // @match        https://*.tribalwars.ae/game.php?*
 // @run-at       document-end
@@ -65,7 +65,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] The Holy Grail LLLLL - Complete Per-Tab Settings with Bot Detection Sound",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - المساعد المتكامل",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
