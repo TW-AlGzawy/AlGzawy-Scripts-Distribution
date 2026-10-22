@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy] البناء الاحترافي V3.3
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      0.1.8
 // @description  Builder engine 3.3.4; flexible main-page URL matching and visible startup diagnostics
 // @match        https://*/game.php?village=*&screen=main*
 // @match        https://*/game.php?screen=main*&village=*
