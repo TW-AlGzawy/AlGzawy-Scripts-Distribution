@@ -19,7 +19,7 @@
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
-  const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success'};
+  const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode'};
   const known=[
     'mass-scavenge-v1','bot-farm-2','alg-balance','auto-builder-pro-algzawy-v3-3-fixed-queue','auto-builder-ar-v061',
     'professional-training-v2','send-automation','attack-renamer','alg-attacks','warehouse-alert-safe',
@@ -103,6 +103,46 @@
   const LICENSE_UNTIL='algzawy_portal_device_authorized_until';
   const LICENSE_ID='algzawy_portal_approved_device';
   const GRANT_PREFIX='algzawy_portal_grant_';
+
+  // Secure iframe lives at one Cloudflare origin, independent of game-world
+  // subdomains. It signs fixed-purpose challenges but never exports the key.
+  // Browser storage partitioning may block the broker on unsupported sites;
+  // we fail closed rather than substituting a copyable private key.
+  let brokerFrame=null,brokerLoaded=null;
+  const brokerPending=new Map();
+  window.addEventListener('message',event=>{
+    if(event.origin!==PORTAL_ORIGIN||event.source!==brokerFrame?.contentWindow)return;
+    const msg=event.data;
+    if(msg?.scope!=='algzawy-device-v1'||typeof msg.requestId!=='string')return;
+    const item=brokerPending.get(msg.requestId);
+    if(!item)return;
+    brokerPending.delete(msg.requestId);clearTimeout(item.timer);
+    if(msg.ok===true)item.resolve(msg);
+    else item.reject(Error('secure_identity_unavailable'));
+  });
+  async function callSharedSigner(action,args={}){
+    if(!brokerLoaded){
+      brokerLoaded=new Promise((resolve,reject)=>{
+        const frame=document.createElement('iframe');
+        frame.style.cssText='position:absolute;top:-2000px;left:-2000px;width:1px;height:1px;border:0';
+        frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
+        frame.src=PORTAL_ORIGIN+'/device-identity';
+        let finished=false;
+        const deadline=setTimeout(()=>{if(!finished){finished=true;reject(Error('secure_identity_unavailable'));}},9000);
+        frame.onload=()=>{if(!finished){finished=true;clearTimeout(deadline);resolve(frame);}};
+        frame.onerror=()=>{if(!finished){finished=true;clearTimeout(deadline);reject(Error('secure_identity_unavailable'));}};
+        brokerFrame=frame;document.body.appendChild(frame);
+      });
+    }
+    const frame=await brokerLoaded,requestId=crypto.randomUUID();
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{
+        brokerPending.delete(requestId);reject(Error('secure_identity_unavailable'));
+      },8000);
+      brokerPending.set(requestId,{resolve,reject,timer});
+      frame.contentWindow.postMessage({scope:'algzawy-device-v1',requestId,action,...args},PORTAL_ORIGIN);
+    });
+  }
   // IndexedDB stores a structured-cloned non-exportable CryptoKey. Tampermonkey
   // export/GM storage contains only a public UUID, not the signing private key.
   // A copied whole browser profile may still contain IndexedDB; this is not
@@ -133,13 +173,20 @@
     return result;
   }
   async function deviceProof(){
-    const identity=await signingKey();
     const timestamp=Date.now();
-    const counter=Math.max(timestamp,Number(GM_getValue('algzawy_cloud_counter',0)||0)+1);
-    const statement=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
-    const signature=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(statement)));
-    const binary=Array.from(signature,b=>String.fromCharCode(b)).join('');
-    const sig=btoa(binary).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    const counter=Math.max(timestamp*1024,Number(GM_getValue('algzawy_cloud_counter',0)||0)+1);
+    let sig;
+    if(GM_getValue(keys.mode,'legacy')==='shared'){
+      const result=await callSharedSigner('sign',{deviceId:connection.device,timestamp,counter});
+      sig=result.signature;
+    }else{
+      // Backward compatibility for approved devices paired on earlier versions,
+      // provided the game is still on their original same-origin world.
+      const identity=await signingKey();
+      const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
+      const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
+      sig=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    }
     GM_setValue('algzawy_cloud_counter',counter);
     return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':sig};
   }
@@ -263,7 +310,16 @@
       showMessage((r.global.enabled?'متصل — ': 'الإدارة أوقفت جميع السكربتات — ')+(r.user?.label||'الحساب'),r.global.enabled);
     }catch(e){
       if(e.message==='device_pending_approval'){stopAll();showMessage('الجهاز بانتظار موافقة الإدارة؛ لا تعمل السكربتات قبل اعتماده.');}
-      else if(['device_proof_invalid','unauthorized','subscription_inactive'].includes(e.message)){stopAll();showMessage('تم رفض ترخيص الجهاز: '+e.message);}
+      else if(e.message==='device_proof_invalid'){
+        stopAll();
+        showMessage(GM_getValue(keys.mode,'legacy')==='legacy'
+          ?'الربط قديم ومحفوظ لخادم لعبة آخر. ألغِ الربط وأعده مرة واحدة بالنظام الجديد.'
+          :'رفض الخادم إثبات الجهاز. تأكد من أن الجهاز ما زال معتمدًا، ثم جرّب المزامنة.');
+      }
+      else if(e.message==='secure_identity_unavailable'){
+        stopAll();showMessage('تعذر فتح مخزن هوية الجهاز المشتركة. اسمح بإطار AlGzawy في المتصفح أو استخدم متصفحًا يدعمه.');
+      }
+      else if(['unauthorized','subscription_inactive'].includes(e.message)){stopAll();showMessage('تم رفض ترخيص الجهاز: '+e.message);}
       else {if(Date.now()-connection.last>120000)stopAll();showMessage('تعذرت المزامنة: '+e.message);}
     }finally{pending=false;}
   }
@@ -321,11 +377,11 @@
       if(!/^alg_p_[a-f0-9]{64}$/.test(code)){showMessage('رمز ربط غير صالح. انسخه من الموقع.');return;}
       q('connect').disabled=true;
       try{
-        const identity=await signingKey();
+        const identity=await callSharedSigner('publicKey');
         const result=await request('device/claim',{method:'POST',data:{code,publicKey:identity.publicKey}});
         connection.device=result.deviceId;
         connection.last=0;
-        GM_setValue(keys.device,connection.device);GM_setValue('algzawy_cloud_counter',0);
+        GM_setValue(keys.device,connection.device);GM_setValue(keys.mode,'shared');GM_setValue('algzawy_cloud_counter',0);
         q('code').value='';stopAll();linked();showMessage('تم تقديم طلب الجهاز — بانتظار موافقة المالك.');
       }catch(e){showMessage(e.message);}finally{q('connect').disabled=false;}
     });
