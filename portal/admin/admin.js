@@ -185,34 +185,73 @@ async function editSubscription(user){
    catch(err){toast(errorArabic(err),true);}
  });sub.append(updateSub);box.append(sub);
  box.append(h('h3','','الأجهزة — اعتماد يدوي فقط'));
- const devices=h('div');
- if(!data.devices?.length)devices.append(h('p','','لا يوجد جهاز مرتبط. بعد استخدام رمز الربط سيظهر طلب اعتماد هنا.'));
- for(const device of data.devices||[]){
-   const item=h('div','device-detail');
-   item.append(h('strong','',device.approved?'✓ جهاز معتمد':'◷ بانتظار الموافقة'));
-   item.append(h('div','', 'المعرف: '+device.device_id));
-   item.append(h('div','', 'أول IP: '+(device.first_ip||'غير متاح')+' | آخر IP: '+(device.last_ip||'غير متاح')));
-   item.append(h('div','', 'آخر اتصال: '+(device.last_seen||'لم يتصل بعد')));
-   item.append(h('div','', 'المتصفح: '+(device.user_agent||'غير معروف')));
-   const row=h('div','owner-actions');
-   const approve=h('button','button button-primary button-sm','اعتماد هذا الجهاز (وإيقاف الجهاز السابق)');
-   approve.addEventListener('click',async()=>{
-     if(!confirm('اعتماد هذا الجهاز وإلغاء اعتماد أي جهاز سابق للمشترك؟'))return;
-     try{await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/approve',
-       {method:'POST',body:{}});toast('تم اعتماد الجهاز');overlay.remove();void editSubscription(user);}
-     catch(err){toast(errorArabic(err),true);}
-   });
-   const revoke=h('button','button button-danger button-sm','إلغاء اعتماد الجهاز');
-   revoke.addEventListener('click',async()=>{
-     try{await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/revoke',
-       {method:'POST',body:{}});toast('تم إلغاء الاعتماد');overlay.remove();void editSubscription(user);}
-     catch(err){toast(errorArabic(err),true);}
-   });
-   row.append(approve,revoke);item.append(row);devices.append(item);
- }box.append(devices);
- const events=h('div','device-detail');
- events.append(h('strong','','سجل الأجهزة وتغيّرات الاتصال'));
- for(const ev of (data.events||[]).slice(0,20))events.append(h('div','',(ev.occurred_at||'')+' — '+ev.event_type+' — '+(ev.ip||'')));
+ const devices=h('div'),events=h('div','device-detail');
+ async function refreshDeviceDetails(){
+   // Update this section in place; do not discard unsaved subscription changes.
+   try{
+     const fresh=await api('admin/users/'+encodeURIComponent(user.id)+'/entitlements');
+     renderDeviceCards(fresh.devices||[]);
+     renderDeviceEvents(fresh.events||[]);
+   }catch(err){toast('تم حفظ التغيير، لكن تعذر تحديث قائمة الأجهزة: '+errorArabic(err),true);}
+ }
+ function renderDeviceCards(list){
+   devices.replaceChildren();
+   if(!list.length){
+     devices.append(h('p','','لا يوجد جهاز مرتبط. بعد استخدام رمز الربط سيظهر طلب اعتماد هنا.'));
+     return;
+   }
+   for(const device of list){
+     const item=h('div','device-detail');
+     const approved=device.approved===1||device.approved===true;
+     item.append(h('strong','',approved?'✓ الجهاز معتمد':'◷ بانتظار الموافقة'));
+     item.append(h('div','','المعرف: '+device.device_id));
+     item.append(h('div','','أول IP: '+(device.first_ip||'غير متاح')+' | آخر IP: '+(device.last_ip||'غير متاح')));
+     item.append(h('div','','آخر اتصال: '+(device.last_seen||'لم يتصل بعد')));
+     item.append(h('div','','المتصفح: '+(device.user_agent||'غير معروف')));
+     const row=h('div','owner-actions');
+     if(!approved){
+       const approve=h('button','button button-primary button-sm','اعتماد هذا الجهاز (وإيقاف الجهاز السابق)');
+       approve.type='button';
+       approve.addEventListener('click',async()=>{
+         if(!confirm('اعتماد هذا الجهاز وإلغاء اعتماد أي جهاز سابق للمشترك؟'))return;
+         row.querySelectorAll('button').forEach(button=>button.disabled=true);
+         try{
+           await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/approve',{method:'POST',body:{}});
+           renderDeviceCards(list.map(entry=>({...entry,approved:entry.device_id===device.device_id?1:0})));
+           toast('تم اعتماد الجهاز');
+           void refreshDeviceDetails();
+         }catch(err){
+           row.querySelectorAll('button').forEach(button=>button.disabled=false);
+           toast(errorArabic(err),true);
+         }
+       });
+       row.append(approve);
+     }
+     const revoke=h('button','button button-danger button-sm',approved?'إلغاء اعتماد الجهاز وحذفه':'حذف طلب ربط الجهاز');
+     revoke.type='button';
+     revoke.addEventListener('click',async()=>{
+       row.querySelectorAll('button').forEach(button=>button.disabled=true);
+       try{
+         await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/revoke',{method:'POST',body:{}});
+         renderDeviceCards(list.filter(entry=>entry.device_id!==device.device_id));
+         toast('تم حذف ربط الجهاز وإلغاء اعتماده');
+         void refreshDeviceDetails();
+       }catch(err){
+         row.querySelectorAll('button').forEach(button=>button.disabled=false);
+         toast(errorArabic(err),true);
+       }
+     });
+     row.append(revoke);item.append(row);devices.append(item);
+   }
+ }
+ function renderDeviceEvents(records){
+   events.replaceChildren();
+   events.append(h('strong','','سجل الأجهزة وتغيّرات الاتصال'));
+   for(const ev of records.slice(0,20))events.append(h('div','',(ev.occurred_at||'')+' — '+ev.event_type+' — '+(ev.ip||'')));
+ }
+ renderDeviceCards(data.devices||[]);
+ box.append(devices);
+ renderDeviceEvents(data.events||[]);
  box.append(events);
  const note=h('p','','تتغير عناوين IP تلقائيًا أحيانًا. نستخدم عنوان IP للمراقبة والسجل، وليس وحده لحظر العميل.');
  note.style.fontSize='11px';box.append(note);
