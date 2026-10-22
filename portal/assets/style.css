@@ -9,7 +9,7 @@
 
 /* Login-only entrance: absolutely no public catalog visible until sign-in. */
 .auth-locked .app-shell{display:none!important}
-.auth-locked .modal-overlay{display:grid!important}
+.auth-locked .modal-overlay:not([hidden]){display:grid!important}
 .auth-locked .modal-close{display:none}
 .auth-locked .login-modal{max-width:470px;border-color:#358f80;box-shadow:0 20px 80px #000a}
 .auth-locked .login-modal::before{content:'ALGZAWY CLOUD CONTROL';display:block;letter-spacing:2px;font-size:10px;color:#38e4b9;margin-bottom:17px;text-align:center}
