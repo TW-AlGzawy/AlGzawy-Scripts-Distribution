@@ -22,8 +22,8 @@ for(const item of published) {
     new vm.Script(loader,{filename:item.id+'.user.js'});
     assert.match(loader,new RegExp('const ID = "'+item.id+'";'));
     assert.ok(loader.includes('algzawy-control-api.karm-saleh-usa2.workers.dev/status'));
-    assert.ok(loader.includes("localStorage.getItem(LOCAL_KEY) === 'false'"));
-    assert.ok(loader.includes("localStorage.getItem(HUMAN_KEY) === '1'"));
+    assert.match(loader,/localStorage\.getItem\(LOCAL_KEY\)\s*===\s*'false'/);
+    assert.match(loader,/localStorage\.getItem\(HUMAN_KEY\)\s*===\s*'1'/);
     assert.ok(loader.includes("const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;"));
     assert.ok(loader.includes("window.addEventListener('storage'"));
     assert.equal(item.test_status,'needs-live-test','Do not certify untested bot code');
@@ -63,4 +63,27 @@ test('incoming attack rename requires user opt-in and never calls invented serve
   assert.match(code,/\.rename-icon/);
   assert.match(code,/\.quickedit-label/);
   assert.ok(!code.includes('ajaxaction=rename'));
+});
+
+test('builder V3.3.3 minimizes to its header without saving collapsed geometry',()=>{
+  const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
+  assert.match(code,/\/\/ @version\s+3\.3\.3/);
+  assert.match(code,/min-height:\s*40px/);
+  assert.match(code,/height:\s*\$\{isMinimized \? '40px' : expandedHeight\}/);
+  assert.match(code,/resize:\s*\$\{isMinimized \? 'none' : 'both'\}/);
+  assert.match(code,/if \(entry\.target !== panel \|\| isMinimized\) continue/);
+  assert.match(code,/if \(height < 180\) continue/);
+  assert.match(code,/panel\.style\.height = isMinimized \? '40px' : expandedHeight/);
+  assert.match(code,/\$\("#panel_content"\)\.css\('display', isMinimized \? 'none' : 'flex'\)/);
+  assert.doesNotMatch(code,/height:\s*calc\(100% - 35px\)/);
+});
+test('builder floating panel can expand after corrupted stored 35px height',()=>{
+  const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
+  assert.match(code,/Number\.isFinite\(savedHeight\) && savedHeight >= 280/);
+  assert.match(code,/let expandedHeight = Math\.min\(/);
+  assert.match(code,/Math\.max\(160, window\.innerHeight - 20\)/);
+  assert.match(code,/#pro_builder_panel #panel_content \{/);
+  assert.match(code,/overflow-y:\s*auto;/);
+  assert.match(code,/min-height:\s*120px/);
+  assert.match(code,/\$\("#min_btn"\)\.on\('mousedown', e => e\.stopPropagation\(\)\)/);
 });

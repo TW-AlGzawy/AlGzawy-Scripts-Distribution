@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
-// @version      3.3.2
+// @version      3.3.3
 // @description  مدير قرية متكامل: إنهاء تلقائي، التزام بالترتيب، واجهة قابلة للتخصيص، مع إصلاح حذف المباني بعد بنائها بشكل موثوق.
 // @author       AlGzawy & Manus (Improved)
 // @match        https://*/game.php?village=*&screen=main*
@@ -275,18 +275,29 @@
                 border-bottom-right-radius: 6px;
             }
             #pro_builder_panel {
+                display: flex;
+                flex-direction: column;
+                box-sizing: border-box;
                 resize: both;
                 overflow: hidden;
                 min-width: 200px;
-                min-height: 150px;
+                min-height: 40px;
+                max-width: calc(100vw - 12px);
+                max-height: calc(100vh - 12px);
             }
-            #panel_content {
-                height: calc(100% - 35px);
-                display: flex;
+            #pro_builder_panel #panel_header {
+                flex-shrink: 0;
+            }
+            #pro_builder_panel #panel_content {
+                flex: 1 1 auto;
+                min-height: 0;
+                box-sizing: border-box;
+                overflow-y: auto;
                 flex-direction: column;
             }
-            #building_controls {
-                flex-grow: 1;
+            #pro_builder_panel #building_controls {
+                flex: 1 1 auto;
+                min-height: 120px;
                 overflow-y: auto;
                 padding-left: 5px;
                 margin-bottom: 5px;
@@ -295,10 +306,24 @@
         document.head.appendChild(style);
 
         const savedPos = JSON.parse(localStorage.getItem(POS_KEY) || '{"top":"60px","right":"10px"}');
-        const savedDim = JSON.parse(localStorage.getItem(DIM_KEY) || '{"width":"220px","height":"auto"}');
+        // A previous minimized state could overwrite DIM_KEY with "35px",
+        // leaving the expanded UI clipped or an empty panel after a resize.
+        let savedDim = {};
+        try { savedDim = JSON.parse(localStorage.getItem(DIM_KEY) || '{}') || {}; }
+        catch (_) { savedDim = {}; }
+        const availableWidth = Math.max(180, window.innerWidth - 16);
+        const availableHeight = Math.max(160, window.innerHeight - 20);
+        const savedWidth = Number.parseInt(savedDim.width, 10);
+        const savedHeight = Number.parseInt(savedDim.height, 10);
+        const panelWidth = Math.min(Math.max(Number.isFinite(savedWidth) ? savedWidth : 260, 200), availableWidth) + 'px';
+        // Reject the corrupted collapsed height while keeping valid user resizing.
+        let expandedHeight = Math.min(
+            Number.isFinite(savedHeight) && savedHeight >= 280 ? savedHeight : 620,
+            availableHeight
+        ) + 'px';
 
         const panelHtml = `
-            <div id="pro_builder_panel" style="position: fixed; top: ${savedPos.top}; left: ${savedPos.left || 'auto'}; right: ${savedPos.right || '10px'}; width: ${savedDim.width}; height: ${savedDim.height}; z-index: 10000; background: #f4e4bc; border: 2px solid #7d510f; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
+            <div id="pro_builder_panel" style="position: fixed; top: ${savedPos.top}; left: ${savedPos.left || 'auto'}; right: ${savedPos.right || '10px'}; width: ${panelWidth}; height: ${isMinimized ? '40px' : expandedHeight}; resize: ${isMinimized ? 'none' : 'both'}; z-index: 10000; background: #f4e4bc; border: 2px solid #7d510f; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
                 <div id="panel_header" style="display: flex; justify-content: space-between; align-items: center; background: #7d510f; color: white; padding: 5px 10px; border-top-left-radius: 6px; border-top-right-radius: 6px; cursor: move; height: 25px;">
                     <strong style="font-size: 12px;">Auto Builder Pro V3.3</strong>
                     <div style="display: flex; gap: 5px;">
@@ -358,13 +383,17 @@
         const header = document.getElementById("panel_header");
 
         const resizeObserver = new ResizeObserver(entries => {
-            for (let entry of entries) {
-                if (entry.target === panel) {
-                    localStorage.setItem(DIM_KEY, JSON.stringify({
-                        width: panel.style.width,
-                        height: panel.style.height
-                    }));
-                }
+            for (const entry of entries) {
+                if (entry.target !== panel || isMinimized) continue;
+                // Store only expanded dimensions: a collapsed height must
+                // never replace the user's last usable panel size.
+                const height = Math.round(panel.getBoundingClientRect().height);
+                if (height < 180) continue;
+                expandedHeight = height + 'px';
+                localStorage.setItem(DIM_KEY, JSON.stringify({
+                    width: Math.round(panel.getBoundingClientRect().width) + 'px',
+                    height: expandedHeight
+                }));
             }
         });
         resizeObserver.observe(panel);
@@ -399,12 +428,26 @@
             localStorage.setItem(POS_KEY, JSON.stringify({ top: panel.style.top, left: panel.style.left }));
         }
 
-        $("#min_btn").on('click', function() {
+        // Do not initiate the draggable header while clicking minimize.
+        $("#min_btn").on('mousedown', e => e.stopPropagation());
+        $("#min_btn").on('click', function(e) {
+            e.stopPropagation();
+            if (!isMinimized) {
+                const height = Math.round(panel.getBoundingClientRect().height);
+                if (height >= 180) {
+                    expandedHeight = height + 'px';
+                    localStorage.setItem(DIM_KEY, JSON.stringify({
+                        width: Math.round(panel.getBoundingClientRect().width) + 'px',
+                        height: expandedHeight
+                    }));
+                }
+            }
             isMinimized = !isMinimized;
-            localStorage.setItem(MIN_KEY, isMinimized);
-            $("#panel_content").toggle(!isMinimized);
+            localStorage.setItem(MIN_KEY, String(isMinimized));
+            $("#panel_content").css('display', isMinimized ? 'none' : 'flex');
+            panel.style.resize = isMinimized ? 'none' : 'both';
+            panel.style.height = isMinimized ? '40px' : expandedHeight;
             $(this).text(isMinimized ? '□' : '_');
-            panel.style.height = isMinimized ? "35px" : (JSON.parse(localStorage.getItem(DIM_KEY) || '{"height":"auto"}').height);
         });
 
         $(".add-btn-main, .plus-btn").on('click', function(e) {
