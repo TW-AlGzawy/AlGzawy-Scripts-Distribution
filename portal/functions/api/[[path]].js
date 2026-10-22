@@ -75,7 +75,7 @@ async function readAdminSession(req,env){
   if(parts.length!==4)return null;
   const [issued,expires,nonce,signature]=parts;
   const now=Math.floor(Date.now()/1000);
-  if(!/^\\d{10}$/.test(issued)||!/^\\d{10}$/.test(expires)||!/^[0-9a-f]{32}$/.test(nonce)
+  if(!/^[0-9]{10}$/.test(issued)||!/^[0-9]{10}$/.test(expires)||!/^[0-9a-f]{32}$/.test(nonce)
     ||!/^[0-9a-f]{64}$/.test(signature)||Number(expires)-Number(issued)!==ADMIN_TTL
     ||Number(issued)>now+30||Number(expires)<=now)return null;
   const unsigned=issued+'.'+expires+'.'+nonce;
