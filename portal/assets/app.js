@@ -18,7 +18,11 @@ async function api(path,options={}){
 }
 const errorArabic=err=>({
  unauthorized:'مفتاح الوصول غير صحيح أو الحساب غير فعال.',
- portal_not_configured:'البوابة لم تُربط بعد بقاعدة Cloudflare D1 والأسرار المطلوبة.',
+ portal_not_configured:'إعدادات Production ناقصة. افتح /api/status واقرأ حقل missing؛ تحقق من DB وPORTAL_HASH_PEPPER ثم أعد النشر.',
+ script_not_licensed:'هذا السكربت غير مشمول باشتراكك. تواصل مع الإدارة.',
+ subscription_inactive:'الاشتراك متوقف أو منتهي. تواصل مع الإدارة.',
+ device_pending_approval:'الجهاز بانتظار اعتماد المالك.',
+ device_proof_invalid:'تعذر إثبات هوية الجهاز المسجل.',
  global_status_unavailable:'تعذر قراءة مفتاح التحكم المركزي.',
  expired_or_used_code:'رمز الربط منتهي الصلاحية أو مستخدم.',
  invalid_script_settings:'الإعدادات المدخلة غير صالحة.',
@@ -41,11 +45,12 @@ function show(section){
 }
 document.querySelectorAll('[data-section]').forEach(el=>el.addEventListener('click',()=>show(el.dataset.section)));
 $('ownerEntrance').addEventListener('click',()=>{ $('adminNav').hidden=false;show('admin'); });
+$('ownerSignIn').addEventListener('click',()=>{document.body.classList.remove('auth-locked');$('loginOverlay').hidden=true;$('adminNav').hidden=false;show('admin');void loadCatalog();});
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 $('heroConnect').addEventListener('click',()=>show('devices'));
 $('heroStart').addEventListener('click',()=>state.user?$('catalog').scrollIntoView({behavior:'smooth'}):openLogin());
 function openLogin(){ $('loginOverlay').hidden=false; $('accessToken').focus();}
-function closeLogin(){$('loginOverlay').hidden=true;$('loginMessage').textContent='';$('accessToken').value='';}
+function closeLogin(){if(!state.user&&document.body.classList.contains('auth-locked'))return;$('loginOverlay').hidden=true;$('loginMessage').textContent='';$('accessToken').value='';}
 $('loginOpen').addEventListener('click',openLogin);
 $('closeLogin').addEventListener('click',closeLogin);
 $('loginOverlay').addEventListener('click',e=>{if(e.target===$('loginOverlay'))closeLogin();});
@@ -54,6 +59,7 @@ function signOut(showNotice=true){
  state.token='';state.user=null;state.prefs={};sessionStorage.removeItem('algzawy_portal_access');
  $('loginOpen').hidden=false;$('logoutButton').hidden=true;$('makePair').disabled=true;
  $('activateAll').disabled=true;$('deactivateAll').disabled=true;
+ document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;
  updateAccount();render();
  if(showNotice)toast('تم تسجيل الخروج');
 }
@@ -66,13 +72,14 @@ $('loginSubmit').addEventListener('click',async()=>{
    state.token=token;
    const me=await api('me');
    sessionStorage.setItem('algzawy_portal_access',token);
-   setUser(me);closeLogin();toast('أهلًا بك — تمت مزامنة حسابك');
+   setUser(me);closeLogin();await loadCatalog();toast('أهلًا بك — تمت مزامنة حسابك');
  }catch(err){
    state.token='';$('loginMessage').textContent=errorArabic(err);
  }finally{btn.disabled=false;}
 });
 $('accessToken').addEventListener('keydown',e=>{if(e.key==='Enter')$('loginSubmit').click();});
 function setUser(data){
+ document.body.classList.remove('auth-locked');
  state.user=data.user;state.global=data.global;state.prefs=data.scripts||{};
  $('loginOpen').hidden=true;$('logoutButton').hidden=false;
  $('makePair').disabled=false;$('activateAll').disabled=false;$('deactivateAll').disabled=false;
@@ -95,7 +102,7 @@ async function refreshCloud(){
  catch(_){state.global=null;updateCloud();}
 }
 function renderCounters(){
- $('metricAll').textContent=String(state.catalog.length||0);
+ $('metricAll').textContent=String(state.catalog.filter(x=>state.prefs[x.id]?.allowed).length||0);
  $('metricOn').textContent=state.user?String(Object.values(state.prefs).filter(x=>x?.enabled).length):'—';
 }
 async function loadCatalog(){
@@ -131,8 +138,8 @@ function card(item){
 function render(){
  const root=$('catalog');root.replaceChildren();
  const search=state.search.trim().toLowerCase();
- const items=state.catalog.filter(item=>(state.filter==='all'||item.category===state.filter)&&(!search||(item.name+' '+item.description).toLowerCase().includes(search)));
- if(!items.length){root.append(h('div','empty-state','لم نعثر على سكربتات مطابقة.'));renderCounters();return;}
+ const items=state.catalog.filter(item=>state.prefs[item.id]?.allowed&&(state.filter==='all'||item.category===state.filter)&&(!search||(item.name+' '+item.description).toLowerCase().includes(search)));
+ if(!items.length){root.append(h('div','empty-state',state.user?'لا توجد سكربتات مرخصة لهذا الاشتراك أو مطابقة للبحث. اطلب من الإدارة تحديد السكربتات المسموح بها.':'سجّل الدخول لعرض سكربتات اشتراكك.'));renderCounters();return;}
  const fragment=document.createDocumentFragment();items.forEach(item=>fragment.append(card(item)));root.append(fragment);renderCounters();
 }
 async function toggleScript(id,enabled,button){
@@ -140,7 +147,7 @@ async function toggleScript(id,enabled,button){
  try{
    const old=state.prefs[id]||{enabled:false,settings:{}};
    const result=await api('scripts/'+encodeURIComponent(id),{method:'PUT',body:{enabled,settings:old.settings||{}}});
-   state.prefs[id]={enabled:result.enabled,settings:result.settings};
+   state.prefs[id]={allowed:true,enabled:result.enabled,settings:result.settings};
    render();toast(enabled?'تم تفعيل السكربت — سيصل التغيير للمتصفح المربوط':'تم إيقاف السكربت');
  }catch(err){button.disabled=false;toast(errorArabic(err),true);}
 }
@@ -155,8 +162,7 @@ async function bulk(enabled){
  $('activateAll').disabled=$('deactivateAll').disabled=true;
  try{
    await api('scripts/bulk',{method:'POST',body:{enabled}});
-   Object.keys(state.prefs).forEach(id=>{state.prefs[id].enabled=enabled;});
-   for(const item of state.catalog){state.prefs[item.id]??={enabled,settings:{}};state.prefs[item.id].enabled=enabled;}
+   Object.keys(state.prefs).forEach(id=>{if(state.prefs[id].allowed)state.prefs[id].enabled=enabled;});
    toast(enabled?'تم حفظ تشغيل الكل — لا تُشغّل بدائل متعارضة معًا':'تم حفظ إيقاف الكل');render();
  }catch(err){toast(errorArabic(err),true);}
  finally{$('activateAll').disabled=$('deactivateAll').disabled=!state.user;}
@@ -233,6 +239,8 @@ async function loadUsers(){
      const row=h('div','user-row');
      const details=h('div');details.append(h('strong','',user.label),h('small','','الحالة: '+(user.active?'نشط':'معطّل')));
      row.append(details);
+     const manager=h('button','button button-outline button-sm','الصلاحيات والأجهزة');
+     manager.addEventListener('click',()=>void editSubscription(user));row.append(manager);
      if(user.active){
        const btn=h('button','button button-danger button-sm','تعطيل');
        btn.addEventListener('click',async()=>{
@@ -243,6 +251,85 @@ async function loadUsers(){
      }box.append(row);
    }
  }catch(err){toast(errorArabic(err),true);}
+}
+
+async function editSubscription(user){
+ const headers=adminHeaders();if(!headers)return;
+ let data;
+ try{data=await api('admin/users/'+encodeURIComponent(user.id)+'/entitlements',{auth:false,headers});}
+ catch(err){toast(errorArabic(err),true);return;}
+ if(!state.catalog.length)await loadCatalog();
+ const overlay=h('div','modal-overlay');overlay.id='subscriptionEditor';
+ const box=h('section','login-modal owner-detail');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');
+ const close=h('button','modal-close','×');close.type='button';close.addEventListener('click',()=>overlay.remove());
+ box.append(close,h('div','section-kicker','AlGzawy — حماية الاشتراكات'),h('h2','',user.label),h('p','',
+   'أنت وحدك تحدد السكربتات المسموحة لهذا الزبون. أي سكربت غير محدد لن يحصل على إذن التشغيل حتى لو كان ملف Tampermonkey مثبتًا.'));
+ const selector=h('div','subscription-selector'),allowed=new Set(data.allowedIds||[]),checks=[];
+ for(const item of state.catalog){
+   const label=h('label');const input=h('input');input.type='checkbox';input.checked=allowed.has(item.id);
+   label.append(input,h('span','',item.name));selector.append(label);checks.push({id:item.id,input});
+ }
+ const selectAll=h('button','button button-outline button-sm','تحديد الكل');selectAll.type='button';
+ selectAll.addEventListener('click',()=>checks.forEach(x=>x.input.checked=true));
+ const selectNone=h('button','button button-outline button-sm','إلغاء الكل');selectNone.type='button';
+ selectNone.addEventListener('click',()=>checks.forEach(x=>x.input.checked=false));
+ const save=h('button','button button-primary','حفظ السكربتات المسموحة');save.type='button';
+ save.addEventListener('click',async()=>{
+   save.disabled=true;
+   try{
+     const ids=checks.filter(x=>x.input.checked).map(x=>x.id);
+     await api('admin/users/'+encodeURIComponent(user.id)+'/entitlements',{method:'PUT',auth:false,headers,body:{allowedIds:ids}});
+     toast('تم تحديث ترخيص '+ids.length+' سكربتًا لهذا المشترك');
+   }catch(err){toast(errorArabic(err),true);}finally{save.disabled=false;}
+ });
+ box.append(h('h3','','السكربتات المرخّصة'),selector);
+ const actions=h('div','owner-actions');actions.append(selectAll,selectNone,save);box.append(actions);
+ const sub=h('div','device-detail');sub.append(h('strong','','حالة الاشتراك وتاريخ انتهائه'));
+ const active=h('input');active.type='checkbox';active.checked=data.subscription?.active!==0;
+ const label=h('label');label.append(active,h('span','',' الاشتراك نشط'));sub.append(label);
+ const date=h('input');date.type='date';date.value=data.subscription?.expires_at?new Date(data.subscription.expires_at*1000).toISOString().slice(0,10):'';
+ date.style.cssText='padding:8px;background:#102536;color:white;border:1px solid #49687b;border-radius:7px;display:block;margin:9px 0;';
+ sub.append(h('span','','تاريخ الانتهاء (اختياري):'),date);
+ const updateSub=h('button','button button-outline button-sm','حفظ حالة الاشتراك');
+ updateSub.addEventListener('click',async()=>{
+   const expiresAt=date.value?Math.floor(Date.parse(date.value+'T23:59:59Z')/1000):null;
+   try{await api('admin/users/'+encodeURIComponent(user.id)+'/subscription',{method:'PUT',auth:false,headers,body:{active:active.checked,expiresAt}});toast('تم تحديث حالة الاشتراك');}
+   catch(err){toast(errorArabic(err),true);}
+ });sub.append(updateSub);box.append(sub);
+ box.append(h('h3','','الأجهزة — اعتماد يدوي فقط'));
+ const devices=h('div');
+ if(!data.devices?.length)devices.append(h('p','','لا يوجد جهاز مرتبط. بعد استخدام رمز الربط سيظهر طلب اعتماد هنا.'));
+ for(const device of data.devices||[]){
+   const item=h('div','device-detail');
+   item.append(h('strong','',device.approved?'✓ جهاز معتمد':'◷ بانتظار الموافقة'));
+   item.append(h('div','', 'المعرف: '+device.device_id));
+   item.append(h('div','', 'أول IP: '+(device.first_ip||'غير متاح')+' | آخر IP: '+(device.last_ip||'غير متاح')));
+   item.append(h('div','', 'آخر اتصال: '+(device.last_seen||'لم يتصل بعد')));
+   item.append(h('div','', 'المتصفح: '+(device.user_agent||'غير معروف')));
+   const row=h('div','owner-actions');
+   const approve=h('button','button button-primary button-sm','اعتماد هذا الجهاز (وإيقاف الجهاز السابق)');
+   approve.addEventListener('click',async()=>{
+     if(!confirm('اعتماد هذا الجهاز وإلغاء اعتماد أي جهاز سابق للمشترك؟'))return;
+     try{await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/approve',
+       {method:'POST',auth:false,headers,body:{}});toast('تم اعتماد الجهاز');overlay.remove();void editSubscription(user);}
+     catch(err){toast(errorArabic(err),true);}
+   });
+   const revoke=h('button','button button-danger button-sm','إلغاء اعتماد الجهاز');
+   revoke.addEventListener('click',async()=>{
+     try{await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/revoke',
+       {method:'POST',auth:false,headers,body:{}});toast('تم إلغاء الاعتماد');overlay.remove();void editSubscription(user);}
+     catch(err){toast(errorArabic(err),true);}
+   });
+   row.append(approve,revoke);item.append(row);devices.append(item);
+ }box.append(devices);
+ const events=h('div','device-detail');
+ events.append(h('strong','','سجل الأجهزة وتغيّرات الاتصال'));
+ for(const ev of (data.events||[]).slice(0,20))events.append(h('div','',(ev.occurred_at||'')+' — '+ev.event_type+' — '+(ev.ip||'')));
+ box.append(events);
+ const note=h('p','','تتغير عناوين IP تلقائيًا أحيانًا. نستخدم عنوان IP للمراقبة والسجل، وليس وحده لحظر العميل.');
+ note.style.fontSize='11px';box.append(note);
+ overlay.append(box);document.body.append(overlay);
+ overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
 }
 async function adminGlobal(action){
  const headers=adminHeaders();if(!headers)return;
@@ -271,8 +358,10 @@ $('createUser').addEventListener('click',async()=>{
  }catch(err){toast(errorArabic(err),true);}finally{btn.disabled=false;}
 });
 async function init(){
- updateAccount();await Promise.all([loadCatalog(),refreshCloud()]);
- if(state.token){try{setUser(await api('me'));}catch(_){signOut(false);}}
+ updateAccount();
+ if(state.token){try{setUser(await api('me'));await loadCatalog();}catch(_){signOut(false);}}
+ if(!state.user){document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;}
+ void refreshCloud();
  window.addEventListener('focus',()=>{if(document.visibilityState==='visible')void refreshCloud();});
  setInterval(()=>{if(document.visibilityState==='visible')void refreshCloud();},90000);
 }
