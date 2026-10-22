@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] بوت الصقل المطور AlG_COINS
+// @name         تجريبي - الغزااوي - الصقل المتطور
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.8
+// @version      1.0
 // @description  AlGzawy advanced minting/market engine recovered from prior v1.5 loader; requires live verification
 // @include      https://*.tribalwars.*/game.php?*screen=snob*
 // @include      https://*.tribalwars.*/game.php?*screen=market*mode=call*
@@ -68,7 +68,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] بوت الصقل المطور AlG_COINS",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - الصقل المتطور",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
