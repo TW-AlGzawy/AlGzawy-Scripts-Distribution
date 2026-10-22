@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] الإغارات الجماعية v9.2.4
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.2.4
+// @version      0.2.5
 // @description  Engine v9.2.4 with guarded groups 1–5; Cloudflare BETA; live game verification pending
 // @include      https://*/*=scavenge_mass*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const HUMAN_KEY = "algzawy_human_verification_pause";
   const LICENSE_UNTIL = "algzawy_portal_device_authorized_until";
   const LICENSE_ID = "algzawy_portal_approved_device";
-  const hasPortalLicense = () => {const t=Number(localStorage.getItem(LICENSE_UNTIL)||0);return !!localStorage.getItem(LICENSE_ID)&&t>Date.now()&&t<=Date.now()+180000;};
+  const hasPortalLicense = () => {const t=Number(localStorage.getItem(LICENSE_UNTIL)||0);return !!localStorage.getItem(LICENSE_ID)&&t>Date.now()&&t<=Date.now()+180000 && localStorage.getItem('algzawy_portal_grant_'+ID)==='1';};
   const HAS_GM_API = true;
   const POLL_MS = 5000;
   const REQUEST_TIMEOUT = 6000;
