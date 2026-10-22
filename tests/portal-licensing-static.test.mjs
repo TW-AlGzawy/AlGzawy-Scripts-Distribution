@@ -37,3 +37,18 @@ test('D1 migration makes device approvals unique and subscription grants explici
   assert.ok(bridge.includes("script.allowed===true&&script.enabled===true"),'Bridge must check both entitlement and enabled');
   assert.match(bridge,/setInterval\(checkPublisher,15000\)/);
 });
+
+test('Owner controls remain behind server-side admin authentication',()=>{
+  const html=read('portal/index.html');
+  const ui=read('portal/assets/app.js');
+  assert.match(html,/id="ownerAuth" hidden/);
+  assert.match(html,/id="ownerToken" type="password"/);
+  const begin=ui.indexOf("$('ownerAuthSubmit').addEventListener('click',async()=>{");
+  const end=ui.indexOf("$('menuBtn').addEventListener",begin);
+  assert.ok(begin>0&&end>begin,'owner login handler missing');
+  const ownerHandler=ui.slice(begin,end);
+  assert.ok(ownerHandler.indexOf("await api('admin/users'")>=0,'server must verify admin token');
+  assert.ok(ownerHandler.indexOf("await api('admin/users'")<ownerHandler.indexOf("document.querySelector('.app-shell').hidden=false"),'owner shell exposed before verification');
+  assert.ok(ui.includes("$('adminSecret').value='';"),'admin secret not cleared on logout');
+  assert.ok(!ui.includes("$('ownerEntrance').addEventListener('click',()=>{ $('adminNav').hidden=false;"),'owner footer bypasses auth');
+});
