@@ -375,6 +375,12 @@ test('Tab pinning must gate all 25 loaders before source execution',()=>{
    assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
    assert.match(src,/\/\/ @version\s+1\.0/);
    assert.match(src,/\/\/ @name\s+تجريبي - الغزااوي -/);
+   const engine=read('scripts/'+id+'.js'),item=catalog.find(x=>x.id===id);
+   assert.match(engine,/^\/\/ @name\s+تجريبي - الغزااوي -/m,id+' engine name');
+   assert.match(engine,/^\/\/ @version\s+1\.0/m,id+' engine version');
+   assert.equal(item.version,'1.0',id+' public catalog version');
+   assert.equal(item.name,src.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/loader names match');
+   assert.equal(item.name,engine.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/engine names match');
  }
  assert.match(bridge,/BroadcastChannel\('algzawy-tab-pins-bridge-v1'\)/);
  assert.match(bridge,/eraseClonedPins/);
