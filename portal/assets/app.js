@@ -44,8 +44,30 @@ function show(section){
  window.scrollTo({top:0,behavior:'instant'});
 }
 document.querySelectorAll('[data-section]').forEach(el=>el.addEventListener('click',()=>show(el.dataset.section)));
-$('ownerEntrance').addEventListener('click',()=>{ $('adminNav').hidden=false;show('admin'); });
-$('ownerSignIn').addEventListener('click',()=>{document.querySelector('.app-shell').hidden=false;document.body.classList.remove('auth-locked');$('loginOverlay').hidden=true;$('adminNav').hidden=false;show('admin');void loadCatalog();});
+$('ownerEntrance').addEventListener('click',()=>{openLogin();$('ownerAuth').hidden=false;$('ownerToken').focus();});
+$('ownerSignIn').addEventListener('click',()=>{$('ownerAuth').hidden=false;$('ownerToken').focus();});
+$('ownerToken').addEventListener('keydown',e=>{if(e.key==='Enter')$('ownerAuthSubmit').click();});
+$('ownerAuthSubmit').addEventListener('click',async()=>{
+  const token=$('ownerToken').value.trim();
+  if(token.length<32){$('loginMessage').textContent='أدخل رمز الإدارة الصحيح.';return;}
+  const button=$('ownerAuthSubmit');button.disabled=true;
+  try{
+    // Verify with the server BEFORE revealing any owner controls.
+    await api('admin/users',{auth:false,headers:{Authorization:'Bearer '+token}});
+    $('adminSecret').value=token;
+    $('ownerToken').value='';
+    document.querySelector('.app-shell').hidden=false;
+    document.body.classList.remove('auth-locked');
+    $('loginOverlay').hidden=true;
+    $('loginOpen').hidden=true;
+    $('logoutButton').hidden=false;
+    $('adminNav').hidden=false;
+    $('loginMessage').textContent='';
+    show('admin');
+    await loadUsers();
+  }catch(err){$('loginMessage').textContent=errorArabic(err);}
+  finally{button.disabled=false;}
+});
 $('menuBtn').addEventListener('click',()=>$('sidebar').classList.toggle('open'));
 $('heroConnect').addEventListener('click',()=>show('devices'));
 $('heroStart').addEventListener('click',()=>state.user?$('catalog').scrollIntoView({behavior:'smooth'}):openLogin());
@@ -57,6 +79,10 @@ $('loginOverlay').addEventListener('click',e=>{if(e.target===$('loginOverlay'))c
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('loginOverlay').hidden)closeLogin();});
 function signOut(showNotice=true){
  state.token='';state.user=null;state.prefs={};sessionStorage.removeItem('algzawy_portal_access');
+  $('adminSecret').value='';
+  $('ownerToken').value='';
+  $('ownerAuth').hidden=true;
+  $('adminNav').hidden=true;
  $('loginOpen').hidden=false;$('logoutButton').hidden=true;$('makePair').disabled=true;
  $('activateAll').disabled=true;$('deactivateAll').disabled=true;
  document.querySelector('.app-shell').hidden=true;document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;
@@ -82,6 +108,7 @@ function setUser(data){
  document.querySelector('.app-shell').hidden=false;
  document.body.classList.remove('auth-locked');
  state.user=data.user;state.global=data.global;state.prefs=data.scripts||{};
+  $('ownerAuth').hidden=true;
  $('loginOpen').hidden=true;$('logoutButton').hidden=false;
  $('makePair').disabled=false;$('activateAll').disabled=false;$('deactivateAll').disabled=false;
  updateAccount();updateCloud();render();
