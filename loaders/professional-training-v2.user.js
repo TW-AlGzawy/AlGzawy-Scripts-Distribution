@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] تدريب وحدات احترافي محسّن
+// @name         تجريبي - الغزااوي - بوت التدريب المحسّن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  Training engine 2.2.1; per-unit control, request tracking; BETA awaiting real-game QA
 // @match        https://*/*=train*
 // @run-at       document-end
@@ -64,7 +64,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] تدريب وحدات احترافي محسّن",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - بوت التدريب المحسّن",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
