@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
 globalThis.crypto ??= webcrypto;
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const source=read('portal/functions/api/[[path]].js');
@@ -395,4 +396,42 @@ test('Warehouse alert keeps its size state and position across reloads',()=>{
  assert.match(src,/setCollapsed\(layout\.collapsed\)/);
  assert.match(src,/localStorage\.setItem\(UI_KEY/);
  assert.match(src,/addEventListener\('pointerup',endDrag\)/);
+});
+
+test('25 loaders reject startup before tab pin but check cloud license once pinned',()=>{
+ for(const item of catalog){
+   const id=item.id;
+   const localValues=new Map([
+     ['algzawy_portal_device_authorized_until',String(Date.now()+60000)],
+     ['algzawy_portal_approved_device','test-device'],
+     ['algzawy_portal_grant_'+id,'1']
+   ]);
+   const sessionValues=new Map();
+   const callbacks=[];
+   const requests=[];
+   const win={
+     setTimeout(fn,delay){if(delay===650)callbacks.push(fn);return 1;},
+     setInterval(){return 2;},
+     addEventListener(){},
+     location:{reload(){throw Error('unexpected page reload')}}
+   };
+   const context={
+     window:win,console:{warn(){},error(){}},Date,
+     localStorage:{getItem:key=>localValues.get(key)??null,setItem:(key,value)=>localValues.set(key,value)},
+     sessionStorage:{getItem:key=>sessionValues.get(key)??null,setItem:(key,value)=>sessionValues.set(key,value),removeItem:key=>sessionValues.delete(key)},
+     document:{getElementById:()=>null,dispatchEvent(){},addEventListener(){}},
+     CustomEvent:class{constructor(name,options){this.type=name;this.detail=options?.detail;}},
+     Event:class{constructor(name){this.type=name;}},
+     GM_xmlhttpRequest:options=>{requests.push(options.url);},
+   };
+   vm.runInNewContext(read('loaders/'+id+'.user.js'),context,{filename:id+'.user.js'});
+   assert.equal(callbacks.length,1,id+': expected deferred initial policy check');
+   callbacks[0]();
+   assert.equal(requests.length,0,id+': unpinned tab MUST NOT fetch the source/status');
+   sessionValues.set('algzawy_tab_instance_v1','tab-a');
+   sessionValues.set('algzawy_tab_pins_ready_v1','tab-a');
+   sessionValues.set('algzawy_tab_pin_v1_'+id,'tab-a');
+   callbacks[0]();
+   assert.ok(requests.length>=1,id+': pinned and licensed tab should check cloud state');
+ }
 });
