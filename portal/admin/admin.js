@@ -63,6 +63,7 @@ async function openOwner(data){
    await loadCatalog();
    await loadUsers();
    await adminGlobal(null);
+   await loadScriptControls();
  }catch(err){toast(errorArabic(err),true);}
 }
 $('ownerLoginForm').addEventListener('submit',async e=>{
@@ -197,6 +198,34 @@ async function adminGlobal(action){
 $('adminGlobalRefresh').addEventListener('click',()=>adminGlobal(null));
 $('adminGlobalOn').addEventListener('click',()=>{if(confirm('تشغيل جميع سكربتات الزبائن المتصلة بالمنظومة؟'))adminGlobal(true);});
 $('adminGlobalOff').addEventListener('click',()=>{if(confirm('إيقاف جميع سكربتات الزبائن المرتبطة بالنظام؟'))adminGlobal(false);});
+const globalScriptView={all:[],filter:''};
+async function loadScriptControls(){
+  const data=await api('admin/scripts');
+  globalScriptView.all=data.scripts||[];
+  renderScriptControls();
+}
+function renderScriptControls(){
+  const box=$('adminScriptControls');box.replaceChildren();
+  const filter=globalScriptView.filter.trim().toLowerCase();
+  for(const x of globalScriptView.all.filter(x=>(x.name+' '+x.id).toLowerCase().includes(filter))){
+    const row=h('label','admin-script-row'),title=h('span','',x.name);
+    const input=h('input');input.type='checkbox';input.checked=x.enabled;
+    input.setAttribute('aria-label','تفعيل '+x.name);
+    const status=h('small','',x.enabled?'ON':'OFF');
+    input.addEventListener('change',async()=>{
+      const on=input.checked;
+      if(!on&&!confirm('إيقاف '+x.name+' لجميع المشتركين؟')){input.checked=x.enabled;return;}
+      input.disabled=true;
+      try{await api('admin/scripts',{method:'PUT',body:{id:x.id,enabled:on}});
+        x.enabled=on;status.textContent=on?'ON':'OFF';toast('تم تحديث '+x.name);
+      }catch(err){input.checked=x.enabled;toast(errorArabic(err),true);}
+      finally{input.disabled=false;}
+    });
+    row.append(title,input,status);box.append(row);
+  }
+}
+$('adminScriptSearch').addEventListener('input',e=>{globalScriptView.filter=e.target.value;renderScriptControls();});
+$('adminScriptReload').addEventListener('click',()=>loadScriptControls().catch(e=>toast(errorArabic(e),true)));
 $('adminLoad').addEventListener('click',loadUsers);
 $('createUser').addEventListener('click',async()=>{
  
