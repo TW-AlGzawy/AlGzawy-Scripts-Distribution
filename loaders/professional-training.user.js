@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] تدريب وحدات احترافي
+// @name         تجريبي - الغزااوي - التدريب الاحترافي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة Beta للتجربة بموافقة المستخدم فقط وربط Cloudflare
 // @match        https://*.tribalwars.ae/game.php?*
 // @run-at       document-end
@@ -62,7 +62,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] تدريب وحدات احترافي",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - التدريب الاحترافي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
