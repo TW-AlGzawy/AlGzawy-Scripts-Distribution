@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] تدريب وحدات احترافي محسّن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  Training engine 2.2.1; per-unit control, request tracking; BETA awaiting real-game QA
 // @match        https://*/*=train*
 // @run-at       document-end
