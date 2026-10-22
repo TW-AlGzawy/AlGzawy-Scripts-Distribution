@@ -25,6 +25,7 @@
 
   // Keep the exact legacy keys: upgrading the UI must not lose any village queue.
   const STATUS_KEY='autoBuilderStatus_'+ID;
+  const QA_ARMED_KEY='algzawy_traditional_qa_armed_v2_'+ID;
   const QUEUE_KEY='autoBuilderQueue';
   const LAYOUT_KEY='algzawy_traditional_layout_v2_'+ID;
   const INSTANT_KEY='algzawy_traditional_instant_free_v2_'+ID;
@@ -53,7 +54,9 @@
     ?queueRecord.buildingQueue.filter(id=>typeof id==='string'&&Object.hasOwn(LABELS,id)).slice(0,500):[];
   let queueLength=Number.isInteger(Number(queueRecord.buildingQueueLength))
     ?Math.max(1,Math.min(MAX_LENGTH,Number(queueRecord.buildingQueueLength))):DEFAULT_LENGTH;
-  let isRunning=localStorage.getItem(STATUS_KEY)==='true';
+  // Never launch a new QA pilot automatically solely because V1 saved ON.
+  // After the operator explicitly starts V2 once, preserve its own restart intent.
+  let isRunning=localStorage.getItem(STATUS_KEY)==='true'&&localStorage.getItem(QA_ARMED_KEY)==='1';
   let processing=false,pendingTimer=null,loop=null,refreshTimer=null,stoppedByPolicy=false,panel=null,body=null;
   let instantEnabled=localStorage.getItem(INSTANT_KEY)!=='false',instantPending=false,lastInstantAt=0,instantTimer=null;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
@@ -66,7 +69,7 @@
     all[ID]={buildingQueue:buildingQueue.slice(),buildingQueueLength:queueLength};
     localStorage.setItem(QUEUE_KEY,JSON.stringify(all));
   }
-  function saveStatus(){localStorage.setItem(STATUS_KEY,String(isRunning));}
+  function saveStatus(){localStorage.setItem(QA_ARMED_KEY,'1');localStorage.setItem(STATUS_KEY,String(isRunning));}
   function policyOK(){
     if (stoppedByPolicy||localStorage.getItem(HUMAN_KEY)==='1')return false;
     if (localStorage.getItem(LOCAL_KEY)==='false')return false;
