@@ -24,7 +24,6 @@
         <button type="button" class="nav-link active" data-section="scripts"><span class="nav-emoji">◫</span> مركز السكربتات <span class="nav-arrow">←</span></button>
         <button type="button" class="nav-link" data-section="devices"><span class="nav-emoji">▣</span> ربط اللعبة <span class="nav-arrow">←</span></button>
         <button type="button" class="nav-link" data-section="account"><span class="nav-emoji">♙</span> الحساب والاشتراك <span class="nav-arrow">←</span></button>
-        <button type="button" class="nav-link" id="adminNav" data-section="admin" hidden><span class="nav-emoji">⚙</span> إدارة الزبائن <span class="nav-arrow">←</span></button>
       </nav>
       <div class="sidebar-bottom">
         <div class="sidebar-tip">
@@ -107,18 +106,8 @@
           <div class="account-card"><div class="account-avatar">AG</div><div><small>المستخدم</small><h2 id="accountName">لم تسجّل الدخول بعد</h2><p id="accountStatus">سجّل الدخول بمفتاح الوصول الذي تسلمته من الإدارة لتغيير تفعيل سكربتاتك.</p></div></div>
           <div class="note-panel"><strong>أمان الحساب</strong><p>يُحفظ مفتاح الوصول في جلسة المتصفح فقط، ولا يُرسل إلى GitHub أو إلى سكربتات اللعبة. رمز الربط ينشئ اعتماد جهاز مستقل قابلًا للإلغاء من جانب الإدارة.</p></div>
         </section>
-        <section id="section-admin" class="section">
-          <div class="page-header"><span class="section-kicker">الإدارة</span><h1>إدارة حسابات الزبائن</h1><p>خاص بالمالك. أدخل رمز إدارة البوابة لإضافة حسابات وإيقاف وصولها. لا تشارك مفتاح الإدارة مع المستخدمين.</p></div>
-          <div class="admin-grid">
-            <div class="settings-card"><h3>تأكيد صلاحيات الإدارة</h3><label for="adminSecret">مفتاح الإدارة</label><input id="adminSecret" type="password" autocomplete="off" placeholder="PORTAL_ADMIN_TOKEN"><button id="adminLoad" type="button" class="button button-primary">عرض المستخدمين</button><p class="field-note">يُستخدم مؤقتًا في الصفحة ولا يُحفظ محليًا.</p></div>
-            <div class="settings-card"><h3>إضافة زبون</h3><label for="newUser">اسم الزبون</label><input id="newUser" type="text" maxlength="80" placeholder="اسم الحساب"><button id="createUser" type="button" class="button button-outline">إنشاء مفتاح وصول</button><div id="createdSecret" class="generated-secret" hidden></div></div>
-          </div>
-          <div class="settings-card owner-global-card"><h3>مفتاح التشغيل المركزي</h3><p class="field-note">يؤثر على جميع السكربتات المدعومة، تمامًا مثل لوحة Cloudflare القديمة.</p><div class="bulk-controls"><button id="adminGlobalOn" class="button button-primary" type="button">تشغيل المنظومة ON</button><button id="adminGlobalOff" class="button button-danger" type="button">إيقاف المنظومة OFF</button><button id="adminGlobalRefresh" class="button button-outline" type="button">تحديث الحالة</button></div><p id="adminGlobalMessage" class="field-note"></p></div>
-          <div class="settings-card users-card"><h3>الحسابات الموجودة</h3><div id="adminUsers" class="users-list"><p>سجل الدخول ببيانات الإدارة لاستعراض الحسابات.</p></div></div>
-          <a class="text-link" href="https://algzawy-control-api.karm-saleh-usa2.workers.dev/admin" target="_blank" rel="noopener noreferrer">فتح لوحة الإيقاف المركزي القديمة ↗</a>
-        </section>
       </main>
-      <footer class="footer"><span>© AlGzawy Cloud Control · جميع الحقوق محفوظة</span><span>Cloudflare Free · Secure Sync · BETA <button id="ownerEntrance" class="owner-entrance" type="button">لوحة الإدارة</button></span></footer>
+      <footer class="footer"><span>© AlGzawy Cloud Control · جميع الحقوق محفوظة</span><span>Cloudflare Free · Secure Sync · BETA </span></footer>
     </div>
   </div>
   <div id="loginOverlay" class="modal-overlay">
@@ -131,12 +120,7 @@
       <input id="accessToken" type="password" spellcheck="false" autocomplete="off" placeholder="alg_u_••••••••••••">
       <button id="loginSubmit" type="button" class="button button-primary button-full">تسجيل الدخول ←</button>
       <p id="loginMessage" class="login-message" role="alert"></p>
-      <div id="ownerAuth" hidden>
-        <label for="ownerToken">رمز إدارة الموقع</label>
-        <input id="ownerToken" type="password" autocomplete="off" spellcheck="false" placeholder="رمز الإدارة">
-        <button id="ownerAuthSubmit" type="button" class="button button-primary button-full">التحقق والدخول إلى الإدارة</button>
-      </div>
-      <div class="login-footer"><a href="https://t.me/Karam_AlGzawy" target="_blank" rel="noopener noreferrer">ليس لديك اشتراك؟ تواصل مع الإدارة</a><button type="button" id="ownerSignIn">دخول المالك</button></div>
+      <div class="login-footer"><a href="https://t.me/Karam_AlGzawy" target="_blank" rel="noopener noreferrer">ليس لديك اشتراك؟ تواصل مع الإدارة</a></div>
       <p class="login-privacy">الاشتراك يتم من خلال الإدارة فقط؛ لا توجد إمكانية لإنشاء حساب بنفسك.</p>
     </section>
   </div>
