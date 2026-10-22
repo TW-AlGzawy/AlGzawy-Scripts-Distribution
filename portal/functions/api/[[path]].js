@@ -233,7 +233,9 @@ async function handler(req,env){
     const hasAdmin=adminOK(req,env)||!!(await readAdminSession(req,env));
     const currentUser=hasAdmin?null:(await bearer(req,env,'user'))||(await readSubscriberSession(req,env))?.user;
     if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
-    return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+    if(currentUser&&!(await subscriptionOK(env,currentUser.id)))return bad('subscription_inactive',403);
+    const licensed=hasAdmin?new Set(GROUPS.map(([id])=>id)):await allowedSet(env,currentUser.id);
+    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
   }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
