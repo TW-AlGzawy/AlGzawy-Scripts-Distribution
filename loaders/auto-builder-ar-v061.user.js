@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy] البناء التقليدي
+// @name         تجريبي - الغزااوي - البناء التقليدي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة Beta؛ اختبار منفصل قبل الاعتماد الوظيفي
 // @match        https://*/game.php?village=*&screen=main*
 // @run-at       document-end
@@ -63,7 +63,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"البناء التقليدي",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - البناء التقليدي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
