@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] بوت السوق غزااوي (v7.0)
+// @name         تجريبي - الغزااوي - بوت السوق
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
 // @match        https://*/*=exchange*
 // @run-at       document-end
@@ -64,7 +64,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] بوت السوق غزااوي (v7.0)",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - بوت السوق",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
