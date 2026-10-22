@@ -25,3 +25,9 @@
 .owner-page .user-row>button{flex:1 0 145px;max-width:220px}
 .owner-page .owner-brand .brand-mark{display:grid;place-items:center;direction:ltr;font-size:19px;letter-spacing:-.045em}
 @media(max-width:620px){.owner-page .user-row>button{max-width:none}}
+
+.admin-script-controls{max-height:420px;overflow-y:auto;display:grid;gap:7px;padding:8px 0}
+.admin-script-row{display:flex!important;align-items:center;gap:12px;padding:10px;border:1px solid #2c5063;border-radius:9px;min-width:0;cursor:pointer}
+.admin-script-row span{flex:1;min-width:0;overflow-wrap:anywhere}
+.admin-script-row input{width:22px;flex:none;margin:0;accent-color:#24cba9}
+.admin-script-row small{min-width:30px;color:#83e7cf}
