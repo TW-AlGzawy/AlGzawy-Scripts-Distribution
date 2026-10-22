@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         Auto Builder - عربي
-// @version      0.5.4
+// @name         تجريبي - الغزااوي - البناء العربي القديم
+// @version      1.0
 // @description  يضيف المباني إلى قائمة البناء تلقائيًا
 // @author       غزااوي
 // @match        https://*/game.php?village=*&screen=main*

@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         سكربت الغزاوي للإغارات (الإصدار 9.2 - لوحة تحكم مطورة)
+// @name         تجريبي - الغزااوي - الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      9.2.4
+// @version      1.0
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -44,7 +44,7 @@
                         <span id="minimize-btn" title="تصغير" style="font-weight: bold; font-size: 16px;">—</span>
                         <span id="maximize-btn" title="تكبير" style="display: none; font-weight: bold; font-size: 16px;">+</span>
                     </div>
-                    <h4 style="margin:0; color: #542e0a; order: 2; font-size: 14px;">سكربت الاغارات - AlGzawy</h4>
+                    <h4 style="margin:0; color: #542e0a; order: 2; font-size: 14px;">تجريبي - الغزااوي - الإغارات الجماعية</h4>
                 </div>
                 <div id="algzawy-body" style="padding: 10px; text-align: center;">
                     <button id="toggle-bot-btn" class="btn" style="width: 100%; margin-bottom: 10px;"></button>

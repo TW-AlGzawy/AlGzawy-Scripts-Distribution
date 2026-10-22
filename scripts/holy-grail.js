@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         The Holy Grail LLLLL - Complete Per-Tab Settings with Bot Detection Sound
-// @version      3.1
+// @name         تجريبي - الغزااوي - المساعد المتكامل
+// @version      1.0
 // @author       Anonymous
 // @description  TW Auto Helper with sound alert for bot detection
 // @match        https://*.tribalwars.ae/game.php?*

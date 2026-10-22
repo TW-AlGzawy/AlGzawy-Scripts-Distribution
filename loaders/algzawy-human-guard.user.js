@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Human Verification Safety Guard
+// @name         تجريبي - الغزااوي - مراقبة التحقق البشري
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.1
+// @version      1.0
 // @description  Always-on, local safety observer: pauses managed bot loaders if a human-verification challenge appears.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*

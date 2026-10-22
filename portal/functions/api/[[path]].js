@@ -2,31 +2,31 @@
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
-  ['mass-scavenge-v1','الإغارات الجماعية','raids','إدارة مجموعات الإغارات الخمس'],
-  ['bot-farm-2','بوت النهب A/B/C','raids','القوالب وسرعة النهب والتنقل بين القرى'],
-  ['alg-balance','موازنة الموارد','resources','موازنة الموارد بين القرى'],
-  ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء الاحترافي','build','طابور البناء والأولويات'],
-  ['auto-builder-ar-v061','البناء التقليدي','build','إدارة البناء من صفحة القرية'],
-  ['professional-training-v2','بوت التدريب المحسّن','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
-  ['send-automation','الإرساليات الدقيقة','military','تحديد إرسال أو وصول القوات'],
-  ['attack-renamer','تسمية الهجمات القادمة','military','تسمية الهجمات عبر QuickEdit'],
-  ['alg-attacks','تنبيه الهجمات','military','تنبيهات الهجمات الواردة'],
-  ['warehouse-alert-safe','تنبيه امتلاء المخازن','resources','تنبيه حسب نسبة الامتلاء'],
-  ['polish-all-in-one','بوت الصقل المتكامل','resources','الصقل وإدارة الموارد'],
-  ['alg-coins','الصقل المتطور AlGzawy','resources','محرك الصقل والسوق المتطور'],
-  ['market-bot-v7','بوت السوق','resources','الموارد والسوق'],
-  ['auto-builder-ar-v054','البناء العربي V0.54','build','نسخة بناء سابقة'],
-  ['auto-builder-pro-algzawy-v3-0-free-finish','البناء V3.0','build','نسخة البناء القديمة'],
-  ['training-edition','تدريب AlGzawy Edition','training','نسخة تدريب بديلة'],
-  ['professional-training','تدريب احترافي','training','نسخة تدريب سابقة'],
-  ['light','تدريب Light','training','تدريب وحدات خفيف'],
-  ['train-master-b','Train Master B','training','نظام تدريب آخر'],
-  ['reserve-smart-v5','Smart Reserve V5','military','الحجز الذكي'],
-  ['reserve-smart-v4','Smart Reserve V4','military','نسخة الحجز السابقة'],
-  ['reserve-correct-v2','Correct Reserve V2','military','الحجز'],
-  ['auto-reserve-barbarians','حجز القرى البربرية','military','إدارة حجوزات القرى'],
-  ['holy-grail','The Holy Grail','tools','أدوات تبويب اللعبة'],
-  ['tribal-wars-helper','جامع الجوائز التلقائي','tools','أدوات ومساعدات']
+  ['mass-scavenge-v1','تجريبي - الغزااوي - الإغارات الجماعية','raids','إدارة مجموعات الإغارات الخمس'],
+  ['bot-farm-2','تجريبي - الغزااوي - بوت النهب','raids','القوالب وسرعة النهب والتنقل بين القرى'],
+  ['alg-balance','تجريبي - الغزااوي - موازنة الموارد','resources','موازنة الموارد بين القرى'],
+  ['auto-builder-pro-algzawy-v3-3-fixed-queue','تجريبي - الغزااوي - البناء الاحترافي','build','طابور البناء والأولويات'],
+  ['auto-builder-ar-v061','تجريبي - الغزااوي - البناء التقليدي','build','إدارة البناء من صفحة القرية'],
+  ['professional-training-v2','تجريبي - الغزااوي - بوت التدريب المحسّن','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
+  ['send-automation','تجريبي - الغزااوي - الإرساليات الدقيقة','military','تحديد إرسال أو وصول القوات'],
+  ['attack-renamer','تجريبي - الغزااوي - تسمية الهجمات','military','تسمية الهجمات عبر QuickEdit'],
+  ['alg-attacks','تجريبي - الغزااوي - تنبيه الهجمات','military','تنبيهات الهجمات الواردة'],
+  ['warehouse-alert-safe','تجريبي - الغزااوي - تنبيه المخازن','resources','تنبيه حسب نسبة الامتلاء'],
+  ['polish-all-in-one','تجريبي - الغزااوي - الصقل المتكامل','resources','الصقل وإدارة الموارد'],
+  ['alg-coins','تجريبي - الغزااوي - الصقل المتطور','resources','محرك الصقل والسوق المتطور'],
+  ['market-bot-v7','تجريبي - الغزااوي - بوت السوق','resources','الموارد والسوق'],
+  ['auto-builder-ar-v054','تجريبي - الغزااوي - البناء العربي القديم','build','نسخة بناء سابقة'],
+  ['auto-builder-pro-algzawy-v3-0-free-finish','تجريبي - الغزااوي - البناء الاحترافي القديم','build','نسخة البناء القديمة'],
+  ['training-edition','تجريبي - الغزااوي - التدريب البديل','training','نسخة تدريب بديلة'],
+  ['professional-training','تجريبي - الغزااوي - التدريب الاحترافي','training','نسخة تدريب سابقة'],
+  ['light','تجريبي - الغزااوي - التدريب الخفيف','training','تدريب وحدات خفيف'],
+  ['train-master-b','تجريبي - الغزااوي - مدرب الجنود','training','نظام تدريب آخر'],
+  ['reserve-smart-v5','تجريبي - الغزااوي - الحجز الذكي الخامس','military','الحجز الذكي'],
+  ['reserve-smart-v4','تجريبي - الغزااوي - الحجز الذكي الرابع','military','نسخة الحجز السابقة'],
+  ['reserve-correct-v2','تجريبي - الغزااوي - الحجز المصحح','military','الحجز'],
+  ['auto-reserve-barbarians','تجريبي - الغزااوي - حجز القرى البربرية','military','إدارة حجوزات القرى'],
+  ['holy-grail','تجريبي - الغزااوي - المساعد المتكامل','tools','أدوات تبويب اللعبة'],
+  ['tribal-wars-helper','تجريبي - الغزااوي - جامع الجوائز التلقائي','tools','أدوات ومساعدات']
 ];
 const IDS = new Set(GROUPS.map(x=>x[0]));
 const FAV = new Set(GROUPS.slice(0,10).map(x=>x[0]));
@@ -84,7 +84,7 @@ async function readAdminSession(req,env){
 
 
 const SUB_COOKIE='algzawy_subscriber_session';
-const SUB_TTL=4*24*60*60; // 96 hours: more than three complete days
+const SUB_TTL=7*24*60*60; // seven consecutive days; closed by explicit logout or account revocation
 const subscriberCookie=(value,age)=>SUB_COOKIE+'='+value+'; Path=/api; Max-Age='+age+'; Secure; HttpOnly; SameSite=Strict';
 async function subscriberMac(env,message){
  const key=await crypto.subtle.importKey('raw',encoder.encode(env.PORTAL_HASH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);
@@ -402,9 +402,42 @@ async function handler(req,env){
       await accessEvent(env,req,uid,deviceId,path[5]==='approve'?'device_approved':'device_revoked');
       return reply({ok:true});
     }
+
+    if(path[1]==='users'&&path.length===4&&['archive','restore'].includes(path[3])){
+      if(req.method!=='POST')return bad('method_not_allowed',405);
+      const uid=path[2],action=path[3];
+      let result;
+      if(action==='archive'){
+        // Idempotent, but only disabled accounts may enter the archive.
+        result=await env.DB.prepare(
+          "INSERT OR IGNORE INTO portal_archived_users(user_id) SELECT id FROM portal_users WHERE id=? AND active=0"
+        ).bind(uid).run();
+      }else{
+        result=await env.DB.prepare(
+          "DELETE FROM portal_archived_users WHERE user_id=? AND EXISTS(SELECT 1 FROM portal_users WHERE id=? AND active=0)"
+        ).bind(uid,uid).run();
+      }
+      if(!result.meta?.changes)return bad('account_not_eligible',409);
+      await accessEvent(env,req,uid,null,action==='archive'?'account_archived':'account_restored');
+      return reply({ok:true,userId:uid,archived:action==='archive'});
+    }
+    if(path[1]==='users'&&path.length===4&&path[3]==='delete'){
+      if(req.method!=='DELETE')return bad('method_not_allowed',405);
+      const uid=path[2];
+      // The user must be disabled. SQLite FK ON DELETE CASCADE removes its
+      // devices, keys, grants, preferences, codes, sessions and related logs.
+      const result=await env.DB.prepare('DELETE FROM portal_users WHERE id=? AND active=0').bind(uid).run();
+      if(!result.meta?.changes)return bad('account_not_eligible',409);
+      // Preserve an anonymous tombstone reference after child audit rows cascade.
+      await accessEvent(env,req,null,null,'account_deleted:'+uid);
+      return reply({ok:true,deleted:true});
+    }
     if(path[1]==='users'&&path.length===2){
       if(req.method==='GET'){
-        const x=await env.DB.prepare('SELECT id,label,active,created_at FROM portal_users ORDER BY created_at DESC LIMIT 200').all();
+        const x=await env.DB.prepare(
+          'SELECT u.id,u.label,u.active,u.created_at,CASE WHEN a.user_id IS NULL THEN 0 ELSE 1 END AS archived '
+          +'FROM portal_users u LEFT JOIN portal_archived_users a ON a.user_id=u.id ORDER BY u.created_at DESC LIMIT 200'
+        ).all();
         return reply({ok:true,users:x.results||[]});
       }
       if(req.method==='POST'){

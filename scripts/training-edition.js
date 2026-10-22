@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Bot-تدريب-- AlGzawy Edition
+// @name         تجريبي - الغزااوي - التدريب البديل
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.0
 // @match        https://*/*=train*
 // @grant        GM_setValue
 // @grant        GM_getValue

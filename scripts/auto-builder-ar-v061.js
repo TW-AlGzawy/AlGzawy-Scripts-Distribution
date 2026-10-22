@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         البناء التقليدي — AlGzawy
-// @version      0.6.2
+// @name         تجريبي - الغزااوي - البناء التقليدي
+// @version      1.0
 // @description  بناء تلقائي للمباني + حفظ حالة التشغيل + دعم الأكاديمية
 // @author       غزااوي
 // @match        https://*/game.php?village=*&screen=main*

@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         جامع الجوائز التلقائي — AlGzawy
+// @name         تجريبي - الغزااوي - جامع الجوائز التلقائي
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      1.0
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*

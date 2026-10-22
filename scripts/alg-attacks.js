@@ -1,3 +1,5 @@
+// @version      1.0
+// @name         تجريبي - الغزااوي - تنبيه الهجمات
 (function () {
     'use strict';
 

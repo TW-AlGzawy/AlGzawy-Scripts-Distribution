@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
+// @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.5
+// @version      1.0
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -26,6 +26,72 @@
     'train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians',
     'holy-grail','tribal-wars-helper'
   ];
+  // Pin state is TAB-local convenience, never an authentication or licensing proof.
+  // A duplicated tab may inherit sessionStorage, so a live-tab handshake clears
+  // inherited pins when the original tab is still open.
+  const TAB_ID_KEY='algzawy_tab_instance_v1';
+  const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
+  const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
+  const scriptLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","auto-builder-pro-algzawy-v3-3-fixed-queue":"تجريبي - الغزااوي - البناء الاحترافي","auto-builder-ar-v061":"تجريبي - الغزااوي - البناء التقليدي","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","auto-builder-ar-v054":"تجريبي - الغزااوي - البناء العربي القديم","auto-builder-pro-algzawy-v3-0-free-finish":"تجريبي - الغزااوي - البناء الاحترافي القديم","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي"};
+  let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
+  sessionStorage.setItem(TAB_ID_KEY,tabId);
+  sessionStorage.removeItem(TAB_READY_KEY);
+  const processId=crypto.randomUUID();
+  let tabReady=false;
+  let licensedPins=new Set();
+  const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('algzawy-tab-pins-bridge-v1'):null;
+  function eraseClonedPins(){
+    for(const id of known)sessionStorage.removeItem(TAB_PIN_PREFIX+id);
+    tabId=crypto.randomUUID();sessionStorage.setItem(TAB_ID_KEY,tabId);
+    sessionStorage.removeItem(TAB_READY_KEY);
+    tabReady=false;
+  }
+  if(channel)channel.addEventListener('message',event=>{
+    const data=event.data;
+    if(!data||data.tabId!==tabId||data.sender===processId)return;
+    if(data.type==='probe'&&tabReady)channel.postMessage({type:'alive',tabId,sender:processId});
+    if(data.type==='alive'&&!tabReady)eraseClonedPins();
+  });
+  // Fail closed in browsers without BroadcastChannel; those cannot detect
+  // a cloned tab inheriting the same sessionStorage.
+  if(channel){
+    channel.postMessage({type:'probe',tabId,sender:processId});
+    setTimeout(()=>{
+      tabReady=true;
+      sessionStorage.setItem(TAB_READY_KEY,tabId);
+      document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
+      renderPinControls();
+    },450);
+  }
+  window.addEventListener('pagehide',()=>{sessionStorage.removeItem(TAB_READY_KEY);channel?.close();});
+  const pinned=id=>tabReady&&sessionStorage.getItem(TAB_PIN_PREFIX+id)===tabId;
+  function setTabPin(id,on){
+    if(!tabReady||!known.includes(id))return;
+    if(on)sessionStorage.setItem(TAB_PIN_PREFIX+id,tabId);
+    else sessionStorage.removeItem(TAB_PIN_PREFIX+id);
+    document.dispatchEvent(new Event('algzawy-tab-pin-changed'));
+    renderPinControls();
+  }
+  function renderPinControls(){
+    const holder=document.getElementById('algzawy-cloud-tab-list');
+    if(!holder)return;
+    holder.replaceChildren();
+    if(!channel){holder.textContent='هذا المتصفح لا يدعم عزل التبويبات المطلوب.';return;}
+    if(!tabReady){holder.textContent='التحقق من هوية التبويب...';return;}
+    if(!licensedPins.size){holder.textContent='لا تظهر السكربتات إلا بعد اعتماد الجهاز ومزامنة صلاحيات اشتراكك.';return;}
+    for(const id of known.filter(id=>licensedPins.has(id))){
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin:3px 0;padding:5px 2px;border-bottom:1px solid #31565a;flex-wrap:wrap';
+      const text=document.createElement('span');text.textContent=scriptLabels[id]||id;
+      const toggle=document.createElement('button');toggle.type='button';
+      toggle.textContent=pinned(id)?'إلغاء التثبيت':'📌 تثبيت بهذا التاب';
+      toggle.setAttribute('aria-pressed',String(pinned(id)));
+      toggle.setAttribute('aria-label',(pinned(id)?'إلغاء تثبيت ':'تثبيت ')+(scriptLabels[id]||id));
+      toggle.style.cssText='color:#d5fff7;background:#194f4c;border:1px solid #2ebbaa;padding:4px 7px;border-radius:5px;font-size:10px;cursor:pointer';
+      toggle.addEventListener('click',()=>setTabPin(id,!pinned(id)));
+      row.append(text,toggle);holder.appendChild(row);
+    }
+  }
   const storageKey=id=>'algzawy_local_enabled_'+id;
   const connection={
     origin:String(GM_getValue(keys.origin,'')||''),
@@ -141,6 +207,8 @@
     localStorage.setItem(key,newVal);return true;
   }
   function stopAll(){
+    licensedPins.clear();
+    renderPinControls();
     localStorage.removeItem(LICENSE_UNTIL);
     localStorage.removeItem(LICENSE_ID);
     let changed=false;
@@ -192,6 +260,8 @@
       if(!r.global||typeof r.global.enabled!=='boolean'||!r.scripts||typeof r.scripts!=='object')throw Error('استجابة مزامنة غير مكتملة');
       localStorage.setItem(LICENSE_UNTIL,String(Date.now()+120000));
       localStorage.setItem(LICENSE_ID,connection.device);
+      licensedPins=new Set(known.filter(id=>r.scripts[id]?.allowed===true));
+      renderPinControls();
       let changed=false;
       for(const id of known){
         const script=r.scripts[id];
@@ -235,6 +305,7 @@
       '<label style="display:block;margin-top:7px">رمز الربط المؤقت من الموقع<input id="algzawy-cloud-code" type="text" autocomplete="off" placeholder="alg_p_..." style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط المتصفح</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
+      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:170px;overflow-y:auto"></div></details>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
       '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
@@ -290,6 +361,7 @@
     hdr.addEventListener('pointermove',e=>{if(!drag)return;card.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';card.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';card.style.bottom='auto';});
     hdr.addEventListener('pointerup',()=>{drag=null;});
     linked();
+    renderPinControls();
   }
   function start(){
     render();

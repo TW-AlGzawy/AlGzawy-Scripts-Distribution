@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] تسمية الهجمات القادمة
+// @name         تجريبي - الغزااوي - تسمية الهجمات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.5
+// @version      1.0
 // @description  Incoming attack native QuickEdit optional labels; source 0.1.1; BETA not game-tested
 // @match        https://*.tribalwars.ae/game.php*screen=overview*
 // @match        https://*.tribalwars.net/game.php*screen=overview*
@@ -20,6 +20,13 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/attack-renamer.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "attack-renamer";
+  const TAB_ID_KEY='algzawy_tab_instance_v1';
+  const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
+  const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
+  const hasTabPin=()=>{
+    const tabId=sessionStorage.getItem(TAB_ID_KEY);
+    return !!tabId&&sessionStorage.getItem(TAB_READY_KEY)===tabId&&sessionStorage.getItem(TAB_PIN_PREFIX+ID)===tabId;
+  };
   const LOCAL_KEY = "algzawy_local_enabled_" + ID;
   const HUMAN_KEY = "algzawy_human_verification_pause";
   const LICENSE_UNTIL="algzawy_portal_device_authorized_until";
@@ -57,7 +64,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] تسمية الهجمات القادمة",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - تسمية الهجمات",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
@@ -187,6 +194,7 @@
   }
 
   async function checkPolicy() {
+    if(!hasTabPin()){stopCore('local');return;}
     if (checkInProgress) return;
     checkInProgress = true;
     try {
@@ -229,6 +237,7 @@
       if(!hasPortalLicense()){stopCore('license');return;}
           if (localStorage.getItem(HUMAN_KEY) === '1') { stopCore('human'); return; }
           if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
+          if(!hasTabPin()){stopCore('local');return;}
           startCore(code);
         } finally { executing = false; }
       }
@@ -247,7 +256,9 @@
     localStorage.setItem(HUMAN_KEY, '1');
     stopCore('human');
   });
-  checkPolicy();
+  document.addEventListener('algzawy-tab-pin-changed',()=>void checkPolicy());
+  document.addEventListener('algzawy-tab-pins-ready',()=>void checkPolicy());
+  window.setTimeout(()=>void checkPolicy(),650);
   // Active-tab checks only, to limit Cloudflare Free plan usage.
   window.setInterval(() => { if (document.visibilityState !== 'hidden') void checkPolicy(); }, POLL_MS);
   window.addEventListener('focus', () => { if (document.visibilityState === 'visible') void checkPolicy(); });

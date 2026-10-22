@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         تدريب وحدات احترافي
+// @name         تجريبي - الغزااوي - التدريب الاحترافي
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  تحكم في تدريب الوحدات مع إمكانية تحديد وقت الانتظار لكل وحدة

@@ -87,29 +87,69 @@ $('ownerLogout').addEventListener('click',async()=>{
  }catch(err){toast(errorArabic(err),true);}
 });
 async function loadUsers(){
- 
  try{
    const data=await api('admin/users',{});
-   const box=$('adminUsers');box.replaceChildren();
-   if(!data.users.length){box.append(h('p','','لا توجد حسابات حتى الآن.'));return;}
-   for(const user of data.users){
+   const current=$('adminUsers'),archive=$('adminArchivedUsers');
+   current.replaceChildren();archive.replaceChildren();
+   const records=Array.isArray(data.users)?data.users:[];
+   const makeRow=(user,archived)=>{
      const row=h('div','user-row');
-     const details=h('div');details.append(h('strong','',user.label),h('small','','الحالة: '+(user.active?'نشط':'معطّل')));
+     const details=h('div');details.append(h('strong','',user.label),h('small','',archived?'الحالة: مؤرشف (معطّل)':'الحالة: '+(user.active?'نشط':'معطّل')));
      row.append(details);
-     const manager=h('button','button button-outline button-sm','الصلاحيات والأجهزة');
-     manager.addEventListener('click',()=>void editSubscription(user));row.append(manager);
-     if(user.active){
-       const btn=h('button','button button-danger button-sm','تعطيل');
-       btn.addEventListener('click',async()=>{
-         if(!confirm('تعطيل وصول '+user.label+'؟'))return;
-         try{await api('admin/users/'+encodeURIComponent(user.id)+'/disable',{method:'POST',body:{}});toast('تم تعطيل الحساب');loadUsers();}
-         catch(err){toast(errorArabic(err),true);}
-       });row.append(btn);
-     }box.append(row);
-   }
+     if(archived){
+       const restore=h('button','button button-outline button-sm','استعادة من الأرشيف');
+       restore.type='button';restore.addEventListener('click',async()=>{
+         if(!confirm('استعادة '+user.label+' كحساب معطّل؟'))return;
+         restore.disabled=true;
+         try{await api('admin/users/'+encodeURIComponent(user.id)+'/restore',{method:'POST',body:{}});
+           toast('تمت الاستعادة وسيبقى الحساب معطّلًا');await loadUsers();
+         }catch(err){toast(errorArabic(err),true);restore.disabled=false;}
+       });
+       row.append(restore);
+     }else{
+       const manager=h('button','button button-outline button-sm','الصلاحيات والأجهزة');
+       manager.type='button';manager.addEventListener('click',()=>void editSubscription(user));row.append(manager);
+       if(user.active){
+         const disable=h('button','button button-danger button-sm','تعطيل');
+         disable.type='button';disable.addEventListener('click',async()=>{
+           if(!confirm('تعطيل وصول '+user.label+'؟'))return;
+           disable.disabled=true;
+           try{await api('admin/users/'+encodeURIComponent(user.id)+'/disable',{method:'POST',body:{}});
+             toast('تم تعطيل الحساب');await loadUsers();
+           }catch(err){toast(errorArabic(err),true);disable.disabled=false;}
+         });row.append(disable);
+       }else{
+         const archiveAction=h('button','button button-outline button-sm','أرشفة');
+         archiveAction.type='button';archiveAction.addEventListener('click',async()=>{
+           if(!confirm('أرشفة حساب '+user.label+'؟ سيبقى معطّلًا ولن يفقد بياناته.'))return;
+           archiveAction.disabled=true;
+           try{await api('admin/users/'+encodeURIComponent(user.id)+'/archive',{method:'POST',body:{}});
+             toast('تمت أرشفة الحساب');await loadUsers();
+           }catch(err){toast(errorArabic(err),true);archiveAction.disabled=false;}
+         });
+         row.append(archiveAction);
+       }
+     }
+     if(!user.active){
+       const del=h('button','button button-danger button-sm','حذف نهائي');
+       del.type='button';del.addEventListener('click',async()=>{
+         const typed=prompt('سيُحذف الحساب وجميع مفاتيحه وتراخيصه وأجهزته نهائيًا. للتأكيد اكتب DELETE: '+user.label);
+         if(typed!=='DELETE')return;
+         del.disabled=true;
+         try{await api('admin/users/'+encodeURIComponent(user.id)+'/delete',{method:'DELETE'});
+           toast('تم حذف الحساب نهائيًا');await loadUsers();
+         }catch(err){toast(errorArabic(err),true);del.disabled=false;}
+       });row.append(del);
+     }
+     return row;
+   };
+   const active=records.filter(x=>!x.archived),archived=records.filter(x=>!!x.archived);
+   if(!active.length)current.append(h('p','','لا توجد حسابات غير مؤرشفة.'));
+   for(const user of active)current.append(makeRow(user,false));
+   if(!archived.length)archive.append(h('p','','لا توجد حسابات مؤرشفة.'));
+   for(const user of archived)archive.append(makeRow(user,true));
  }catch(err){toast(errorArabic(err),true);}
 }
-
 async function editSubscription(user){
  
  let data;
