@@ -23,6 +23,8 @@ test('New traditional AlG floating builder compiles and is not the licensed prod
 test('Migrates saved original village queue unchanged and keeps each village isolated',()=>{
   assert.match(pilot,/const STATUS_KEY='autoBuilderStatus_'\+ID/);
   assert.match(pilot,/const QUEUE_KEY='autoBuilderQueue'/);
+  assert.match(pilot,/const QA_ARMED_KEY='algzawy_traditional_qa_armed_v2_'/);
+  assert.match(pilot,/localStorage\.getItem\(STATUS_KEY\)==='true'&&localStorage\.getItem\(QA_ARMED_KEY\)==='1'/);
   assert.match(pilot,/all\[ID\]=\{buildingQueue:buildingQueue\.slice\(\),buildingQueueLength:queueLength\}/);
   assert.match(pilot,/buildingQueue\.splice\(index,1\)/);
   assert.match(pilot,/const \[item\]=buildingQueue\.splice\(index,1\)/);
