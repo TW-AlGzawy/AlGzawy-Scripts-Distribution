@@ -105,6 +105,19 @@ function init() {
     buildingObject.buildingQueue.forEach(addBuildingRow);
 
     eventListeners();
+    // The game's cancel action can leave an outdated queue row visible.
+    // Refresh only the queue view after the actual cancel action, without
+    // restarting build automation or modifying the script's planned queue.
+    let cancelRefreshTimer=null;
+    document.addEventListener('click',event=>{
+      const element=event.target.closest?.('#buildqueue a[href*="cancel"], #buildqueue button.btn-cancel, #buildqueue .btn-cancel, #buildqueue a[href*="action=cancel"]');
+      if(!element)return;
+      if(cancelRefreshTimer)clearTimeout(cancelRefreshTimer);
+      cancelRefreshTimer=setTimeout(()=>{
+        cancelRefreshTimer=null;
+        void refreshVisibleGameQueue();
+      },1600);
+    });
 
     // 🔥 استرجاع حالة التشغيل بعد التحديث
     if (localStorage[STATUS_KEY]) {
