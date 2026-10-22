@@ -87,3 +87,28 @@ test('builder floating panel can expand after corrupted stored 35px height',()=>
   assert.match(code,/min-height:\s*120px/);
   assert.match(code,/\$\("#min_btn"\)\.on\('mousedown', e => e\.stopPropagation\(\)\)/);
 });
+
+test('builder 3.3.4 starts on either main-page query order and reports engine failures',()=>{
+  const engine=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
+  const loader=read('loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js');
+  assert.match(engine,/\/\/ @version\s+3\.3\.4/);
+  assert.match(loader,/\/\/ @version\s+0\.1\.7/);
+  assert.ok(loader.includes('@match        https://*/game.php?village=*&screen=main*'));
+  assert.ok(loader.includes('@match        https://*/game.php?screen=main*&village=*'));
+  assert.ok(loader.includes('if(!hasPortalLicense()){stopCore(\'license\');return;}'));
+  assert.ok(loader.includes('if (engineStartFailed || checkInProgress) return;'));
+  assert.ok(loader.includes('document.addEventListener(\'__algzawy_builder_ready_v33\''));
+  assert.ok(loader.includes('document.addEventListener(\'__algzawy_builder_startup_error_v33\''));
+  assert.ok(engine.includes("document.dispatchEvent(new Event('__algzawy_builder_ready_v33'))"));
+  assert.ok(engine.includes("document.dispatchEvent(new Event('__algzawy_builder_startup_error_v33'))"));
+  assert.ok(loader.includes("if (!engineStarted && !engineStartFailed) engineFailure()"));
+});
+test('builder recovery clamps persisted floating position and catches corrupt position state',()=>{
+  const engine=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
+  assert.match(engine,/try \{ savedPos = JSON\.parse/);
+  assert.match(engine,/catch \(_\) \{ savedPos = \{\}; \}/);
+  assert.match(engine,/Math\.max\(0, window\.innerHeight - 45\)/);
+  assert.match(engine,/top: \$\{safeTop\}; left: \$\{safeLeft\}; right: \$\{safeRight\}/);
+  assert.ok(engine.includes('const safeRight = hasLeft'));
+  assert.match(engine,/if \(entry\.target !== panel \|\| isMinimized\) continue/);
+});
