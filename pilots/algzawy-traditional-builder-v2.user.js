@@ -168,6 +168,9 @@
     '#'+ROOT_ID+' .alg-input.number{width:75px;text-align:center}',
     '#'+ROOT_ID+' .alg-queue{list-style:none;margin:0;padding:0;display:grid;gap:5px}',
     '#'+ROOT_ID+' .alg-queue li{display:flex;gap:6px;align-items:center;background:#122d39;border:1px solid #2b5361;border-radius:8px;padding:6px}',
+    '#'+ROOT_ID+' .alg-queue li.alg-complete{border-color:#347b61;background:#102e2a}',
+    '#'+ROOT_ID+' .alg-template-code{width:100%;min-height:58px;resize:vertical;background:#071b27;color:#f2ffff;border:1px solid #2d5b6b;border-radius:8px;padding:8px;direction:ltr;text-align:left;font:10px/1.7 monospace}',
+    '#'+ROOT_ID+' .alg-template-progress{color:#8fe4c7;font-size:10px;margin:8px 0}',
     '#'+ROOT_ID+' .alg-queue .alg-index{background:#1b5250;border-radius:6px;padding:2px 7px;color:#aaf8d8;font-weight:bold}',
     '#'+ROOT_ID+' .alg-queue .alg-building{flex:1;min-width:0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}',
     '#'+ROOT_ID+' .alg-queue button{border:1px solid #3a6168;border-radius:6px;color:#d6eee9;background:#183942;min-width:23px;min-height:25px}',
@@ -257,7 +260,8 @@
     if(dest<0||dest>=templateSteps.length)return;
     const [step]=templateSteps.splice(index,1);
     templateSteps.splice(dest,0,step);
-    templateVersion++;templateIssued=null;saveTemplate();renderTemplate();
+    if(isRunning){isRunning=false;saveStatus();endLoop();}
+    templateVersion++;templateIssued=null;saveTemplate();renderQueue();renderTemplate();renderStatus();
   }
   function importTemplate(raw){
     const decoded=decodeTWTemplate(raw);
@@ -291,6 +295,7 @@
     elements.start.className='alg-btn '+(isRunning?'danger':'primary');
     elements.start.setAttribute('aria-pressed',String(isRunning));
     elements.start.disabled=stoppedByPolicy;
+    if(elements.templateQueue)renderTemplate();
   }
   function modifyQueue(fn){
     if(stoppedByPolicy)return;
@@ -314,7 +319,13 @@
     if(elements.instant){elements.instant.setAttribute('aria-pressed',String(instantEnabled));elements.instant.textContent=instantEnabled?'✓ الإنهاء الفوري مفعّل':'○ الإنهاء الفوري متوقف';}
     if(stoppedByPolicy)status('تم إيقاف المحرك بسبب الترخيص أو التحقق.','error');
     else if(isRunning&&!policyOK())status('موقوف مؤقتًا: تحقق من الترخيص أو فحص الحماية.','warn');
-    else if(isRunning&&buildingQueue.length===0)status('القائمة فارغة؛ التشغيل محفوظ في انتظار إضافة مبنى.','warn');
+    else if(templateMode==='template'&&templateSteps.length){
+      const next=nextTemplateStep(),progress=templateProgress();
+      if(!next)status('اكتمل القالب: وصلت جميع المباني إلى المستويات المطلوبة.','normal');
+      else if(next.level===null)status('بانتظار ظهور مستوى '+(LABELS[next.id]||next.id)+' للتحقق من القالب.','warn');
+      else status((isRunning?'القالب يعمل — ':'القالب متوقف — ')+(LABELS[next.id]||next.id)+' '+next.level+' / '+next.target+
+        ' | المكتمل '+progress.ready+' / '+progress.total,'normal');
+    }else if(isRunning&&buildingQueue.length===0)status('القائمة اليدوية فارغة؛ التشغيل محفوظ في انتظار إضافة مبنى.','warn');
     else status(isRunning?'المحرك يعمل؛ يتحقق من البناء والموارد تلقائيًا.':'المحرك متوقف؛ يمكنك ترتيب المهام بأمان.','normal');
   }
   function saveSizeAfterResize(){
@@ -382,6 +393,43 @@
     actions.append(elements.start,button('↻ تحديث قائمة اللعبة','alg-btn',()=>{
       void refreshVisibleGameQueue().then(ok=>status(ok?'تم تحديث قائمة بناء اللعبة.':'تعذر تحديث قائمة اللعبة حاليًا.',ok?'normal':'warn'));
     }));
+    const templateCard=node('div','alg-card');
+    templateCard.append(node('label','alg-label','📋 قالب مدير الحساب (Account Manager)'));
+    elements.templateCode=node('textarea','alg-template-code');
+    elements.templateCode.placeholder='الصق كود القالب المشفّر من مدير الحساب هنا...';
+    elements.templateCode.maxLength=4096;
+    elements.templateCode.setAttribute('aria-label','كود قالب مدير الحساب');
+    const importControls=node('div','alg-entry');
+    importControls.style.flexWrap='wrap';
+    importControls.append(
+      button('استيراد القالب','alg-btn primary',()=>{
+        if(stoppedByPolicy)return;
+        if(templateSteps.length&&!confirm('استبدال القالب الحالي بمستويات القالب الجديد؟ ستبقى القائمة اليدوية محفوظة.'))return;
+        if(importTemplate(elements.templateCode.value))elements.templateCode.value='';
+      }),
+      button('حذف القالب','alg-btn danger',()=>{
+        if(!templateSteps.length)return;
+        if(!confirm('حذف القالب المستورد لهذه القرية فقط؟ لا تتغير القائمة اليدوية.'))return;
+        if(isRunning){isRunning=false;saveStatus();endLoop();}
+        templateSteps=[];templateMode='manual';templateIssued=null;templateVersion++;
+        saveTemplate();renderQueue();renderStatus();
+        status('تم إلغاء القالب والعودة للقائمة اليدوية.','normal');
+      })
+    );
+    elements.templateMode=button('○ وضع القائمة اليدوية','alg-btn',()=>{
+      if(!templateSteps.length||stoppedByPolicy)return;
+      if(isRunning){isRunning=false;saveStatus();endLoop();}
+      templateMode=templateMode==='manual'?'template':'manual';
+      templateVersion++;templateIssued=null;
+      saveTemplate();renderQueue();renderStatus();
+      status('تم التبديل إلى '+(templateMode==='template'?'القالب':'القائمة اليدوية')+'. اضغط تشغيل لبدء العمل.','normal');
+    });
+    elements.templateMode.style.width='100%';
+    elements.templateCounter=node('div','alg-template-progress');
+    elements.templateQueue=node('ol','alg-queue');
+    templateCard.append(elements.templateCode,importControls,elements.templateMode,
+      elements.templateCounter,elements.templateQueue,
+      node('small','alg-footer','كود مدير الحساب يحدد مستويات مستهدفة. يبدأ الترتيب وفق صيغة القالب ويمكنك تغيير الأولوية بالأسهم. يتم البناء تدريجيًا حتى يصل كل مبنى لمستواه.'));
     const addCard=node('div','alg-card');
     addCard.append(node('label','alg-label','إضافة مبنى إلى خطة البناء'));
     const addRow=node('div','alg-entry');
@@ -433,7 +481,7 @@
     elements.queue=node('ol','alg-queue');
     queueCard.append(queueHeader,elements.queue);
     elements.note=node('div','alg-note');
-    body.append(stats,actions,instantCard,addCard,settings,queueCard,elements.note,
+    body.append(stats,actions,instantCard,templateCard,addCard,settings,queueCard,elements.note,
       node('div','alg-footer','AlGzawy Scripts · نسخة تجريبية — لا تشغّل بناءين آليين للقرية نفسها'));
     panel.append(head,body);
     document.body.append(panel);
