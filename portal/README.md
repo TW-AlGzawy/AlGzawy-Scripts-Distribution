@@ -1,3 +1,7 @@
+## New V1.0 customer-release candidate — 22 October 2026 (not deployed)
+
+**Production blocker:** apply `portal/schema-account-archive-v4.sql` to the existing D1 database before merging PR #7. Follow [the Arabic deployment and verification guide](SETUP-TAB-PINS-V1-AR.md). This release adds 7-day subscriber sessions (168h), archive/delete for disabled accounts, per-tab script pinning with duplicate-tab detection, persisted warehouse panel geometry, and customer-script names + `@version 1.0` (25 licensed loaders). Tampermonkey installers may require one manual reinstall after the requested downgrade from older version numbers. The owner session remains 30 minutes. Historical V3 notes below refer to the previous release only.
+
 # AlGzawy Cloud Control — Free Cloudflare Pages deployment
 
 STATUS (22 Oct 2026): Cloudflare Pages static site successfully deployed at https://algzawy-cloud-control.pages.dev (confirmed by owner screenshot). Production /api/status returned ok:true with global enabled:true at revision 17, and owner verified all four V2 D1 tables (22 Oct 2026). Owner and subscriber login, device pairing, approval and individual entitlement display were browser-tested on Production in October 2026. End-to-end tests for all individual game engines are still required.
