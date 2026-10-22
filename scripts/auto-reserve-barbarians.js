@@ -334,7 +334,7 @@
     async function reserveVillage(villageId) {
         return new Promise((resolve, reject) => {
             const url = `/game.php?village=${currentVillageId}&screen=info_village&id=${villageId}&ajaxaction=toggle_reserve_village&json=1&h=${csrfToken}`;
-            console.log(`[Debug] Reserving village ${villageId}:`, {currentVillageId, csrfToken, url});
+            console.log(`[Auto Reserve] Reserving village ${villageId}`);
             $.ajax({
                 url: url,
                 type: 'GET',
@@ -358,7 +358,7 @@
                 },
                 error: function(xhr, status, error) {
                     const errorDetails = xhr.responseText || error || status;
-                    if((xhr.status===403||xhr.status===402)&&detectsMissingPremium(errorDetails)){
+                    if(detectsMissingPremium(errorDetails)){
                       stopMissingPremium();resolve(false);return;
                     }
                     addLog(`❌ خطأ في حجز القرية ${villageId}: ${errorDetails}`, "error");
