@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.4
+// @version      2.0.5
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -209,19 +209,20 @@
       else {if(Date.now()-connection.last>120000)stopAll();showMessage('تعذرت المزامنة: '+e.message);}
     }finally{pending=false;}
   }
-  let lastBlocked=null;
+  let lastBlocked=null,lastBlockedDetail=null;
   document.addEventListener('algzawy-cloud-script-status',event=>{
     const data=event.detail;
     if(!data||typeof data.id!=='string'||!known.includes(data.id))return;
     const holder=document.getElementById('algzawy-cloud-script-retry');
-    if(!holder)return;
     if(data.state==='ready'){
-      if(lastBlocked===data.id){lastBlocked=null;holder.style.display='none';}
+      if(lastBlocked===data.id){lastBlocked=null;lastBlockedDetail=null;if(holder)holder.style.display='none';}
       return;
     }
-    lastBlocked=data.id;holder.style.display='flex';
-    document.getElementById('algzawy-cloud-script-name').textContent=data.name||data.id;
-    document.getElementById('algzawy-cloud-script-note').textContent=data.message||'موقوف — إعادة فحص الترخيص';
+    lastBlocked=data.id;lastBlockedDetail={name:data.name||data.id,message:data.message||'موقوف — إعادة فحص الترخيص'};
+    if(!holder)return;
+    holder.style.display='flex';
+    document.getElementById('algzawy-cloud-script-name').textContent=lastBlockedDetail.name;
+    document.getElementById('algzawy-cloud-script-note').textContent=lastBlockedDetail.message;
   });
   function render(){
     if(card||!document.body)return;
@@ -246,6 +247,12 @@
       finally{q('script-refresh').disabled=false;}
     });
     q('origin').value=connection.origin;
+    // A loader may report failure between document-start and DOMContentLoaded.
+    if(lastBlockedDetail){
+      q('script-retry').style.display='flex';
+      q('script-name').textContent=lastBlockedDetail.name;
+      q('script-note').textContent=lastBlockedDetail.message;
+    }
     const linked=()=>{
       q('pair').style.display=connection.device?'none':'';
       q('linked').style.display=connection.device?'':'none';
