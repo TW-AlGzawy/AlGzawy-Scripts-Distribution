@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
-// @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
+// @version      2.0
+// @description  Auto License V2: authorize once from subscriber portal, sync permitted scripts automatically
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
 // @grant        GM_xmlhttpRequest
@@ -19,7 +19,7 @@
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
-  const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode'};
+  const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
   const known=[
     'mass-scavenge-v1','bot-farm-2','alg-balance','auto-builder-pro-algzawy-v3-3-fixed-queue','auto-builder-ar-v061',
     'professional-training-v2','send-automation','attack-renamer','alg-attacks','warehouse-alert-safe',
@@ -99,98 +99,76 @@
     device:String(GM_getValue(keys.device,'')||''),
     last:Number(GM_getValue(keys.last,0)||0)
   };
-  let pending=false,lastRequest=0, timer=null, card=null;
+  let pending=false,lastRequest=0, timer=null, card=null, renderLinked=()=>{};
   const LICENSE_UNTIL='algzawy_portal_device_authorized_until';
   const LICENSE_ID='algzawy_portal_approved_device';
   const GRANT_PREFIX='algzawy_portal_grant_';
 
-  // Secure iframe lives at one Cloudflare origin, independent of game-world
-  // subdomains. It signs fixed-purpose challenges but never exports the key.
-  // Browser storage partitioning may block the broker on unsupported sites;
-  // we fail closed rather than substituting a copyable private key.
-  let brokerFrame=null,brokerLoaded=null;
-  const brokerPending=new Map();
-  window.addEventListener('message',event=>{
-    if(event.origin!==PORTAL_ORIGIN||event.source!==brokerFrame?.contentWindow)return;
-    const msg=event.data;
-    if(msg?.scope!=='algzawy-device-v1'||typeof msg.requestId!=='string')return;
-    const item=brokerPending.get(msg.requestId);
-    if(!item)return;
-    brokerPending.delete(msg.requestId);clearTimeout(item.timer);
-    if(msg.ok===true)item.resolve(msg);
-    else item.reject(Error('secure_identity_unavailable'));
-  });
-  async function callSharedSigner(action,args={}){
-    if(!brokerLoaded){
-      brokerLoaded=new Promise((resolve,reject)=>{
-        const frame=document.createElement('iframe');
-        frame.style.cssText='position:absolute;top:-2000px;left:-2000px;width:1px;height:1px;border:0';
-        frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
-        frame.src=PORTAL_ORIGIN+'/device-identity';
-        let finished=false;
-        const deadline=setTimeout(()=>{if(!finished){finished=true;reject(Error('secure_identity_unavailable'));}},9000);
-        frame.onload=()=>{if(!finished){finished=true;clearTimeout(deadline);resolve(frame);}};
-        frame.onerror=()=>{if(!finished){finished=true;clearTimeout(deadline);reject(Error('secure_identity_unavailable'));}};
-        brokerFrame=frame;document.body.appendChild(frame);
-      });
+
+  // Portable extension-scoped identity avoids third-party iframe storage
+  // partitioning across Tribal Wars world domains. A script-file copy alone
+  // does not include this key. A full extension-storage export CAN clone it;
+  // the cryptography is proof of possession, not hardware attestation.
+  async function portableIdentity(){
+    const saved=GM_getValue(keys.portable,null);
+    if(saved&&saved.kty==='EC'&&saved.crv==='P-256'&&typeof saved.d==='string'){
+      const privateKey=await crypto.subtle.importKey('jwk',saved,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
+      return {privateKey,publicKey:{kty:'EC',crv:'P-256',x:saved.x,y:saved.y}};
     }
-    const frame=await brokerLoaded,requestId=crypto.randomUUID();
-    return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{
-        brokerPending.delete(requestId);reject(Error('secure_identity_unavailable'));
-      },8000);
-      brokerPending.set(requestId,{resolve,reject,timer});
-      frame.contentWindow.postMessage({scope:'algzawy-device-v1',requestId,action,...args},PORTAL_ORIGIN);
-    });
+    const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+    const jwk=await crypto.subtle.exportKey('jwk',pair.privateKey);
+    GM_setValue(keys.portable,{kty:'EC',crv:'P-256',x:jwk.x,y:jwk.y,d:jwk.d,key_ops:['sign'],ext:true});
+    const privateKey=await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
+    return {privateKey,publicKey:{kty:'EC',crv:'P-256',x:jwk.x,y:jwk.y}};
   }
-  // IndexedDB stores a structured-cloned non-exportable CryptoKey. Tampermonkey
-  // export/GM storage contains only a public UUID, not the signing private key.
-  // A copied whole browser profile may still contain IndexedDB; this is not
-  // tamper-proof hardware attestation.
-  async function signingKey(){
-    if(!window.crypto?.subtle||!window.indexedDB)throw Error('متصفحك لا يدعم التخزين الآمن لمفتاح الجهاز');
-    const db=await new Promise((resolve,reject)=>{
-      const request=indexedDB.open('algzawy-device-identity-v2',1);
-      request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('keys'))request.result.createObjectStore('keys');};
-      request.onsuccess=()=>resolve(request.result);
-      request.onerror=()=>reject(Error('تعذر فتح مخزن هوية الجهاز'));
-    });
-    const existing=await new Promise((resolve,reject)=>{
-      const tx=db.transaction('keys','readonly');
-      const r=tx.objectStore('keys').get('primary');
-      r.onsuccess=()=>resolve(r.result);
-      r.onerror=()=>reject(Error('تعذر قراءة مفتاح الجهاز'));
-    });
-    if(existing?.privateKey && existing?.publicKey)return existing;
-    const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
-    const result={privateKey:pair.privateKey,publicKey:await crypto.subtle.exportKey('jwk',pair.publicKey)};
-    await new Promise((resolve,reject)=>{
-      const tx=db.transaction('keys','readwrite');
-      tx.objectStore('keys').put(result,'primary');
-      tx.oncomplete=()=>resolve();
-      tx.onerror=()=>reject(Error('تعذر حفظ مفتاح الجهاز'));
-    });
-    return result;
-  }
+  // Old links must explicitly reauthorize; do not reuse an old device ID with
+  // a different signing key or silently downgrade signature verification.
   async function deviceProof(){
+    if(GM_getValue(keys.mode,'')!=='portable')throw Error('device_relink_required');
+    const identity=await portableIdentity();
     const timestamp=Date.now();
     const counter=Math.max(timestamp*1024,Number(GM_getValue('algzawy_cloud_counter',0)||0)+1);
-    let sig;
-    if(GM_getValue(keys.mode,'legacy')==='shared'){
-      const result=await callSharedSigner('sign',{deviceId:connection.device,timestamp,counter});
-      sig=result.signature;
-    }else{
-      // Backward compatibility for approved devices paired on earlier versions,
-      // provided the game is still on their original same-origin world.
-      const identity=await signingKey();
-      const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
-      const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
-      sig=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-    }
+    const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
+    const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
+    const signature=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
     GM_setValue('algzawy_cloud_counter',counter);
-    return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':sig};
+    return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':signature};
   }
-
+  let authorizing=null;
+  async function openAutoLicense(){
+    if(authorizing&&!authorizing.closed){authorizing.focus();return;}
+    const popup=window.open('about:blank','_blank');
+    if(!popup){showMessage('اسمح بفتح نافذة AlGzawy للربط التلقائي.');return;}
+    authorizing=popup;
+    showMessage('جارٍ فتح موافقة الجهاز في حسابك على AlGzawy...');
+    try{
+      const identity=await portableIdentity();
+      const nonce=crypto.randomUUID();
+      const origin=location.origin;
+      // The page can only approve after an explicit click in the logged-in
+      // first-party site; URL parameters are untrusted until validated there.
+      const payload={nonce,origin,publicKey:identity.publicKey};
+      const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+      const listener=event=>{
+        const data=event.data;
+        if(event.origin!==PORTAL_ORIGIN||event.source!==popup
+          ||data?.scope!=='algzawy-auto-license-v2'||data.nonce!==nonce)return;
+        window.removeEventListener('message',listener);
+        if(data.ok!==true||!/^[0-9a-f-]{36}$/i.test(data.deviceId||'')){
+          showMessage(data.error==='device_already_linked'?'يوجد جهاز مرتبط بهذا الاشتراك؛ تواصل مع الإدارة لاستبداله.':'تعذر اعتماد هذا المتصفح: '+(data.error||'غير معروف'));
+          return;
+        }
+        connection.device=data.deviceId;connection.last=0;
+        GM_setValue(keys.device,connection.device);GM_setValue(keys.mode,'portable');
+        GM_setValue(keys.last,0);GM_setValue('algzawy_cloud_counter',0);
+        stopAll();renderLinked();void synchronize(true);checkPublisher();
+        showMessage('تم اعتماد الجهاز تلقائيًا. جارٍ التحقق من السكربتات.',true);
+      };
+      window.addEventListener('message',listener);
+      setTimeout(()=>window.removeEventListener('message',listener),5*60*1000);
+      popup.location.href=PORTAL_ORIGIN+'/v2/?alg_auto='+encodeURIComponent(encoded);
+    }catch(err){popup.close();showMessage('تعذر تجهيز الربط الآمن: '+err.message);}
+  }
   function request(path,opts={}){
     return new Promise((resolve,reject)=>{
       GM_xmlhttpRequest({
@@ -316,8 +294,8 @@
           ?'الربط قديم ومحفوظ لخادم لعبة آخر. ألغِ الربط وأعده مرة واحدة بالنظام الجديد.'
           :'رفض الخادم إثبات الجهاز. تأكد من أن الجهاز ما زال معتمدًا، ثم جرّب المزامنة.');
       }
-      else if(e.message==='secure_identity_unavailable'){
-        stopAll();showMessage('تعذر فتح مخزن هوية الجهاز المشتركة. اسمح بإطار AlGzawy في المتصفح أو استخدم متصفحًا يدعمه.');
+      else if(e.message==='device_relink_required'){
+        stopAll();showMessage('هذا ربط قديم. اضغط إعادة ربط الحساب بنظام Auto License V2.');
       }
       else if(['unauthorized','subscription_inactive'].includes(e.message)){stopAll();showMessage('تم رفض ترخيص الجهاز: '+e.message);}
       else {if(Date.now()-connection.last>120000)stopAll();showMessage('تعذرت المزامنة: '+e.message);}
@@ -345,9 +323,8 @@
     card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:245px;max-width:93vw;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial;overflow:hidden';
     card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong>☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
       '<div id="algzawy-cloud-body" style="padding:10px"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
-      '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">☁ موقع AlGzawy متصل تلقائيًا</p>'+
-      '<label style="display:block;margin-top:7px">رمز الربط المؤقت من الموقع<input id="algzawy-cloud-code" type="text" autocomplete="off" placeholder="alg_p_..." style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
-      '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط المتصفح</button></div>'+
+      '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">التحقق من الموقع والترخيص يتم تلقائيًا بعد الربط الأول.</p>'+
+      '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
       '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:170px;overflow-y:auto"></div></details>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
@@ -367,30 +344,18 @@
       q('script-name').textContent=lastBlockedDetail.name;
       q('script-note').textContent=lastBlockedDetail.message;
     }
-    const linked=()=>{
+    renderLinked=()=>{
       q('pair').style.display=connection.device?'none':'';
       q('linked').style.display=connection.device?'':'none';
-      showMessage(connection.device?'الحساب مرتبط — جارٍ جلب الإعدادات':'أدخل رمز الربط المؤقت من موقع AlGzawy.',!!connection.device);
+      showMessage(connection.device?'الجهاز مرتبط — جارٍ التحقق من الترخيص':'اضغط الربط التلقائي للتفعيل من حساب العميل.',!!connection.device);
     };
-    q('connect').addEventListener('click',async()=>{
-      const code=q('code').value.trim();
-      if(!/^alg_p_[a-f0-9]{64}$/.test(code)){showMessage('رمز ربط غير صالح. انسخه من الموقع.');return;}
-      q('connect').disabled=true;
-      try{
-        const identity=await callSharedSigner('publicKey');
-        const result=await request('device/claim',{method:'POST',data:{code,publicKey:identity.publicKey}});
-        connection.device=result.deviceId;
-        connection.last=0;
-        GM_setValue(keys.device,connection.device);GM_setValue(keys.mode,'shared');GM_setValue('algzawy_cloud_counter',0);
-        q('code').value='';stopAll();linked();showMessage('تم تقديم طلب الجهاز — بانتظار موافقة المالك.');
-      }catch(e){showMessage(e.message);}finally{q('connect').disabled=false;}
-    });
+    q('connect').addEventListener('click',()=>void openAutoLicense());
     q('sync').addEventListener('click',()=>synchronize(true));
     q('unlink').addEventListener('click',()=>{
-      if(!confirm('إلغاء ربط هذا المتصفح سيوقف سكربتات AlGzawy المُدارة عليه. متابعة؟'))return;
+      if(!confirm('فصل هذا المتصفح سيوقف السكربتات هنا. إعادة الربط لن تلغي قيد الجهاز الواحد. متابعة؟'))return;
       connection.device='';connection.last=0;
       GM_setValue(keys.device,'');GM_setValue(keys.last,0);GM_setValue('algzawy_cloud_counter',0);
-      stopAll();linked();
+      stopAll();renderLinked();
     });
     const mini=q('min');mini.addEventListener('click',()=>{
       const body=q('body');
@@ -401,7 +366,7 @@
     hdr.addEventListener('pointerdown',e=>{if(e.target===mini)return;drag={x:e.clientX,y:e.clientY,top:card.offsetTop,left:card.offsetLeft};hdr.setPointerCapture?.(e.pointerId);});
     hdr.addEventListener('pointermove',e=>{if(!drag)return;card.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';card.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';card.style.bottom='auto';});
     hdr.addEventListener('pointerup',()=>{drag=null;});
-    linked();
+    renderLinked();
     renderPinControls();
   }
   function start(){
