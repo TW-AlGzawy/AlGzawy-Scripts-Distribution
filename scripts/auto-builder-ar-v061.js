@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Auto Builder - عربي (ثابت + الأكاديمية)
+// @name         البناء التقليدي — AlGzawy
 // @version      0.6.2
 // @description  بناء تلقائي للمباني + حفظ حالة التشغيل + دعم الأكاديمية
 // @author       غزااوي
