@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Auto Builder - عربي (ثابت + الأكاديمية)
+// @name         [AlGzawy] البناء التقليدي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      0.1.6
 // @description  نسخة Beta؛ اختبار منفصل قبل الاعتماد الوظيفي
@@ -55,7 +55,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Auto Builder - عربي (ثابت + الأكاديمية)",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"البناء التقليدي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
