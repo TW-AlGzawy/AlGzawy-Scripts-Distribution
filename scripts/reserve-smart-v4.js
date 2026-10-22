@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🎯 Smart Reserve Pro v4.0 - FINAL
+// @name         تجريبي - الغزااوي - الحجز الذكي الرابع
 // @namespace    http://tampermonkey.net/
-// @version      4.0
+// @version      1.0
 // @description  نظام حجز بربر آلي وفعال بالكامل - بحث، حجز، تأكيد، وتكرار
 // @author       Manus AI
 // @match        https://*.tribalwars.ae/game.php*screen=map*
