@@ -55,7 +55,9 @@ class DB{
       if(sql.startsWith('INSERT INTO portal_device_keys')){db.keys.push({device_id:a[0],user_id:a[1],public_key_json:a[2],approved:0,last_counter:0,first_ip:a[3],last_ip:a[4],user_agent:a[5]});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_access_events')){db.events.push({id:a[0],user_id:a[1],device_id:a[2],event_type:a[3],ip:a[4]});return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE user_id=')){for(const k of db.keys)if(k.user_id===a[0])k.approved=0;return {meta:{changes:1}};}
-      if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE device_id=')){const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]);if(k)k.approved=0;return {meta:{changes:k?1:0}};}
+      if(sql.startsWith('DELETE FROM portal_device_keys WHERE device_id=')){const n=db.keys.length;db.keys=db.keys.filter(x=>!(x.device_id===a[0]&&x.user_id===a[1]));return {meta:{changes:n-db.keys.length}};}
+      if(sql.startsWith('DELETE FROM portal_devices WHERE id=')){const n=db.devices.length;db.devices=db.devices.filter(x=>!(x.id===a[0]&&x.user_id===a[1]));return {meta:{changes:n-db.devices.length}};}
+if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE device_id=')){const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]);if(k)k.approved=0;return {meta:{changes:k?1:0}};}
       if(sql.startsWith('UPDATE portal_device_keys SET approved=1 WHERE device_id=')){const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]);if(k)k.approved=1;return {meta:{changes:k?1:0}};}
       if(sql.startsWith('UPDATE portal_device_keys SET last_ip=')){const k=db.keys.find(v=>v.device_id===a[1]);if(k)k.last_ip=a[0];return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_devices SET active=1')){const d=db.devices.find(v=>v.id===a[0]);if(d)d.active=1;return {meta:{changes:1}};}
@@ -145,7 +147,12 @@ test('New browser key requires owner approval, signed calls reject replay, copie
  assert.equal((await signed(3,stranger.privateKey)).status,401);
  const revoke=await api(db,'admin/users/'+id+'/devices/'+deviceId+'/revoke',{method:'POST',token:admin,body:{}});
  assert.equal(revoke.status,200);
- assert.equal((await signed(4)).status,403);
+ assert.equal((await signed(4)).status,401); // removed device cannot authenticate
+ assert.equal(db.keys.some(k=>k.device_id===deviceId),false);
+ assert.equal(db.devices.some(d=>d.id===deviceId),false);
+ const afterDeletion=await api(db,'admin/users/'+id+'/entitlements',{token:admin});
+ assert.equal(afterDeletion.json.devices.some(d=>d.device_id===deviceId),false);
+ assert.equal(db.events.some(e=>e.device_id===deviceId&&e.event_type==='device_revoked'),true);
 });
 
 test('Separate owner browser session is HttpOnly, scoped and protects all admin mutations with CSRF',async()=>{
@@ -284,4 +291,27 @@ test('Front end removes public static catalog fallback and sends CSRF on session
  assert.match(ui,/api\('session',\{method:'DELETE'\}\)/);
  assert.match(ui,/setInterval\(\(\)=>\{void verifySession\(\);\},5\*60\*1000\)/);
  assert.match(ui,/globallyDisabled/);
+});
+
+test('Owner device cards have no Approve button when device is approved and update without modal loss',()=>{
+ assert.match(ownerUi,/if\(!approved\)\{/);
+ assert.match(ownerUi,/approved\?'✓ الجهاز معتمد':'◷ بانتظار الموافقة'/);
+ assert.match(ownerUi,/renderDeviceCards\(list\.filter\(entry=>entry\.device_id!==device\.device_id\)\)/);
+ assert.match(ownerUi,/void refreshDeviceDetails\(\)/);
+ assert.match(ownerUi,/events\.replaceChildren\(\)/);
+});
+test('Removing pending pairing leaves another approved device intact',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{method:'POST',token:admin,body:{label:'Two devices'}})).json;
+ const userId=created.user.id;
+ db.devices.push({id:'keep-device',user_id:userId,active:1},{id:'pending-device',user_id:userId,active:1});
+ db.keys.push({device_id:'keep-device',user_id:userId,approved:1,last_counter:0},
+              {device_id:'pending-device',user_id:userId,approved:0,last_counter:0});
+ const r=await api(db,'admin/users/'+userId+'/devices/pending-device/revoke',{method:'POST',token:admin,body:{}});
+ assert.equal(r.status,200);
+ assert.deepEqual(db.keys.map(k=>k.device_id),['keep-device']);
+ assert.deepEqual(db.devices.map(d=>d.id),['keep-device']);
+ assert.equal(db.keys[0].approved,1);
+ assert.equal((await api(db,'admin/users/'+userId+'/devices/pending-device/revoke',{method:'POST',token:admin,body:{}})).status,404);
+ const state=await api(db,'admin/users/'+userId+'/entitlements',{token:admin});
+ assert.deepEqual(state.json.devices.map(d=>d.device_id),['keep-device']);
 });
