@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] تسمية الهجمات القادمة
+// @name         تجريبي - الغزااوي - تسمية الهجمات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.5
+// @version      1.0
 // @description  Incoming attack native QuickEdit optional labels; source 0.1.1; BETA not game-tested
 // @match        https://*.tribalwars.ae/game.php*screen=overview*
 // @match        https://*.tribalwars.net/game.php*screen=overview*
@@ -64,7 +64,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] تسمية الهجمات القادمة",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - تسمية الهجمات",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
