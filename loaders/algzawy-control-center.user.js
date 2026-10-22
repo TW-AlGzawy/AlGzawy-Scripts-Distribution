@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] مركز التحكم الموحد
+// @name         تجريبي - الغزااوي - مركز التحكم
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
