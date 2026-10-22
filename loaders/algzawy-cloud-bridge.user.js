@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.2
+// @version      2.0.3
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -151,6 +151,35 @@
     for(const id of known){localStorage.setItem(GRANT_PREFIX+id,'0');changed=setLocal(id,false)||changed;}
     if(changed)document.dispatchEvent(new Event('algzawy-local-control-changed'));
   }
+
+  // One coordinator polls the publisher switch for all script engines on this
+  // game tab. This protects the Cloudflare Free request budget.
+  const PUBLISHER_STATUS='https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
+  let publisherPending=false,publisherPreviouslyOn=null;
+  function checkPublisher(){
+    if(!connection.device||publisherPending||document.visibilityState==='hidden')return;
+    publisherPending=true;
+    GM_xmlhttpRequest({
+      method:'GET',url:PUBLISHER_STATUS+'?t='+Date.now(),timeout:6000,
+      headers:{'Cache-Control':'no-store'},
+      onload:r=>{
+        publisherPending=false;
+        let enabled=false;
+        try{const data=JSON.parse(r.responseText);enabled=r.status===200&&data.schema===1&&data.enabled===true&&Number.isInteger(data.revision);}catch(_){}
+        if(!enabled){
+          publisherPreviouslyOn=false;
+          stopAll();
+          showMessage('الإدارة أوقفت المنظومة أو تعذر التحقق من Cloudflare');
+        }else{
+          if(publisherPreviouslyOn===false)void synchronize(true);
+          publisherPreviouslyOn=true;
+        }
+      },
+      onerror:()=>{publisherPending=false;stopAll();showMessage('تعذر الاتصال بالتحكم المركزي؛ تم الإيقاف احترازيًا');},
+      ontimeout:()=>{publisherPending=false;stopAll();showMessage('انتهت مهلة التحكم المركزي؛ تم الإيقاف احترازيًا');}
+    });
+  }
+
   // Fail closed if cached authorization is stale. A live worker response is
   // always needed at least every 180s, while loaders independently enforce
   // the publisher's existing Cloudflare global switch.
@@ -239,8 +268,10 @@
   }
   function start(){
     render();
-    if(connection.device)void synchronize(true);
+    if(connection.device){void synchronize(true);checkPublisher();}
     timer=setInterval(()=>{if(document.visibilityState==='visible')void synchronize();},90000);
+    setInterval(checkPublisher,15000);
+    setInterval(()=>{if(connection.device&&Number(localStorage.getItem(LICENSE_UNTIL)||0)<Date.now())stopAll();},5000);
     window.addEventListener('focus',()=>void synchronize());
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void synchronize();});
   }
