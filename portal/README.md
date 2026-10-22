@@ -23,7 +23,7 @@ Final-approved IDs as designated by owner: `warehouse-alert-safe`, `alg-balance`
 - Arabic setup instructions for subscriber-only script entitlements, signed one-device approval, and IP audit: [SETUP-LICENSE-V2-AR.md](SETUP-LICENSE-V2-AR.md).
 - Apply the **additive** SQL migration [schema-license-v2.sql](schema-license-v2.sql) to your existing D1 database, executing CREATE statements individually as needed in Cloudflare Console.
 - Without this migration, customer login and device APIs will fail. Do not change global_control or the old Worker.
-- All **25 remaining beta loaders on main now check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.4 are connected. Plan this as an explicit migration rather than a silent update to customers.
+- In this **V3 candidate**, all **25 supported beta loaders check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.5 are connected. Plan this as an explicit migration rather than a silent update to customers.
 - First visit now shows **login only**, with a Telegram contact link; owner login lives exclusively at /admin/. No self-registration. Only admin creates users and assigns their scripts.
 - Cloud Bridge uses a non-exportable ECDSA private key in IndexedDB and a server-side approved public key, not a transferable GM bearer token. This is strong protection against simply copying Tampermonkey files, **not an absolute barrier to browser-profile cloning or modifying public userscript code**.
 - Original public JavaScript sources and git history are copyable: do not present this as unbreakable DRM.
@@ -51,7 +51,7 @@ Final-approved IDs as designated by owner: `warehouse-alert-safe`, `alg-balance`
    - PORTAL_HASH_PEPPER — 64+ random hexadecimal characters, never public.
    - PORTAL_ADMIN_TOKEN — independent 64+ random hexadecimal characters for portal owner controls, not the old ADMIN_TOKEN.
 10. Trigger another Pages deployment after setting the binding and secrets.
-11. Verify https://YOUR-NAME.pages.dev/api/catalog shows 26 entries and /api/status shows the actual global enabled/revision, without server errors.
+11. Verify /api/catalog returns HTTP 401 before login; after subscriber login it lists only licensed scripts (maximum 25). The owner-only /api/admin/catalog lists the full 25-script catalog. /api/status must show the global enabled/revision without changing it.
 
 Generate an independent secure random value for each secret in Windows PowerShell:
 
