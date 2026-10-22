@@ -117,14 +117,13 @@
           <div id="activityList" class="panel activity-list"></div>
         </section>
         <section class="view" data-panel="connect">
-          <div class="page-head"><div><span class="kicker">SECURE DEVICE PAIRING</span><h2>ربط اللعبة والمتصفح</h2><p>الربط عبر رمز مؤقت للجهاز المعتمد، لا عبر عنوان موقع يُدخله الزبون.</p></div></div>
+          <div class="page-head"><div><span class="kicker">AUTO LICENSE V2</span><h2>التفعيل التلقائي للجهاز</h2><p>لا حاجة لإنشاء أو إدخال رمز ربط. بعد تثبيت Cloud Bridge، اضغط ربط تلقائي من نافذته داخل اللعبة، ثم وافق هنا بحساب المشترك.</p></div></div>
           <div class="connect-grid">
-            <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge</h3><p>يحصل المستخدم على الجسر مرة واحدة؛ يتحقق من الجهاز والترخيص قبل تشغيل السكربتات.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge ↗</a></article>
-            <article class="step-panel"><span class="step-index">02</span><h3>أنشئ رمز ربط مؤقت</h3><p>الرمز صالح لمدة خمس دقائق ويُستخدم مرة واحدة فقط.</p><button id="createPair" class="btn primary block">إنشاء رمز ربط جديد</button></article>
-            <article class="step-panel"><span class="step-index">03</span><h3>اعتماد الجهاز</h3><p>أدخل الرمز في نافذة الجسر داخل اللعبة ثم اطلب من الإدارة اعتماد الجهاز. التبديل بين اشتراكات مختلفة يحتاج ترخيص كل اشتراك.</p><span class="pill neutral">تحقق مشفر من الجهاز</span></article>
+            <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge V2</h3><p>سكربت واحد للتحقق من صلاحياتك ومزامنة البوتات. عند تشغيله على جهاز جديد تظهر عملية ربط بنقرة واحدة.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge V2 ↗</a></article>
+            <article class="step-panel"><span class="step-index">02</span><h3>وافق على الجهاز</h3><p>من داخل اللعبة اضغط «ربط تلقائي». ستظهر صفحة آمنة على نطاق AlGzawy الرسمي للموافقة بحسابك المسجل. لا رموز تُنسخ يدويًا.</p><span class="pill positive">موافقة أول جهاز تلقائية</span></article>
+            <article class="step-panel"><span class="step-index">03</span><h3>ترخيص يعمل تلقائيًا</h3><p>يعيد الجسر التحقق من حالة الاشتراك ومفتاح الإدارة وصلاحية كل سكربت. لاستبدال جهاز معتمد، تواصل مع الإدارة أولًا.</p><span class="pill neutral">جهاز واحد لكل اشتراك</span></article>
           </div>
-          <div id="pairPanel" class="panel pair-panel" hidden><div><span class="kicker">رمز مؤقت — لا تشاركه مع الآخرين</span><h3>انسخ الرمز إلى Cloud Bridge</h3><code id="pairCode" dir="ltr"></code><p id="pairExpires" class="small-muted"></p></div><button id="copyPair" class="btn primary">نسخ الرمز</button></div>
-          <div class="info-note">تنبيه: تثبيت السكربتات المختارة عبر Tampermonkey ما زال مطلوبًا. إيقاف سكربت من الموقع يمنع التشغيل الجديد المسموح، لكنه لا يلغي طلبات سبق إرسالها.</div>
+          <div class="info-note">لا يلزم إبقاء موقع AlGzawy مفتوحًا. حالة ON/OFF تُستمد من الخادم. عند رفض الجهاز أو انقطاع التحقق يتوقف السماح بالتشغيل. يظل تثبيت سكربتات اللعبة وعلامة التثبيت في التبويب مطلوبين حسب إعدادات الأمان الحالية.</div>
         </section>
         <section class="view" data-panel="account">
           <div class="page-head"><div><span class="kicker">SUBSCRIPTION</span><h2>الحساب والأمان</h2><p>إدارة الهوية والجلسة والصلاحيات دون تخزين مفتاح الوصول داخل المتصفح.</p></div></div>
@@ -134,6 +133,17 @@
       </main>
       <footer class="footer">© AlGzawy Cloud Control V2 · نسخة معاينة محمية · <a href="/">الواجهة الحالية</a></footer>
     </div>
+  </div>
+  <div id="autoApproval" class="dialog-backdrop" hidden>
+    <section class="script-dialog" role="dialog" aria-modal="true" aria-labelledby="autoTitle">
+      <div class="dialog-head"><span class="kicker">AlGzawy Auto License V2</span><button id="cancelAuto" class="icon-btn" aria-label="إلغاء ربط الجهاز">×</button></div>
+      <h2 id="autoTitle">الموافقة على ربط هذا الجهاز</h2>
+      <p>طلب ربط قادم من اللعبة. لا توافق إلا إذا فتحت هذه النافذة بنفسك من Cloud Bridge داخل متصفحك.</p>
+      <div class="dialog-setting"><label>عنوان اللعبة الذي طلب الربط</label><strong id="autoOrigin" dir="ltr"></strong></div>
+      <p class="dialog-note">سيُعتمد الجهاز الأول تلقائيًا لهذا الاشتراك. إذا كان هناك جهاز آخر معتمد بالفعل، لن تُستبدل صلاحيته دون إجراء من الإدارة.</p>
+      <p id="autoError" class="feedback error-message" role="alert"></p>
+      <div class="dialog-actions"><button id="approveAuto" class="btn primary">أوافق على ربط هذا الجهاز</button><button id="declineAuto" class="btn outline">إلغاء</button></div>
+    </section>
   </div>
   <div id="scriptDialog" class="dialog-backdrop" hidden>
     <section class="script-dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
