@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.1
+// @version      2.0.2
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -155,7 +155,9 @@
   // always needed at least every 180s, while loaders independently enforce
   // the publisher's existing Cloudflare global switch.
   // Fail closed immediately on page load, until signed device verification.
-  if(!connection.device || Date.now()-connection.last>120000)stopAll();
+  // Never reuse an authorization left in page storage at browser startup.
+  // Every new game page must get a fresh signed server decision first.
+  stopAll();
   async function synchronize(force=false){
     if(pending||!connection.device)return;
     if(!force&&Date.now()-lastRequest<20000)return;
