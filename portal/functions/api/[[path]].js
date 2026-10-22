@@ -392,7 +392,12 @@ async function handler(req,env){
           env.DB.prepare('UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=?').bind(deviceId,uid)
         ]);
       }else{
-        await env.DB.prepare('UPDATE portal_device_keys SET approved=0 WHERE device_id=? AND user_id=?').bind(deviceId,uid).run();
+        // A revoked device must no longer have an approved or pending pairing.
+        // Delete both linked rows, retaining portal_access_events as an audit trail.
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM portal_device_keys WHERE device_id=? AND user_id=?').bind(deviceId,uid),
+          env.DB.prepare('DELETE FROM portal_devices WHERE id=? AND user_id=?').bind(deviceId,uid)
+        ]);
       }
       await accessEvent(env,req,uid,deviceId,path[5]==='approve'?'device_approved':'device_revoked');
       return reply({ok:true});
