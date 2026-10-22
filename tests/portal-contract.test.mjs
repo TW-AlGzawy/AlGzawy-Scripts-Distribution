@@ -208,7 +208,7 @@ test('Subscriber session survives refresh for four days and rejects unauthentica
  const csrf={'X-ALG-USER-CSRF':signed.json.csrfToken};
  assert.equal((await api(db,'pair/create',{cookie,method:'POST',body:{},headers:csrf})).status,200);
  assert.equal((await api(db,'pair/create',{cookie,method:'POST',body:{},headers:{...csrf,Origin:'https://evil.test'}})).status,403);
- assert.equal((await api(db,'session',{cookie:cookie.replace(/.$/,'0')})).status,401);
+ assert.equal((await api(db,'session',{cookie:cookie.replace(/[0-9a-f]$/,ch=>ch==='0'?'1':'0')})).status,401);
  const logout=await api(db,'session',{cookie,method:'DELETE',headers:csrf});
  assert.equal(logout.status,200);assert.match(logout.setCookie,/Max-Age=0/);
  await api(db,'admin/users/'+created.user.id+'/disable',{token:admin,method:'POST',body:{}});
