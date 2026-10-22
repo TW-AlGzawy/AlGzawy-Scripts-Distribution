@@ -129,9 +129,8 @@ function card(item){
  const install=h('a','script-link','تثبيت ↗');install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';install.title='تثبيت السكربت عبر Tampermonkey';
  acts.append(install);
  const gear=h('button','script-settings','⚙');gear.type='button';gear.title='إعدادات السكربت';
- gear.setAttribute('aria-label','إعدادات '+item.name);
- gear.addEventListener('click',()=>showSettings(item));
- acts.append(gear);bottom.append(stateText,acts);el.append(bottom);
+ gear.setAttribute('aria-label','إعدادات '+item.name); if(item.id!=='bot-farm-2'){gear.addEventListener('click',()=>showSettings(item));acts.append(gear);}
+ bottom.append(stateText,acts);el.append(bottom);
  return el;
 }
 function render(){
@@ -188,15 +187,7 @@ function showSettings(item){
  box.append(closer,h('div','section-kicker','الإعدادات المتقدمة'),h('h2','',item.name));
  const current=state.prefs[item.id]||{enabled:false,settings:{}};
  let fields={};
- if(item.id==='bot-farm-2'){
-   box.append(h('p','','اختر القالب وتأخير التنفيذ والتنقل بين القرى. تُطبق الإعدادات عند مزامنة المتصفح.'));
-   const a=field('القالب','select',current.settings.template||'A',{values:['A','B','C']});
-   const b=field('أقل تأخير بالمللي ثانية','number',current.settings.minDelay??1000,{min:500,max:60000});
-   const c=field('أقصى تأخير بالمللي ثانية','number',current.settings.maxDelay??2000,{min:500,max:60000});
-   const d=field('التنقل بين القرى','checkbox',current.settings.switchVillages!==false);
-   fields={template:a.input,minDelay:b.input,maxDelay:c.input,switchVillages:d.input};
-   box.append(a.lab,b.lab,c.lab,d.lab);
- }else if(item.id==='warehouse-alert-safe'){
+ if(item.id==='warehouse-alert-safe'){
    box.append(h('p','','حدّد نسبة امتلاء المخزن التي يظهر عندها التنبيه.'));
    const a=field('نسبة التنبيه %','number',current.settings.percent??90,{min:50,max:100});fields={percent:a.input};box.append(a.lab);
  }else box.append(h('p','','يمكن تشغيل هذا السكربت أو إيقافه من الموقع. الإعدادات التفصيلية لهذا الإصدار متاحة من واجهة السكربت داخل اللعبة.'));
@@ -204,7 +195,6 @@ function showSettings(item){
    const submit=h('button','button button-primary button-full','حفظ الإعدادات');submit.type='button';
    submit.addEventListener('click',async()=>{
      let settings={};
-     if(item.id==='bot-farm-2')settings={template:fields.template.value,minDelay:Number(fields.minDelay.value),maxDelay:Number(fields.maxDelay.value),switchVillages:fields.switchVillages.checked};
      if(item.id==='warehouse-alert-safe')settings={percent:Number(fields.percent.value)};
      submit.disabled=true;
      try{
