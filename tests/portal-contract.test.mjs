@@ -69,6 +69,9 @@ async function api(db,path,{method='GET',token='',body,headers={}}={}){
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
 test('No content before login and 26 catalog script IDs match the bridge',async()=>{
+ assert.match(html,/<div class="app-shell" hidden>/);
+ assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
+ assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay"/);
  assert.equal(catalog.length,26);
