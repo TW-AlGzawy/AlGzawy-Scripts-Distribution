@@ -14,7 +14,9 @@ const errorArabic=err=>({
  service_unavailable:'خدمة الإدارة غير متاحة حاليًا.',
  invalid_name:'اسم المشترك غير صالح.',
  invalid_subscription:'حالة الاشتراك أو التاريخ غير صالح.',
- invalid_entitlements:'قائمة السكربتات غير صالحة.'
+ invalid_entitlements:'قائمة السكربتات غير صالحة.',
+ key_not_recoverable:'المفتاح القديم محفوظ كـHash فقط؛ يمكنك إصدار مفتاح جديد.',
+ vault_not_configured:'Secret تشفير مفاتيح الوصول غير مهيّأ على Cloudflare.'
 })[String(err?.message||'')]||'تعذّر تنفيذ العملية: '+String(err?.message||err);
 function lockOwner(){
  csrfToken='';
