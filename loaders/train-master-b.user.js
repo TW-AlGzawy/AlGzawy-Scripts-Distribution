@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] TW Train Master (Light + Axe + Spear) - Control Panel (B)
+// @name         تجريبي - الغزااوي - مدرب الجنود
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
 // @match        https://*.tribalwars.ae/game.php*screen=train*
 // @run-at       document-idle
@@ -69,7 +69,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] TW Train Master (Light + Axe + Spear) - Control Panel (B)",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - مدرب الجنود",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
