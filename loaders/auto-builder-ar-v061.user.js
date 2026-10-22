@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy] البناء التقليدي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  نسخة Beta؛ اختبار منفصل قبل الاعتماد الوظيفي
 // @match        https://*/game.php?village=*&screen=main*
 // @run-at       document-end
