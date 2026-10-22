@@ -46,7 +46,7 @@ async function api(path,options={}){
  return data;
 }
 async function loadCatalog(){
- const data=await api('catalog');
+ const data=await api('admin/catalog');
  state.catalog=data.items||[];
 }
 function updateCloud(){
