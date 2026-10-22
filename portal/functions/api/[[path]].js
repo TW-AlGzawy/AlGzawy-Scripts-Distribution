@@ -402,9 +402,41 @@ async function handler(req,env){
       await accessEvent(env,req,uid,deviceId,path[5]==='approve'?'device_approved':'device_revoked');
       return reply({ok:true});
     }
+
+    if(path[1]==='users'&&path.length===4&&['archive','restore'].includes(path[3])){
+      if(req.method!=='POST')return bad('method_not_allowed',405);
+      const uid=path[2],action=path[3];
+      let result;
+      if(action==='archive'){
+        // Idempotent, but only disabled accounts may enter the archive.
+        result=await env.DB.prepare(
+          "INSERT OR IGNORE INTO portal_archived_users(user_id) SELECT id FROM portal_users WHERE id=? AND active=0"
+        ).bind(uid).run();
+      }else{
+        result=await env.DB.prepare(
+          "DELETE FROM portal_archived_users WHERE user_id=? AND EXISTS(SELECT 1 FROM portal_users WHERE id=? AND active=0)"
+        ).bind(uid,uid).run();
+      }
+      if(!result.meta?.changes)return bad('account_not_eligible',409);
+      await accessEvent(env,req,uid,null,action==='archive'?'account_archived':'account_restored');
+      return reply({ok:true,userId:uid,archived:action==='archive'});
+    }
+    if(path[1]==='users'&&path.length===4&&path[3]==='delete'){
+      if(req.method!=='DELETE')return bad('method_not_allowed',405);
+      const uid=path[2];
+      // The user must be disabled. SQLite FK ON DELETE CASCADE removes its
+      // devices, keys, grants, preferences, codes, sessions and related logs.
+      const result=await env.DB.prepare('DELETE FROM portal_users WHERE id=? AND active=0 RETURNING id').bind(uid).first();
+      if(!result)return bad('account_not_eligible',409);
+      await accessEvent(env,req,null,null,'account_deleted');
+      return reply({ok:true,deleted:true});
+    }
     if(path[1]==='users'&&path.length===2){
       if(req.method==='GET'){
-        const x=await env.DB.prepare('SELECT id,label,active,created_at FROM portal_users ORDER BY created_at DESC LIMIT 200').all();
+        const x=await env.DB.prepare(
+          'SELECT u.id,u.label,u.active,u.created_at,CASE WHEN a.user_id IS NULL THEN 0 ELSE 1 END AS archived '
+          +'FROM portal_users u LEFT JOIN portal_archived_users a ON a.user_id=u.id ORDER BY u.created_at DESC LIMIT 200'
+        ).all();
         return reply({ok:true,users:x.results||[]});
       }
       if(req.method==='POST'){
