@@ -23,7 +23,7 @@
   panel.setAttribute('dir','rtl');
   panel.style.cssText = 'position:fixed;top:145px;right:15px;z-index:999991;width:235px;background:#f7f9fc;color:#15273a;border:1px solid #b3c3d3;border-radius:12px;box-shadow:0 8px 22px #0004;font:12px/1.6 Tahoma,Arial;overflow:hidden';
   panel.innerHTML =
-    '<header id="algzawy-bot2-header" style="background:#162c42;color:white;padding:9px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between"><b>AlGzawy — بوت النهب 2</b><button id="algzawy-bot2-min" type="button" style="color:white;background:transparent;border:0">−</button></header>'+
+    '<header id="algzawy-bot2-header" style="background:#162c42;color:white;padding:9px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between"><b>تجريبي - الغزااوي - بوت النهب</b><button id="algzawy-bot2-min" type="button" style="color:white;background:transparent;border:0">−</button></header>'+
     '<div id="algzawy-bot2-body" style="padding:10px">'+
     '<label>قالب النهب <select id="algzawy-bot2-template" style="width:100%;padding:4px"><option>A</option><option>B</option><option>C</option></select></label>'+
     '<div style="display:flex;gap:7px;margin-top:7px"><label style="flex:1">أقل تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-min-delay" style="width:90%"></label><label style="flex:1">أقصى تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-max-delay" style="width:90%"></label></div>'+
