@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] تنبيه امتلاء المخازن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.5
+// @version      0.1.6
 // @description  Client-only warehouse percentage warnings + Cloudflare central control
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
