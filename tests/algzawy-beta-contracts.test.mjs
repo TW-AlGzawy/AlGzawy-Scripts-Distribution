@@ -65,9 +65,9 @@ test('incoming attack rename requires user opt-in and never calls invented serve
   assert.ok(!code.includes('ajaxaction=rename'));
 });
 
-test('builder V3.3.3 minimizes to its header without saving collapsed geometry',()=>{
+test('builder V3.3.4 minimizes to its header without saving collapsed geometry',()=>{
   const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  assert.match(code,/\/\/ @version\s+3\.3\.3/);
+  assert.match(code,/\/\/ @version\s+3\.3\.4/);
   assert.match(code,/min-height:\s*40px/);
   assert.match(code,/height:\s*\$\{isMinimized \? '40px' : expandedHeight\}/);
   assert.match(code,/resize:\s*\$\{isMinimized \? 'none' : 'both'\}/);
