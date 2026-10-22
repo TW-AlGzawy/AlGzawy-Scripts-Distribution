@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy] البناء الاحترافي V3.3
+// @name         تجريبي - الغزااوي - البناء الاحترافي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.8
+// @version      1.0
 // @description  Builder engine 3.3.4; flexible main-page URL matching and visible startup diagnostics
 // @match        https://*/game.php?village=*&screen=main*
 // @match        https://*/game.php?screen=main*&village=*
@@ -79,7 +79,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"البناء الاحترافي",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - البناء الاحترافي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
