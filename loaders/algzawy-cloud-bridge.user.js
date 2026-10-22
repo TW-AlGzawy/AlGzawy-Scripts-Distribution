@@ -38,6 +38,7 @@
   sessionStorage.removeItem(TAB_READY_KEY);
   const processId=crypto.randomUUID();
   let tabReady=false;
+  let licensedPins=new Set();
   const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('algzawy-tab-pins-bridge-v1'):null;
   function eraseClonedPins(){
     for(const id of known)sessionStorage.removeItem(TAB_PIN_PREFIX+id);
@@ -77,7 +78,8 @@
     holder.replaceChildren();
     if(!channel){holder.textContent='هذا المتصفح لا يدعم عزل التبويبات المطلوب.';return;}
     if(!tabReady){holder.textContent='التحقق من هوية التبويب...';return;}
-    for(const id of known){
+    if(!licensedPins.size){holder.textContent='لا تظهر السكربتات إلا بعد اعتماد الجهاز ومزامنة صلاحيات اشتراكك.';return;}
+    for(const id of known.filter(id=>licensedPins.has(id))){
       const label=document.createElement('label');label.style.cssText='display:flex;gap:7px;align-items:center;margin:3px 0;padding:4px;border-bottom:1px solid #31565a';
       const input=document.createElement('input');input.type='checkbox';input.checked=pinned(id);
       input.setAttribute('aria-label','تثبيت '+scriptLabels[id]+' في هذا التبويب');
@@ -201,6 +203,8 @@
     localStorage.setItem(key,newVal);return true;
   }
   function stopAll(){
+    licensedPins.clear();
+    renderPinControls();
     localStorage.removeItem(LICENSE_UNTIL);
     localStorage.removeItem(LICENSE_ID);
     let changed=false;
@@ -252,6 +256,8 @@
       if(!r.global||typeof r.global.enabled!=='boolean'||!r.scripts||typeof r.scripts!=='object')throw Error('استجابة مزامنة غير مكتملة');
       localStorage.setItem(LICENSE_UNTIL,String(Date.now()+120000));
       localStorage.setItem(LICENSE_ID,connection.device);
+      licensedPins=new Set(known.filter(id=>r.scripts[id]?.allowed===true));
+      renderPinControls();
       let changed=false;
       for(const id of known){
         const script=r.scripts[id];
