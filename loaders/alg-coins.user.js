@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] بوت الصقل المطور AlG_COINS
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      0.1.8
 // @description  AlGzawy advanced minting/market engine recovered from prior v1.5 loader; requires live verification
 // @include      https://*.tribalwars.*/game.php?*screen=snob*
 // @include      https://*.tribalwars.*/game.php?*screen=market*mode=call*
