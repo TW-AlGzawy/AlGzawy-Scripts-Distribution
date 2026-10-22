@@ -5,9 +5,9 @@ const GROUPS = [
   ['mass-scavenge-v1','الإغارات الجماعية','raids','إدارة مجموعات الإغارات الخمس'],
   ['bot-farm-2','بوت النهب A/B/C','raids','القوالب وسرعة النهب والتنقل بين القرى'],
   ['alg-balance','موازنة الموارد','resources','موازنة الموارد بين القرى'],
-  ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء التلقائي V3.3','build','طابور البناء والأولويات'],
-  ['auto-builder-ar-v061','البناء العربي','build','إدارة البناء من صفحة القرية'],
-  ['professional-training-v2','التدريب التلقائي','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
+  ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء الاحترافي','build','طابور البناء والأولويات'],
+  ['auto-builder-ar-v061','البناء التقليدي','build','إدارة البناء من صفحة القرية'],
+  ['professional-training-v2','بوت التدريب المحسّن','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
   ['send-automation','الإرساليات الدقيقة','military','تحديد إرسال أو وصول القوات'],
   ['attack-renamer','تسمية الهجمات القادمة','military','تسمية الهجمات عبر QuickEdit'],
   ['alg-attacks','تنبيه الهجمات','military','تنبيهات الهجمات الواردة'],
@@ -26,8 +26,7 @@ const GROUPS = [
   ['reserve-correct-v2','Correct Reserve V2','military','الحجز'],
   ['auto-reserve-barbarians','حجز القرى البربرية','military','إدارة حجوزات القرى'],
   ['holy-grail','The Holy Grail','tools','أدوات تبويب اللعبة'],
-  ['tribal-wars-helper','Tribal Wars Helper','tools','أدوات ومساعدات'],
-  ['source-copier','ناسخ المصدر','tools','نسخ بيانات المصدر']
+  ['tribal-wars-helper','جامع الجوائز التلقائي','tools','أدوات ومساعدات']
 ];
 const IDS = new Set(GROUPS.map(x=>x[0]));
 const FAV = new Set(GROUPS.slice(0,10).map(x=>x[0]));
