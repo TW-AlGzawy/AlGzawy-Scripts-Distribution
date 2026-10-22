@@ -110,7 +110,7 @@ test('No content before login and 25 catalog script IDs match the bridge',async(
  assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
- assert.match(html,/id="loginOverlay" class="modal-overlay"/);
+ assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
  assert.equal(catalog.length,25);
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
@@ -144,6 +144,7 @@ test('Entitlements default DENY, owner can grant one script, unauthorized script
  assert.equal(save.status,200);
  const after=await api(db,'me',{token:accessKey});
  assert.equal(after.json.scripts['bot-farm-2'].enabled,true);
+ assert.deepEqual(after.json.scripts['bot-farm-2'].settings,{});
  assert.equal(after.json.scripts['alg-balance'].allowed,false);
  const bulk=await api(db,'scripts/bulk',{method:'POST',token:accessKey,body:{enabled:false}});assert.equal(bulk.json.count,1);
 });
@@ -434,4 +435,47 @@ test('25 loaders reject startup before tab pin but check cloud license once pinn
    callbacks[0]();
    assert.ok(requests.length>=1,id+': pinned and licensed tab should check cloud state');
  }
+});
+
+test('Bot farm toggles from customer UI without extra settings; legacy settings are discarded',async()=>{
+ const db=new DB(),result=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Farm tester'}})).json;
+ const userId=result.user.id,token=result.accessKey;
+ await api(db,'admin/users/'+userId+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
+ for(const settings of [{},{template:'A',minDelay:1000,maxDelay:2000,switchVillages:true}]){
+   const put=await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true,settings}});
+   assert.equal(put.status,200);assert.deepEqual(put.json.settings,{});
+ }
+ const off=await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:false,settings:{}}});
+ assert.equal(off.status,200);
+ assert.equal((await api(db,'me',{token})).json.scripts['bot-farm-2'].enabled,false);
+ // Do not broaden acceptance of extra portal settings for unrelated engines.
+ assert.equal((await api(db,'scripts/alg-balance',{token,method:'PUT',body:{enabled:true,settings:{foo:'bar'}}})).status,403);
+});
+test('Seven-day subscriber cookie restoration closes modal without login prompt',()=>{
+ assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
+ assert.match(ui,/updateAccount\(\);updateCloud\(\);render\(\);closeLogin\(\);/);
+ assert.match(ui,/setUser\(await api\('me'\)\);await loadCatalog\(\)/);
+ const css=read('portal/assets/style.css');
+ assert.match(css,/\.auth-locked \.modal-overlay:not\(\[hidden\]\)/);
+ assert.match(source,/const SUB_TTL=7\*24\*60\*60/);
+});
+test('Cloud Bridge uses only production Cloudflare domain and paired-device shared-origin signer',async()=>{
+ assert.match(bridge,/const PORTAL_ORIGIN='https:\/\/algzawy-cloud-control\.pages\.dev'/);
+ assert.doesNotMatch(bridge,/algzawy-cloud-origin|q\('origin'\)|keys\.origin/);
+ assert.match(bridge,/GM_getValue\(keys.mode,'legacy'\)==='shared'/);
+ assert.match(bridge,/callSharedSigner\('publicKey'\)/);
+ assert.match(bridge,/callSharedSigner\('sign',/);
+ const source=read('portal/functions/device-identity.js');
+ const {onRequestGet}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+ const response=onRequestGet({request:new Request('https://algzawy-cloud-control.pages.dev/device-identity')});
+ assert.equal(response.status,200);
+ assert.match(response.headers.get('content-security-policy'),/frame-ancestors https:\/\/\*\.tribalwars\.ae/);
+ assert.equal(response.headers.get('x-frame-options'),null);
+ const body=await response.text();
+ const script=body.match(/<script nonce="[^"]+">([\s\S]+)<\/script>/);
+ assert.ok(script,'signer script missing');
+ new vm.Script(script[1],{filename:'device-identity-frame.js'});
+ assert.match(script[1],/event\.source!==window\.parent/);
+ assert.match(script[1],/secure_storage_unavailable/);
+ assert.doesNotMatch(script[1],/exportKey\('jwk',pair\.privateKey\)/);
 });
