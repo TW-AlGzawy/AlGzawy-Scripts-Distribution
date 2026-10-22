@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] البناء التقليدي المتطور — نافذة عائمة
-// @version      2.0.0-qa1
-// @description  QA only - AlGzawy advanced floating traditional builder, safe free instant finish <3m
+// @version      2.1.0-qa2
+// @description  QA only - AlGzawy floating traditional builder with account manager templates and free finish <3m
 // @author       الغزااوي | AlG
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-traditional-floating-builder-v2-2026-10-23/pilots/algzawy-traditional-builder-v2.user.js
@@ -29,6 +29,7 @@
   const QUEUE_KEY='autoBuilderQueue';
   const LAYOUT_KEY='algzawy_traditional_layout_v2_'+ID;
   const INSTANT_KEY='algzawy_traditional_instant_free_v2_'+ID;
+  const TEMPLATE_KEY='algzawy_traditional_template_v2_'+ID;
   const STOP_EVENT='__algzawy_stop_auto-builder-ar-v061';
   const HUMAN_KEY='algzawy_human_verification_pause';
   const LOCAL_KEY='algzawy_local_enabled_'+SCRIPT_ID;
@@ -42,6 +43,14 @@
     ['farm','المزرعة'],['storage','المخزن'],['hide','المخبأ'],['wall','السور']
   ];
   const LABELS=Object.fromEntries(BUILDINGS);
+  // Order used by the game's account-manager base64 template format,
+  // matching the decoder already proven in Auto Builder Pro V3.3.
+  // It stores target levels, NOT a chronological click-by-click build plan.
+  const ACCOUNT_MANAGER_ORDER=[
+    'main','barracks','stable','garage','church','church_f','snob',
+    'smith','place','statue','market','wood','stone','iron','farm',
+    'storage','hide','wall','watchtower'
+  ];
   const DEFAULT_LENGTH=gd.features && gd.features.Premium && gd.features.Premium.active?5:2;
   const MAX_LENGTH=DEFAULT_LENGTH===2?2:10;
   const readJSON=(text, fallback)=>{try{return JSON.parse(text);}catch(_){return fallback;}};
@@ -59,6 +68,15 @@
   let isRunning=localStorage.getItem(STATUS_KEY)==='true'&&localStorage.getItem(QA_ARMED_KEY)==='1';
   let processing=false,pendingTimer=null,loop=null,refreshTimer=null,stoppedByPolicy=false,panel=null,body=null;
   let instantEnabled=localStorage.getItem(INSTANT_KEY)!=='false',instantPending=false,lastInstantAt=0,instantTimer=null;
+  // Template execution is separate from manual queue. Never delete or rewrite
+  // legacy manual items during import or template progression.
+  const storedTemplate=readJSON(localStorage.getItem(TEMPLATE_KEY)||'{}',{});
+  let templateSteps=Array.isArray(storedTemplate?.steps)
+    ?storedTemplate.steps.filter(step=>step&&Object.hasOwn(LABELS,step.id)
+      &&Number.isInteger(step.target)&&step.target>0&&step.target<=50).slice(0,BUILDINGS.length)
+    :[];
+  let templateMode=storedTemplate?.mode==='template'&&templateSteps.length>0?'template':'manual';
+  let templateIssued=null,templateRefreshAt=0,templateVersion=0;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
   const elements={};
@@ -163,6 +181,96 @@
     '@media(max-width:480px){#'+ROOT_ID+'{max-width:calc(100vw - 8px)}#'+ROOT_ID+' .alg-body{padding:8px;gap:7px}}'
   ].join('\n');
   document.head.appendChild(style);
+
+
+  // The account-manager export carries levels at byte offsets 4..22;
+  // it does not encode user-created execution stages. Imported targets are
+  // initially ordered by the game's internal fields, and can be reordered
+  // explicitly using the up/down arrows in the V2 panel.
+  function decodeTWTemplate(code){
+    if(typeof code!=='string')return null;
+    const clean=code.replace(/\s+/g,'').trim().replace(/-/g,'+').replace(/_/g,'/');
+    if(clean.length<30||clean.length>4096||!/^[A-Za-z0-9+/]*={0,2}$/.test(clean))return null;
+    let decoded;
+    try{decoded=atob(clean);}catch(_){return null;}
+    if(decoded.length<4+ACCOUNT_MANAGER_ORDER.length)return null;
+    const steps=[];
+    for(let i=0;i<ACCOUNT_MANAGER_ORDER.length;i++){
+      const id=ACCOUNT_MANAGER_ORDER[i],target=decoded.charCodeAt(4+i);
+      if(!target)continue;
+      if(target>50)return null;
+      if(Object.hasOwn(LABELS,id))steps.push({id,target});
+    }
+    return steps.length?steps:null;
+  }
+  function saveTemplate(){
+    localStorage.setItem(TEMPLATE_KEY,JSON.stringify({mode:templateMode,steps:templateSteps}));
+  }
+  function currentLevel(id){
+    const row=document.getElementById('main_buildrow_'+id);
+    if(!row)return null;
+    const text=row.querySelector('.mw, .level, [data-level]')?.getAttribute('data-level')
+      ||row.querySelector('.mw, .level, [data-level]')?.textContent;
+    const match=String(text||'').match(/\d+/);
+    return match?Number(match[0]):null;
+  }
+  function nextTemplateStep(){
+    for(let i=0;i<templateSteps.length;i++){
+      const step=templateSteps[i],level=currentLevel(step.id);
+      if(level===null||level<step.target)return {index:i,...step,level};
+    }
+    return null;
+  }
+  function templateProgress(){
+    const ready=templateSteps.filter(step=>{
+      const current=currentLevel(step.id);
+      return current!==null&&current>=step.target;
+    }).length;
+    return {ready,total:templateSteps.length};
+  }
+  function renderTemplate(){
+    if(!elements.templateQueue)return;
+    elements.templateQueue.replaceChildren();
+    const progress=templateProgress();
+    elements.templateCounter.textContent=progress.ready+' / '+progress.total+' مبانٍ وصلت لمستواها المستهدف';
+    elements.templateMode.textContent=templateMode==='template'?'✓ وضع القالب مفعل':'○ وضع القائمة اليدوية';
+    elements.templateMode.setAttribute('aria-pressed',String(templateMode==='template'));
+    elements.templateMode.disabled=!templateSteps.length||stoppedByPolicy;
+    elements.add.disabled=templateMode==='template';
+    const current=nextTemplateStep();
+    for(let i=0;i<templateSteps.length;i++){
+      const step=templateSteps[i],level=currentLevel(step.id);
+      const completed=level!==null&&level>=step.target;
+      const text=(LABELS[step.id]||step.id)+' — '+(level===null?'؟':level)+' / '+step.target
+        +(completed?' ✓':current?.index===i?' ← التالي':'');
+      const li=node('li',completed?'alg-complete':'');
+      li.append(node('span','alg-index',i+1),node('span','alg-building',text));
+      li.append(button('↑','',()=>moveTemplateStep(i,-1),'تقديم هذا المبنى في القالب'));
+      li.append(button('↓','',()=>moveTemplateStep(i,1),'تأخير هذا المبنى في القالب'));
+      elements.templateQueue.append(li);
+    }
+    if(!templateSteps.length)elements.templateQueue.append(node('li','', 'لا يوجد قالب مستورد بعد.'));
+  }
+  function moveTemplateStep(index,offset){
+    if(stoppedByPolicy)return;
+    const dest=index+offset;
+    if(dest<0||dest>=templateSteps.length)return;
+    const [step]=templateSteps.splice(index,1);
+    templateSteps.splice(dest,0,step);
+    templateVersion++;templateIssued=null;saveTemplate();renderTemplate();
+  }
+  function importTemplate(raw){
+    const decoded=decodeTWTemplate(raw);
+    if(!decoded){status('تعذر قراءة الكود: يجب إدخال كود قالب مدير الحساب بتنسيق V3.3 الصحيح.','error');return false;}
+    // Explicitly stop before switching mode; do not accidentally execute a
+    // newly imported template if the old manual builder was running.
+    if(isRunning){isRunning=false;saveStatus();endLoop();}
+    templateSteps=decoded;templateMode='template';
+    templateIssued=null;templateVersion++;
+    saveTemplate();renderQueue();renderTemplate();renderStatus();
+    status('تم استيراد '+decoded.length+' مبانٍ بأهدافها. راجع ترتيب الأولويات ثم اضغط تشغيل.','normal');
+    return true;
+  }
 
   function renderQueue(){
     const list=elements.queue;
