@@ -93,5 +93,84 @@ test('Policy shutdown cancels pending build, free finish, UI event listeners and
   assert.match(pilot,/if\(instantTimer\)\{clearTimeout\(instantTimer\);instantTimer=null;\}/);
   assert.match(pilot,/if\(pendingTimer\)\{clearTimeout\(pendingTimer\);pendingTimer=null;\}/);
   assert.match(pilot,/if\(!isRunning\|\|!policyOK\(\)\)return/);
-  assert.match(pilot,/if\(!canContinue\(id\)\)\{processing=false;return;\}/);
+  assert.match(pilot,/if\(!canContinue\(plan\)\)\{processing=false;return;\}/);
+});
+
+
+test('Account Manager decoder imports exact V3.3 target bytes and advances only on levels',()=>{
+  const begin=pilot.indexOf('function decodeTWTemplate(code){');
+  const stop=pilot.indexOf('function renderQueue(){',begin);
+  assert.ok(begin>0&&stop>begin);
+  const functions=pilot.slice(begin,stop);
+  const order=['main','barracks','stable','garage','church','church_f','snob',
+    'smith','place','statue','market','wood','stone','iron','farm',
+    'storage','hide','wall','watchtower'];
+  const labels=Object.fromEntries(order.filter(x=>!['church','church_f','place'].includes(x)).map(x=>[x,x]));
+  const bytes=Buffer.alloc(4+order.length);
+  bytes[4+order.indexOf('main')]=3;
+  bytes[4+order.indexOf('wood')]=8;
+  bytes[4+order.indexOf('stone')]=9;
+  const prefix=[
+    'const ACCOUNT_MANAGER_ORDER='+JSON.stringify(order)+';',
+    'const LABELS='+JSON.stringify(labels)+';',
+    'let templateSteps=[],templateMode="manual",templateIssued=null,templateVersion=0,isRunning=false;',
+    'let stoppedByPolicy=false,buildingQueue=[],elements={},layout={};',
+    'const renderQueue=()=>{},renderStatus=()=>{},endLoop=()=>{},saveStatus=()=>{},status=()=>{};',
+    'const localStorage={setItem:()=>{},getItem:()=>null};',
+    'const levels={main:3,wood:7,stone:2};',
+    'const document={getElementById:(key)=>{const val=levels[key.replace("main_buildrow_","")];'+
+     'return val===undefined?null:{querySelector:()=>({textContent:String(val),getAttribute:()=>null})};}};',
+    'const node=()=>({append(){}});const button=()=>({});'
+  ].join('\n');
+  const ctx={atob:value=>Buffer.from(value,'base64').toString('binary')};
+  const body=[
+    'const imported=decodeTWTemplate('+JSON.stringify(bytes.toString('base64'))+');',
+    'templateSteps=imported;',
+    'const first=nextTemplateStep(),initial=templateProgress();',
+    'levels.wood=8;const second=nextTemplateStep();',
+    'levels.stone=9;const done=nextTemplateStep();',
+    'const bad=decodeTWTemplate("wrong");',
+    '({imported,first,initial,second,done,bad});'
+  ].join('\n');
+  const outcome=vm.runInNewContext(prefix+'\n'+functions+'\n'+body,ctx);
+  assert.deepEqual(JSON.parse(JSON.stringify(outcome.imported)),[
+    {id:'main',target:3},{id:'wood',target:8},{id:'stone',target:9}
+  ]);
+  assert.equal(outcome.first.id,'wood');
+  assert.equal(outcome.first.level,7);
+  assert.equal(outcome.initial.ready,1);
+  assert.equal(outcome.second.id,'stone');
+  assert.equal(outcome.done,null);
+  assert.equal(outcome.bad,null);
+  bytes[4+order.indexOf('wood')]=60;
+  const corrupted=vm.runInNewContext(prefix+'\n'+functions+
+    '\ndecodeTWTemplate('+JSON.stringify(bytes.toString('base64'))+');',ctx);
+  assert.equal(corrupted,null);
+});
+
+test('Template keeps sequential targets without consuming manual queue',()=>{
+  assert.match(pilot,/const TEMPLATE_KEY='algzawy_traditional_template_v2_'\+ID/);
+  assert.match(pilot,/const ACCOUNT_MANAGER_ORDER=\[/);
+  assert.match(pilot,/templateSteps=decoded;templateMode='template'/);
+  assert.match(pilot,/if\(level===null\|\|level<step\.target\)return/);
+  assert.match(pilot,/if\(templateIssued\|\|templateRefreshing\|\|currentBuildCount\(\)>0\)return null/);
+  assert.match(pilot,/templateIssued=\{id:plan\.id,level:plan\.level,at:Date\.now\(\)\}/);
+  assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
+  assert.match(pilot,/Math\.max\(0,queue\.rows\.length-2\)/);
+  assert.match(pilot,/تعذر تأكيد اكتمال البناء خلال 90 ثانية/);
+  assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
+  assert.match(pilot,/void refreshVisibleGameQueue\(\)\.finally\(\(\)=>\{templateRefreshing=false;\}\)/);
+  assert.match(pilot,/isRunning=false;saveStatus\(\);endLoop\(\);renderQueue\(\)/);
+});
+
+test('Template UI imports code, allows order edits and mode switching',()=>{
+  assert.match(pilot,/elements\.templateCode=node\('textarea','alg-template-code'\)/);
+  assert.match(pilot,/elements\.templateCode\.maxLength=4096/);
+  assert.match(pilot,/button\('استيراد القالب'/);
+  assert.match(pilot,/button\('حذف القالب'/);
+  assert.match(pilot,/templateMode=templateMode==='manual'\?'template':'manual'/);
+  assert.match(pilot,/elements\.templateCounter\.textContent=progress\.ready/);
+  assert.match(pilot,/button\('↑','',\(\)=>moveTemplateStep/);
+  assert.match(pilot,/button\('↓','',\(\)=>moveTemplateStep/);
+  assert.match(pilot,/elements\.add\.disabled=templateMode==='template'/);
 });
