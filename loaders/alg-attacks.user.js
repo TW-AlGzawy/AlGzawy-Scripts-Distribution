@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] AlG_attacks
+// @name         تجريبي - الغزااوي - تنبيه الهجمات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.8
+// @version      1.0
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-end
@@ -67,7 +67,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] AlG_attacks",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - تنبيه الهجمات",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
