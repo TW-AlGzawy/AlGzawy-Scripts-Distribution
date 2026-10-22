@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Tribal Wars Helper - AlGzawy Edition
+// @name         [AlGzawy] جامع الجوائز التلقائي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      0.1.6
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
@@ -60,7 +60,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Tribal Wars Helper - AlGzawy Edition",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"جامع الجوائز التلقائي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
