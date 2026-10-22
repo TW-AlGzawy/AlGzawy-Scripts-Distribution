@@ -251,9 +251,14 @@ test('Access vault encrypts stored keys, allows owner-only reveal and rotates ac
  assert.equal((await api(db,'admin/users/'+user.id+'/access-key',{token:created.accessKey})).status,401);
  const reveal=await api(db,'admin/users/'+user.id+'/access-key',{token:admin});
  assert.equal(reveal.json.accessKey,created.accessKey);
+ const beforeRotation=await api(db,'session',{method:'POST',body:{accessKey:created.accessKey}});
+ assert.equal(beforeRotation.status,200);
+ const priorCookie=beforeRotation.setCookie.split(';')[0];
+ assert.equal((await api(db,'me',{cookie:priorCookie})).status,200);
  const changed=await api(db,'admin/users/'+user.id+'/access-key',{token:admin,method:'POST',body:{}});
  assert.equal(changed.status,200);
  assert.notEqual(changed.json.accessKey,created.accessKey);
+ assert.equal((await api(db,'session',{cookie:priorCookie})).status,401,'rotated key must revoke old signed browser sessions');
  assert.equal((await api(db,'me',{token:created.accessKey})).status,401);
  assert.equal((await api(db,'me',{token:changed.json.accessKey})).status,200);
  assert.ok(db.events.some(x=>x.event_type==='owner_revealed_access_key'));
