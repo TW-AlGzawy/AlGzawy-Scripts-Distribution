@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS portal_device_keys (
  user_agent TEXT
 );
 CREATE INDEX IF NOT EXISTS portal_device_keys_user ON portal_device_keys(user_id,approved);
+-- Enforce one approved device per subscriber, even under concurrent admin requests.
+CREATE UNIQUE INDEX IF NOT EXISTS portal_one_approved_device_per_user ON portal_device_keys(user_id) WHERE approved=1;
 CREATE TABLE IF NOT EXISTS portal_access_events (
  id TEXT PRIMARY KEY,
  user_id TEXT REFERENCES portal_users(id) ON DELETE CASCADE,
