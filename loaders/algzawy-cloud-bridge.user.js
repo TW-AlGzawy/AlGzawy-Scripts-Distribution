@@ -209,6 +209,20 @@
       else {if(Date.now()-connection.last>120000)stopAll();showMessage('تعذرت المزامنة: '+e.message);}
     }finally{pending=false;}
   }
+  let lastBlocked=null;
+  document.addEventListener('algzawy-cloud-script-status',event=>{
+    const data=event.detail;
+    if(!data||typeof data.id!=='string'||!known.includes(data.id))return;
+    const holder=document.getElementById('algzawy-cloud-script-retry');
+    if(!holder)return;
+    if(data.state==='ready'){
+      if(lastBlocked===data.id){lastBlocked=null;holder.style.display='none';}
+      return;
+    }
+    lastBlocked=data.id;holder.style.display='flex';
+    document.getElementById('algzawy-cloud-script-name').textContent=data.name||data.id;
+    document.getElementById('algzawy-cloud-script-note').textContent=data.message||'موقوف — إعادة فحص الترخيص';
+  });
   function render(){
     if(card||!document.body)return;
     card=document.createElement('section');
@@ -220,9 +234,17 @@
       '<label style="display:block;margin-top:7px">رمز الربط المؤقت من الموقع<input id="algzawy-cloud-code" type="text" autocomplete="off" placeholder="alg_p_..." style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط المتصفح</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
+      '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
+      '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
+      '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
       '<p style="font-size:10px;color:#86a8b9">يلزم تثبيت سكربتات اللعبة المختارة إلى جانب هذا الجسر.</p></div>';
     document.body.appendChild(card);
     const q=id=>document.getElementById('algzawy-cloud-'+id);
+    q('script-refresh').addEventListener('click',async()=>{
+      q('script-refresh').disabled=true;
+      try{await synchronize(true);document.dispatchEvent(new Event('algzawy-local-control-changed'));}
+      finally{q('script-refresh').disabled=false;}
+    });
     q('origin').value=connection.origin;
     const linked=()=>{
       q('pair').style.display=connection.device?'none':'';
