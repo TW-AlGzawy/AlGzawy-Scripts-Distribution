@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تدريب وحدات احترافي محسّن
+// @name         تجريبي - الغزااوي - بوت التدريب المحسّن
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      1.0
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
