@@ -469,7 +469,8 @@ test('Cloud Bridge uses only production Cloudflare domain and paired-device shar
  assert.match(bridge,/const PORTAL_ORIGIN='https:\/\/algzawy-cloud-control\.pages\.dev'/);
  assert.doesNotMatch(bridge,/algzawy-cloud-origin|q\('origin'\)|keys\.origin/);
  assert.match(bridge,/GM_getValue\(keys.mode,'legacy'\)==='shared'/);
- assert.match(bridge,/callSharedSigner\('publicKey'\)/);
+ assert.match(bridge,/openAutoLicense\(\)/);
+ assert.match(bridge,/portableIdentity\(\)/);
  assert.match(bridge,/callSharedSigner\('sign',/);
  const source=read('portal/functions/device-identity.js');
  const {onRequestGet}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
