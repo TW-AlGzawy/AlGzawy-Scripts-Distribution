@@ -39,7 +39,7 @@ async function digest(value,secret){
   const hash=await crypto.subtle.digest('SHA-256',encoder.encode(secret+':'+value));
   return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
-function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');if(typeof env.PORTAL_ADMIN_TOKEN!=='string'||env.PORTAL_ADMIN_TOKEN.length<32)items.push('PORTAL_ADMIN_TOKEN');return items;}
+function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');if(typeof env.PORTAL_ADMIN_TOKEN!=='string'||env.PORTAL_ADMIN_TOKEN.length<32)items.push('PORTAL_ADMIN_TOKEN');if(typeof env.PORTAL_ACCESS_ENCRYPTION_KEY!=='string'||!/^[a-f0-9]{64}$/i.test(env.PORTAL_ACCESS_ENCRYPTION_KEY))items.push('PORTAL_ACCESS_ENCRYPTION_KEY');return items;}
 function envOK(env){return setupMissing(env).length===0;}
 function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
 
