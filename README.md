@@ -1,5 +1,18 @@
 # AlGzawy Scripts — GitHub Distribution
 
+## تحديث الحماية V2 — 22 أكتوبر 2026
+
+تم رفع نظام **تراخيص السكربتات لكل مشترك** + **جهاز واحد معتمد بعد موافقة المالك** + **سجل IP والأجهزة** + **صفحة دخول فقط**. ملفات التشغيل الـ26 تتطلب الآن تصريحًا حديثًا لكل سكربت من **Cloud Bridge v2.0.1**.
+
+- [تعليمات إعداد اشتراكات V2 وربط D1 والموافقة على الأجهزة](portal/SETUP-LICENSE-V2-AR.md)
+- [ترحيل قاعدة البيانات الإضافي V2](portal/schema-license-v2.sql)
+- [تثبيت Cloud Bridge v2](https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js)
+- [صفحة الموقع المنشورة](https://algzawy-cloud-control.pages.dev)
+
+**هام قبل نشر التحديثات للزبائن:** الموقع الثابت منشور، لكن لُوحظ خطأ portal_not_configured في الاختبار، لذا لا تعتبر خدمة التراخيص Production جاهزة قبل التحقق من الأسرار/Bindings، وتشغيل migration V2، واختبارات ترخيص الأجهزة. هذه النسخ Fail-Closed، وقد تتوقف البوتات المثبتة عند التحديث حتى يكتمل الإعداد. بيانات GitHub وكود السكربتات المتاحان للعامة يمكن تعديلهما؛ حماية WebCrypto ليست DRM غير قابل للكسر.
+
+---
+
 ## AlGzawy Cloud Control — بوابة ويب جديدة (Cloudflare Free)
 
 تم تطوير ملفات **بوابة عربية لإدارة تفعيل السكربتات عن بُعد** باستخدام Cloudflare Pages + Functions + قاعدة D1 نفسها. **لم يتم تفعيل الاستضافة بعد**؛ يحتاج مالك الحساب لإنشاء Pages وربط D1 والأسرار عبر Cloudflare.
