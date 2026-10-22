@@ -6,6 +6,7 @@
     // ========================================================================
     const TAB_ID    = (typeof tabId !== 'undefined') ? tabId
                     : (sessionStorage.getItem('algzawy_refine_tab_id') || ('tab_' + Date.now()));
+    sessionStorage.setItem('algzawy_refine_tab_id',TAB_ID);
     const PREFIX    = (typeof SETTINGS_PREFIX !== 'undefined') ? SETTINGS_PREFIX
                     : ('algzawy_refine_bot_' + TAB_ID + '_');
     const TAB_LABEL = TAB_ID.replace('tab_', '').slice(-4);
@@ -28,8 +29,18 @@
         tgChatId:        ''
     };
 
-    const get  = (key)      => { try { return GM_getValue(PREFIX + key, DEFAULTS[key]); } catch(e) { return DEFAULTS[key]; } };
-    const set  = (key, val) => { try { GM_setValue(PREFIX + key, val); } catch(e) {} };
+    // The page-context loader lacks GM_* storage. Persist non-sensitive per-tab
+    // options across reload while keeping Telegram credentials out of localStorage.
+    const get = key => {
+        try{if(typeof GM_getValue==='function')return GM_getValue(PREFIX+key,DEFAULTS[key]);}catch(_){}
+        if(key==='tgToken'||key==='tgChatId')return DEFAULTS[key];
+        try{const x=localStorage.getItem(PREFIX+key);return x===null?DEFAULTS[key]:JSON.parse(x);}catch(_){return DEFAULTS[key];}
+    };
+    const set = (key,val) => {
+        try{if(typeof GM_setValue==='function'){GM_setValue(PREFIX+key,val);return;}}catch(_){}
+        if(key==='tgToken'||key==='tgChatId')return;
+        try{localStorage.setItem(PREFIX+key,JSON.stringify(val));}catch(_){}
+    };
     const rand = (mn, mx)   => Math.floor(Math.random() * (mx - mn + 1)) + mn;
     const sleep = ms        => new Promise(r => setTimeout(r, ms));
     const baseUrl = ()      => location.href.split('&screen')[0];

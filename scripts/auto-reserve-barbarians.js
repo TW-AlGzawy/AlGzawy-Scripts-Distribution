@@ -65,6 +65,22 @@
 
     let settings = {};
     let isRunning = false;
+    const NO_PREMIUM_NOTICE='أنت لا تمتلك عضوية خاصة، يجب تفعيلها أولًا ثم أعد المحاولة من جديد!';
+    let premiumMissing=false;
+    function detectsMissingPremium(value){
+      const msg=typeof value==='string'?value:JSON.stringify(value||{});
+      return /العضوية الخاصة|عضوية خاصة|premium account|premium membership|premium feature|premium_required/i.test(msg);
+    }
+    function stopMissingPremium(){
+      if(premiumMissing)return;
+      premiumMissing=true;
+      settings.enabled=false;
+      saveSettings();
+      if(autoRefreshTimer){clearInterval(autoRefreshTimer);autoRefreshTimer=null;}
+      addLog(NO_PREMIUM_NOTICE,'error');
+      updateButtonStates();
+    }
+
     let autoRefreshTimer = null;
     let statsData = {reserved: 0, unreserved: 0, removed: 0, errors: 0, sessionReserved: 0, lastNotificationCount: 0};
     let knownVillages = new Set();
@@ -318,7 +334,7 @@
     async function reserveVillage(villageId) {
         return new Promise((resolve, reject) => {
             const url = `/game.php?village=${currentVillageId}&screen=info_village&id=${villageId}&ajaxaction=toggle_reserve_village&json=1&h=${csrfToken}`;
-            console.log(`[Debug] Reserving village ${villageId}:`, {currentVillageId, csrfToken, url});
+            console.log(`[Auto Reserve] Reserving village ${villageId}`);
             $.ajax({
                 url: url,
                 type: 'GET',
@@ -332,6 +348,7 @@
                         updateStatsDisplay();
                         resolve(true);
                     } else {
+                        if(detectsMissingPremium(response)){stopMissingPremium();resolve(false);return;}
                         const errorMsg = response?.error || response?.message || 'فشل الحجز';
                         addLog(`❌ فشل حجز القرية ${villageId}: ${errorMsg}`, "error");
                         statsData.errors++;
@@ -341,6 +358,9 @@
                 },
                 error: function(xhr, status, error) {
                     const errorDetails = xhr.responseText || error || status;
+                    if(detectsMissingPremium(errorDetails)){
+                      stopMissingPremium();resolve(false);return;
+                    }
                     addLog(`❌ خطأ في حجز القرية ${villageId}: ${errorDetails}`, "error");
                     console.error(`Error reserving village ${villageId}:`, {xhr, status, error});
                     statsData.errors++;
@@ -520,8 +540,8 @@
                 addLog(`✨ تم العثور على ${unreservedVillages.length} قرية بربرية غير محجوزة!`, "success");
 
                 for (let i = 0; i < unreservedVillages.length; i++) {
-                    if (!settings.enabled) {
-                        addLog("⏹️ تم إيقاف السكريبت", "warning");
+                    if (!settings.enabled || premiumMissing) {
+                        addLog("⏹️ تم إيقاف محاولات الحجز", "warning");
                         break;
                     }
 
@@ -783,6 +803,7 @@
 
         $(`#${SCRIPT_TAG}_start`).click(() => {
             saveSettingsFromUI();
+            premiumMissing=false;
             settings.enabled = true;
             saveSettings();
             processVillages();

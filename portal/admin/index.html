@@ -15,7 +15,7 @@
   <div class="ambient ambient-two" aria-hidden="true"></div>
   <main id="adminLogin" class="owner-login">
     <section class="login-modal" aria-labelledby="ownerTitle">
-      <div class="login-logo" aria-hidden="true">AG</div>
+      <div class="login-logo" aria-hidden="true">AlG</div>
       <div class="section-kicker">ALGZAWY CLOUD CONTROL</div>
       <h1 id="ownerTitle">دخول إدارة المنظومة</h1>
       <p>هذه البوابة للمالك فقط. حساب المشترك لا يمنح صلاحيات الإدارة.</p>
@@ -30,7 +30,7 @@
   </main>
   <div id="adminShell" class="owner-shell" hidden>
     <header class="owner-topbar">
-      <div class="owner-brand"><span class="brand-mark">A<span>G</span></span><div><strong>AlGzawy Cloud</strong><small>لوحة إدارة الاشتراكات</small></div></div>
+      <div class="owner-brand"><span class="brand-mark">AlG</span><div><strong>AlGzawy Cloud</strong><small>لوحة إدارة الاشتراكات</small></div></div>
       <div class="owner-top-actions"><span id="cloudState" class="pill pill-neutral">التحقق من الحالة</span><button id="ownerLogout" type="button" class="button button-outline button-sm">تسجيل الخروج</button></div>
     </header>
     <main class="owner-main">
@@ -41,7 +41,15 @@
             <div class="settings-card"><h3>إضافة زبون</h3><label for="newUser">اسم الزبون</label><input id="newUser" type="text" maxlength="80" placeholder="اسم الحساب"><button id="createUser" type="button" class="button button-outline">إنشاء مفتاح وصول</button><div id="createdSecret" class="generated-secret" hidden></div></div>
           </div>
           <div class="settings-card owner-global-card"><h3>مفتاح التشغيل المركزي</h3><p class="field-note">يؤثر على جميع السكربتات المدعومة، تمامًا مثل لوحة Cloudflare القديمة.</p><div class="bulk-controls"><button id="adminGlobalOn" class="button button-primary" type="button">تشغيل المنظومة ON</button><button id="adminGlobalOff" class="button button-danger" type="button">إيقاف المنظومة OFF</button><button id="adminGlobalRefresh" class="button button-outline" type="button">تحديث الحالة</button></div><p id="adminGlobalMessage" class="field-note"></p></div>
-          <div class="settings-card users-card"><h3>الحسابات الموجودة</h3><div id="adminUsers" class="users-list"><p>سجل الدخول ببيانات الإدارة لاستعراض الحسابات.</p></div></div>
+          <section class="settings-card users-card" aria-labelledby="scriptControlsTitle">
+<h3 id="scriptControlsTitle">التحكم الفردي بالسكربتات</h3>
+<p class="field-note">إيقاف سكربت واحد يمنع تشغيله لدى جميع المشتركين، دون التأثير على المفتاح المركزي.</p>
+<label for="adminScriptSearch">البحث عن سكربت</label>
+<input id="adminScriptSearch" type="search" placeholder="ابحث عن اسم السكربت">
+<div id="adminScriptControls" class="admin-script-controls" aria-live="polite"></div>
+<button id="adminScriptReload" type="button" class="button button-outline">تحديث الحالات</button>
+</section>
+<div class="settings-card users-card"><h3>الحسابات الموجودة</h3><div id="adminUsers" class="users-list"><p>سجل الدخول ببيانات الإدارة لاستعراض الحسابات.</p></div></div>
           <a class="text-link" href="https://algzawy-control-api.karm-saleh-usa2.workers.dev/admin" target="_blank" rel="noopener noreferrer">فتح لوحة الإيقاف المركزي القديمة ↗</a>
 
     </main>

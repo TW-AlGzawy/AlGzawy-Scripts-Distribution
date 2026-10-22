@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Auto Builder - عربي (ثابت + الأكاديمية)
+// @name         البناء التقليدي — AlGzawy
 // @version      0.6.2
 // @description  بناء تلقائي للمباني + حفظ حالة التشغيل + دعم الأكاديمية
 // @author       غزااوي
@@ -105,6 +105,19 @@ function init() {
     buildingObject.buildingQueue.forEach(addBuildingRow);
 
     eventListeners();
+    // The game's cancel action can leave an outdated queue row visible.
+    // Refresh only the queue view after the actual cancel action, without
+    // restarting build automation or modifying the script's planned queue.
+    let cancelRefreshTimer=null;
+    document.addEventListener('click',event=>{
+      const element=event.target.closest?.('#buildqueue a[href*="cancel"], #buildqueue button.btn-cancel, #buildqueue .btn-cancel, #buildqueue a[href*="action=cancel"]');
+      if(!element)return;
+      if(cancelRefreshTimer)clearTimeout(cancelRefreshTimer);
+      cancelRefreshTimer=setTimeout(()=>{
+        cancelRefreshTimer=null;
+        void refreshVisibleGameQueue();
+      },1600);
+    });
 
     // 🔥 استرجاع حالة التشغيل بعد التحديث
     if (localStorage[STATUS_KEY]) {
@@ -199,6 +212,7 @@ async function refreshVisibleGameQueue() {
         const updated = fresh.querySelector('#buildqueue');
         const current = document.querySelector('#buildqueue');
         if (current && updated) current.replaceWith(document.importNode(updated, true));
+        else if (current && !updated) current.remove(); // refresh after final queue cancellation
         else if (!current && updated) document.querySelector('#content_value')?.prepend(document.importNode(updated, true));
     } catch (e) { console.warn('[AlGzawy Builder] Could not sync game queue', e); }
 }

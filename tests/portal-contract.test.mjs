@@ -8,17 +8,19 @@ const source=read('portal/functions/api/[[path]].js');
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const ui=read('portal/assets/app.js'),html=read('portal/index.html');
 const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.html');
-const catalog=JSON.parse(read('portal/catalog.json')).items;
+const catalog=JSON.parse(read('catalog.json')).published_candidates;
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 class DB{
-  constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];}
+  constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];this.vault=[];this.scriptControls=[];}
   prepare(sql){const db=this;return {
     args:[],bind(...args){this.args=args;return this;},
     async first(){const a=this.args;
       if(sql.includes('FROM global_control'))return {...db.global};
       if(sql.startsWith('UPDATE global_control')){if(db.global.enabled===a[0])return null;db.global.enabled=a[0];db.global.revision++;return {...db.global};}
-      if(sql.includes('FROM portal_users WHERE access_hash')){const u=db.users.find(x=>x.access_hash===a[0]&&x.active===1);return u?{id:u.id,label:u.label}:null;}
-      if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
+      if(sql.includes('FROM portal_users WHERE access_hash')){const u=db.users.find(x=>x.access_hash===a[0]&&x.active===1);return u?{id:u.id,label:u.label,access_hash:u.access_hash}:null;}
+      if(sql.includes('SELECT id,label,access_hash FROM portal_users WHERE id=? AND active=1')){const u=db.users.find(x=>x.id===a[0]&&x.active===1);return u?{id:u.id,label:u.label,access_hash:u.access_hash}:null;}
+       if(sql.includes('SELECT encrypted_key,iv FROM portal_access_key_vault'))return db.vault.find(x=>x.user_id===a[0])||null;
+       if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
       if(sql.includes('SELECT active,expires_at FROM portal_subscriptions'))return db.subs.find(x=>x.user_id===a[0])||null;
       if(sql.includes('SELECT settings_json FROM portal_preferences')){const x=db.prefs.find(v=>v.user_id===a[0]&&v.script_id===a[1]);return x?{settings_json:x.settings_json}:null;}
       if(sql.includes('FROM portal_device_keys k JOIN portal_users u')){
@@ -33,7 +35,8 @@ class DB{
       throw Error('Unexpected FIRST: '+sql);
     },
     async all(){const a=this.args;
-      if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
+      if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
+       if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
       if(sql.includes('SELECT id,label,active,created_at FROM portal_users'))return {results:db.users};
       if(sql.includes('FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(v=>v.user_id===a[0])};
@@ -41,7 +44,10 @@ class DB{
       throw Error('Unexpected ALL: '+sql);
     },
     async run(){const a=this.args;
-      if(sql.startsWith('INSERT INTO portal_users')){db.users.push({id:a[0],label:a[1],access_hash:a[2],active:1});return {meta:{changes:1}};}
+      if(sql.startsWith('INSERT INTO portal_access_key_vault')){const old=db.vault.find(x=>x.user_id===a[0]);if(old){old.encrypted_key=a[1];old.iv=a[2];}else db.vault.push({user_id:a[0],encrypted_key:a[1],iv:a[2]});return {meta:{changes:1}};}
+       if(sql.startsWith('UPDATE portal_users SET access_hash=')){const u=db.users.find(x=>x.id===a[1]);if(u)u.access_hash=a[0];return {meta:{changes:u?1:0}};}
+       if(sql.startsWith('INSERT INTO portal_script_controls')){const old=db.scriptControls.find(x=>x.id===a[0]);if(old)old.enabled=a[1];else db.scriptControls.push({id:a[0],enabled:a[1]});return {meta:{changes:1}};}
+       if(sql.startsWith('INSERT INTO portal_users')){db.users.push({id:a[0],label:a[1],access_hash:a[2],active:1});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_entitlements')){const old=db.grants.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old)old.allowed=a[2];else db.grants.push({user_id:a[0],script_id:a[1],allowed:a[2]});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_preferences')){const old=db.prefs.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old){old.enabled=a[2];if(a.length>3)old.settings_json=a[3];}else db.prefs.push({user_id:a[0],script_id:a[1],enabled:a[2],settings_json:a[3]||'{}'});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_pair_codes')){db.codes.push({code_hash:a[0],user_id:a[1],expires_at:a[2],consumed_at:null});return {meta:{changes:1}};}
@@ -61,7 +67,7 @@ class DB{
   async batch(stmts){for(const stmt of stmts)await stmt.run();}
 }
 const admin='z'.repeat(40),pepper='p'.repeat(40);
-const env=db=>({DB:db,PORTAL_ADMIN_TOKEN:admin,PORTAL_HASH_PEPPER:pepper});
+const env=db=>({DB:db,PORTAL_ADMIN_TOKEN:admin,PORTAL_HASH_PEPPER:pepper,PORTAL_ACCESS_ENCRYPTION_KEY:'f'.repeat(64)});
 async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={}){
  const h=new Headers(headers);if(token)h.set('Authorization','Bearer '+token);if(cookie)h.set('Cookie',cookie);
  if(body!==undefined)h.set('Content-Type','application/json');
@@ -69,15 +75,23 @@ async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={})
  const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json(),setCookie:r.headers.get('Set-Cookie')};
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
-test('No content before login and 26 catalog script IDs match the bridge',async()=>{
+test('No content before login and 25 catalog script IDs match the bridge',async()=>{
  assert.match(html,/<div class="app-shell" hidden>/);
  assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay"/);
- assert.equal(catalog.length,26);
+ assert.equal(catalog.length,25);
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
+});
+test('V3 encryption secret is required before Production reports readiness',async()=>{
+ const request=new Request('https://algzawy-cloud-control.pages.dev/api/status');
+ const missing=await onRequest({request,env:{DB:new DB(),PORTAL_HASH_PEPPER:pepper,PORTAL_ADMIN_TOKEN:admin}});
+ assert.equal(missing.status,503);
+ const body=await missing.json();
+ assert.deepEqual(body.missing,['PORTAL_ACCESS_ENCRYPTION_KEY']);
+ assert.equal(body.error,'portal_not_configured');
 });
 test('Missing production DB or pepper diagnostic identifies only missing variable names',async()=>{
  const req=new Request('https://x.pages.dev/api/status');
@@ -183,4 +197,91 @@ test('Owner and client web assets are actually separate',()=>{
   assert.match(ownerUi,/api\('admin\/session'/);
   assert.doesNotMatch(ownerUi,/localStorage|sessionStorage/);
   for(const [,id] of ownerUi.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(ownerHtml.includes('id="'+id+'"'),'owner control missing: '+id);
+});
+
+test('Subscriber session survives refresh for four days and rejects unauthenticated or forged mutations',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{method:'POST',token:admin,body:{label:'Customer session'}})).json;
+ const key=created.accessKey;
+ assert.equal((await api(db,'catalog')).status,401,'anonymous catalog must not expose scripts');
+ const signed=await api(db,'session',{method:'POST',body:{accessKey:key}});
+ assert.equal(signed.status,200);
+ assert.match(signed.setCookie,/HttpOnly; SameSite=Strict/);
+ assert.match(signed.setCookie,/Max-Age=345600/);
+ assert.match(signed.json.csrfToken,/^[a-f0-9]{64}$/);
+ const cookie=signed.setCookie.split(';')[0];
+ assert.equal((await api(db,'session',{cookie})).status,200);
+ assert.equal((await api(db,'me',{cookie})).status,200);
+ assert.equal((await api(db,'catalog',{cookie})).status,200);
+ assert.equal((await api(db,'pair/create',{cookie,method:'POST',body:{}})).status,403);
+ const csrf={'X-ALG-USER-CSRF':signed.json.csrfToken};
+ assert.equal((await api(db,'pair/create',{cookie,method:'POST',body:{},headers:csrf})).status,200);
+ assert.equal((await api(db,'pair/create',{cookie,method:'POST',body:{},headers:{...csrf,Origin:'https://evil.test'}})).status,403);
+ assert.equal((await api(db,'session',{cookie:cookie.replace(/[0-9a-f]$/,ch=>ch==='0'?'1':'0')})).status,401);
+ const logout=await api(db,'session',{cookie,method:'DELETE',headers:csrf});
+ assert.equal(logout.status,200);assert.match(logout.setCookie,/Max-Age=0/);
+ await api(db,'admin/users/'+created.user.id+'/disable',{token:admin,method:'POST',body:{}});
+ assert.equal((await api(db,'me',{cookie})).status,401,'disabled account must lose sessions');
+});
+test('Admin per-script OFF overrides grants and preferences without changing global ON/OFF',async()=>{
+ const db=new DB();
+ const created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Global script control'}})).json;
+ const id=created.user.id,token=created.accessKey;
+ await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2','alg-balance']}});
+ assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,200);
+ const baseline=db.global.revision;
+ assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,25);
+ const off=await api(db,'admin/scripts',{token:admin,method:'PUT',body:{id:'bot-farm-2',enabled:false}});
+ assert.equal(off.status,200);
+ const status=await api(db,'me',{token});
+ assert.equal(status.json.scripts['bot-farm-2'].allowed,true);
+ assert.equal(status.json.scripts['bot-farm-2'].enabled,false);
+ assert.equal(status.json.scripts['bot-farm-2'].globallyEnabled,false);
+ assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,403);
+ assert.equal(db.global.revision,baseline,'global switch must not change');
+ const on=await api(db,'admin/scripts',{token:admin,method:'PUT',body:{id:'bot-farm-2',enabled:true}});
+ assert.equal(on.status,200);
+ assert.equal((await api(db,'me',{token})).json.scripts['bot-farm-2'].enabled,true);
+});
+test('Access vault encrypts stored keys, allows owner-only reveal and rotates access hashes',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Vault customer'}})).json;
+ const user=created.user;
+ const stored=db.vault.find(x=>x.user_id===user.id);
+ assert.ok(stored&&/^[a-f0-9]+$/.test(stored.encrypted_key));
+ assert.ok(!stored.encrypted_key.includes(created.accessKey));
+ assert.equal((await api(db,'admin/users/'+user.id+'/access-key',{token:created.accessKey})).status,401);
+ const reveal=await api(db,'admin/users/'+user.id+'/access-key',{token:admin});
+ assert.equal(reveal.json.accessKey,created.accessKey);
+ const beforeRotation=await api(db,'session',{method:'POST',body:{accessKey:created.accessKey}});
+ assert.equal(beforeRotation.status,200);
+ const priorCookie=beforeRotation.setCookie.split(';')[0];
+ assert.equal((await api(db,'me',{cookie:priorCookie})).status,200);
+ const changed=await api(db,'admin/users/'+user.id+'/access-key',{token:admin,method:'POST',body:{}});
+ assert.equal(changed.status,200);
+ assert.notEqual(changed.json.accessKey,created.accessKey);
+ assert.equal((await api(db,'session',{cookie:priorCookie})).status,401,'rotated key must revoke old signed browser sessions');
+ assert.equal((await api(db,'me',{token:created.accessKey})).status,401);
+ assert.equal((await api(db,'me',{token:changed.json.accessKey})).status,200);
+ assert.ok(db.events.some(x=>x.event_type==='owner_revealed_access_key'));
+});
+
+test('Catalog is private and subscriber-visible entries come solely from per-user grants',async()=>{
+ const db=new DB();
+ const before=await api(db,'catalog');assert.equal(before.status,401);
+ const created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Scoped catalog'}})).json;
+ const userToken=created.accessKey,id=created.user.id;
+ let list=await api(db,'catalog',{token:userToken});
+ assert.equal(list.status,200);assert.equal(list.json.items.length,0);
+ await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
+ list=await api(db,'catalog',{token:userToken});
+ assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,25);
+ await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
+ assert.equal((await api(db,'catalog',{token:userToken})).status,403);
+});
+test('Front end removes public static catalog fallback and sends CSRF on session DELETE',()=>{
+ assert.doesNotMatch(ui,/fetch\(['"]\.\/catalog\.json/);
+ assert.match(ui,/\!\(path==='session'&&options\.method==='POST'\)/);
+ assert.match(ui,/api\('session',\{method:'DELETE'\}\)/);
+ assert.match(ui,/setInterval\(\(\)=>\{void verifySession\(\);\},5\*60\*1000\)/);
+ assert.match(ui,/globallyDisabled/);
 });

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] مركز التحكم الموحد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -47,7 +47,6 @@
     ['tribal-wars-helper','Tribal Wars Helper'],
     ['market-bot-v7','بوت السوق'],
     ['professional-training','التدريب الاحترافي القديم'],
-    ['source-copier','ناسخ المصدر'],
     ['reserve-correct-v2','حجز Correct v2'],
     ['reserve-smart-v4','حجز Smart v4'],
     ['reserve-smart-v5','حجز Smart v5'],

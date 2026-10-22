@@ -20,7 +20,7 @@
         AUTO_TRAIN: false, // opt-in: never start recruiting just from installing the beta loader
 
         // تحديث الصفحة تلقائياً (بالدقائق)
-        AUTO_REFRESH_MINUTES: 3,
+        AUTO_REFRESH_MINUTES: 0, // opt-in page refresh only
 
         // فاصل زمني عام بين محاولات التدريب (بالثواني)
         GLOBAL_INTERVAL_SECONDS: 15,
@@ -98,6 +98,7 @@
     try {
         const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
         if (typeof saved.enabled === 'boolean') CONFIG.AUTO_TRAIN = saved.enabled;
+        if(Number.isFinite(saved.refreshMinutes))CONFIG.AUTO_REFRESH_MINUTES=Math.max(0,Math.min(1440,Math.floor(saved.refreshMinutes)));
         if (saved.units && typeof saved.units === 'object') {
             for (const [id, original] of Object.entries(CONFIG.units)) {
                 const x = saved.units[id]; if (!x) continue;
@@ -111,7 +112,7 @@
     function saveUserSettings() {
         const units = {};
         for (const [id,x] of Object.entries(CONFIG.units)) units[id] = { enabled:x.enabled, targetCount:x.targetCount, priority:x.priority, maxBatch:x.maxBatch||0 };
-        localStorage.setItem(SETTINGS_KEY,JSON.stringify({enabled:CONFIG.AUTO_TRAIN,units}));
+        localStorage.setItem(SETTINGS_KEY,JSON.stringify({enabled:CONFIG.AUTO_TRAIN,refreshMinutes:CONFIG.AUTO_REFRESH_MINUTES,units}));
     }
     let statsCache = null; // كاش للإحصائيات لتقليل عمليات القراءة
 
@@ -188,10 +189,18 @@
             direction: rtl;
         `;
 
+        panel.dataset.collapsed=localStorage.getItem('algzawy_training_collapsed_'+VILLAGE)==='1'?'1':'0';
         updatePanelContent(panel);
+        panel.addEventListener('click',event=>{
+            if(event.target.id!=='algzawy-training-collapse')return;
+            panel.dataset.collapsed=panel.dataset.collapsed==='1'?'0':'1';
+            localStorage.setItem('algzawy_training_collapsed_'+VILLAGE,panel.dataset.collapsed);
+            updatePanelContent(panel);
+        });
         panel.addEventListener('change', event => {
             const el = event.target;
-            if (el.id === 'algzawy-training-enabled') CONFIG.AUTO_TRAIN = el.checked;
+            if(el.id==='algzawy-training-refresh')CONFIG.AUTO_REFRESH_MINUTES=Math.max(0,Math.min(1440,Number(el.value)||0));
+            else if (el.id === 'algzawy-training-enabled') CONFIG.AUTO_TRAIN = el.checked;
             else if (el.dataset.unit && CONFIG.units[el.dataset.unit]) {
                 const unit = CONFIG.units[el.dataset.unit];
                 if (el.dataset.field === 'enabled') unit.enabled = el.checked;
@@ -213,10 +222,14 @@
 
         let html = `
             <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="margin: 0; font-size: 18px;">🤖 بوت التدريب المحسّن</h3>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                    <h3 style="margin:0;font-size:18px">🤖 بوت التدريب المحسّن</h3>
+                    <button id="algzawy-training-collapse" type="button" aria-label="تصغير أو تكبير نافذة التدريب" style="border:1px solid #ddd8;background:#273c79;color:white;border-radius:5px;cursor:pointer">${panel.dataset.collapsed==='1'?'＋':'−'}</button>
+                </div>
+                <div data-training-body style="display:${panel.dataset.collapsed==='1'?'none':'block'}">
                 <label style="display:block;margin-top:6px"><input id="algzawy-training-enabled" type="checkbox" ${CONFIG.AUTO_TRAIN ? 'checked':''}> تشغيل التدريب التلقائي</label>
                 <div style="font-size: 11px; opacity: 0.8; margin-top: 5px;">
-                    التحديث: ${CONFIG.AUTO_REFRESH_MINUTES} دقيقة
+                    التحديث بالدقائق (0 = معطل): <input id="algzawy-training-refresh" type="number" min="0" max="1440" style="width:66px" value="${CONFIG.AUTO_REFRESH_MINUTES}">
                 </div>
             </div>
 
@@ -235,6 +248,9 @@
                 📋 إعدادات الوحدات (تُحفظ تلقائيًا):
             </div>
             <div style="max-height:200px;overflow:auto;background:#ffffff20;padding:5px">
+            <div style="display:grid;grid-template-columns:1fr 55px 40px 55px;gap:3px;align-items:center;font-size:10px;font-weight:bold">
+               <span>الوحدة</span><span>الهدف</span><span>الأولوية</span><span>الحد الأقصى</span>
+            </div>
             ${Object.entries(CONFIG.units).map(([id,u])=>
               '<div style="display:grid;grid-template-columns:1fr 55px 40px 55px;gap:3px;align-items:center;margin:3px 0">'+
               '<label><input type="checkbox" data-unit="'+id+'" data-field="enabled" '+(u.enabled?'checked':'')+'>'+u.name+'</label>'+
@@ -290,7 +306,7 @@
         html += `
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 10px; opacity: 0.7; text-align: center;">
                 آخر تحديث: ${new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
-            </div>
+            </div></div>
         `;
 
         panel.innerHTML = html;

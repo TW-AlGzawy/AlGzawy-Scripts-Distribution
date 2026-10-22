@@ -14,7 +14,9 @@ const errorArabic=err=>({
  service_unavailable:'خدمة الإدارة غير متاحة حاليًا.',
  invalid_name:'اسم المشترك غير صالح.',
  invalid_subscription:'حالة الاشتراك أو التاريخ غير صالح.',
- invalid_entitlements:'قائمة السكربتات غير صالحة.'
+ invalid_entitlements:'قائمة السكربتات غير صالحة.',
+ key_not_recoverable:'المفتاح القديم محفوظ كـHash فقط؛ يمكنك إصدار مفتاح جديد.',
+ vault_not_configured:'Secret تشفير مفاتيح الوصول غير مهيّأ على Cloudflare.'
 })[String(err?.message||'')]||'تعذّر تنفيذ العملية: '+String(err?.message||err);
 function lockOwner(){
  csrfToken='';
@@ -44,7 +46,7 @@ async function api(path,options={}){
  return data;
 }
 async function loadCatalog(){
- const data=await api('catalog');
+ const data=await api('admin/catalog');
  state.catalog=data.items||[];
 }
 function updateCloud(){
@@ -63,6 +65,7 @@ async function openOwner(data){
    await loadCatalog();
    await loadUsers();
    await adminGlobal(null);
+   await loadScriptControls();
  }catch(err){toast(errorArabic(err),true);}
 }
 $('ownerLoginForm').addEventListener('submit',async e=>{
@@ -118,7 +121,38 @@ async function editSubscription(user){
  const close=h('button','modal-close','×');close.type='button';close.addEventListener('click',()=>overlay.remove());
  box.append(close,h('div','section-kicker','AlGzawy — حماية الاشتراكات'),h('h2','',user.label),h('p','',
    'أنت وحدك تحدد السكربتات المسموحة لهذا الزبون. أي سكربت غير محدد لن يحصل على إذن التشغيل حتى لو كان ملف Tampermonkey مثبتًا.'));
- const selector=h('div','subscription-selector'),allowed=new Set(data.allowedIds||[]),checks=[];
+ // Owner-only key management: encrypted vault, never persist revealed secrets in UI state.
+ const keyPanel=h('div','device-detail');
+ keyPanel.append(h('strong','','مفتاح وصول المشترك'));
+ const keyValue=h('code','generated-secret','••••••••');
+ keyValue.style.direction='ltr';keyValue.style.display='block';keyValue.style.userSelect='text';
+ const keyActions=h('div','owner-actions');
+ const reveal=h('button','button button-outline button-sm','عرض المفتاح'),copy=h('button','button button-outline button-sm','نسخ المفتاح');
+ const rotate=h('button','button button-danger button-sm','إصدار مفتاح جديد');
+ let currentKey='';
+ reveal.type=copy.type=rotate.type='button';copy.disabled=true;
+ reveal.addEventListener('click',async()=>{
+   try{
+     const r=await api('admin/users/'+encodeURIComponent(user.id)+'/access-key');
+     currentKey=r.accessKey;keyValue.textContent=currentKey;copy.disabled=false;
+     toast('تم عرض مفتاح الوصول؛ احفظه بصورة آمنة.');
+   }catch(err){
+     if(err.message==='key_not_recoverable')toast('هذا مفتاح قديم محفوظ كـHash فقط؛ يمكن إصدار مفتاح جديد.',true);
+     else toast(errorArabic(err),true);
+   }
+ });
+ copy.addEventListener('click',async()=>{
+   if(!currentKey)return;
+   try{await navigator.clipboard.writeText(currentKey);toast('تم نسخ مفتاح الوصول');}catch(_){toast('تعذر النسخ',true);}
+ });
+ rotate.addEventListener('click',async()=>{
+   if(!confirm('إصدار مفتاح جديد سيلغي المفتاح السابق، وسيحتاج الزبون إلى تسجيل الدخول مجددًا بعد انتهاء جلسته. متابعة؟'))return;
+   try{const r=await api('admin/users/'+encodeURIComponent(user.id)+'/access-key',{method:'POST',body:{}});
+     currentKey=r.accessKey;keyValue.textContent=currentKey;copy.disabled=false;toast('تم إصدار مفتاح وصول جديد');
+   }catch(err){toast(errorArabic(err),true);}
+ });
+ keyActions.append(reveal,copy,rotate);keyPanel.append(keyValue,keyActions);box.append(keyPanel);
+  const selector=h('div','subscription-selector'),allowed=new Set(data.allowedIds||[]),checks=[];
  for(const item of state.catalog){
    const label=h('label');const input=h('input');input.type='checkbox';input.checked=allowed.has(item.id);
    label.append(input,h('span','',item.name));selector.append(label);checks.push({id:item.id,input});
@@ -197,6 +231,34 @@ async function adminGlobal(action){
 $('adminGlobalRefresh').addEventListener('click',()=>adminGlobal(null));
 $('adminGlobalOn').addEventListener('click',()=>{if(confirm('تشغيل جميع سكربتات الزبائن المتصلة بالمنظومة؟'))adminGlobal(true);});
 $('adminGlobalOff').addEventListener('click',()=>{if(confirm('إيقاف جميع سكربتات الزبائن المرتبطة بالنظام؟'))adminGlobal(false);});
+const globalScriptView={all:[],filter:''};
+async function loadScriptControls(){
+  const data=await api('admin/scripts');
+  globalScriptView.all=data.scripts||[];
+  renderScriptControls();
+}
+function renderScriptControls(){
+  const box=$('adminScriptControls');box.replaceChildren();
+  const filter=globalScriptView.filter.trim().toLowerCase();
+  for(const x of globalScriptView.all.filter(x=>(x.name+' '+x.id).toLowerCase().includes(filter))){
+    const row=h('label','admin-script-row'),title=h('span','',x.name);
+    const input=h('input');input.type='checkbox';input.checked=x.enabled;
+    input.setAttribute('aria-label','تفعيل '+x.name);
+    const status=h('small','',x.enabled?'ON':'OFF');
+    input.addEventListener('change',async()=>{
+      const on=input.checked;
+      if(!on&&!confirm('إيقاف '+x.name+' لجميع المشتركين؟')){input.checked=x.enabled;return;}
+      input.disabled=true;
+      try{await api('admin/scripts',{method:'PUT',body:{id:x.id,enabled:on}});
+        x.enabled=on;status.textContent=on?'ON':'OFF';toast('تم تحديث '+x.name);
+      }catch(err){input.checked=x.enabled;toast(errorArabic(err),true);}
+      finally{input.disabled=false;}
+    });
+    row.append(title,input,status);box.append(row);
+  }
+}
+$('adminScriptSearch').addEventListener('input',e=>{globalScriptView.filter=e.target.value;renderScriptControls();});
+$('adminScriptReload').addEventListener('click',()=>loadScriptControls().catch(e=>toast(errorArabic(e),true)));
 $('adminLoad').addEventListener('click',loadUsers);
 $('createUser').addEventListener('click',async()=>{
  

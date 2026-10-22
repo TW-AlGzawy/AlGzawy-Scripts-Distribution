@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
+// @name         البناء الاحترافي — AlGzawy V3.3
 // @version      3.3.4
 // @description  مدير قرية متكامل: إنهاء تلقائي، التزام بالترتيب، واجهة قابلة للتخصيص، مع إصلاح حذف المباني بعد بنائها بشكل موثوق.
 // @author       AlGzawy & Manus (Improved)
@@ -337,7 +337,7 @@
         const panelHtml = `
             <div id="pro_builder_panel" style="position: fixed; top: ${safeTop}; left: ${safeLeft}; right: ${safeRight}; width: ${panelWidth}; height: ${isMinimized ? '40px' : expandedHeight}; resize: ${isMinimized ? 'none' : 'both'}; z-index: 10000; background: #f4e4bc; border: 2px solid #7d510f; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
                 <div id="panel_header" style="display: flex; justify-content: space-between; align-items: center; background: #7d510f; color: white; padding: 5px 10px; border-top-left-radius: 6px; border-top-right-radius: 6px; cursor: move; height: 25px;">
-                    <strong style="font-size: 12px;">Auto Builder Pro V3.3</strong>
+                    <strong style="font-size: 12px;">البناء الاحترافي V3.3</strong>
                     <div style="display: flex; gap: 5px;">
                         <span id="min_btn" style="cursor: pointer; font-weight: bold; padding: 0 5px;">${isMinimized ? '□' : '_'}</span>
                     </div>

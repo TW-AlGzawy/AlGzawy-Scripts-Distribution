@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.4
+// @version      2.0.5
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -24,7 +24,7 @@
     'polish-all-in-one','alg-coins','market-bot-v7','auto-builder-ar-v054',
     'auto-builder-pro-algzawy-v3-0-free-finish','training-edition','professional-training','light',
     'train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians',
-    'holy-grail','tribal-wars-helper','source-copier'
+    'holy-grail','tribal-wars-helper'
   ];
   const storageKey=id=>'algzawy_local_enabled_'+id;
   const connection={
@@ -115,10 +115,6 @@
       const key='algzawy_bot2_settings_v02';
       let prev={};try{prev=JSON.parse(localStorage.getItem(key)||'{}');}catch(_){}
       const next={...prev,enabled};
-      if(opts && ['A','B','C'].includes(opts.template)){
-        next.template=opts.template;next.minDelay=opts.minDelay;
-        next.maxDelay=opts.maxDelay;next.switchVillages=opts.switchVillages;
-      }
       if(JSON.stringify(prev)!==JSON.stringify(next))localStorage.setItem(key,JSON.stringify(next));
     }
     if(id==='warehouse-alert-safe'){
@@ -213,6 +209,21 @@
       else {if(Date.now()-connection.last>120000)stopAll();showMessage('تعذرت المزامنة: '+e.message);}
     }finally{pending=false;}
   }
+  let lastBlocked=null,lastBlockedDetail=null;
+  document.addEventListener('algzawy-cloud-script-status',event=>{
+    const data=event.detail;
+    if(!data||typeof data.id!=='string'||!known.includes(data.id))return;
+    const holder=document.getElementById('algzawy-cloud-script-retry');
+    if(data.state==='ready'){
+      if(lastBlocked===data.id){lastBlocked=null;lastBlockedDetail=null;if(holder)holder.style.display='none';}
+      return;
+    }
+    lastBlocked=data.id;lastBlockedDetail={name:data.name||data.id,message:data.message||'موقوف — إعادة فحص الترخيص'};
+    if(!holder)return;
+    holder.style.display='flex';
+    document.getElementById('algzawy-cloud-script-name').textContent=lastBlockedDetail.name;
+    document.getElementById('algzawy-cloud-script-note').textContent=lastBlockedDetail.message;
+  });
   function render(){
     if(card||!document.body)return;
     card=document.createElement('section');
@@ -224,10 +235,24 @@
       '<label style="display:block;margin-top:7px">رمز الربط المؤقت من الموقع<input id="algzawy-cloud-code" type="text" autocomplete="off" placeholder="alg_p_..." style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط المتصفح</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
+      '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
+      '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
+      '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
       '<p style="font-size:10px;color:#86a8b9">يلزم تثبيت سكربتات اللعبة المختارة إلى جانب هذا الجسر.</p></div>';
     document.body.appendChild(card);
     const q=id=>document.getElementById('algzawy-cloud-'+id);
+    q('script-refresh').addEventListener('click',async()=>{
+      q('script-refresh').disabled=true;
+      try{await synchronize(true);document.dispatchEvent(new Event('algzawy-local-control-changed'));}
+      finally{q('script-refresh').disabled=false;}
+    });
     q('origin').value=connection.origin;
+    // A loader may report failure between document-start and DOMContentLoaded.
+    if(lastBlockedDetail){
+      q('script-retry').style.display='flex';
+      q('script-name').textContent=lastBlockedDetail.name;
+      q('script-note').textContent=lastBlockedDetail.message;
+    }
     const linked=()=>{
       q('pair').style.display=connection.device?'none':'';
       q('linked').style.display=connection.device?'':'none';

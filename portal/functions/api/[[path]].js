@@ -5,9 +5,9 @@ const GROUPS = [
   ['mass-scavenge-v1','الإغارات الجماعية','raids','إدارة مجموعات الإغارات الخمس'],
   ['bot-farm-2','بوت النهب A/B/C','raids','القوالب وسرعة النهب والتنقل بين القرى'],
   ['alg-balance','موازنة الموارد','resources','موازنة الموارد بين القرى'],
-  ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء التلقائي V3.3','build','طابور البناء والأولويات'],
-  ['auto-builder-ar-v061','البناء العربي','build','إدارة البناء من صفحة القرية'],
-  ['professional-training-v2','التدريب التلقائي','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
+  ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء الاحترافي','build','طابور البناء والأولويات'],
+  ['auto-builder-ar-v061','البناء التقليدي','build','إدارة البناء من صفحة القرية'],
+  ['professional-training-v2','بوت التدريب المحسّن','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
   ['send-automation','الإرساليات الدقيقة','military','تحديد إرسال أو وصول القوات'],
   ['attack-renamer','تسمية الهجمات القادمة','military','تسمية الهجمات عبر QuickEdit'],
   ['alg-attacks','تنبيه الهجمات','military','تنبيهات الهجمات الواردة'],
@@ -26,8 +26,7 @@ const GROUPS = [
   ['reserve-correct-v2','Correct Reserve V2','military','الحجز'],
   ['auto-reserve-barbarians','حجز القرى البربرية','military','إدارة حجوزات القرى'],
   ['holy-grail','The Holy Grail','tools','أدوات تبويب اللعبة'],
-  ['tribal-wars-helper','Tribal Wars Helper','tools','أدوات ومساعدات'],
-  ['source-copier','ناسخ المصدر','tools','نسخ بيانات المصدر']
+  ['tribal-wars-helper','جامع الجوائز التلقائي','tools','أدوات ومساعدات']
 ];
 const IDS = new Set(GROUPS.map(x=>x[0]));
 const FAV = new Set(GROUPS.slice(0,10).map(x=>x[0]));
@@ -40,7 +39,7 @@ async function digest(value,secret){
   const hash=await crypto.subtle.digest('SHA-256',encoder.encode(secret+':'+value));
   return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
-function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');if(typeof env.PORTAL_ADMIN_TOKEN!=='string'||env.PORTAL_ADMIN_TOKEN.length<32)items.push('PORTAL_ADMIN_TOKEN');return items;}
+function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');if(typeof env.PORTAL_ADMIN_TOKEN!=='string'||env.PORTAL_ADMIN_TOKEN.length<32)items.push('PORTAL_ADMIN_TOKEN');if(typeof env.PORTAL_ACCESS_ENCRYPTION_KEY!=='string'||!/^[a-f0-9]{64}$/i.test(env.PORTAL_ACCESS_ENCRYPTION_KEY))items.push('PORTAL_ACCESS_ENCRYPTION_KEY');return items;}
 function envOK(env){return setupMissing(env).length===0;}
 function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
 
@@ -83,6 +82,53 @@ async function readAdminSession(req,env){
   return {csrfToken:await adminMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
 }
 
+
+const SUB_COOKIE='algzawy_subscriber_session';
+const SUB_TTL=4*24*60*60; // 96 hours: more than three complete days
+const subscriberCookie=(value,age)=>SUB_COOKIE+'='+value+'; Path=/api; Max-Age='+age+'; Secure; HttpOnly; SameSite=Strict';
+async function subscriberMac(env,message){
+ const key=await crypto.subtle.importKey('raw',encoder.encode(env.PORTAL_HASH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const signed=await crypto.subtle.sign('HMAC',key,encoder.encode('subscriber:'+message));
+ return [...new Uint8Array(signed)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function newSubscriberSession(env,user){
+ const issued=Math.floor(Date.now()/1000),expires=issued+SUB_TTL;
+ const unsigned=[issued,expires,user.id,bytes(16)].join('.');
+ return {cookie:subscriberCookie(unsigned+'.'+await subscriberMac(env,unsigned+':'+user.access_hash),SUB_TTL),
+   csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:expires};
+}
+async function readSubscriberSession(req,env){
+ const match=(req.headers.get('Cookie')||'').match(new RegExp('(?:^|;\\s*)'+SUB_COOKIE+'=([^;]+)'));
+ if(!match||match[1].length>350)return null;
+ const parts=match[1].split('.');
+ if(parts.length!==5)return null;
+ const [issued,expires,id,nonce,signature]=parts,now=Math.floor(Date.now()/1000);
+ if(!/^[0-9]{10}$/.test(issued)||!/^[0-9]{10}$/.test(expires)
+   ||!/^[A-Za-z0-9_-]{5,100}$/.test(id)||!/^[0-9a-f]{32}$/.test(nonce)
+   ||!/^[0-9a-f]{64}$/.test(signature)||Number(expires)-Number(issued)!==SUB_TTL
+   ||Number(expires)<=now||Number(issued)>now+30)return null;
+ const unsigned=[issued,expires,id,nonce].join('.');
+ const record=await env.DB.prepare('SELECT id,label,access_hash FROM portal_users WHERE id=? AND active=1').bind(id).first();
+ if(!record||!(await subscriptionOK(env,id)))return null;
+ if(!constantEqual(signature,await subscriberMac(env,unsigned+':'+record.access_hash)))return null;
+ return {user:{id:record.id,label:record.label},csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
+}
+
+const parseHex=str=>new Uint8Array((str.match(/../g)||[]).map(x=>Number.parseInt(x,16)));
+async function vaultKey(env){
+ if(typeof env.PORTAL_ACCESS_ENCRYPTION_KEY!=='string'||!/^[a-f0-9]{64}$/i.test(env.PORTAL_ACCESS_ENCRYPTION_KEY))return null;
+ return crypto.subtle.importKey('raw',parseHex(env.PORTAL_ACCESS_ENCRYPTION_KEY),{name:'AES-GCM'},false,['encrypt','decrypt']);
+}
+async function protectAccessKey(env,raw){
+ const key=await vaultKey(env);if(!key)return null;
+ const iv=crypto.getRandomValues(new Uint8Array(12));
+ const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encoder.encode(raw)));
+ return {iv:[...iv].map(x=>x.toString(16).padStart(2,'0')).join(''),value:[...encrypted].map(x=>x.toString(16).padStart(2,'0')).join('')};
+}
+async function revealAccessKey(env,row){
+ const key=await vaultKey(env);if(!key)return null;
+ return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:parseHex(row.iv)},key,parseHex(row.encrypted_key)));
+}
 async function bodyJSON(req){const text=await req.text();if(text.length>4096)throw new Error('too_large');return JSON.parse(text);}
 function checkName(name){return typeof name==='string'&&name.trim().length>=2&&name.trim().length<=80;}
 async function globalState(env){
@@ -143,16 +189,21 @@ async function signatureAuth(req,env){
   return record;
 }
 
+async function globallyDisabledScripts(env){
+  const rows=await env.DB.prepare('SELECT script_id FROM portal_script_controls WHERE enabled=0').all();
+  return new Set((rows.results||[]).map(row=>row.script_id).filter(id=>IDS.has(id)));
+}
 async function settingsFor(env,userId){
   const r=await env.DB.prepare('SELECT script_id,enabled,settings_json FROM portal_preferences WHERE user_id=?').bind(userId).all();
   const out={};
   const licensed=await allowedSet(env,userId);
-  for(const item of GROUPS)out[item[0]]={allowed:licensed.has(item[0]),enabled:false,settings:{}};
+  const globallyOff=await globallyDisabledScripts(env);
+  for(const item of GROUPS)out[item[0]]={allowed:licensed.has(item[0]),enabled:false,globallyEnabled:!globallyOff.has(item[0]),settings:{}};
   for(const row of (r.results||[])){
     if(!IDS.has(row.script_id)||!licensed.has(row.script_id))continue;
     let settings={};
     try{const val=JSON.parse(row.settings_json||'{}');if(val&&typeof val==='object'&&!Array.isArray(val))settings=val;}catch(_){}
-    out[row.script_id]={allowed:true,enabled:row.enabled===1,settings};
+    out[row.script_id]={allowed:true,enabled:row.enabled===1&&!globallyOff.has(row.script_id),globallyEnabled:!globallyOff.has(row.script_id),settings};
   }
   return out;
 }
@@ -177,9 +228,38 @@ async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
-  if(req.method==='GET'&&path[0]==='catalog'&&path.length===1)return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+  if(req.method==='GET'&&path[0]==='catalog'&&path.length===1){
+    // Never reveal catalog names to anonymous portal visitors via the public API.
+    const hasAdmin=adminOK(req,env)||!!(await readAdminSession(req,env));
+    const currentUser=hasAdmin?null:(await bearer(req,env,'user'))||(await readSubscriberSession(req,env))?.user;
+    if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
+    if(currentUser&&!(await subscriptionOK(env,currentUser.id)))return bad('subscription_inactive',403);
+    const licensed=hasAdmin?new Set(GROUPS.map(([id])=>id)):await allowedSet(env,currentUser.id);
+    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+  }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
+  }
+
+  if(path[0]==='session'&&path.length===1){
+    if(req.method==='POST'){
+      if(!sameOrigin(req))return bad('origin_invalid',403);
+      let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(typeof input?.accessKey!=='string'||!/^alg_u_[a-f0-9]{64}$/.test(input.accessKey))return bad('unauthorized',401);
+      const user=await env.DB.prepare('SELECT id,label,access_hash FROM portal_users WHERE access_hash=? AND active=1')
+        .bind(await digest(input.accessKey,env.PORTAL_HASH_PEPPER)).first();
+      if(!user||!(await subscriptionOK(env,user.id)))return bad('unauthorized',401);
+      const session=await newSubscriberSession(env,user);
+      return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt},200,{'Set-Cookie':session.cookie});
+    }
+    const session=await readSubscriberSession(req,env);
+    if(!session)return bad('unauthorized',401);
+    if(req.method==='GET')return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt});
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+      return reply({ok:true},200,{'Set-Cookie':subscriberCookie('',0)});
+    }
+    return bad('method_not_allowed',405);
   }
   if(path[0]==='admin'){
     if(path[1]==='session'&&path.length===2){
@@ -210,6 +290,26 @@ async function handler(req,env){
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
     }
+    if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
+      return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
+        id,name,category,description,featured:FAV.has(id),
+        installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
+      }))});
+    }
+    if(path[1]==='scripts'&&path.length===2){
+      if(req.method==='GET'){
+        const disabled=await globallyDisabledScripts(env);
+        return reply({ok:true,scripts:GROUPS.map(([id,name])=>({id,name,enabled:!disabled.has(id)}))});
+      }
+      if(req.method!=='PUT')return bad('method_not_allowed',405);
+      let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(typeof input?.id!=='string'||!IDS.has(input.id)||typeof input.enabled!=='boolean'
+         ||Object.keys(input).some(k=>!['id','enabled'].includes(k)))return bad('invalid_script_control');
+      await env.DB.prepare("INSERT INTO portal_script_controls(script_id,enabled) VALUES(?,?) ON CONFLICT(script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=datetime('now')")
+        .bind(input.id,input.enabled?1:0).run();
+      await accessEvent(env,req,null,null,'global_script_'+(input.enabled?'on_':'off_')+input.id);
+      return reply({ok:true,id:input.id,enabled:input.enabled});
+    }
     if(path[1]==='global'&&path.length===2){
       if(req.method==='GET')return reply({ok:true,global:await globalState(env)});
       if(req.method!=='POST')return bad('method_not_allowed',405);
@@ -222,6 +322,30 @@ async function handler(req,env){
       return reply({ok:true,global:changed?{enabled:changed.enabled===1,revision:changed.revision,updated_at:changed.updated_at}:await globalState(env)});
     }
 
+
+    if(path[1]==='users'&&path.length===4&&path[3]==='access-key'){
+      const uid=path[2];
+      const user=await env.DB.prepare('SELECT id,label,active FROM portal_users WHERE id=?').bind(uid).first();
+      if(!user)return bad('not_found',404);
+      if(!(await vaultKey(env)))return bad('vault_not_configured',503);
+      if(req.method==='GET'){
+        const record=await env.DB.prepare('SELECT encrypted_key,iv FROM portal_access_key_vault WHERE user_id=?').bind(uid).first();
+        if(!record)return bad('key_not_recoverable',404);
+        const accessKey=await revealAccessKey(env,record);
+        await accessEvent(env,req,uid,null,'owner_revealed_access_key');
+        return reply({ok:true,accessKey});
+      }
+      if(req.method==='POST'){
+        const accessKey='alg_u_'+bytes(32),encrypted=await protectAccessKey(env,accessKey);
+        await env.DB.batch([
+          env.DB.prepare('UPDATE portal_users SET access_hash=? WHERE id=?').bind(await digest(accessKey,env.PORTAL_HASH_PEPPER),uid),
+          env.DB.prepare("INSERT INTO portal_access_key_vault(user_id,encrypted_key,iv) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET encrypted_key=excluded.encrypted_key,iv=excluded.iv,updated_at=datetime('now')").bind(uid,encrypted.value,encrypted.iv)
+        ]);
+        await accessEvent(env,req,uid,null,'owner_rotated_access_key');
+        return reply({ok:true,accessKey});
+      }
+      return bad('method_not_allowed',405);
+    }
     if(path[1]==='users'&&path.length===4&&path[3]==='entitlements'){
       const uid=path[2];
       const owner=await env.DB.prepare('SELECT id,label,active FROM portal_users WHERE id=?').bind(uid).first();
@@ -282,7 +406,12 @@ async function handler(req,env){
         let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
         if(!checkName(data?.label))return bad('invalid_name');
         const id=crypto.randomUUID(),accessKey='alg_u_'+bytes(32),hash=await digest(accessKey,env.PORTAL_HASH_PEPPER);
-        await env.DB.prepare('INSERT INTO portal_users (id,label,access_hash,active) VALUES (?,?,?,1)').bind(id,data.label.trim(),hash).run();
+        const sealed=await protectAccessKey(env,accessKey);
+        if(!sealed)return bad('vault_not_configured',503);
+        await env.DB.batch([
+          env.DB.prepare('INSERT INTO portal_users (id,label,access_hash,active) VALUES (?,?,?,1)').bind(id,data.label.trim(),hash),
+          env.DB.prepare('INSERT INTO portal_access_key_vault(user_id,encrypted_key,iv) VALUES (?,?,?)').bind(id,sealed.value,sealed.iv)
+        ]);
         return reply({ok:true,user:{id,label:data.label.trim()},accessKey},201);
       }
     }
@@ -328,8 +457,14 @@ async function handler(req,env){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     return reply({ok:true,global,user:{label:device.label},scripts:await settingsFor(env,device.user_id)});
   }
-  const user=await bearer(req,env,'user');
+  const header=req.headers.get('Authorization')||'';
+  const cookieSession=header?null:await readSubscriberSession(req,env);
+  const user=cookieSession?.user||(header?await bearer(req,env,'user'):null);
   if(!user)return bad('unauthorized',401);
+  if(cookieSession&&req.method!=='GET'&&req.method!=='HEAD'){
+    if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',cookieSession.csrfToken))
+      return bad('csrf_invalid',403);
+  }
   if(!(await subscriptionOK(env,user.id)))return bad('subscription_inactive',403);
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
@@ -340,7 +475,8 @@ async function handler(req,env){
     if(!payload||typeof payload.enabled!=='boolean')return bad('invalid_enabled');
     // Only scripts explicitly licensed to this subscription can be toggled.
     const allow=await allowedSet(env,user.id);
-    const stmts=GROUPS.filter(([id])=>allow.has(id)).map(([id])=>env.DB.prepare(
+    const off=await globallyDisabledScripts(env);
+    const stmts=GROUPS.filter(([id])=>allow.has(id)&&(!payload.enabled||!off.has(id))).map(([id])=>env.DB.prepare(
       "INSERT INTO portal_preferences(user_id,script_id,enabled,settings_json,updated_at) VALUES(?,?,?,'{}',datetime('now')) ON CONFLICT(user_id,script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at"
     ).bind(user.id,id,payload.enabled?1:0));
     await env.DB.batch(stmts);
@@ -351,6 +487,7 @@ async function handler(req,env){
     if(!(await allowedSet(env,user.id)).has(id))return bad('script_not_licensed',403);
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
     if(typeof data?.enabled!=='boolean')return bad('invalid_enabled');
+    if(data.enabled&&(await globallyDisabledScripts(env)).has(id))return bad('script_globally_disabled',403);
     const existing=await env.DB.prepare('SELECT settings_json FROM portal_preferences WHERE user_id=? AND script_id=?').bind(user.id,id).first();
     const normalized=validateSettings(id,data.settings);
     if(normalized===undefined)return bad('invalid_script_settings');

@@ -1,14 +1,29 @@
 # AlGzawy Cloud Control — Free Cloudflare Pages deployment
 
-STATUS (22 Oct 2026): Cloudflare Pages static site successfully deployed at https://algzawy-cloud-control.pages.dev (confirmed by owner screenshot). Production /api/status returned ok:true with global enabled:true at revision 17, and owner verified all four V2 D1 tables (22 Oct 2026). Browser admin login/device licensing still need real end-to-end verification. The V2 license upgrade requires owner deployment and live testing.
+STATUS (22 Oct 2026): Cloudflare Pages static site successfully deployed at https://algzawy-cloud-control.pages.dev (confirmed by owner screenshot). Production /api/status returned ok:true with global enabled:true at revision 17, and owner verified all four V2 D1 tables (22 Oct 2026). Owner and subscriber login, device pairing, approval and individual entitlement display were browser-tested on Production in October 2026. End-to-end tests for all individual game engines are still required.
 
+
+
+## Final consolidated release candidate (22 October 2026, NOT YET DEPLOYED)
+
+Public PR #5 collects the customer release changes. Do not merge into Production until:
+1. Back up the existing `algzawy-control-db` D1 database in Cloudflare.
+2. Execute `portal/schema-final-v3.sql` **on Production D1**, individual statements if necessary. This creates `portal_script_controls` and `portal_access_key_vault`; it removes only the retired `source-copier` entitlements/preferences. It does NOT alter `global_control`.
+3. In Pages Production secrets set `PORTAL_ACCESS_ENCRYPTION_KEY` to a new securely generated **64-hex-character, 256-bit AES key** and never commit or paste it in chat. Keep existing `PORTAL_HASH_PEPPER`, `PORTAL_ADMIN_TOKEN`, and DB binding unchanged. If this key changes later, existing vaulted keys become undecryptable unless re-encrypted.
+4. Confirm GitHub CI, merge PR, verify Cloudflare Pages deploy and user/admin logins. The main portal now uses a four-day HttpOnly subscriber cookie, separated from the 30-minute owner session. A subscriber key rotation invalidates existing subscriber sessions.
+5. Test per-script ON/OFF, approved device before/after, excluded entitlement, and bridge status; do not change global central ON/OFF unless explicitly authorized.
+6. Installed Tampermonkey loaders require refresh/update where metadata changed. Removed scripts in already-installed browser profiles are not remotely uninstalled.
+
+Legacy access keys previously stored as SHA-256 hashes cannot be revealed retroactively. The owner panel supports key rotation for those accounts, and encrypts newly created keys only after key setup. The owner may not recover old hashed-only keys.
+
+Final-approved IDs as designated by owner: `warehouse-alert-safe`, `alg-balance`, `alg-attacks`, `mass-scavenge-v1`, `tribal-wars-helper`, `send-automation`, and `professional-training-v2`. Approval is not equal to verified game behavior for untested engines.
 
 ## LICENSE V2 / Important deployment update
 
 - Arabic setup instructions for subscriber-only script entitlements, signed one-device approval, and IP audit: [SETUP-LICENSE-V2-AR.md](SETUP-LICENSE-V2-AR.md).
 - Apply the **additive** SQL migration [schema-license-v2.sql](schema-license-v2.sql) to your existing D1 database, executing CREATE statements individually as needed in Cloudflare Console.
 - Without this migration, customer login and device APIs will fail. Do not change global_control or the old Worker.
-- All **26 beta loaders on main now check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.4 are connected. Plan this as an explicit migration rather than a silent update to customers.
+- In this **V3 candidate**, all **25 supported beta loaders check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.5 are connected. Plan this as an explicit migration rather than a silent update to customers.
 - First visit now shows **login only**, with a Telegram contact link; owner login lives exclusively at /admin/. No self-registration. Only admin creates users and assigns their scripts.
 - Cloud Bridge uses a non-exportable ECDSA private key in IndexedDB and a server-side approved public key, not a transferable GM bearer token. This is strong protection against simply copying Tampermonkey files, **not an absolute barrier to browser-profile cloning or modifying public userscript code**.
 - Original public JavaScript sources and git history are copyable: do not present this as unbreakable DRM.
@@ -36,7 +51,7 @@ STATUS (22 Oct 2026): Cloudflare Pages static site successfully deployed at http
    - PORTAL_HASH_PEPPER — 64+ random hexadecimal characters, never public.
    - PORTAL_ADMIN_TOKEN — independent 64+ random hexadecimal characters for portal owner controls, not the old ADMIN_TOKEN.
 10. Trigger another Pages deployment after setting the binding and secrets.
-11. Verify https://YOUR-NAME.pages.dev/api/catalog shows 26 entries and /api/status shows the actual global enabled/revision, without server errors.
+11. Verify /api/catalog returns HTTP 401 before login; after subscriber login it lists only licensed scripts (maximum 25). The owner-only /api/admin/catalog lists the full 25-script catalog. /api/status must show the global enabled/revision without changing it.
 
 Generate an independent secure random value for each secret in Windows PowerShell:
 

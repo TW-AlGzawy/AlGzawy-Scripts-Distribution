@@ -68,14 +68,23 @@
     const delay = settings.minDelay + Math.random()*(settings.maxDelay-settings.minDelay);
     timer = setTimeout(step,Math.ceil(delay));
   }
+  function retryLater(message) {
+    if (!settings.enabled) return;
+    status(message+' — إعادة الفحص تلقائيًا');
+    timer=setTimeout(()=>{
+      if (!settings.enabled || challengeDetected()) return;
+      attempted.clear();
+      if(settings.switchVillages) location.reload(); else step();
+    },Math.max(15000,settings.maxDelay));
+  }
   function nextVillage() {
-    if (!settings.switchVillages) return stop('انتهت العناصر المتاحة في هذه القرية');
-    const next = document.querySelector('#village_switch_right');
-    const href = next && (next.getAttribute('href') || next.href);
-    if (href && href !== '#') {
+    if (!settings.switchVillages) return retryLater('لا توجد أهداف قابلة للنهب حاليًا');
+    const next=document.querySelector('#village_switch_right');
+    const href=next&&(next.getAttribute('href')||next.href);
+    if(href && href!=='#' && (/^https?:/.test(href) || href.startsWith('/'))){
       status('الانتقال إلى القرية التالية...');
-      timer = setTimeout(() => { if (settings.enabled) location.href = href; },2000);
-    } else stop('لا يوجد رابط للقرية التالية');
+      timer=setTimeout(()=>{if(settings.enabled&&!challengeDetected())location.href=href;},Math.max(2000,settings.minDelay));
+    }else retryLater('لا تتوفر قرية تالية الآن');
   }
   function step() {
     if (!settings.enabled) return;
@@ -106,7 +115,7 @@
       status('القالب '+settings.template+' | عمليات النهب: '+actions);
     } catch (e) {
       status('تعذر الضغط: '+String(e.message || e));
-      return stop();
+      return retryLater('تعذر الضغط على القالب المختار');
     }
     schedule();
   }

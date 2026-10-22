@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Tribal Wars Helper - AlGzawy Edition
+// @name         جامع الجوائز التلقائي — AlGzawy
 // @namespace    http://tampermonkey.net/
 // @version      2.3
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
