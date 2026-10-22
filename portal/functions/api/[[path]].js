@@ -84,7 +84,7 @@ async function readAdminSession(req,env){
 
 
 const SUB_COOKIE='algzawy_subscriber_session';
-const SUB_TTL=4*24*60*60; // 96 hours: more than three complete days
+const SUB_TTL=7*24*60*60; // seven consecutive days; closed by explicit logout or account revocation
 const subscriberCookie=(value,age)=>SUB_COOKIE+'='+value+'; Path=/api; Max-Age='+age+'; Secure; HttpOnly; SameSite=Strict';
 async function subscriberMac(env,message){
  const key=await crypto.subtle.importKey('raw',encoder.encode(env.PORTAL_HASH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);
