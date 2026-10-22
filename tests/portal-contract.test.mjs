@@ -479,3 +479,65 @@ test('Cloud Bridge uses only production Cloudflare domain and paired-device shar
  assert.match(script[1],/secure_storage_unavailable/);
  assert.doesNotMatch(script[1],/exportKey\('jwk',pair\.privateKey\)/);
 });
+
+test('Cloudflare shared device signer keeps the same P-256 key across trusted game world origins',async()=>{
+ const src=read('portal/functions/device-identity.js');
+ const {onRequestGet}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
+ const body=await onRequestGet({request:new Request('https://algzawy-cloud-control.pages.dev/device-identity')}).text();
+ const script=body.match(/<script nonce="[^"]+">([\s\S]+)<\/script>/)[1];
+ const stored=new Map();
+ const db={
+   objectStoreNames:{contains:()=>true},
+   close(){},
+   createObjectStore(){},
+   transaction(name,mode){
+     const transaction={
+       objectStore:()=>({
+         get(key){
+           const r={result:stored.get(key)};
+           queueMicrotask(()=>r.onsuccess?.());
+           return r;
+         },
+         put(value,key){
+           stored.set(key,value);
+           queueMicrotask(()=>transaction.oncomplete?.());
+         }
+       })
+     };
+     return transaction;
+   }
+ };
+ const indexedDB={
+   open(){
+     const req={result:db};
+     queueMicrotask(()=>req.onsuccess?.());
+     return req;
+   }
+ };
+ const parent={postMessage(){}},callbacks=[];
+ const window={parent,addEventListener(name,listener){if(name==='message')callbacks.push(listener);}};
+ vm.runInNewContext(script,{window,indexedDB,crypto:webcrypto,TextEncoder,Uint8Array,Array,Date,Error,btoa});
+ assert.equal(callbacks.length,1);
+ async function ask(origin,action,options={}){
+   return new Promise((resolve,reject)=>{
+     const id=crypto.randomUUID(),limit=setTimeout(()=>reject(Error('signer_response_timeout')),2000);
+     parent.postMessage=(message,target)=>{
+       if(message.requestId!==id)return;
+       clearTimeout(limit);resolve({message,target});
+     };
+     void callbacks[0]({source:parent,origin,data:{scope:'algzawy-device-v1',requestId:id,action,...options}});
+   });
+ }
+ const first=await ask('https://ae101.tribalwars.ae','publicKey');
+ const second=await ask('https://ae102.tribalwars.ae','publicKey');
+ assert.deepEqual(first.message.publicKey,second.message.publicKey,'same signer identity on different worlds');
+ const key=await crypto.subtle.importKey('jwk',first.message.publicKey,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+ const deviceId=crypto.randomUUID(),timestamp=Date.now(),counter=Date.now()*1024;
+ const {message}=await ask('https://ae102.tribalwars.ae','sign',{deviceId,timestamp,counter});
+ const signature=Buffer.from(message.signature,'base64url');
+ assert.equal(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,signature,new TextEncoder().encode(deviceId+'|'+timestamp+'|'+counter+'|/api/device/state')),true);
+ let untrustedReply=false;
+ parent.postMessage=()=>{untrustedReply=true;};
+ await callbacks[0]({source:parent,origin:'https://malicious.example',data:{scope:'algzawy-device-v1',requestId:crypto.randomUUID(),action:'publicKey'}});
+ assert.equal(untrustedReply,false,'untrusted origin cannot request a key or signature');
+});
