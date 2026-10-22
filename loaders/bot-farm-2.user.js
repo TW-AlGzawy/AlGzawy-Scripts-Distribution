@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Bot  2نهب
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/*=am_farm*
 // @run-at       document-end
