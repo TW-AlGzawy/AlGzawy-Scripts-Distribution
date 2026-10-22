@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] الإغارات الجماعية v9.2.4
+// @name         تجريبي - الغزااوي - الإغارات الجماعية
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.2.7
+// @version      1.0
 // @description  Engine v9.2.4 with guarded groups 1–5; Cloudflare BETA; live game verification pending
 // @include      https://*/*=scavenge_mass*
 // @run-at       document-end
@@ -68,7 +68,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] الإغارات الجماعية v9.2.4",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - الإغارات الجماعية",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
