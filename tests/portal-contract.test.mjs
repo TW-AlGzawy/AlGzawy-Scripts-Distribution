@@ -85,6 +85,14 @@ test('No content before login and 25 catalog script IDs match the bridge',async(
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
 });
+test('V3 encryption secret is required before Production reports readiness',async()=>{
+ const request=new Request('https://algzawy-cloud-control.pages.dev/api/status');
+ const missing=await onRequest({request,env:{DB:new DB(),PORTAL_HASH_PEPPER:pepper,PORTAL_ADMIN_TOKEN:admin}});
+ assert.equal(missing.status,503);
+ const body=await missing.json();
+ assert.deepEqual(body.missing,['PORTAL_ACCESS_ENCRYPTION_KEY']);
+ assert.equal(body.error,'portal_not_configured');
+});
 test('Missing production DB or pepper diagnostic identifies only missing variable names',async()=>{
  const req=new Request('https://x.pages.dev/api/status');
  const r=await onRequest({request:req,env:{PORTAL_ADMIN_TOKEN:admin}});
