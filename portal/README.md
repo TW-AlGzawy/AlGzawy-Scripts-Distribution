@@ -1,6 +1,17 @@
 # AlGzawy Cloud Control — Free Cloudflare Pages deployment
 
-STATUS: Code published in GitHub. Cloudflare Pages has NOT been deployed or connected to D1 yet.
+STATUS (22 Oct 2026): Cloudflare Pages static site successfully deployed at https://algzawy-cloud-control.pages.dev (confirmed by owner screenshot). Backend test reported portal_not_configured; production bindings/secrets and V2 migration remain to be verified. The V2 license upgrade requires owner deployment and live testing.
+
+
+## LICENSE V2 / Important deployment update
+
+- Arabic setup instructions for subscriber-only script entitlements, signed one-device approval, and IP audit: [SETUP-LICENSE-V2-AR.md](SETUP-LICENSE-V2-AR.md).
+- Apply the **additive** SQL migration [schema-license-v2.sql](schema-license-v2.sql) to your existing D1 database, executing CREATE statements individually as needed in Cloudflare Console.
+- Without this migration, customer login and device APIs will fail. Do not change global_control or the old Worker.
+- All **26 beta loaders on main now check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.1 are connected. Plan this as an explicit migration rather than a silent update to customers.
+- First visit now shows **login only**, with a Telegram contact link and subtle owner login. No self-registration. Only admin creates users and assigns their scripts.
+- Cloud Bridge uses a non-exportable ECDSA private key in IndexedDB and a server-side approved public key, not a transferable GM bearer token. This is strong protection against simply copying Tampermonkey files, **not an absolute barrier to browser-profile cloning or modifying public userscript code**.
+- Original public JavaScript sources and git history are copyable: do not present this as unbreakable DRM.
 
 ## Architecture
 
