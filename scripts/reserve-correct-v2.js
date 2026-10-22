@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🎯 Correct Reserve v2.0
+// @name         تجريبي - الغزااوي - الحجز المصحح
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      1.0
 // @description  سكريبت صحيح وفعال لحجز القرى البربرية تلقائياً
 // @author       Manus AI
 // @match        https://*.tribalwars.ae/game.php*screen=map*
