@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] بوت ارساليات - غزااوي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @run-at       document-end
