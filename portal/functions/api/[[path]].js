@@ -142,16 +142,21 @@ async function signatureAuth(req,env){
   return record;
 }
 
+async function globallyDisabledScripts(env){
+  const rows=await env.DB.prepare('SELECT script_id FROM portal_script_controls WHERE enabled=0').all();
+  return new Set((rows.results||[]).map(row=>row.script_id).filter(id=>IDS.has(id)));
+}
 async function settingsFor(env,userId){
   const r=await env.DB.prepare('SELECT script_id,enabled,settings_json FROM portal_preferences WHERE user_id=?').bind(userId).all();
   const out={};
   const licensed=await allowedSet(env,userId);
-  for(const item of GROUPS)out[item[0]]={allowed:licensed.has(item[0]),enabled:false,settings:{}};
+  const globallyOff=await globallyDisabledScripts(env);
+  for(const item of GROUPS)out[item[0]]={allowed:licensed.has(item[0]),enabled:false,globallyEnabled:!globallyOff.has(item[0]),settings:{}};
   for(const row of (r.results||[])){
     if(!IDS.has(row.script_id)||!licensed.has(row.script_id))continue;
     let settings={};
     try{const val=JSON.parse(row.settings_json||'{}');if(val&&typeof val==='object'&&!Array.isArray(val))settings=val;}catch(_){}
-    out[row.script_id]={allowed:true,enabled:row.enabled===1,settings};
+    out[row.script_id]={allowed:true,enabled:row.enabled===1&&!globallyOff.has(row.script_id),globallyEnabled:!globallyOff.has(row.script_id),settings};
   }
   return out;
 }
@@ -208,6 +213,20 @@ async function handler(req,env){
     if(!legacyAdmin&&!session)return bad('unauthorized',401);
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+    }
+    if(path[1]==='scripts'&&path.length===2){
+      if(req.method==='GET'){
+        const disabled=await globallyDisabledScripts(env);
+        return reply({ok:true,scripts:GROUPS.map(([id,name])=>({id,name,enabled:!disabled.has(id)}))});
+      }
+      if(req.method!=='PUT')return bad('method_not_allowed',405);
+      let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(typeof input?.id!=='string'||!IDS.has(input.id)||typeof input.enabled!=='boolean'
+         ||Object.keys(input).some(k=>!['id','enabled'].includes(k)))return bad('invalid_script_control');
+      await env.DB.prepare("INSERT INTO portal_script_controls(script_id,enabled) VALUES(?,?) ON CONFLICT(script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=datetime('now')")
+        .bind(input.id,input.enabled?1:0).run();
+      await accessEvent(env,req,null,null,'global_script_'+(input.enabled?'on_':'off_')+input.id);
+      return reply({ok:true,id:input.id,enabled:input.enabled});
     }
     if(path[1]==='global'&&path.length===2){
       if(req.method==='GET')return reply({ok:true,global:await globalState(env)});
@@ -339,7 +358,8 @@ async function handler(req,env){
     if(!payload||typeof payload.enabled!=='boolean')return bad('invalid_enabled');
     // Only scripts explicitly licensed to this subscription can be toggled.
     const allow=await allowedSet(env,user.id);
-    const stmts=GROUPS.filter(([id])=>allow.has(id)).map(([id])=>env.DB.prepare(
+    const off=await globallyDisabledScripts(env);
+    const stmts=GROUPS.filter(([id])=>allow.has(id)&&(!payload.enabled||!off.has(id))).map(([id])=>env.DB.prepare(
       "INSERT INTO portal_preferences(user_id,script_id,enabled,settings_json,updated_at) VALUES(?,?,?,'{}',datetime('now')) ON CONFLICT(user_id,script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at"
     ).bind(user.id,id,payload.enabled?1:0));
     await env.DB.batch(stmts);
@@ -350,6 +370,7 @@ async function handler(req,env){
     if(!(await allowedSet(env,user.id)).has(id))return bad('script_not_licensed',403);
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
     if(typeof data?.enabled!=='boolean')return bad('invalid_enabled');
+    if(data.enabled&&(await globallyDisabledScripts(env)).has(id))return bad('script_globally_disabled',403);
     const existing=await env.DB.prepare('SELECT settings_json FROM portal_preferences WHERE user_id=? AND script_id=?').bind(user.id,id).first();
     const normalized=validateSettings(id,data.settings);
     if(normalized===undefined)return bad('invalid_script_settings');
