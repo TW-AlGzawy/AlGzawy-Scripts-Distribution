@@ -67,7 +67,7 @@ test('incoming attack rename requires user opt-in and never calls invented serve
 
 test('builder V3.3.4 minimizes to its header without saving collapsed geometry',()=>{
   const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  assert.match(code,/\/\/ @version\s+3\.3\.4/);
+  assert.match(code,/\/\/ @version\s+1\.0/);
   assert.match(code,/min-height:\s*40px/);
   assert.match(code,/height:\s*\$\{isMinimized \? '40px' : expandedHeight\}/);
   assert.match(code,/resize:\s*\$\{isMinimized \? 'none' : 'both'\}/);
@@ -91,8 +91,8 @@ test('builder floating panel can expand after corrupted stored 35px height',()=>
 test('builder 3.3.4 starts on either main-page query order and reports engine failures',()=>{
   const engine=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
   const loader=read('loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js');
-  assert.match(engine,/\/\/ @version\s+3\.3\.4/);
-  assert.match(loader,/\/\/ @version\s+0\.1\.8/);
+  assert.match(engine,/\/\/ @version\s+1\.0/);
+  assert.match(loader,/\/\/ @version\s+1\.0/);
   assert.ok(loader.includes('@match        https://*/game.php?village=*&screen=main*'));
   assert.ok(loader.includes('@match        https://*/game.php?screen=main*&village=*'));
   assert.ok(loader.includes('if(!hasPortalLicense()){stopCore(\'license\');return;}'));
