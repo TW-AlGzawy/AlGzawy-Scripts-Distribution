@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08121e">
+  <meta name="description" content="AlGzawy Cloud Control V2 — إدارة السكربتات والاشتراكات والربط من لوحة واحدة.">
+  <title>AlGzawy V2 | مركز التحكم</title>
+  <link rel="stylesheet" href="/v2/app.css">
+  <script defer src="/v2/app.js"></script>
+</head>
+<body>
+  <div id="boot" class="boot" role="status" aria-live="polite">
+    <div class="boot-logo">AlG</div>
+    <p>جارٍ التحقق من الجلسة الآمنة...</p>
+  </div>
+  <section id="login" class="auth-wrap" hidden aria-labelledby="loginTitle">
+    <div class="login-visual">
+      <span class="kicker">ALGZAWY CLOUD CONTROL V2</span>
+      <div class="login-mark">AlG</div>
+      <h1>مركز قيادة واحد.<br><em>تحكم أقوى.</em></h1>
+      <p>إدارة سكربتاتك وتراخيصك وربط المتصفح من واجهة موحدة. لا يحتاج الموقع إلى بيانات دخول حرب القبائل.</p>
+      <div class="login-points"><span>● جلسة آمنة 7 أيام</span><span>● الصلاحيات حسب اشتراكك</span><span>● تحكم مركزي فوري</span></div>
+    </div>
+    <form id="loginForm" class="login-card">
+      <div class="login-card-top"><span class="logo-small">AlG</span><span class="pill neutral">دخول المشتركين</span></div>
+      <span class="kicker">مرحبًا بك</span>
+      <h2 id="loginTitle">تسجيل الدخول</h2>
+      <p>أدخل مفتاح المشترك الذي سلّمته لك الإدارة. لن يظهر المفتاح بعد تسجيل الدخول.</p>
+      <label for="accessKey">مفتاح الوصول</label>
+      <input id="accessKey" type="password" autocomplete="off" spellcheck="false" placeholder="alg_u_..." required>
+      <p id="loginError" class="feedback error-message" role="alert"></p>
+      <button class="btn primary block" id="loginButton" type="submit">دخول مركز التحكم <span>←</span></button>
+      <div class="login-help">لا تمتلك اشتراكًا؟ <a href="https://t.me/Karam_AlGzawy" target="_blank" rel="noopener noreferrer">تواصل مع الإدارة ↗</a></div>
+      <p class="security-note">ليس هناك تسجيل عام. حسابات المشتركين يصدرها المالك فقط.</p>
+    </form>
+  </section>
+  <div id="shell" class="shell" hidden>
+    <aside id="sidebar" class="sidebar">
+      <div class="brand-row"><span class="brand-icon">AlG</span><div><strong>AlGzawy</strong><small>CLOUD CONTROL <b>V2</b></small></div></div>
+      <div class="side-label">مساحة العمل</div>
+      <nav id="sideNav" class="side-nav" aria-label="أقسام مركز التحكم">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◫</span><span>لوحة القيادة</span></button>
+        <button class="nav-item" data-view="scripts"><span class="nav-icon">⚙</span><span>مركز البوتات</span><strong id="navScriptCount">—</strong></button>
+        <button class="nav-item" data-view="tasks"><span class="nav-icon">▤</span><span>مركز المهام</span></button>
+        <button class="nav-item" data-view="villages"><span class="nav-icon">▦</span><span>القرى والمزامنة</span></button>
+        <button class="nav-item" data-view="activity"><span class="nav-icon">◷</span><span>سجل هذه الجلسة</span></button>
+        <div class="side-label side-label-secondary">الحساب والأمان</div>
+        <button class="nav-item" data-view="connect"><span class="nav-icon">⌁</span><span>ربط اللعبة</span></button>
+        <button class="nav-item" data-view="account"><span class="nav-icon">♙</span><span>حسابي والاشتراك</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="side-notice"><span>✧</span><strong>تحكمك محمي</strong><p>التشغيل يعتمد على ترخيص الحساب والجهاز وإذن كل سكربت.</p></div>
+        <div class="side-version">AlGzawy Cloud Control · V2 Preview</div>
+      </div>
+    </aside>
+    <div id="mobileBackdrop" class="mobile-backdrop" hidden></div>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="heading-line">
+          <button id="menuToggle" class="icon-btn mobile-menu" aria-label="فتح القائمة">☰</button>
+          <div><span class="kicker" id="breadcrumb">الرئيسية / لوحة القيادة</span><h1 id="currentTitle">لوحة القيادة</h1></div>
+        </div>
+        <div class="header-controls">
+          <span id="cloudIndicator" class="pill neutral" role="status">◌ جارٍ التحقق</span>
+          <button id="refreshButton" class="icon-btn" title="مزامنة البيانات" aria-label="مزامنة البيانات">↻</button>
+          <span class="user-chip" id="userChip">AlG</span>
+        </div>
+      </header>
+      <main id="main" tabindex="-1">
+        <section class="view active" data-panel="dashboard">
+          <div class="welcome">
+            <div class="welcome-content">
+              <span class="welcome-tag">✦ ALGZAWY CONTROL CENTER</span>
+              <h2>كل سكربتاتك.<br><em>قرارك في مكان واحد.</em></h2>
+              <p>راقب الصلاحيات، تحكم بالتشغيل، واربط جهازك بأمان. البيانات المعروضة هنا مستمدة من حسابك الفعلي.</p>
+              <div class="welcome-actions"><button class="btn primary" data-go="scripts">إدارة البوتات ←</button><button class="btn outline" data-go="connect">ربط المتصفح</button></div>
+            </div>
+            <div class="welcome-orbit" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span>AlG</span><small>LIVE CONTROL</small></div>
+          </div>
+          <div class="metrics">
+            <article class="metric"><span class="metric-icon">▦</span><div><small>سكربتات ضمن اشتراكك</small><strong id="dashboardLicensed">—</strong><span>من أصل 25 متاحة حسب الترخيص</span></div></article>
+            <article class="metric"><span class="metric-icon accent">✓</span><div><small>مفعّلة من حسابك</small><strong id="dashboardEnabled">—</strong><span>التشغيل الفعلي يحتاج متصفح اللعبة</span></div></article>
+            <article class="metric"><span class="metric-icon gold">⊘</span><div><small>موقوفة</small><strong id="dashboardDisabled">—</strong><span>يمكن تشغيل المسموح منها</span></div></article>
+            <article class="metric"><span class="metric-icon blue">⌁</span><div><small>الاتصال المركزي</small><strong id="dashboardCloud" class="metric-word">جارٍ الفحص</strong><span>حالة مفتاح المنظومة العام</span></div></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head"><div><span class="kicker">السكربتات</span><h3>التحكم السريع</h3></div><button class="text-link" data-go="scripts">عرض الكل ←</button></div>
+              <div id="quickScripts" class="quick-scripts"><div class="empty">جارٍ تحميل الصلاحيات...</div></div>
+            </section>
+            <section class="panel panel-aside">
+              <div class="panel-head"><div><span class="kicker">حالة النظام</span><h3>جاهزية حسابك</h3></div></div>
+              <div id="systemStatus" class="system-steps"></div>
+              <div class="panel-divider"></div>
+              <p class="small-muted">حالة «مفعّل» تعني اختيار التشغيل في البوابة، ولا تؤكد تنفيذ المحرك داخل اللعبة. ستتوفر Telemetry منفصلة في مرحلة الربط التالية.</p>
+              <button class="btn subtle block" data-go="connect">فتح صفحة ربط المتصفح ←</button>
+            </section>
+          </div>
+        </section>
+        <section class="view" data-panel="scripts">
+          <div class="page-head"><div><span class="kicker">SCRIPT MANAGEMENT</span><h2>مركز البوتات</h2><p>إدارة جميع السكربتات المسموح بها لهذا الاشتراك. لا يظهر للمشترك ما لم تمنحه الإدارة.</p></div><div class="toolbar-actions"><button id="enableAll" class="btn outline">تشغيل المسموح</button><button id="disableAll" class="btn danger">إيقاف الكل</button></div></div>
+          <div class="filter-bar"><label class="search-field">⌕ <input id="scriptSearch" type="search" placeholder="ابحث عن سكربت..." autocomplete="off"></label><div id="categoryFilters" class="chips" aria-label="التصفية حسب الفئة"></div></div>
+          <div class="scripts-summary"><span id="resultsCount">—</span><span>يمكنك فتح التفاصيل لكل سكربت أو تثبيته في Tampermonkey.</span></div>
+          <div id="scriptsGrid" class="scripts-grid"></div>
+        </section>
+        <section class="view" data-panel="tasks">
+          <div class="page-head"><div><span class="kicker">OPERATIONS</span><h2>مركز المهام والجدولة</h2><p>هذا القسم هو موضع إدارة المهام القادمة، وليس سجلًا وهميًا لعمليات لم تُنفّذ.</p></div></div>
+          <div class="placeholder-panel"><span class="placeholder-icon">▤</span><h3>بانتظار ربط المحركات بالمهام</h3><p>النسخة الحالية تتحكم بتفعيل السكربتات فعليًا. لعرض مهمة مجدولة وتنفيذها من الموقع يجب أولًا إضافة واجهة تبادل بيانات بين Cloud Bridge ومحرك كل بوت، مع سجل نتيجة التنفيذ.</p><button class="btn primary" data-go="scripts">العودة إلى مركز البوتات ←</button></div>
+        </section>
+        <section class="view" data-panel="villages">
+          <div class="page-head"><div><span class="kicker">GAME SYNC</span><h2>القرى والمزامنة</h2><p>لن نطلب كلمة مرور اللعبة أو ملفات Cookies من المشترك.</p></div></div>
+          <div class="placeholder-panel"><span class="placeholder-icon">▦</span><h3>مزامنة القرى قيد التطوير</h3><p>لم تُفعّل بعد خدمة استقبال بيانات القرى على الخادم. سيُسمح بالمزامنة فقط بعد تأكيد الترخيص وإرسال البيانات التي يوافق المستخدم على مشاركتها من Cloud Bridge.</p><button class="btn subtle" data-go="connect">إعداد الربط ←</button></div>
+        </section>
+        <section class="view" data-panel="activity">
+          <div class="page-head"><div><span class="kicker">ACTIVITY</span><h2>سجل هذه الجلسة</h2><p>يعرض فقط تغييراتك المنفذة من هذه الصفحة أثناء فتحها، وليس سجلًا عامًا من الخادم.</p></div><button id="clearActivity" class="btn outline">مسح العرض</button></div>
+          <div id="activityList" class="panel activity-list"></div>
+        </section>
+        <section class="view" data-panel="connect">
+          <div class="page-head"><div><span class="kicker">SECURE DEVICE PAIRING</span><h2>ربط اللعبة والمتصفح</h2><p>الربط عبر رمز مؤقت للجهاز المعتمد، لا عبر عنوان موقع يُدخله الزبون.</p></div></div>
+          <div class="connect-grid">
+            <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge</h3><p>يحصل المستخدم على الجسر مرة واحدة؛ يتحقق من الجهاز والترخيص قبل تشغيل السكربتات.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge ↗</a></article>
+            <article class="step-panel"><span class="step-index">02</span><h3>أنشئ رمز ربط مؤقت</h3><p>الرمز صالح لمدة خمس دقائق ويُستخدم مرة واحدة فقط.</p><button id="createPair" class="btn primary block">إنشاء رمز ربط جديد</button></article>
+            <article class="step-panel"><span class="step-index">03</span><h3>اعتماد الجهاز</h3><p>أدخل الرمز في نافذة الجسر داخل اللعبة ثم اطلب من الإدارة اعتماد الجهاز. التبديل بين اشتراكات مختلفة يحتاج ترخيص كل اشتراك.</p><span class="pill neutral">تحقق مشفر من الجهاز</span></article>
+          </div>
+          <div id="pairPanel" class="panel pair-panel" hidden><div><span class="kicker">رمز مؤقت — لا تشاركه مع الآخرين</span><h3>انسخ الرمز إلى Cloud Bridge</h3><code id="pairCode" dir="ltr"></code><p id="pairExpires" class="small-muted"></p></div><button id="copyPair" class="btn primary">نسخ الرمز</button></div>
+          <div class="info-note">تنبيه: تثبيت السكربتات المختارة عبر Tampermonkey ما زال مطلوبًا. إيقاف سكربت من الموقع يمنع التشغيل الجديد المسموح، لكنه لا يلغي طلبات سبق إرسالها.</div>
+        </section>
+        <section class="view" data-panel="account">
+          <div class="page-head"><div><span class="kicker">SUBSCRIPTION</span><h2>الحساب والأمان</h2><p>إدارة الهوية والجلسة والصلاحيات دون تخزين مفتاح الوصول داخل المتصفح.</p></div></div>
+          <div class="account-panel panel"><div class="account-identity"><span class="avatar-large">AlG</span><div><small>المشترك</small><h3 id="accountLabel">—</h3><span class="pill positive">الحساب متصل</span></div></div><div class="account-fields"><div><small>مدة الجلسة</small><strong>7 أيام</strong></div><div><small>انتهاء الجلسة الحالية</small><strong id="sessionExpiry">—</strong></div><div><small>السكربتات المرخصة</small><strong id="accountLicensed">—</strong></div></div><button id="logoutButton" class="btn danger">تسجيل الخروج من هذا المتصفح</button></div>
+          <div class="info-note">يتم التحقق من الصلاحيات والاشتراك والجهاز على الخادم. لا يملك المشترك إمكانية إنشاء حساب بنفسه أو الحصول على سكربت غير مشمول بترخيصه.</div>
+        </section>
+      </main>
+      <footer class="footer">© AlGzawy Cloud Control V2 · نسخة معاينة محمية · <a href="/">الواجهة الحالية</a></footer>
+    </div>
+  </div>
+  <div id="scriptDialog" class="dialog-backdrop" hidden>
+    <section class="script-dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <div class="dialog-head"><span class="kicker">BOT DETAIL</span><button id="closeDialog" class="icon-btn" aria-label="إغلاق تفاصيل السكربت">×</button></div>
+      <div id="dialogBody"></div>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
