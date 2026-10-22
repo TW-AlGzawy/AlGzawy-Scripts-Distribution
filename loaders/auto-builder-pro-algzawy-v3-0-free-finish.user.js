@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.0 Free Finish)
+// @name         تجريبي - الغزااوي - البناء الاحترافي القديم
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/game.php?village=*&screen=main*
 // @run-at       document-end
@@ -65,7 +65,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.0 Free Finish)",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - البناء الاحترافي القديم",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
