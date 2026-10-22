@@ -157,7 +157,8 @@ test('Template keeps sequential targets without consuming manual queue',()=>{
   assert.match(pilot,/templateIssued=\{id:plan\.id,level:plan\.level,at:Date\.now\(\)\}/);
   assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
   assert.match(pilot,/Math\.max\(0,queue\.rows\.length-2\)/);
-  assert.match(pilot,/تعذر تأكيد اكتمال البناء خلال 90 ثانية/);
+  assert.match(pilot,/قائمة بناء اللعبة فارغة لكن المستوى لم يتحدث خلال 90 ثانية/);
+  assert.match(pilot,/templateIssued&&currentBuildCount\(\)===0&&Date\.now\(\)-templateIssued\.at>=90000/);
   assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
   assert.match(pilot,/void refreshVisibleGameQueue\(\)\.finally\(\(\)=>\{templateRefreshing=false;\}\)/);
   assert.match(pilot,/isRunning=false;saveStatus\(\);endLoop\(\);renderQueue\(\)/);
