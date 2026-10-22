@@ -18,7 +18,7 @@
 (function() {
     'use strict';
 
-    const SCRIPT_NAME = "Smart Reserve Pro v5.0";
+    const SCRIPT_NAME = "تجريبي - الغزااوي - الحجز الذكي الخامس v1.0";
     const VERSION = "5.0";
     const MAP_URL = `/game.php?village=${game_data.village.id}&screen=map`;
     const RESERVATIONS_URL = `/game.php?village=${game_data.village.id}&screen=ally&mode=reservations`;
