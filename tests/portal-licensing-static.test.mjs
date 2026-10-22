@@ -20,13 +20,14 @@ test('all 26 distributed beta loaders require a fresh specific license grant',()
     assert.ok(bridge.includes("'"+id+"'"),'cloud bridge ignores script: '+id);
   }
 });
-test('the first page is login only and owner alone can create accounts',()=>{
+test('public portal has no administration controls or account self-registration',()=>{
   assert.match(web,/<body class="auth-locked">/);
   assert.match(web,/class="app-shell" hidden/);
   assert.match(web,/id="loginOverlay" class="modal-overlay"/);
-  assert.match(web,/id="ownerSignIn"/);
+  assert.doesNotMatch(web,/ownerSignIn|ownerEntrance|ownerAuth|adminNav|adminSecret|section-admin/);
+  assert.doesNotMatch(read('portal/assets/app.js'),/admin\/users|ownerAuthSubmit|adminSecret/);
   assert.ok(!api.includes("path[0]==='register'"),'unexpected public registration');
-  assert.ok(api.includes("if(path[0]==='admin'){"),'admin route missing');
+  assert.ok(api.includes("if(path[0]==='admin'){"),'admin API route missing');
 });
 test('D1 migration makes device approvals unique and subscription grants explicit',()=>{
   const sql=read('portal/schema-license-v2.sql');
@@ -38,17 +39,13 @@ test('D1 migration makes device approvals unique and subscription grants explici
   assert.match(bridge,/setInterval\(checkPublisher,15000\)/);
 });
 
-test('Owner controls remain behind server-side admin authentication',()=>{
-  const html=read('portal/index.html');
-  const ui=read('portal/assets/app.js');
-  assert.match(html,/id="ownerAuth" hidden/);
-  assert.match(html,/id="ownerToken" type="password"/);
-  const begin=ui.indexOf("$('ownerAuthSubmit').addEventListener('click',async()=>{");
-  const end=ui.indexOf("$('menuBtn').addEventListener",begin);
-  assert.ok(begin>0&&end>begin,'owner login handler missing');
-  const ownerHandler=ui.slice(begin,end);
-  assert.ok(ownerHandler.indexOf("await api('admin/users'")>=0,'server must verify admin token');
-  assert.ok(ownerHandler.indexOf("await api('admin/users'")<ownerHandler.indexOf("document.querySelector('.app-shell').hidden=false"),'owner shell exposed before verification');
-  assert.ok(ui.includes("$('adminSecret').value='';"),'admin secret not cleared on logout');
-  assert.ok(!ui.includes("$('ownerEntrance').addEventListener('click',()=>{ $('adminNav').hidden=false;"),'owner footer bypasses auth');
+test('owner panel requires signed HttpOnly cookie and excludes browser token persistence',()=>{
+  const html=read('portal/admin/index.html');
+  const ui=read('portal/admin/admin.js');
+  assert.match(html,/id="adminShell" class="owner-shell" hidden/);
+  assert.match(html,/id="ownerLoginForm"/);
+  assert.match(ui,/admin\/session/);
+  assert.doesNotMatch(ui,/localStorage|sessionStorage/);
+  assert.ok(api.includes("HttpOnly; SameSite=Strict"),'session cookie must be HttpOnly and SameSite');
+  assert.ok(api.includes("csrf_invalid"),'server must reject unauthenticated writes');
 });
