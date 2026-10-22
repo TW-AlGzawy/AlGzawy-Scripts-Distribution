@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Light
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.5
+// @version      0.1.6
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*.tribalwars.ae/game.php?*&screen=stable*
 // @run-at       document-idle
@@ -31,7 +31,7 @@
     return !!localStorage.getItem(LICENSE_ID) && expires>Date.now() && expires<=Date.now()+180000 && localStorage.getItem('algzawy_portal_grant_'+ID)==='1';
   };
   const HAS_GM_API = true;
-  const POLL_MS = 5000;
+  const POLL_MS = 120000; // Bridge coordinates central OFF every 15s
   const REQUEST_TIMEOUT = 6000;
   const STOP_EVENT = '__algzawy_stop_' + ID.replace(/[^a-zA-Z0-9_-]/g, '_');
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
@@ -261,6 +261,9 @@
     if (checkInProgress) return;
     checkInProgress = true;
     try {
+      if(!hasPortalLicense()){stopCore('license');return;}
+      if(localStorage.getItem(LOCAL_KEY)==='false'){stopCore('local');return;}
+      if(localStorage.getItem(HUMAN_KEY)==='1'){stopCore('human');return;}
       const text = await requestText(STATUS_URL);
       const status = JSON.parse(text);
       if (!status || status.schema !== 1 || !Number.isInteger(status.revision) || status.enabled !== true) {
