@@ -17,8 +17,8 @@ class DB{
     async first(){const a=this.args;
       if(sql.includes('FROM global_control'))return {...db.global};
       if(sql.startsWith('UPDATE global_control')){if(db.global.enabled===a[0])return null;db.global.enabled=a[0];db.global.revision++;return {...db.global};}
-      if(sql.includes('FROM portal_users WHERE access_hash')){const u=db.users.find(x=>x.access_hash===a[0]&&x.active===1);return u?{id:u.id,label:u.label}:null;}
-      if(sql.includes('SELECT id,label FROM portal_users WHERE id=? AND active=1')){const u=db.users.find(x=>x.id===a[0]&&x.active===1);return u?{id:u.id,label:u.label}:null;}
+      if(sql.includes('FROM portal_users WHERE access_hash')){const u=db.users.find(x=>x.access_hash===a[0]&&x.active===1);return u?{id:u.id,label:u.label,access_hash:u.access_hash}:null;}
+      if(sql.includes('SELECT id,label,access_hash FROM portal_users WHERE id=? AND active=1')){const u=db.users.find(x=>x.id===a[0]&&x.active===1);return u?{id:u.id,label:u.label,access_hash:u.access_hash}:null;}
        if(sql.includes('SELECT encrypted_key,iv FROM portal_access_key_vault'))return db.vault.find(x=>x.user_id===a[0])||null;
        if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
       if(sql.includes('SELECT active,expires_at FROM portal_subscriptions'))return db.subs.find(x=>x.user_id===a[0])||null;
