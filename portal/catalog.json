@@ -6,7 +6,8 @@
       "category": "raids",
       "description": "إدارة مجموعات الإغارات الخمس",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
+      "approved_for_final": true
     },
     {
       "id": "bot-farm-2",
@@ -14,7 +15,8 @@
       "category": "raids",
       "description": "القوالب وسرعة النهب والتنقل بين القرى",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
+      "approved_for_final": false
     },
     {
       "id": "alg-balance",
@@ -22,31 +24,35 @@
       "category": "resources",
       "description": "موازنة الموارد بين القرى",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js",
+      "approved_for_final": true
     },
     {
       "id": "auto-builder-pro-algzawy-v3-3-fixed-queue",
-      "name": "البناء التلقائي V3.3",
+      "name": "البناء الاحترافي",
       "category": "build",
       "description": "طابور البناء والأولويات",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js",
+      "approved_for_final": false
     },
     {
       "id": "auto-builder-ar-v061",
-      "name": "البناء العربي",
+      "name": "البناء التقليدي",
       "category": "build",
       "description": "إدارة البناء من صفحة القرية",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v061.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v061.user.js",
+      "approved_for_final": false
     },
     {
       "id": "professional-training-v2",
-      "name": "التدريب التلقائي",
+      "name": "بوت التدريب المحسّن",
       "category": "training",
       "description": "تدريب الوحدات مع إعدادات من داخل اللعبة",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js",
+      "approved_for_final": true
     },
     {
       "id": "send-automation",
@@ -54,7 +60,8 @@
       "category": "military",
       "description": "تحديد إرسال أو وصول القوات",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
+      "approved_for_final": true
     },
     {
       "id": "attack-renamer",
@@ -62,7 +69,8 @@
       "category": "military",
       "description": "تسمية الهجمات عبر QuickEdit",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js",
+      "approved_for_final": false
     },
     {
       "id": "alg-attacks",
@@ -70,7 +78,8 @@
       "category": "military",
       "description": "تنبيهات الهجمات الواردة",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js",
+      "approved_for_final": true
     },
     {
       "id": "warehouse-alert-safe",
@@ -78,7 +87,8 @@
       "category": "resources",
       "description": "تنبيه حسب نسبة الامتلاء",
       "featured": true,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js",
+      "approved_for_final": true
     },
     {
       "id": "polish-all-in-one",
@@ -86,7 +96,8 @@
       "category": "resources",
       "description": "الصقل وإدارة الموارد",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/polish-all-in-one.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/polish-all-in-one.user.js",
+      "approved_for_final": false
     },
     {
       "id": "alg-coins",
@@ -94,7 +105,8 @@
       "category": "resources",
       "description": "محرك الصقل والسوق المتطور",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-coins.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-coins.user.js",
+      "approved_for_final": false
     },
     {
       "id": "market-bot-v7",
@@ -102,7 +114,8 @@
       "category": "resources",
       "description": "الموارد والسوق",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/market-bot-v7.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/market-bot-v7.user.js",
+      "approved_for_final": false
     },
     {
       "id": "auto-builder-ar-v054",
@@ -110,7 +123,8 @@
       "category": "build",
       "description": "نسخة بناء سابقة",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v054.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v054.user.js",
+      "approved_for_final": false
     },
     {
       "id": "auto-builder-pro-algzawy-v3-0-free-finish",
@@ -118,7 +132,8 @@
       "category": "build",
       "description": "نسخة البناء القديمة",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-0-free-finish.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-0-free-finish.user.js",
+      "approved_for_final": false
     },
     {
       "id": "training-edition",
@@ -126,7 +141,8 @@
       "category": "training",
       "description": "نسخة تدريب بديلة",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/training-edition.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/training-edition.user.js",
+      "approved_for_final": false
     },
     {
       "id": "professional-training",
@@ -134,7 +150,8 @@
       "category": "training",
       "description": "نسخة تدريب سابقة",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training.user.js",
+      "approved_for_final": false
     },
     {
       "id": "light",
@@ -142,7 +159,8 @@
       "category": "training",
       "description": "تدريب وحدات خفيف",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/light.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/light.user.js",
+      "approved_for_final": false
     },
     {
       "id": "train-master-b",
@@ -150,7 +168,8 @@
       "category": "training",
       "description": "نظام تدريب آخر",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/train-master-b.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/train-master-b.user.js",
+      "approved_for_final": false
     },
     {
       "id": "reserve-smart-v5",
@@ -158,7 +177,8 @@
       "category": "military",
       "description": "الحجز الذكي",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v5.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v5.user.js",
+      "approved_for_final": false
     },
     {
       "id": "reserve-smart-v4",
@@ -166,7 +186,8 @@
       "category": "military",
       "description": "نسخة الحجز السابقة",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v4.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-smart-v4.user.js",
+      "approved_for_final": false
     },
     {
       "id": "reserve-correct-v2",
@@ -174,7 +195,8 @@
       "category": "military",
       "description": "الحجز",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-correct-v2.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/reserve-correct-v2.user.js",
+      "approved_for_final": false
     },
     {
       "id": "auto-reserve-barbarians",
@@ -182,7 +204,8 @@
       "category": "military",
       "description": "إدارة حجوزات القرى",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-reserve-barbarians.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-reserve-barbarians.user.js",
+      "approved_for_final": false
     },
     {
       "id": "holy-grail",
@@ -190,23 +213,17 @@
       "category": "tools",
       "description": "أدوات تبويب اللعبة",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/holy-grail.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/holy-grail.user.js",
+      "approved_for_final": false
     },
     {
       "id": "tribal-wars-helper",
-      "name": "Tribal Wars Helper",
+      "name": "جامع الجوائز التلقائي",
       "category": "tools",
       "description": "أدوات ومساعدات",
       "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js"
-    },
-    {
-      "id": "source-copier",
-      "name": "ناسخ المصدر",
-      "category": "tools",
-      "description": "نسخ بيانات المصدر",
-      "featured": false,
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/source-copier.user.js"
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js",
+      "approved_for_final": true
     }
   ]
 }
