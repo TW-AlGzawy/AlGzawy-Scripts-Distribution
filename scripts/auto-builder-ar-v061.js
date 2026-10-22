@@ -24,6 +24,7 @@
   const STATUS_KEY='autoBuilderStatus_'+ID;
   const QUEUE_KEY='autoBuilderQueue';
   const LAYOUT_KEY='algzawy_traditional_layout_v2_'+ID;
+  const INSTANT_KEY='algzawy_traditional_instant_free_v2_'+ID;
   const STOP_EVENT='__algzawy_stop_auto-builder-ar-v061';
   const HUMAN_KEY='algzawy_human_verification_pause';
   const LOCAL_KEY='algzawy_local_enabled_'+SCRIPT_ID;
@@ -51,6 +52,7 @@
     ?Math.max(1,Math.min(MAX_LENGTH,Number(queueRecord.buildingQueueLength))):DEFAULT_LENGTH;
   let isRunning=localStorage.getItem(STATUS_KEY)==='true';
   let processing=false,pendingTimer=null,loop=null,refreshTimer=null,stoppedByPolicy=false,panel=null,body=null;
+  let instantEnabled=localStorage.getItem(INSTANT_KEY)!=='false',instantPending=false,lastInstantAt=0,instantTimer=null;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
   const elements={};
@@ -78,11 +80,11 @@
     elements.note.dataset.kind=kind||'normal';
   }
   function persistLayout(){
-    if (!panel||layout.minimized)return;
+    if (!panel)return;
     const rect=panel.getBoundingClientRect();
     const safe={top:clamp(rect.top,0,Math.max(0,innerHeight-50)),
-      left:clamp(rect.left,0,Math.max(0,innerWidth-54)),
-      width:Math.round(rect.width),height:Math.round(rect.height),minimized:false};
+      left:clamp(rect.left,0,Math.max(0,innerWidth-54))};
+    if(!layout.minimized){safe.width=Math.round(rect.width);safe.height=Math.round(rect.height);}
     layout={...layout,...safe};
     localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
   }
@@ -195,6 +197,7 @@
     elements.start.textContent=isRunning?'■ إيقاف':'▶ تشغيل';
     elements.start.className='alg-btn '+(isRunning?'danger':'primary');
     elements.start.setAttribute('aria-pressed',String(isRunning));
+    if(elements.instant){elements.instant.setAttribute('aria-pressed',String(instantEnabled));elements.instant.textContent=instantEnabled?'✓ الإنهاء الفوري مفعّل':'○ الإنهاء الفوري متوقف';}
     if(stoppedByPolicy)status('تم إيقاف المحرك بسبب الترخيص أو التحقق.','error');
     else if(isRunning&&!policyOK())status('موقوف مؤقتًا: تحقق من الترخيص أو فحص الحماية.','warn');
     else if(isRunning&&buildingQueue.length===0)status('القائمة فارغة؛ التشغيل محفوظ في انتظار إضافة مبنى.','warn');
@@ -277,6 +280,16 @@
     });
     addRow.append(elements.select,elements.add);
     addCard.append(addRow);
+    const instantCard=node('div','alg-card');
+    instantCard.append(node('label','alg-label','ميزة البناء الاحترافي V3.3 — الإنهاء المجاني'));
+    elements.instant=button('✓ الإنهاء الفوري مفعّل','alg-btn subtle',()=>{
+      instantEnabled=!instantEnabled;
+      localStorage.setItem(INSTANT_KEY,String(instantEnabled));
+      if(!instantEnabled&&instantTimer){clearTimeout(instantTimer);instantTimer=null;instantPending=false;}
+      renderStatus();
+    },'إنهاء المبنى بزر اللعبة المجاني عند أقل من 3 دقائق');
+    elements.instant.setAttribute('aria-pressed',String(instantEnabled));
+    instantCard.append(elements.instant,node('small','alg-footer','يستخدم زر اللعبة المجاني فقط (.btn-instant-free) عند ظهوره. لا ينفق نقاط بريميوم.'));
     const settings=node('div','alg-card');
     settings.append(node('label','alg-label','عدد المباني المسموح بها في قائمة بناء اللعبة'));
     const settingsRow=node('div','alg-entry');
@@ -306,7 +319,7 @@
     elements.queue=node('ol','alg-queue');
     queueCard.append(queueHeader,elements.queue);
     elements.note=node('div','alg-note');
-    body.append(stats,actions,addCard,settings,queueCard,elements.note,
+    body.append(stats,actions,instantCard,addCard,settings,queueCard,elements.note,
       node('div','alg-footer','AlGzawy Scripts · نسخة تجريبية — لا تشغّل بناءين آليين للقرية نفسها'));
     panel.append(head,body);
     document.body.append(panel);
@@ -347,7 +360,53 @@
     if(currentBuildCount()>=queueLength)return false;
     return true;
   }
+  // V3.3's free finishing behavior, hardened: use only the game's
+  // explicit no-cost button. Never click paid/coin/regular instant buttons.
+  // If a countdown is visible, refuse values >= 3:00 even if markup is stale.
+  function getRemainingSeconds(row){
+    const clock=row?.querySelector('.buildorder_countdown, .timer, [data-endtime], [data-end-time]');
+    if(!clock)return null;
+    const raw=String(clock.textContent||'').trim();
+    const match=raw.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(!match)return null;
+    const secs=match[3]!==undefined
+      ?Number(match[1])*3600+Number(match[2])*60+Number(match[3])
+      :Number(match[1])*60+Number(match[2]);
+    return Number.isFinite(secs)?secs:null;
+  }
+  function finishFreeBuilding(){
+    if(!isRunning||!instantEnabled||instantPending||!policyOK()||processing)return false;
+    if(Date.now()-lastInstantAt<5000)return false;
+    const buttons=[...document.querySelectorAll('#buildqueue .btn-instant-free')];
+    for(const btn of buttons){
+      if(!btn.isConnected||btn.disabled||btn.classList.contains('btn-disabled')
+        ||btn.getAttribute('aria-disabled')==='true'||btn.closest('[hidden]'))continue;
+      const style=window.getComputedStyle(btn);
+      if(style.display==='none'||style.visibility==='hidden'||btn.getClientRects().length===0)continue;
+      const remaining=getRemainingSeconds(btn.closest('tr'));
+      if(remaining!==null&&(remaining<=0||remaining>=180))continue;
+      // A free-finish control shown by the game is the authority if there
+      // is no accessible countdown. Do not synthesize requests/endpoints.
+      instantPending=true;lastInstantAt=Date.now();
+      try{
+        if(!isRunning||!policyOK())return false;
+        btn.click();
+        status('تم الضغط على زر الإنهاء المجاني المتاح — انتظار تحديث اللعبة.','normal');
+        instantTimer=setTimeout(()=>{
+          instantTimer=null;instantPending=false;
+          if(isRunning&&policyOK())void refreshVisibleGameQueue();
+        },2200);
+      }catch(error){
+        instantPending=false;
+        status('تعذر تنفيذ الإنهاء المجاني: '+String(error?.message||''),'error');
+      }
+      return true;
+    }
+    return false;
+  }
   function cycle(){
+    if(!isRunning||!policyOK())return;
+    if(finishFreeBuilding())return;
     if(!canBuild())return;
     const next=buildingQueue[0];
     const row=document.getElementById('main_buildrow_'+next);
@@ -407,6 +466,7 @@
   function endLoop(){
     if(loop){clearInterval(loop);loop=null;}
     if(pendingTimer){clearTimeout(pendingTimer);pendingTimer=null;}
+    if(instantTimer){clearTimeout(instantTimer);instantTimer=null;}instantPending=false;
     processing=false;
   }
   function toggleStart(){
@@ -429,6 +489,7 @@
     // A loader revocation must halt scheduled work even if this panel is open.
     stoppedByPolicy=true;isRunning=false;saveStatus();endLoop();
     if(refreshTimer)clearTimeout(refreshTimer);
+    if(instantTimer){clearTimeout(instantTimer);instantTimer=null;}instantPending=false;
     document.removeEventListener('click',onCancelClick);
     window.removeEventListener('resize',onViewportResize);
     resizeObserver?.disconnect();
