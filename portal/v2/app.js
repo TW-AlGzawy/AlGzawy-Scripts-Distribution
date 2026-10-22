@@ -27,6 +27,8 @@ function toast(message,isError=false){
 const errors={
  unauthorized:'الجلسة غير صالحة أو انتهت صلاحيتها. يرجى تسجيل الدخول.',
  subscription_inactive:'الاشتراك متوقف أو منتهي. تواصل مع الإدارة.',
+ device_already_linked:'يوجد جهاز معتمد مسبقًا. تواصل مع الإدارة لإلغاء اعتماده قبل ربط جهاز جديد.',
+ invalid_public_key:'طلب ربط الجهاز غير صالح أو تالف.',
  script_not_licensed:'هذا السكربت غير متاح في اشتراكك.',
  script_globally_disabled:'هذا السكربت متوقف من الإدارة.',
  invalid_script_settings:'إعدادات السكربت غير صالحة.',
@@ -46,6 +48,52 @@ async function api(path,options={}){
   if(!res.ok||data.ok!==true)throw Error(data.error||'http_'+res.status);
   return data;
 }
+
+const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
+function readAutoLink(){
+  const raw=new URLSearchParams(location.search).get('alg_auto');
+  if(!raw||raw.length>1500)return null;
+  try{
+    const normalized=raw.replace(/-/g,'+').replace(/_/g,'/');
+    const data=JSON.parse(atob(normalized+'='.repeat((4-normalized.length%4)%4)));
+    if(!data||!allowedOrigin.test(data.origin)||typeof data.nonce!=='string'||!/^[0-9a-f-]{36}$/i.test(data.nonce)
+      ||data.publicKey?.kty!=='EC'||data.publicKey?.crv!=='P-256'
+      ||typeof data.publicKey?.x!=='string'||data.publicKey.x.length!==43
+      ||typeof data.publicKey?.y!=='string'||data.publicKey.y.length!==43)return null;
+    return data;
+  }catch(_){return null;}
+}
+const autoLink=readAutoLink();
+function showAutoApproval(){
+  if(!autoLink||!state.user||!window.opener)return;
+  $('autoOrigin').textContent=autoLink.origin;
+  $('autoApproval').hidden=false;
+  $('approveAuto').focus();
+}
+function clearAutoLink(){
+  $('autoApproval').hidden=true;
+  history.replaceState(null,'',location.pathname);
+}
+function tellGame(result){
+  if(!autoLink||!window.opener)return;
+  window.opener.postMessage({scope:'algzawy-auto-license-v2',nonce:autoLink.nonce,...result},autoLink.origin);
+}
+async function approveDevice(){
+  if(!autoLink||!state.user||!window.opener)return;
+  const button=$('approveAuto');button.disabled=true;$('autoError').textContent='';
+  try{
+    const result=await api('device/auto-enroll',{method:'POST',body:{nonce:autoLink.nonce,publicKey:autoLink.publicKey}});
+    if(result.nonce!==autoLink.nonce||result.status!=='approved'||!/^[0-9a-f-]{36}$/i.test(result.deviceId||''))throw Error('invalid_auto_enrollment');
+    tellGame({ok:true,deviceId:result.deviceId});
+    logAction('الموافقة على ربط الجهاز بنظام Auto License V2');
+    clearAutoLink();toast('تم اعتماد الجهاز تلقائيًا، يمكنك العودة إلى اللعبة');
+    setTimeout(()=>window.close(),900);
+  }catch(err){
+    $('autoError').textContent=errText(err);
+    if(err.message==='device_already_linked')tellGame({ok:false,error:'device_already_linked'});
+    button.disabled=false;
+  }
+}
 function showAuth(){
   state.user=null;state.csrf='';state.prefs={};state.catalog=[];
   $('boot').hidden=true;$('shell').hidden=true;$('login').hidden=false;
@@ -60,7 +108,7 @@ async function loadMe(){
   state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;
   const catalog=await api('catalog');
   state.catalog=Array.isArray(catalog.items)?catalog.items.filter(x=>state.prefs[x.id]?.allowed===true):[];
-  showShell();render();
+  showShell();render();showAutoApproval();
 }
 async function init(){
   try{
@@ -275,33 +323,6 @@ function openScript(id){
   $('scriptDialog').hidden=false;
   $('closeDialog').focus();
 }
-async function makePair(){
-  const button=$('createPair');button.disabled=true;
-  try{
-    const result=await api('pair/create',{method:'POST',body:{}});
-    state.pair=result.code;state.pairExpires=Date.now()+Number(result.expiresInSeconds||300)*1000;
-    $('pairPanel').hidden=false;$('pairCode').textContent=state.pair;
-    updatePairExpiry();logAction('إنشاء رمز ربط مؤقت للجهاز');
-    toast('تم إنشاء رمز ربط صالح لخمس دقائق');
-  }catch(err){toast(errText(err),true);}
-  finally{button.disabled=false;}
-}
-function updatePairExpiry(){
-  if(!state.pair)return;
-  const seconds=Math.ceil((state.pairExpires-Date.now())/1000);
-  if(seconds<=0){
-    state.pair=null;state.pairExpires=0;$('pairCode').textContent='انتهت صلاحية الرمز';
-    $('pairExpires').textContent='أنشئ رمزًا جديدًا لإتمام الربط';
-    $('copyPair').disabled=true;return;
-  }
-  $('copyPair').disabled=false;
-  $('pairExpires').textContent='متبقٍ '+Math.floor(seconds/60)+' دقيقة و'+seconds%60+' ثانية';
-}
-async function copyPair(){
-  if(!state.pair||Date.now()>=state.pairExpires)return;
-  try{await navigator.clipboard.writeText(state.pair);toast('تم نسخ رمز الربط');}
-  catch(_){toast('تعذر النسخ تلقائيًا. انسخ الرمز يدويًا.',true);}
-}
 async function refresh(){
   if(!state.user||state.loading)return;
   state.loading=true;$('refreshButton').disabled=true;
@@ -338,13 +359,14 @@ $('mobileBackdrop').addEventListener('click',()=>{$('sidebar').classList.remove(
 $('scriptSearch').addEventListener('input',event=>{state.search=event.target.value;renderScripts();});
 $('enableAll').addEventListener('click',()=>void bulk(true));
 $('disableAll').addEventListener('click',()=>void bulk(false));
-$('createPair').addEventListener('click',()=>void makePair());
-$('copyPair').addEventListener('click',()=>void copyPair());
+$('approveAuto').addEventListener('click',()=>void approveDevice());
+$('cancelAuto').addEventListener('click',clearAutoLink);
+$('declineAuto').addEventListener('click',clearAutoLink);
 $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActivity();});
 $('refreshButton').addEventListener('click',()=>void refresh());
 $('logoutButton').addEventListener('click',async()=>{
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.pair=null;state.pairExpires=0;
+  state.activities=[];
   showAuth();toast('تم تسجيل الخروج');
 });
 $('closeDialog').addEventListener('click',closeDialog);
@@ -353,7 +375,6 @@ window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('scriptDia
 window.addEventListener('focus',()=>{if(state.user)void refresh();});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.user)void refresh();});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refresh();},5*60*1000);
-setInterval(updatePairExpiry,1000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
 void init();
 })();
