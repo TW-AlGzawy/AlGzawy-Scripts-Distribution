@@ -8,7 +8,7 @@ STATUS (22 Oct 2026): Cloudflare Pages static site successfully deployed at http
 - Arabic setup instructions for subscriber-only script entitlements, signed one-device approval, and IP audit: [SETUP-LICENSE-V2-AR.md](SETUP-LICENSE-V2-AR.md).
 - Apply the **additive** SQL migration [schema-license-v2.sql](schema-license-v2.sql) to your existing D1 database, executing CREATE statements individually as needed in Cloudflare Console.
 - Without this migration, customer login and device APIs will fail. Do not change global_control or the old Worker.
-- All **26 beta loaders on main now check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.1 are connected. Plan this as an explicit migration rather than a silent update to customers.
+- All **26 beta loaders on main now check portal-approved device freshness AND this specific script grant** before startup. Previously working bot installations that update to these new loaders will stop until account, entitlement, approved device and Cloud Bridge v2.0.4 are connected. Plan this as an explicit migration rather than a silent update to customers.
 - First visit now shows **login only**, with a Telegram contact link and subtle owner login. No self-registration. Only admin creates users and assigns their scripts.
 - Cloud Bridge uses a non-exportable ECDSA private key in IndexedDB and a server-side approved public key, not a transferable GM bearer token. This is strong protection against simply copying Tampermonkey files, **not an absolute barrier to browser-profile cloning or modifying public userscript code**.
 - Original public JavaScript sources and git history are copyable: do not present this as unbreakable DRM.
@@ -87,3 +87,9 @@ The old global Cloudflare Worker and original GitHub bot engines are unchanged b
 Before real-world use: verify status on/off, user create/login/revoke, per-script flags, farm settings, code pairing one-time use, device state after owner global OFF, and browser behavior when human verification appears. Real in-game testing remains mandatory; syntax checks and code publication are NOT proof of successful game actions.
 
 A GitHub commit does not create a live pages.dev site. Creating the Pages project and adding D1/secrets requires the owner's Cloudflare dashboard access.
+
+## Coordination for Cloudflare Free
+
+Cloud Bridge **v2.0.4** polls the publisher's old `/status` every 15 seconds in an active game tab and synchronizes the approved, signed device state about every 90 seconds. Each catalogued loader fails closed *before* making a remote request when its precise script grant is absent; the loader's older Worker poll is now a two-minute backstop instead of 5-second polling. This is designed to reduce free-plan usage, not a guarantee that a running engine can undo a game request already sent. Cloudflare Free limits and multi-tab customer counts must be monitored.
+
+The additional D1 migration `schema-license-v2.sql` includes a **unique partial index** that prevents more than one approved device for each subscriber. Run the index statement separately after creating the `portal_device_keys` table.
