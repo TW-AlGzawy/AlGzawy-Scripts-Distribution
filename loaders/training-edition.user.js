@@ -59,81 +59,12 @@
     });
   }
 
-  function message(text, force = false) {
-    // Automatic notices appear once per revision, but EVERY manual attempt opens the notice again.
-    const noticeKey = 'algzawy_notice_' + lastRevision + '_' + (text === STOP_MESSAGE ? 'disabled' : 'offline');
-    if (!force) {
-      // Avoid repeated notices from the 5-second poll on THIS page only.
-      // New page navigation creates a fresh loader and shows the notice again.
-      if (automaticNoticeKey === noticeKey) return;
-      automaticNoticeKey = noticeKey;
-    }
-    // A manual attempt intentionally replaces any existing alert, without accumulating dialogs.
-    const existing = document.querySelector('[data-algzawy-global-notice]');
-    if (existing) {
-      if (!force) return;
-      existing.remove();
-    }
-    const attach = () => {
-      if (document.querySelector('[data-algzawy-global-notice]')) return;
-      const box = document.createElement('div');
-      box.setAttribute('data-algzawy-notice-owner', ID);
-      box.setAttribute('data-algzawy-global-notice', '1');
-      box.setAttribute('role', 'alertdialog');
-      box.setAttribute('aria-live', 'assertive');
-      box.setAttribute('aria-label', 'حالة سكربتات الغزاوي');
-      box.setAttribute('dir', 'rtl');
-      box.style.cssText = 'position:fixed;top:22px;left:50%;transform:translateX(-50%);max-width:90vw;width:460px;z-index:2147483647;padding:17px 18px;border-radius:12px;background:#27221e;color:#fff;border:2px solid #da5648;box-shadow:0 8px 35px #0008;font:16px/1.6 Tahoma,Arial,sans-serif;text-align:center';
-      const title = document.createElement('strong');
-      title.textContent = 'تنبيه من الغزاوي';
-      const p = document.createElement('p');
-      p.textContent = text;
-      p.style.margin = '10px 0';
-      const contact = document.createElement('a');
-      contact.href = CONTACT_URL;
-      contact.target = '_blank';
-      contact.rel = 'noopener noreferrer';
-      contact.textContent = 'تواصل مع غزااوي على Telegram — @Karam_AlGzawy';
-      contact.style.cssText = 'display:inline-block;margin:0 5px 10px;padding:9px 15px;background:#087f84;color:white;border-radius:8px;text-decoration:none;font-weight:bold';
-      const close = document.createElement('button');
-      close.type = 'button'; close.textContent = 'حسنًا';
-      close.style.cssText='border:0;border-radius:7px;padding:7px 20px;color:#fff;background:#8a483b;cursor:pointer';
-      close.addEventListener('click', () => box.remove());
-      box.append(title, p, contact, close);
-      (document.body || document.documentElement).appendChild(box);
-    };
-    if (document.body || document.documentElement) attach();
-    else document.addEventListener('DOMContentLoaded', attach, { once: true });
+  function bridgeNotice(state,message){
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Bot-تدريب-- AlGzawy Edition",state,message}}));
   }
-
-  function ensureBlockedLauncher() {
-    if (document.getElementById('algzawy-spear-pilot-panel')) return;
-    if (document.getElementById(BLOCKED_PANEL_ID)) return;
-    const parent = document.body || document.documentElement;
-    if (!parent) return;
-    const panel = document.createElement('div');
-    panel.id = BLOCKED_PANEL_ID;
-    panel.setAttribute('dir', 'rtl');
-    panel.style.cssText = 'position:fixed;top:12px;right:12px;background:#1a202c;color:#fff;border-radius:8px;padding:10px;z-index:99999;font:12px/1.6 Tahoma,Arial;box-shadow:0 3px 12px #0007';
-    const heading = document.createElement('div');
-    heading.textContent = 'AlGzawy — Bot-تدريب-- AlGzawy Edition (موقوف)';
-    heading.style.cssText = 'color:#4fd1c7;font-weight:bold;margin-bottom:8px';
-    const attempt = document.createElement('button');
-    attempt.type = 'button';
-    attempt.textContent = 'محاولة تشغيل البوت';
-    attempt.style.cssText = 'padding:7px 13px;border:0;background:#c55550;color:#fff;border-radius:6px;cursor:pointer';
-    attempt.addEventListener('click', () => message(STOP_MESSAGE, true));
-    panel.append(heading, attempt);
-    parent.appendChild(panel);
-  }
-
-  function clearBlockedLauncher() {
-    const panel = document.getElementById(BLOCKED_PANEL_ID);
-    if (panel) panel.remove();
-    const notice = document.querySelector('[data-algzawy-global-notice][data-algzawy-notice-owner="training-edition"]');
-    if (notice) notice.remove();
-  }
-
+  function message(text,force=false){bridgeNotice('blocked',text);}
+  function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
+  function clearBlockedLauncher(){document.getElementById(BLOCKED_PANEL_ID)?.remove();bridgeNotice('ready','');}
   function scopedClock() {
     const intervals = new Set();
     const timeouts = new Set();
