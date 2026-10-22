@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
-// @version      3.3.3
+// @version      3.3.4
 // @description  مدير قرية متكامل: إنهاء تلقائي، التزام بالترتيب، واجهة قابلة للتخصيص، مع إصلاح حذف المباني بعد بنائها بشكل موثوق.
 // @author       AlGzawy & Manus (Improved)
 // @match        https://*/game.php?village=*&screen=main*
@@ -305,7 +305,19 @@
         `;
         document.head.appendChild(style);
 
-        const savedPos = JSON.parse(localStorage.getItem(POS_KEY) || '{"top":"60px","right":"10px"}');
+        // Preserve the user's position, but recover if older dragging moved the
+        // panel outside the viewport or browser storage became malformed.
+        let savedPos = {};
+        try { savedPos = JSON.parse(localStorage.getItem(POS_KEY) || '{}') || {}; }
+        catch (_) { savedPos = {}; }
+        const bound = (raw, max, fallback) => {
+            const px = Number.parseFloat(raw);
+            return Math.round(Math.min(Math.max(0, Number.isFinite(px) ? px : fallback), max)) + 'px';
+        };
+        const safeTop = bound(savedPos.top, Math.max(0, window.innerHeight - 45), 60);
+        const hasLeft = savedPos.left !== undefined && savedPos.left !== null;
+        const safeLeft = hasLeft ? bound(savedPos.left, Math.max(0, window.innerWidth - 80), 10) : 'auto';
+        const safeRight = hasLeft ? 'auto' : bound(savedPos.right, Math.max(0, window.innerWidth - 80), 10);
         // A previous minimized state could overwrite DIM_KEY with "35px",
         // leaving the expanded UI clipped or an empty panel after a resize.
         let savedDim = {};
@@ -323,7 +335,7 @@
         ) + 'px';
 
         const panelHtml = `
-            <div id="pro_builder_panel" style="position: fixed; top: ${savedPos.top}; left: ${savedPos.left || 'auto'}; right: ${savedPos.right || '10px'}; width: ${panelWidth}; height: ${isMinimized ? '40px' : expandedHeight}; resize: ${isMinimized ? 'none' : 'both'}; z-index: 10000; background: #f4e4bc; border: 2px solid #7d510f; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
+            <div id="pro_builder_panel" style="position: fixed; top: ${safeTop}; left: ${safeLeft}; right: ${safeRight}; width: ${panelWidth}; height: ${isMinimized ? '40px' : expandedHeight}; resize: ${isMinimized ? 'none' : 'both'}; z-index: 10000; background: #f4e4bc; border: 2px solid #7d510f; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
                 <div id="panel_header" style="display: flex; justify-content: space-between; align-items: center; background: #7d510f; color: white; padding: 5px 10px; border-top-left-radius: 6px; border-top-right-radius: 6px; cursor: move; height: 25px;">
                     <strong style="font-size: 12px;">Auto Builder Pro V3.3</strong>
                     <div style="display: flex; gap: 5px;">
@@ -573,9 +585,16 @@
     }
 
     $(function() {
-        setupUI();
-        setInterval(processBuilding, 15000);
-        if (isRunning) setTimeout(processBuilding, 2000);
+        try {
+            setupUI();
+            setInterval(processBuilding, 15000);
+            if (isRunning) setTimeout(processBuilding, 2000);
+            // A confirmed mounted UI tells the loader it may report the engine as ready.
+            document.dispatchEvent(new Event('__algzawy_builder_ready_v33'));
+        } catch (error) {
+            console.error('[Auto Builder V3.3] UI initialization failed', error);
+            document.dispatchEvent(new Event('__algzawy_builder_startup_error_v33'));
+        }
     });
 
 })();

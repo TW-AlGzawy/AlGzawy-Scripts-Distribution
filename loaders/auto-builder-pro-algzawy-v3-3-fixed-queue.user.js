@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
-// @description  Builder engine 3.3.2; safer confirmation before queue removal; BETA awaiting real-game QA
+// @version      0.1.7
+// @description  Builder engine 3.3.4; flexible main-page URL matching and visible startup diagnostics
 // @match        https://*/game.php?village=*&screen=main*
+// @match        https://*/game.php?screen=main*&village=*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
@@ -42,6 +43,18 @@
   let checkInProgress = false;
   let lastRevision = 'initial';
   let automaticNoticeKey = null; // per page load, not persisted across page navigation
+  let engineStarted = false;
+  let engineStartFailed = false;
+  function engineFailure() {
+    if (engineStartFailed) return;
+    engineStartFailed = true;
+    active = false;
+    try { stopExecution(); } catch (err) { console.warn('[AlGzawy] unable to stop failed builder', err); }
+    ensureBlockedLauncher();
+    message('فشل بدء واجهة Auto Builder Pro V3.3 داخل اللعبة. افتح المبنى الرئيسي وأعد تحميل الصفحة؛ وإذا استمرت المشكلة راجع سجل Console.', true);
+  }
+  document.addEventListener('__algzawy_builder_ready_v33', () => { engineStarted = true; });
+  document.addEventListener('__algzawy_builder_startup_error_v33', engineFailure);
 
   function requestText(url) {
     return new Promise((resolve, reject) => {
@@ -205,7 +218,10 @@
     try {
       const program = new Function('setInterval', 'setTimeout', 'clearInterval', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', code);
       program(setI, setT, clearI, clearT, raf, caf);
-    } catch (err) { console.error('[AlGzawy] page script failed: ', err); }
+    } catch (err) {
+      console.error('[AlGzawy] page script failed: ', err);
+      document.dispatchEvent(new Event('__algzawy_builder_startup_error_v33'));
+    }
   }
 
   function startCore(code) {
@@ -236,7 +252,14 @@
       tag.remove();
       stopExecution = () => document.dispatchEvent(new Event(STOP_EVENT));
     }
-    active = true;
+    active = !engineStartFailed;
+    if (engineStartFailed) stopExecution();
+    // A CSP block or delayed DOM failure must not report a silently running engine.
+    if (code.includes('__algzawy_builder_ready_v33')) {
+      window.setTimeout(() => {
+        if (!engineStarted && !engineStartFailed) engineFailure();
+      }, 10000);
+    }
   }
 
   function stopCore(reason) {
@@ -254,7 +277,9 @@
   }
 
   async function checkPolicy() {
-    if (checkInProgress) return;
+    // Don't silently restart a failed engine or loop page reloads.
+    // A deliberate browser refresh is required after correcting the error.
+    if (engineStartFailed || checkInProgress) return;
     checkInProgress = true;
     try {
       if(!hasPortalLicense()){stopCore('license');return;}
