@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] 🎯 Smart Reserve Pro v5.0 - IMPROVED
+// @name         تجريبي - الغزااوي - الحجز الذكي الخامس
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @match        https://*.tribalwars.ae/game.php*screen=map*
 // @match        https://*.tribalwars.ae/game.php*screen=ally&mode=reservations*
@@ -68,7 +68,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] 🎯 Smart Reserve Pro v5.0 - IMPROVED",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - الحجز الذكي الخامس",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
