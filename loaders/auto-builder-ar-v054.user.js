@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Auto Builder - عربي
+// @name         تجريبي - الغزااوي - البناء العربي القديم
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/game.php?village=*&screen=main*
 // @match        https://aep14.tribalwars.ae/game.php?t=1681736&village=1233&screen=
@@ -67,7 +67,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Auto Builder - عربي",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - البناء العربي القديم",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
