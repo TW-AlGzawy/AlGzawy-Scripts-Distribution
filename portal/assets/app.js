@@ -2,15 +2,15 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
-const state={catalog:[],prefs:{},token:sessionStorage.getItem('algzawy_portal_access')||'',user:null,global:null,filter:'all',search:''};
+const state={catalog:[],prefs:{},csrf:'',user:null,global:null,filter:'all',search:''};
 const categories={raids:'الإغارات والنهب',build:'البناء',training:'التدريب',resources:'الموارد',military:'الهجمات والإرسال',tools:'الأدوات'};
 const icons={raids:'⚔',build:'⚒',training:'♜',resources:'◈',military:'➤',tools:'✧'};
 let toastTimer=null;
 const toast=(text,error=false)=>{const el=$('toast');el.textContent=text;el.classList.toggle('error',error);el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,4400);};
 async function api(path,options={}){
  const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...options.headers};
- if(state.token && options.auth!==false)headers.Authorization='Bearer '+state.token;
- const response=await fetch('/api/'+path,{method:options.method||'GET',cache:'no-store',headers,body:options.body?JSON.stringify(options.body):undefined});
+ if(options.method&&options.method!=='GET'&&path!=='session'&&state.csrf)headers['X-ALG-USER-CSRF']=state.csrf;
+ const response=await fetch('/api/'+path,{method:options.method||'GET',cache:'no-store',credentials:'same-origin',headers,body:options.body?JSON.stringify(options.body):undefined});
  let data={};
  try{data=await response.json();}catch(_){}
  if(!response.ok||data.ok!==true)throw new Error(data.error||'http_'+response.status);
@@ -54,25 +54,26 @@ $('closeLogin').addEventListener('click',closeLogin);
 $('loginOverlay').addEventListener('click',e=>{if(e.target===$('loginOverlay'))closeLogin();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('loginOverlay').hidden)closeLogin();});
 function signOut(showNotice=true){
- state.token='';state.user=null;state.prefs={};sessionStorage.removeItem('algzawy_portal_access');
+ state.csrf='';state.user=null;state.prefs={};
  $('loginOpen').hidden=false;$('logoutButton').hidden=true;$('makePair').disabled=true;
  $('activateAll').disabled=true;$('deactivateAll').disabled=true;
  document.querySelector('.app-shell').hidden=true;document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;
  updateAccount();render();
  if(showNotice)toast('تم تسجيل الخروج');
 }
-$('logoutButton').addEventListener('click',()=>signOut());
+$('logoutButton').addEventListener('click',async()=>{try{await api('session',{method:'DELETE'});}catch(_){}signOut();});
 $('loginSubmit').addEventListener('click',async()=>{
  const token=$('accessToken').value.trim();
  if(!/^alg_u_[a-f0-9]{64}$/.test(token)){$('loginMessage').textContent='أدخل مفتاح وصول مستخدم صحيح يبدأ بـ alg_u_';return;}
  const btn=$('loginSubmit');btn.disabled=true;
  try{
-   state.token=token;
+   const session=await api('session',{method:'POST',body:{accessKey:token}});
+   state.csrf=session.csrfToken;
+   $('accessToken').value='';
    const me=await api('me');
-   sessionStorage.setItem('algzawy_portal_access',token);
-   setUser(me);closeLogin();await loadCatalog();toast('أهلًا بك — تمت مزامنة حسابك');
+   setUser(me);closeLogin();await loadCatalog();toast('أهلًا بك — الجلسة صالحة لأربعة أيام');
  }catch(err){
-   state.token='';$('loginMessage').textContent=errorArabic(err);
+   state.csrf='';$('loginMessage').textContent=errorArabic(err);
  }finally{btn.disabled=false;}
 });
 $('accessToken').addEventListener('keydown',e=>{if(e.key==='Enter')$('loginSubmit').click();});
@@ -219,7 +220,10 @@ $('makePair').addEventListener('click',async()=>{
 $('copyPair').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('pairCode').textContent);toast('تم نسخ رمز الربط');}catch(_){toast('انسخ الرمز يدويًا',true);}});
 async function init(){
  updateAccount();
- if(state.token){try{setUser(await api('me'));await loadCatalog();}catch(_){signOut(false);}}
+ try{
+   const session=await api('session');state.csrf=session.csrfToken;
+   setUser(await api('me'));await loadCatalog();
+ }catch(_){state.csrf='';}
  if(!state.user){document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;}
  void refreshCloud();
  window.addEventListener('focus',()=>{if(document.visibilityState==='visible')void refreshCloud();});
