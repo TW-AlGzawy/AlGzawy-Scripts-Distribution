@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         البناء الاحترافي — AlGzawy V3.3
-// @version      3.3.4
+// @name         تجريبي - الغزااوي - البناء الاحترافي
+// @version      1.0
 // @description  مدير قرية متكامل: إنهاء تلقائي، التزام بالترتيب، واجهة قابلة للتخصيص، مع إصلاح حذف المباني بعد بنائها بشكل موثوق.
 // @author       AlGzawy & Manus (Improved)
 // @match        https://*/game.php?village=*&screen=main*
