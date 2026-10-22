@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         AlGzawy Warehouse Alert — client-only beta
-// @version      0.1.2
+// @name         تجريبي - الغزااوي - تنبيه المخازن
+// @version      1.0
 // @description  Monitor stock percentages, with user selected warning threshold.
 // ==/UserScript==
 (function () {
