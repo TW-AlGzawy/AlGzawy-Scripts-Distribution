@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] الإغارات الجماعية v9.2.4
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.2.6
+// @version      0.2.7
 // @description  Engine v9.2.4 with guarded groups 1–5; Cloudflare BETA; live game verification pending
 // @include      https://*/*=scavenge_mass*
 // @run-at       document-end
