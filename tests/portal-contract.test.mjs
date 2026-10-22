@@ -11,7 +11,7 @@ const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.h
 const catalog=JSON.parse(read('catalog.json')).published_candidates;
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 class DB{
-  constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];this.vault=[];this.scriptControls=[];}
+  constructor(){this.global={enabled:1,revision:4,updated_at:'2026-10-22'};this.users=[];this.prefs=[];this.grants=[];this.codes=[];this.devices=[];this.keys=[];this.events=[];this.subs=[];this.vault=[];this.scriptControls=[];this.archived=[];}
   prepare(sql){const db=this;return {
     args:[],bind(...args){this.args=args;return this;},
     async first(){const a=this.args;
@@ -29,7 +29,22 @@ class DB{
       }
       if(sql.includes('SELECT device_id FROM portal_device_keys'))return db.keys.find(x=>x.device_id===a[0]&&x.user_id===a[1])||null;
       if(sql.startsWith('UPDATE portal_pair_codes')){const x=db.codes.find(v=>v.code_hash===a[1]&&v.consumed_at===null&&v.expires_at>a[2]);if(!x)return null;x.consumed_at=a[0];return {user_id:x.user_id};}
-      if(sql.startsWith('UPDATE portal_device_keys SET last_counter=')){
+      if(sql.startsWith('DELETE FROM portal_users WHERE id=? AND active=0 RETURNING id')){
+         const existing=db.users.find(x=>x.id===a[0]&&x.active===0);
+         if(!existing)return null;
+         db.users=db.users.filter(x=>x.id!==a[0]);
+         db.archived=db.archived.filter(x=>x.user_id!==a[0]);
+         db.devices=db.devices.filter(x=>x.user_id!==a[0]);
+         db.keys=db.keys.filter(x=>x.user_id!==a[0]);
+         db.prefs=db.prefs.filter(x=>x.user_id!==a[0]);
+         db.grants=db.grants.filter(x=>x.user_id!==a[0]);
+         db.subs=db.subs.filter(x=>x.user_id!==a[0]);
+         db.vault=db.vault.filter(x=>x.user_id!==a[0]);
+         db.codes=db.codes.filter(x=>x.user_id!==a[0]);
+         db.events=db.events.filter(x=>x.user_id!==a[0]);
+         return {id:a[0]};
+       }
+       if(sql.startsWith('UPDATE portal_device_keys SET last_counter=')){
         const x=db.keys.find(v=>v.device_id===a[1]&&v.last_counter<a[2]);if(!x)return null;x.last_counter=a[0];return {device_id:x.device_id};
       }
       throw Error('Unexpected FIRST: '+sql);
@@ -38,6 +53,7 @@ class DB{
       if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
        if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
+      if(sql.includes('FROM portal_users u LEFT JOIN portal_archived_users a'))return {results:db.users.map(x=>({...x,archived:db.archived.some(y=>y.user_id===x.id)?1:0}))};
       if(sql.includes('SELECT id,label,active,created_at FROM portal_users'))return {results:db.users};
       if(sql.includes('FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(v=>v.user_id===a[0])};
       if(sql.includes('FROM portal_access_events'))return {results:db.events};
@@ -47,6 +63,17 @@ class DB{
       if(sql.startsWith('INSERT INTO portal_access_key_vault')){const old=db.vault.find(x=>x.user_id===a[0]);if(old){old.encrypted_key=a[1];old.iv=a[2];}else db.vault.push({user_id:a[0],encrypted_key:a[1],iv:a[2]});return {meta:{changes:1}};}
        if(sql.startsWith('UPDATE portal_users SET access_hash=')){const u=db.users.find(x=>x.id===a[1]);if(u)u.access_hash=a[0];return {meta:{changes:u?1:0}};}
        if(sql.startsWith('INSERT INTO portal_script_controls')){const old=db.scriptControls.find(x=>x.id===a[0]);if(old)old.enabled=a[1];else db.scriptControls.push({id:a[0],enabled:a[1]});return {meta:{changes:1}};}
+       if(sql.startsWith('INSERT OR IGNORE INTO portal_archived_users')){
+         const u=db.users.find(x=>x.id===a[0]&&x.active===0);
+         if(!u||db.archived.some(x=>x.user_id===a[0]))return {meta:{changes:0}};
+         db.archived.push({user_id:a[0]});return {meta:{changes:1}};
+       }
+       if(sql.startsWith('DELETE FROM portal_archived_users')){
+         const u=db.users.find(x=>x.id===a[0]&&x.active===0),count=db.archived.length;
+         if(!u)return {meta:{changes:0}};
+         db.archived=db.archived.filter(x=>x.user_id!==a[0]);
+         return {meta:{changes:count-db.archived.length}};
+       }
        if(sql.startsWith('INSERT INTO portal_users')){db.users.push({id:a[0],label:a[1],access_hash:a[2],active:1});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_entitlements')){const old=db.grants.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old)old.allowed=a[2];else db.grants.push({user_id:a[0],script_id:a[1],allowed:a[2]});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_preferences')){const old=db.prefs.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old){old.enabled=a[2];if(a.length>3)old.settings_json=a[3];}else db.prefs.push({user_id:a[0],script_id:a[1],enabled:a[2],settings_json:a[3]||'{}'});return {meta:{changes:1}};}
@@ -206,14 +233,14 @@ test('Owner and client web assets are actually separate',()=>{
   for(const [,id] of ownerUi.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(ownerHtml.includes('id="'+id+'"'),'owner control missing: '+id);
 });
 
-test('Subscriber session survives refresh for four days and rejects unauthenticated or forged mutations',async()=>{
+test('Subscriber session survives refresh for seven days and rejects unauthenticated or forged mutations',async()=>{
  const db=new DB(),created=(await api(db,'admin/users',{method:'POST',token:admin,body:{label:'Customer session'}})).json;
  const key=created.accessKey;
  assert.equal((await api(db,'catalog')).status,401,'anonymous catalog must not expose scripts');
  const signed=await api(db,'session',{method:'POST',body:{accessKey:key}});
  assert.equal(signed.status,200);
  assert.match(signed.setCookie,/HttpOnly; SameSite=Strict/);
- assert.match(signed.setCookie,/Max-Age=345600/);
+ assert.match(signed.setCookie,/Max-Age=604800/);
  assert.match(signed.json.csrfToken,/^[a-f0-9]{64}$/);
  const cookie=signed.setCookie.split(';')[0];
  assert.equal((await api(db,'session',{cookie})).status,200);
@@ -314,4 +341,50 @@ test('Removing pending pairing leaves another approved device intact',async()=>{
  assert.equal((await api(db,'admin/users/'+userId+'/devices/pending-device/revoke',{method:'POST',token:admin,body:{}})).status,404);
  const state=await api(db,'admin/users/'+userId+'/entitlements',{token:admin});
  assert.deepEqual(state.json.devices.map(d=>d.device_id),['keep-device']);
+});
+
+test('Only disabled accounts can be archived or deleted, and restore leaves them disabled',async()=>{
+ const db=new DB(),a=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Archive test'}})).json;
+ const b=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Preserved test'}})).json;
+ const uid=a.user.id,other=b.user.id,globalBefore=db.global.revision;
+ assert.equal((await api(db,'admin/users/'+uid+'/archive',{token:admin,method:'POST',body:{}})).status,409);
+ assert.equal((await api(db,'admin/users/'+uid+'/delete',{token:admin,method:'DELETE'})).status,409);
+ await api(db,'admin/users/'+uid+'/disable',{token:admin,method:'POST',body:{}});
+ assert.equal((await api(db,'admin/users/'+uid+'/archive',{token:admin,method:'POST',body:{}})).status,200);
+ let list=await api(db,'admin/users',{token:admin});
+ assert.equal(list.json.users.find(x=>x.id===uid).archived,1);
+ assert.equal((await api(db,'admin/users/'+uid+'/restore',{token:admin,method:'POST',body:{}})).status,200);
+ list=await api(db,'admin/users',{token:admin});
+ assert.equal(list.json.users.find(x=>x.id===uid).archived,0);
+ assert.equal(list.json.users.find(x=>x.id===uid).active,0);
+ assert.equal((await api(db,'admin/users/'+uid+'/delete',{token:admin,method:'DELETE'})).status,200);
+ assert.equal((await api(db,'admin/users',{token:admin})).json.users.some(x=>x.id===uid),false);
+ assert.equal((await api(db,'me',{token:a.accessKey})).status,401);
+ assert.equal((await api(db,'me',{token:b.accessKey})).status,200);
+ assert.ok(db.users.some(x=>x.id===other));
+ assert.equal(db.global.revision,globalBefore);
+});
+test('Tab pinning must gate all 25 loaders before source execution',()=>{
+ const ids=catalog.map(x=>x.id);
+ assert.equal(ids.length,25);
+ for(const id of ids){
+   const src=read('loaders/'+id+'.user.js');
+   assert.match(src,/const hasTabPin=/);
+   assert.match(src,/if\(!hasTabPin\(\)\)\{stopCore\('local'\);return;\}/);
+   assert.match(src,/document\.addEventListener\('algzawy-tab-pin-changed'/);
+   assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
+   assert.match(src,/\/\/ @version\s+1\.0/);
+   assert.match(src,/\/\/ @name\s+تجريبي - الغزااوي -/);
+ }
+ assert.match(bridge,/BroadcastChannel\('algzawy-tab-pins-bridge-v1'\)/);
+ assert.match(bridge,/eraseClonedPins/);
+ assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
+ assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);
+});
+test('Warehouse alert keeps its size state and position across reloads',()=>{
+ const src=read('scripts/warehouse-alert-safe.js');
+ assert.match(src,/algzawy_warehouse_panel_layout_v1/);
+ assert.match(src,/setCollapsed\(layout\.collapsed\)/);
+ assert.match(src,/localStorage\.setItem\(UI_KEY/);
+ assert.match(src,/addEventListener\('pointerup',endDrag\)/);
 });
