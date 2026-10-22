@@ -102,7 +102,7 @@ function updateCloud(){
 async function refreshCloud(){
   try{const d=await api('status');state.global=d.global||null;}catch(_){state.global=null;}
   updateCloud();
-  if(state.user)renderMetrics();
+  if(state.user){renderMetrics();renderStatus();}
 }
 function renderMetrics(){
   const total=allowed().length,on=enabled().length;
@@ -243,7 +243,8 @@ function openScript(id){
   const item=allowed().find(x=>x.id===id);if(!item)return;
   const root=$('dialogBody');root.replaceChildren();
   const info=status(item);
-  root.append(el('h2','',item.name),el('p','',item.description||''));
+  const title=el('h2','',item.name);title.id='dialogTitle';
+  root.append(title,el('p','',item.description||''));
   const pill=el('span','pill '+info.className,info.label);root.append(pill);
   const actions=el('div','dialog-actions');
   const toggle=el('button','btn '+(state.prefs[id]?.enabled?'danger':'primary'),state.prefs[id]?.enabled?'إيقاف السكربت':'تفعيل السكربت');
