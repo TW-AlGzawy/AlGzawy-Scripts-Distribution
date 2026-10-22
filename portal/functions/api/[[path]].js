@@ -288,6 +288,12 @@ async function handler(req,env){
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
     }
+    if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
+      return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
+        id,name,category,description,featured:FAV.has(id),
+        installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
+      }))});
+    }
     if(path[1]==='scripts'&&path.length===2){
       if(req.method==='GET'){
         const disabled=await globallyDisabledScripts(env);
