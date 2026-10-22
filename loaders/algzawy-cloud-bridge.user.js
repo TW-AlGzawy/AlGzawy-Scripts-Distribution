@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.3
+// @version      2.0.4
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -175,8 +175,8 @@
           publisherPreviouslyOn=true;
         }
       },
-      onerror:()=>{publisherPending=false;stopAll();showMessage('تعذر الاتصال بالتحكم المركزي؛ تم الإيقاف احترازيًا');},
-      ontimeout:()=>{publisherPending=false;stopAll();showMessage('انتهت مهلة التحكم المركزي؛ تم الإيقاف احترازيًا');}
+      onerror:()=>{publisherPending=false;publisherPreviouslyOn=false;stopAll();showMessage('تعذر الاتصال بالتحكم المركزي؛ تم الإيقاف احترازيًا');},
+      ontimeout:()=>{publisherPending=false;publisherPreviouslyOn=false;stopAll();showMessage('انتهت مهلة التحكم المركزي؛ تم الإيقاف احترازيًا');}
     });
   }
 
@@ -199,7 +199,7 @@
       let changed=false;
       for(const id of known){
         const script=r.scripts[id];
-        const enabled=!!(r.global.enabled&&script&&script.enabled===true);
+        const enabled=!!(r.global.enabled&&script&&script.allowed===true&&script.enabled===true);
         localStorage.setItem(GRANT_PREFIX+id,enabled?'1':'0');
         changed=setLocal(id,enabled)||changed;
         applySettings(id,script?.settings||{},enabled);
