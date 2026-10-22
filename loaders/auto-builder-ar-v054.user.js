@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Auto Builder - عربي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/game.php?village=*&screen=main*
 // @match        https://aep14.tribalwars.ae/game.php?t=1681736&village=1233&screen=
