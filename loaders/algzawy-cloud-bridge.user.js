@@ -9,7 +9,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        unsafeWindow
-// @connect      *
+// @connect      algzawy-cloud-control.pages.dev
+// @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // ==/UserScript==
@@ -17,7 +18,8 @@
   'use strict';
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
-  const keys={origin:'algzawy_cloud_portal_origin',device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success'};
+  const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
+  const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success'};
   const known=[
     'mass-scavenge-v1','bot-farm-2','alg-balance','auto-builder-pro-algzawy-v3-3-fixed-queue','auto-builder-ar-v061',
     'professional-training-v2','send-automation','attack-renamer','alg-attacks','warehouse-alert-safe',
@@ -94,7 +96,6 @@
   }
   const storageKey=id=>'algzawy_local_enabled_'+id;
   const connection={
-    origin:String(GM_getValue(keys.origin,'')||''),
     device:String(GM_getValue(keys.device,'')||''),
     last:Number(GM_getValue(keys.last,0)||0)
   };
@@ -102,17 +103,6 @@
   const LICENSE_UNTIL='algzawy_portal_device_authorized_until';
   const LICENSE_ID='algzawy_portal_approved_device';
   const GRANT_PREFIX='algzawy_portal_grant_';
-  function normalizeOrigin(raw){
-    try{
-      const url=new URL(raw.trim());
-      if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||url.pathname!=='/')return '';
-      // Cloudflare Free Pages domains by default. Custom domains can be adopted
-      // later with an explicit allowlist instead of sending device tokens to arbitrary hosts.
-      if(!/^[a-z0-9-]+\.pages\.dev$/i.test(url.hostname))return '';
-      return url.origin;
-    }catch(_){return '';}
-  }
-
   // IndexedDB stores a structured-cloned non-exportable CryptoKey. Tampermonkey
   // export/GM storage contains only a public UUID, not the signing private key.
   // A copied whole browser profile may still contain IndexedDB; this is not
@@ -156,10 +146,8 @@
 
   function request(path,opts={}){
     return new Promise((resolve,reject)=>{
-      const origin=normalizeOrigin(connection.origin);
-      if(!origin)return reject(Error('عنوان البوابة يجب أن يكون https://NAME.pages.dev'));
       GM_xmlhttpRequest({
-        method:opts.method||'GET',url:origin+'/api/'+path,timeout:12000,
+        method:opts.method||'GET',url:PORTAL_ORIGIN+'/api/'+path,timeout:12000,
         headers:{'Accept':'application/json',...(opts.headers||{}),...(opts.data?{'Content-Type':'application/json'}:{})},
         data:opts.data?JSON.stringify(opts.data):undefined,
         onload:response=>{
@@ -301,7 +289,7 @@
     card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:245px;max-width:93vw;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial;overflow:hidden';
     card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong>☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
       '<div id="algzawy-cloud-body" style="padding:10px"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
-      '<div id="algzawy-cloud-pair"><label style="display:block">عنوان موقع Cloudflare Pages<input id="algzawy-cloud-origin" type="url" placeholder="https://NAME.pages.dev" style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
+      '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">☁ موقع AlGzawy متصل تلقائيًا</p>'+
       '<label style="display:block;margin-top:7px">رمز الربط المؤقت من الموقع<input id="algzawy-cloud-code" type="text" autocomplete="off" placeholder="alg_p_..." style="box-sizing:border-box;width:100%;padding:7px;border-radius:6px;border:1px solid #446e7b;background:#0e2637;color:white;direction:ltr"></label>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط المتصفح</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
@@ -317,7 +305,6 @@
       try{await synchronize(true);document.dispatchEvent(new Event('algzawy-local-control-changed'));}
       finally{q('script-refresh').disabled=false;}
     });
-    q('origin').value=connection.origin;
     // A loader may report failure between document-start and DOMContentLoaded.
     if(lastBlockedDetail){
       q('script-retry').style.display='flex';
@@ -327,20 +314,18 @@
     const linked=()=>{
       q('pair').style.display=connection.device?'none':'';
       q('linked').style.display=connection.device?'':'none';
-      showMessage(connection.device?'الحساب مرتبط — جارٍ جلب الإعدادات':'أدخل رابط البوابة ورمز الربط.',!!connection.device);
+      showMessage(connection.device?'الحساب مرتبط — جارٍ جلب الإعدادات':'أدخل رمز الربط المؤقت من موقع AlGzawy.',!!connection.device);
     };
     q('connect').addEventListener('click',async()=>{
-      const origin=normalizeOrigin(q('origin').value),code=q('code').value.trim();
-      if(!origin){showMessage('استخدم رابط موقع Cloudflare بالشكل https://NAME.pages.dev');return;}
+      const code=q('code').value.trim();
       if(!/^alg_p_[a-f0-9]{64}$/.test(code)){showMessage('رمز ربط غير صالح. انسخه من الموقع.');return;}
       q('connect').disabled=true;
       try{
-        connection.origin=origin;
         const identity=await signingKey();
         const result=await request('device/claim',{method:'POST',data:{code,publicKey:identity.publicKey}});
         connection.device=result.deviceId;
         connection.last=0;
-        GM_setValue(keys.origin,origin);GM_setValue(keys.device,connection.device);GM_setValue('algzawy_cloud_counter',0);
+        GM_setValue(keys.device,connection.device);GM_setValue('algzawy_cloud_counter',0);
         q('code').value='';stopAll();linked();showMessage('تم تقديم طلب الجهاز — بانتظار موافقة المالك.');
       }catch(e){showMessage(e.message);}finally{q('connect').disabled=false;}
     });
