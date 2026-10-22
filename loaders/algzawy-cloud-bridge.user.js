@@ -24,7 +24,7 @@
     'polish-all-in-one','alg-coins','market-bot-v7','auto-builder-ar-v054',
     'auto-builder-pro-algzawy-v3-0-free-finish','training-edition','professional-training','light',
     'train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians',
-    'holy-grail','tribal-wars-helper','source-copier'
+    'holy-grail','tribal-wars-helper'
   ];
   const storageKey=id=>'algzawy_local_enabled_'+id;
   const connection={
