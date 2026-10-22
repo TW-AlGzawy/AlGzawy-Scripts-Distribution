@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         TW Train Master (Light + Axe + Spear) - Control Panel (B)
+// @name         تجريبي - الغزااوي - مدرب الجنود
 // @namespace    tw-combined-train-panel
-// @version      1.4.0
+// @version      1.0
 // @description  دمج تدريب خفيف + فأس + رمح من صفحة train مع لوحة تحكم عائمة، إعدادات زمنية لكل وحدة، لوق، و refresh عند الفشل.
 // @match        https://aec1.tribalwars.ae/game.php?village=5&screen=train&spear=0&sword=0&axe=0&spy=0&light=0&ram=0
 // @match        https://aec1.tribalwars.ae/game.php?t=1689251&village=652&screen=train&spear=0&sword=0&axe=0&spy=0&light=0&ram=0&catapult=0
