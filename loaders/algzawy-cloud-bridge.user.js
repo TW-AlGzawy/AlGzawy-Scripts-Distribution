@@ -105,6 +105,74 @@
   const GRANT_PREFIX='algzawy_portal_grant_';
 
 
+  // Secure iframe lives at one Cloudflare origin, independent of game-world
+  // subdomains. It signs fixed-purpose challenges but never exports the key.
+  // Browser storage partitioning may block the broker on unsupported sites;
+  // we fail closed rather than substituting a copyable private key.
+  let brokerFrame=null,brokerLoaded=null;
+  const brokerPending=new Map();
+  window.addEventListener('message',event=>{
+    if(event.origin!==PORTAL_ORIGIN||event.source!==brokerFrame?.contentWindow)return;
+    const msg=event.data;
+    if(msg?.scope!=='algzawy-device-v1'||typeof msg.requestId!=='string')return;
+    const item=brokerPending.get(msg.requestId);
+    if(!item)return;
+    brokerPending.delete(msg.requestId);clearTimeout(item.timer);
+    if(msg.ok===true)item.resolve(msg);
+    else item.reject(Error('secure_identity_unavailable'));
+  });
+  async function callSharedSigner(action,args={}){
+    if(!brokerLoaded){
+      brokerLoaded=new Promise((resolve,reject)=>{
+        const frame=document.createElement('iframe');
+        frame.style.cssText='position:absolute;top:-2000px;left:-2000px;width:1px;height:1px;border:0';
+        frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
+        frame.src=PORTAL_ORIGIN+'/device-identity';
+        let finished=false;
+        const deadline=setTimeout(()=>{if(!finished){finished=true;reject(Error('secure_identity_unavailable'));}},9000);
+        frame.onload=()=>{if(!finished){finished=true;clearTimeout(deadline);resolve(frame);}};
+        frame.onerror=()=>{if(!finished){finished=true;clearTimeout(deadline);reject(Error('secure_identity_unavailable'));}};
+        brokerFrame=frame;document.body.appendChild(frame);
+      });
+    }
+    const frame=await brokerLoaded,requestId=crypto.randomUUID();
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{
+        brokerPending.delete(requestId);reject(Error('secure_identity_unavailable'));
+      },8000);
+      brokerPending.set(requestId,{resolve,reject,timer});
+      frame.contentWindow.postMessage({scope:'algzawy-device-v1',requestId,action,...args},PORTAL_ORIGIN);
+    });
+  }
+  // IndexedDB stores a structured-cloned non-exportable CryptoKey. Tampermonkey
+  // export/GM storage contains only a public UUID, not the signing private key.
+  // A copied whole browser profile may still contain IndexedDB; this is not
+  // tamper-proof hardware attestation.
+  async function signingKey(){
+    if(!window.crypto?.subtle||!window.indexedDB)throw Error('متصفحك لا يدعم التخزين الآمن لمفتاح الجهاز');
+    const db=await new Promise((resolve,reject)=>{
+      const request=indexedDB.open('algzawy-device-identity-v2',1);
+      request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('keys'))request.result.createObjectStore('keys');};
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(Error('تعذر فتح مخزن هوية الجهاز'));
+    });
+    const existing=await new Promise((resolve,reject)=>{
+      const tx=db.transaction('keys','readonly');
+      const r=tx.objectStore('keys').get('primary');
+      r.onsuccess=()=>resolve(r.result);
+      r.onerror=()=>reject(Error('تعذر قراءة مفتاح الجهاز'));
+    });
+    if(existing?.privateKey && existing?.publicKey)return existing;
+    const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+    const result={privateKey:pair.privateKey,publicKey:await crypto.subtle.exportKey('jwk',pair.publicKey)};
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction('keys','readwrite');
+      tx.objectStore('keys').put(result,'primary');
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>reject(Error('تعذر حفظ مفتاح الجهاز'));
+    });
+    return result;
+  }
   // Portable extension-scoped identity avoids third-party iframe storage
   // partitioning across Tribal Wars world domains. A script-file copy alone
   // does not include this key. A full extension-storage export CAN clone it;
@@ -124,13 +192,21 @@
   // Old links must explicitly reauthorize; do not reuse an old device ID with
   // a different signing key or silently downgrade signature verification.
   async function deviceProof(){
-    if(GM_getValue(keys.mode,'')!=='portable')throw Error('device_relink_required');
-    const identity=await portableIdentity();
     const timestamp=Date.now();
     const counter=Math.max(timestamp*1024,Number(GM_getValue('algzawy_cloud_counter',0)||0)+1);
-    const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
-    const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
-    const signature=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    let signature;
+    const mode=GM_getValue(keys.mode,'legacy');
+    if(mode==='shared'){
+      const result=await callSharedSigner('sign',{deviceId:connection.device,timestamp,counter});
+      signature=result.signature;
+    }else{
+      let identity;
+      if(mode==='portable')identity=await portableIdentity();
+      else identity=await signingKey();
+      const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
+      const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
+      signature=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    }
     GM_setValue('algzawy_cloud_counter',counter);
     return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':signature};
   }
@@ -294,8 +370,8 @@
           ?'الربط قديم ومحفوظ لخادم لعبة آخر. ألغِ الربط وأعده مرة واحدة بالنظام الجديد.'
           :'رفض الخادم إثبات الجهاز. تأكد من أن الجهاز ما زال معتمدًا، ثم جرّب المزامنة.');
       }
-      else if(e.message==='device_relink_required'){
-        stopAll();showMessage('هذا ربط قديم. اضغط إعادة ربط الحساب بنظام Auto License V2.');
+      else if(e.message==='secure_identity_unavailable'){
+        stopAll();showMessage('تعذر التحقق من ربط V1 عبر الإطار. انتقل إلى الربط التلقائي V2 بعد تحرير الجهاز القديم من الإدارة.');
       }
       else if(['unauthorized','subscription_inactive'].includes(e.message)){stopAll();showMessage('تم رفض ترخيص الجهاز: '+e.message);}
       else {if(Date.now()-connection.last>120000)stopAll();showMessage('تعذرت المزامنة: '+e.message);}
