@@ -45,7 +45,8 @@ test('All V2 operations are tied to existing authenticated first-party endpoints
   assert.match(js,/state\.catalog=.*state\.prefs\[x\.id\]\?\.allowed===true/);
   assert.match(js,/api\('scripts\/'\+encodeURIComponent\(item\.id\)/);
   assert.match(js,/api\('scripts\/bulk',\{method:'POST'/);
-  assert.match(js,/api\('pair\/create',\{method:'POST'/);
+  assert.match(js,/api\('device\/auto-enroll',\{method:'POST'/);
+  assert.doesNotMatch(js,/api\('pair\/create'/);
   assert.match(js,/api\('status'\)/);
   assert.doesNotMatch(js,/localStorage|sessionStorage|document\.cookie|eval\(/);
 });
@@ -67,4 +68,17 @@ test('Farm bot has no misleading portal settings and warehouse editor stays cons
   assert.match(js,/role.*switch/);
   assert.match(html,/id="scriptDialog"/);
   assert.match(js,/title\.id='dialogTitle'/);
+});
+
+test('V2 one-click activation only authorizes a reviewed, trusted Tribal Wars origin',()=>{
+ assert.match(html,/id="autoApproval"/);
+ assert.match(html,/id="approveAuto"/);
+ assert.match(html,/AUTO LICENSE V2/);
+ assert.doesNotMatch(html,/id="createPair"|id="copyPair"|id="pairCode"/);
+ assert.match(js,/allowedOrigin=\/\^https:/);
+ assert.match(js,/window\.opener\.postMessage/);
+ assert.match(js,/device_already_linked/);
+ assert.match(js,/showAutoApproval\(\)/);
+ assert.match(js,/event\.origin|autoLink\.origin/);
+ assert.match(js,/result\.nonce!==autoLink\.nonce/);
 });
