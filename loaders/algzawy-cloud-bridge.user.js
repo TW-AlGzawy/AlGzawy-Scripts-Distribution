@@ -115,10 +115,6 @@
       const key='algzawy_bot2_settings_v02';
       let prev={};try{prev=JSON.parse(localStorage.getItem(key)||'{}');}catch(_){}
       const next={...prev,enabled};
-      if(opts && ['A','B','C'].includes(opts.template)){
-        next.template=opts.template;next.minDelay=opts.minDelay;
-        next.maxDelay=opts.maxDelay;next.switchVillages=opts.switchVillages;
-      }
       if(JSON.stringify(prev)!==JSON.stringify(next))localStorage.setItem(key,JSON.stringify(next));
     }
     if(id==='warehouse-alert-safe'){
