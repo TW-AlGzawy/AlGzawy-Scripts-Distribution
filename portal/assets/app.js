@@ -55,7 +55,8 @@ $('closeLogin').addEventListener('click',closeLogin);
 $('loginOverlay').addEventListener('click',e=>{if(e.target===$('loginOverlay'))closeLogin();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('loginOverlay').hidden)closeLogin();});
 function signOut(showNotice=true){
- state.csrf='';state.user=null;state.prefs={};
+ state.csrf='';state.user=null;state.prefs={};state.catalog=[];
+ $('pairCode').textContent='';$('pairResult').hidden=true;
  $('loginOpen').hidden=false;$('logoutButton').hidden=true;$('makePair').disabled=true;
  $('activateAll').disabled=true;$('deactivateAll').disabled=true;
  document.querySelector('.app-shell').hidden=true;document.body.classList.add('auth-locked');$('loginOverlay').hidden=false;
