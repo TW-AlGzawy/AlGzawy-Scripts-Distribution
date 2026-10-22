@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] 🤖 Auto Reserve Barbarians PRO
+// @name         تجريبي - الغزااوي - حجز القرى البربرية
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.7
+// @version      1.0
 // @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
 // @match        https://*.tribalwars.ae/game.php*screen=map*
 // @match        https://ae*.tribalwars.ae/game.php*screen=map*
@@ -70,7 +70,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] 🤖 Auto Reserve Barbarians PRO",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - حجز القرى البربرية",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
