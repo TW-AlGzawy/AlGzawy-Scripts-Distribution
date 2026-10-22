@@ -583,11 +583,11 @@
     if(step.level===null)return null; // UNKNOWN level is never zero or completed
     if(templateIssued&&(templateIssued.id!==step.id||templateIssued.level<step.level)){
       templateIssued=null;
-    }else if(templateIssued&&Date.now()-templateIssued.at>=90000){
+    }else if(templateIssued&&currentBuildCount()===0&&Date.now()-templateIssued.at>=90000){
       // Never reissue an accepted order when we could not verify completion:
       // stop rather than risk building an additional unintended level.
       isRunning=false;saveStatus();endLoop();renderQueue();
-      status('تعذر تأكيد اكتمال البناء خلال 90 ثانية. أوقفت القالب منعًا لإرسال بناء مكرر؛ راجع قائمة اللعبة.','error');
+      status('قائمة بناء اللعبة فارغة لكن المستوى لم يتحدث خلال 90 ثانية. أوقفت القالب منعًا للتكرار؛ راجع مستوى المبنى.','error');
       return null;
     }
     // A pending accepted upgrade must finish (or time out with renewed
