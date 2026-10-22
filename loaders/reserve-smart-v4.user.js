@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] 🎯 Smart Reserve Pro v4.0 - FINAL
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  نسخة Beta للتجربة بموافقة المستخدم فقط وربط Cloudflare
 // @match        https://*.tribalwars.ae/game.php*screen=map*
 // @run-at       document-end
