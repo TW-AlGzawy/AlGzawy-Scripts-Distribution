@@ -16,7 +16,7 @@
 (function() {
     'use strict';
 
-    const SCRIPT_NAME = "Smart Reserve Pro v4.0";
+    const SCRIPT_NAME = "تجريبي - الغزااوي - الحجز الذكي الرابع v1.0";
     const VERSION = "4.0";
 
     // --- الإعدادات الافتراضية ---
