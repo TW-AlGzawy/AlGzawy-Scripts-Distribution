@@ -47,7 +47,7 @@ class DB{
     },
     async run(){const a=this.args;
       if(sql.startsWith('INSERT INTO portal_access_key_vault')){const old=db.vault.find(x=>x.user_id===a[0]);if(old){old.encrypted_key=a[1];old.iv=a[2];}else db.vault.push({user_id:a[0],encrypted_key:a[1],iv:a[2]});return {meta:{changes:1}};}
-      if(sql.startsWith('DELETE FROM portal_users WHERE id=? AND active=0 ')){
+      if(sql.startsWith('DELETE FROM portal_users WHERE id=? AND active=0')){
          const existing=db.users.find(x=>x.id===a[0]&&x.active===0);
          if(!existing)return {meta:{changes:0}};
          db.users=db.users.filter(x=>x.id!==a[0]);
