@@ -26,3 +26,12 @@
 .owner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .owner-actions .button{width:auto!important}
 @media(max-width:600px){.subscription-selector{grid-template-columns:1fr}}
+
+/* Consolidated branding: center the exact AlG monogram. */
+.brand-mark,.login-logo,.avatar,.account-avatar,.visual-core>div{
+  display:grid;place-items:center;text-align:center;direction:ltr;white-space:nowrap;
+  font-family:Arial,"Segoe UI",sans-serif;letter-spacing:-.045em;
+}
+.brand-mark{font-size:clamp(16px,1.65vw,22px)}
+.login-logo{font-size:22px}
+.avatar{font-size:12px}
