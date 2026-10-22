@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)
+// @name         [AlGzawy] البناء الاحترافي V3.3
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      0.1.7
 // @description  Builder engine 3.3.4; flexible main-page URL matching and visible startup diagnostics
@@ -71,7 +71,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"[AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.3 Fixed Queue)",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"البناء الاحترافي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
