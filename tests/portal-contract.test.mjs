@@ -29,21 +29,6 @@ class DB{
       }
       if(sql.includes('SELECT device_id FROM portal_device_keys'))return db.keys.find(x=>x.device_id===a[0]&&x.user_id===a[1])||null;
       if(sql.startsWith('UPDATE portal_pair_codes')){const x=db.codes.find(v=>v.code_hash===a[1]&&v.consumed_at===null&&v.expires_at>a[2]);if(!x)return null;x.consumed_at=a[0];return {user_id:x.user_id};}
-      if(sql.startsWith('DELETE FROM portal_users WHERE id=? AND active=0 RETURNING id')){
-         const existing=db.users.find(x=>x.id===a[0]&&x.active===0);
-         if(!existing)return null;
-         db.users=db.users.filter(x=>x.id!==a[0]);
-         db.archived=db.archived.filter(x=>x.user_id!==a[0]);
-         db.devices=db.devices.filter(x=>x.user_id!==a[0]);
-         db.keys=db.keys.filter(x=>x.user_id!==a[0]);
-         db.prefs=db.prefs.filter(x=>x.user_id!==a[0]);
-         db.grants=db.grants.filter(x=>x.user_id!==a[0]);
-         db.subs=db.subs.filter(x=>x.user_id!==a[0]);
-         db.vault=db.vault.filter(x=>x.user_id!==a[0]);
-         db.codes=db.codes.filter(x=>x.user_id!==a[0]);
-         db.events=db.events.filter(x=>x.user_id!==a[0]);
-         return {id:a[0]};
-       }
        if(sql.startsWith('UPDATE portal_device_keys SET last_counter=')){
         const x=db.keys.find(v=>v.device_id===a[1]&&v.last_counter<a[2]);if(!x)return null;x.last_counter=a[0];return {device_id:x.device_id};
       }
@@ -61,6 +46,21 @@ class DB{
     },
     async run(){const a=this.args;
       if(sql.startsWith('INSERT INTO portal_access_key_vault')){const old=db.vault.find(x=>x.user_id===a[0]);if(old){old.encrypted_key=a[1];old.iv=a[2];}else db.vault.push({user_id:a[0],encrypted_key:a[1],iv:a[2]});return {meta:{changes:1}};}
+      if(sql.startsWith('DELETE FROM portal_users WHERE id=? AND active=0 ')){
+         const existing=db.users.find(x=>x.id===a[0]&&x.active===0);
+         if(!existing)return {meta:{changes:0}};
+         db.users=db.users.filter(x=>x.id!==a[0]);
+         db.archived=db.archived.filter(x=>x.user_id!==a[0]);
+         db.devices=db.devices.filter(x=>x.user_id!==a[0]);
+         db.keys=db.keys.filter(x=>x.user_id!==a[0]);
+         db.prefs=db.prefs.filter(x=>x.user_id!==a[0]);
+         db.grants=db.grants.filter(x=>x.user_id!==a[0]);
+         db.subs=db.subs.filter(x=>x.user_id!==a[0]);
+         db.vault=db.vault.filter(x=>x.user_id!==a[0]);
+         db.codes=db.codes.filter(x=>x.user_id!==a[0]);
+         db.events=db.events.filter(x=>x.user_id!==a[0]);
+         return {meta:{changes:1}};
+       }
        if(sql.startsWith('UPDATE portal_users SET access_hash=')){const u=db.users.find(x=>x.id===a[1]);if(u)u.access_hash=a[0];return {meta:{changes:u?1:0}};}
        if(sql.startsWith('INSERT INTO portal_script_controls')){const old=db.scriptControls.find(x=>x.id===a[0]);if(old)old.enabled=a[1];else db.scriptControls.push({id:a[0],enabled:a[1]});return {meta:{changes:1}};}
        if(sql.startsWith('INSERT OR IGNORE INTO portal_archived_users')){
@@ -384,6 +384,8 @@ test('Tab pinning must gate all 25 loaders before source execution',()=>{
  }
  assert.match(bridge,/BroadcastChannel\('algzawy-tab-pins-bridge-v1'\)/);
  assert.match(bridge,/eraseClonedPins/);
+ assert.match(bridge,/licensedPins=new Set\(known\.filter\(id=>r\.scripts\[id\]\?\.allowed===true\)\)/);
+ assert.match(bridge,/known\.filter\(id=>licensedPins\.has\(id\)\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);
 });
