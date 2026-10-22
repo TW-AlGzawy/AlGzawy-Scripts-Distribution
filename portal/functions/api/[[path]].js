@@ -426,9 +426,10 @@ async function handler(req,env){
       const uid=path[2];
       // The user must be disabled. SQLite FK ON DELETE CASCADE removes its
       // devices, keys, grants, preferences, codes, sessions and related logs.
-      const result=await env.DB.prepare('DELETE FROM portal_users WHERE id=? AND active=0 RETURNING id').bind(uid).first();
-      if(!result)return bad('account_not_eligible',409);
-      await accessEvent(env,req,null,null,'account_deleted');
+      const result=await env.DB.prepare('DELETE FROM portal_users WHERE id=? AND active=0').bind(uid).run();
+      if(!result.meta?.changes)return bad('account_not_eligible',409);
+      // Preserve an anonymous tombstone reference after child audit rows cascade.
+      await accessEvent(env,req,null,null,'account_deleted:'+uid);
       return reply({ok:true,deleted:true});
     }
     if(path[1]==='users'&&path.length===2){
