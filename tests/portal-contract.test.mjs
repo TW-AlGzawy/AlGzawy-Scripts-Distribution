@@ -7,6 +7,7 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const source=read('portal/functions/api/[[path]].js');
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const ui=read('portal/assets/app.js'),html=read('portal/index.html');
+const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.html');
 const catalog=JSON.parse(read('portal/catalog.json')).items;
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 class DB{
@@ -61,11 +62,11 @@ class DB{
 }
 const admin='z'.repeat(40),pepper='p'.repeat(40);
 const env=db=>({DB:db,PORTAL_ADMIN_TOKEN:admin,PORTAL_HASH_PEPPER:pepper});
-async function api(db,path,{method='GET',token='',body,headers={}}={}){
- const h=new Headers(headers);if(token)h.set('Authorization','Bearer '+token);
+async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={}){
+ const h=new Headers(headers);if(token)h.set('Authorization','Bearer '+token);if(cookie)h.set('Cookie',cookie);
  if(body!==undefined)h.set('Content-Type','application/json');
  const request=new Request('https://algzawy-cloud-control.pages.dev/api/'+path,{method,headers:h,...(body!==undefined?{body:JSON.stringify(body)}:{})});
- const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json()};
+ const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json(),setCookie:r.headers.get('Set-Cookie')};
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
 test('No content before login and 26 catalog script IDs match the bridge',async()=>{
@@ -131,4 +132,55 @@ test('New browser key requires owner approval, signed calls reject replay, copie
  const revoke=await api(db,'admin/users/'+id+'/devices/'+deviceId+'/revoke',{method:'POST',token:admin,body:{}});
  assert.equal(revoke.status,200);
  assert.equal((await signed(4)).status,403);
+});
+
+test('Separate owner browser session is HttpOnly, scoped and protects all admin mutations with CSRF',async()=>{
+  const db=new DB();
+  const noAuth=await api(db,'admin/users');
+  assert.equal(noAuth.status,401);
+  assert.equal((await api(db,'admin/session')).status,401);
+  assert.equal((await api(db,'admin/session',{method:'POST',body:{token:'x'.repeat(40)}})).status,401);
+  const signedIn=await api(db,'admin/session',{method:'POST',body:{token:admin}});
+  assert.equal(signedIn.status,200);
+  assert.match(signedIn.setCookie,/algzawy_admin_session=/);
+  assert.match(signedIn.setCookie,/HttpOnly/);
+  assert.match(signedIn.setCookie,/Secure/);
+  assert.match(signedIn.setCookie,/SameSite=Strict/);
+  assert.match(signedIn.setCookie,/Path=\/api\/admin/);
+  assert.ok(!signedIn.setCookie.includes(admin),'admin secret must never be stored in cookie');
+  assert.match(signedIn.json.csrfToken,/^[a-f0-9]{64}$/);
+  const cookie=signedIn.setCookie.split(';')[0];
+  const csrf={'X-ALG-ADMIN-CSRF':signedIn.json.csrfToken};
+  const me=await api(db,'admin/session',{cookie});
+  assert.equal(me.status,200);
+  assert.equal(me.json.csrfToken,signedIn.json.csrfToken);
+  assert.equal((await api(db,'admin/users',{cookie})).status,200);
+  const missingCsrf=await api(db,'admin/users',{method:'POST',cookie,body:{label:'Denied'}});
+  assert.equal(missingCsrf.status,403);
+  assert.equal(db.users.length,0);
+  const forged=await api(db,'admin/users',{method:'POST',cookie,headers:{'X-ALG-ADMIN-CSRF':'0'.repeat(64)},body:{label:'Denied'}});
+  assert.equal(forged.status,403);
+  const spoofOrigin=await api(db,'admin/users',{method:'POST',cookie,headers:{...csrf,Origin:'https://evil.example'},body:{label:'Denied'}});
+  assert.equal(spoofOrigin.status,403);
+  const created=await api(db,'admin/users',{method:'POST',cookie,headers:csrf,body:{label:'Authorized'}});
+  assert.equal(created.status,201);
+  assert.equal(db.users.length,1);
+  const badCookie=cookie.replace(/.$/,'x');
+  assert.equal((await api(db,'admin/users',{cookie:badCookie})).status,401);
+  assert.equal((await api(db,'admin/users',{token:created.json.accessKey})).status,401);
+  const logout=await api(db,'admin/session',{method:'DELETE',cookie,headers:csrf});
+  assert.equal(logout.status,200);
+  assert.match(logout.setCookie,/Max-Age=0/);
+  assert.equal((await api(db,'admin/session')).status,401);
+});
+test('Owner and client web assets are actually separate',()=>{
+  assert.doesNotMatch(html,/ownerSignIn|ownerEntrance|ownerAuth|adminNav|adminSecret|section-admin/);
+  assert.doesNotMatch(ui,/adminHeaders|adminGlobalOn|adminSecret|admin\/users|ownerAuth/);
+  assert.match(ownerHtml,/id="adminShell" class="owner-shell" hidden/);
+  assert.match(ownerHtml,/id="adminLogin"/);
+  assert.match(ownerHtml,/id="ownerToken" type="password"/);
+  assert.match(ownerHtml,/id="adminGlobalOn"/);
+  assert.match(ownerUi,/api\('admin\/session'/);
+  assert.doesNotMatch(ownerUi,/localStorage|sessionStorage/);
+  for(const [,id] of ownerUi.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(ownerHtml.includes('id="'+id+'"'),'owner control missing: '+id);
 });
