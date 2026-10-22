@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         سكربت الغزاوي للإغارات (الإصدار 9.2 - لوحة تحكم مطورة)
+// @name         تجريبي - الغزااوي - الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      9.2.4
+// @version      1.0
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
