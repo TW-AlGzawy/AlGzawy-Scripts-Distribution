@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] بوت السوق غزااوي (v7.0)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.6
+// @version      0.1.7
 // @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
 // @match        https://*/*=exchange*
 // @run-at       document-end
