@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] Auto Builder Pro - AlGzawy (V3.0 Free Finish)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.4
+// @version      0.1.5
 // @description  نسخة اختبار خاضعة لإيقاف Cloudflare المركزي؛ لم تعتمد وظيفيًا بعد
 // @match        https://*/game.php?village=*&screen=main*
 // @run-at       document-end
@@ -24,7 +24,7 @@
   const LICENSE_ID = 'algzawy_portal_approved_device';
   const hasPortalLicense = () => {
     const expires=Number(localStorage.getItem(LICENSE_UNTIL)||0);
-    return !!localStorage.getItem(LICENSE_ID) && expires>Date.now() && expires<=Date.now()+180000;
+    return !!localStorage.getItem(LICENSE_ID) && expires>Date.now() && expires<=Date.now()+180000 && localStorage.getItem('algzawy_portal_grant_'+ID)==='1';
   };
   const HAS_GM_API = false;
   const POLL_MS = 5000;
