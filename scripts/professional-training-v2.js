@@ -223,7 +223,7 @@
         let html = `
             <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-                    <h3 style="margin:0;font-size:18px">🤖 بوت التدريب المحسّن</h3>
+                    <h3 style="margin:0;font-size:14px">🤖 تجريبي - الغزااوي - بوت التدريب المحسّن</h3>
                     <button id="algzawy-training-collapse" type="button" aria-label="تصغير أو تكبير نافذة التدريب" style="border:1px solid #ddd8;background:#273c79;color:white;border-radius:5px;cursor:pointer">${panel.dataset.collapsed==='1'?'＋':'−'}</button>
                 </div>
                 <div data-training-body style="display:${panel.dataset.collapsed==='1'?'none':'block'}">
