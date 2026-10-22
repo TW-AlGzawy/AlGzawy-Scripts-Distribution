@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy BETA] تدريب وحدات احترافي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      0.1.3
+// @version      0.1.4
 // @description  نسخة Beta للتجربة بموافقة المستخدم فقط وربط Cloudflare
 // @match        https://*.tribalwars.ae/game.php?*
 // @run-at       document-end
@@ -20,6 +20,9 @@
   const ID = "professional-training";
   const LOCAL_KEY = "algzawy_local_enabled_" + ID;
   const HUMAN_KEY = "algzawy_human_verification_pause";
+  const LICENSE_UNTIL="algzawy_portal_device_authorized_until";
+  const LICENSE_ID="algzawy_portal_approved_device";
+  const hasPortalLicense=()=>{const t=Number(localStorage.getItem(LICENSE_UNTIL)||0);return !!localStorage.getItem(LICENSE_ID)&&t>Date.now()&&t<=Date.now()+180000;};
   const HAS_GM_API = false;
   const POLL_MS = 5000;
   const REQUEST_TIMEOUT = 6000;
@@ -258,6 +261,7 @@
         stopCore('disabled'); return;
       }
       lastRevision = String(status.revision);
+      if(!hasPortalLicense()){stopCore('license');return;}
       if (localStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
       if (localStorage.getItem(LOCAL_KEY)==='false') { stopCore('local'); return; }
       clearBlockedLauncher();
@@ -283,6 +287,7 @@
             stopCore('disabled'); return;
           }
           lastRevision = String(checkAgain.revision);
+      if(!hasPortalLicense()){stopCore('license');return;}
           if (localStorage.getItem(HUMAN_KEY)==='1') { stopCore('human'); return; }
           if (localStorage.getItem(LOCAL_KEY)==='false') { stopCore('local'); return; }
           startCore(code);
@@ -296,6 +301,7 @@
     }
   }
   document.addEventListener(ATTEMPT_EVENT, () => message(STOP_MESSAGE, true));
+  window.addEventListener('storage',e=>{if((e.key===LICENSE_UNTIL||e.key===LICENSE_ID)&&!hasPortalLicense())stopCore('license');});
   window.addEventListener('storage', e => { if(e.key===HUMAN_KEY && e.newValue==='1') stopCore('human'); else if(e.key===LOCAL_KEY) void checkPolicy(); });
   document.addEventListener('algzawy-local-control-changed',()=>{void checkPolicy();});
   document.addEventListener('algzawy-human-verification',()=>{sessionStorage.setItem(HUMAN_KEY,'1');stopCore('human');});
