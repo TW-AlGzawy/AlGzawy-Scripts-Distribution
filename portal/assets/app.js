@@ -26,7 +26,7 @@ const errorArabic=err=>({
  global_status_unavailable:'تعذر قراءة مفتاح التحكم المركزي.',
  expired_or_used_code:'رمز الربط منتهي الصلاحية أو مستخدم.',
  invalid_script_settings:'الإعدادات المدخلة غير صالحة.',
- $1
+ service_unavailable:'تعذر الاتصال بقاعدة البيانات أو الخدمة.',
  script_globally_disabled:'هذا السكربت موقوف من الإدارة مؤقتًا.',
  invalid_enabled:'قيمة التشغيل غير صحيحة.',
  invalid_name:'أدخل اسم مستخدم من حرفين إلى 80 حرفًا.'
