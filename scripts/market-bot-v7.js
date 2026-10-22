@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         بوت السوق غزااوي (v7.0)
+// @name         تجريبي - الغزااوي - بوت السوق
 // @namespace    http://tampermonkey.net/
-// @version      7.0
+// @version      1.0
 // @description  بوت احترافي لشراء الموارد تلقائياً مع معالجة ذكية للنوافذ المنبثقة وتحريك القائمة المنسدلة.
 // @author       الغزااوي AlGzawy & Manus AI
 // @match      https://*/*=exchange*
