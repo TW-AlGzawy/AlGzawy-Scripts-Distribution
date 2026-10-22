@@ -144,7 +144,7 @@ test('Account Manager decoder imports exact V3.3 target bytes and advances only 
   assert.equal(outcome.bad,null);
   bytes[4+order.indexOf('wood')]=60;
   const corrupted=vm.runInNewContext(prefix+'\n'+functions+
-    '\ndecodeTWTemplate('+JSON.stringify(bytes.toString('base64'))+');',ctx);
+    '\ndecodeTWTemplate('+JSON.stringify(bytes.toString('base64'))+');',{...ctx});
   assert.equal(corrupted,null);
 });
 
