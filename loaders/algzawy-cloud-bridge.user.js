@@ -80,12 +80,16 @@
     if(!tabReady){holder.textContent='التحقق من هوية التبويب...';return;}
     if(!licensedPins.size){holder.textContent='لا تظهر السكربتات إلا بعد اعتماد الجهاز ومزامنة صلاحيات اشتراكك.';return;}
     for(const id of known.filter(id=>licensedPins.has(id))){
-      const label=document.createElement('label');label.style.cssText='display:flex;gap:7px;align-items:center;margin:3px 0;padding:4px;border-bottom:1px solid #31565a';
-      const input=document.createElement('input');input.type='checkbox';input.checked=pinned(id);
-      input.setAttribute('aria-label','تثبيت '+scriptLabels[id]+' في هذا التبويب');
-      input.addEventListener('change',()=>setTabPin(id,input.checked));
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin:3px 0;padding:5px 2px;border-bottom:1px solid #31565a;flex-wrap:wrap';
       const text=document.createElement('span');text.textContent=scriptLabels[id]||id;
-      label.append(input,text);holder.appendChild(label);
+      const toggle=document.createElement('button');toggle.type='button';
+      toggle.textContent=pinned(id)?'إلغاء التثبيت':'📌 تثبيت بهذا التاب';
+      toggle.setAttribute('aria-pressed',String(pinned(id)));
+      toggle.setAttribute('aria-label',(pinned(id)?'إلغاء تثبيت ':'تثبيت ')+(scriptLabels[id]||id));
+      toggle.style.cssText='color:#d5fff7;background:#194f4c;border:1px solid #2ebbaa;padding:4px 7px;border-radius:5px;font-size:10px;cursor:pointer';
+      toggle.addEventListener('click',()=>setTabPin(id,!pinned(id)));
+      row.append(text,toggle);holder.appendChild(row);
     }
   }
   const storageKey=id=>'algzawy_local_enabled_'+id;
