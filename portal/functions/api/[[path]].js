@@ -40,7 +40,8 @@ async function digest(value,secret){
   const hash=await crypto.subtle.digest('SHA-256',encoder.encode(secret+':'+value));
   return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
-function envOK(env){return env.DB&&typeof env.DB.prepare==='function'&&typeof env.PORTAL_HASH_PEPPER==='string'&&env.PORTAL_HASH_PEPPER.length>=32;}
+function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');return items;}
+function envOK(env){return setupMissing(env).length===0;}
 function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
 async function bodyJSON(req){const text=await req.text();if(text.length>4096)throw new Error('too_large');return JSON.parse(text);}
 function checkName(name){return typeof name==='string'&&name.trim().length>=2&&name.trim().length<=80;}
@@ -57,15 +58,61 @@ async function bearer(req,env,kind='user'){
   if(kind==='user')return await env.DB.prepare('SELECT id,label FROM portal_users WHERE access_hash=? AND active=1 LIMIT 1').bind(hash).first();
   return await env.DB.prepare('SELECT u.id,u.label,d.id AS device_id FROM portal_devices d JOIN portal_users u ON u.id=d.user_id WHERE d.device_hash=? AND d.active=1 AND u.active=1 LIMIT 1').bind(hash).first();
 }
+
+async function allowedSet(env,userId){
+  const rows=await env.DB.prepare('SELECT script_id FROM portal_entitlements WHERE user_id=? AND allowed=1').bind(userId).all();
+  return new Set((rows.results||[]).map(row=>row.script_id).filter(id=>IDS.has(id)));
+}
+async function subscriptionOK(env,userId){
+  const row=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(userId).first();
+  return !row||(row.active===1&&(row.expires_at===null||row.expires_at===undefined||Number(row.expires_at)>Math.floor(Date.now()/1000)));
+}
+function requesterIP(req){return (req.headers.get('CF-Connecting-IP')||'').slice(0,64);}
+async function accessEvent(env,req,userId,deviceId,type){
+  try{await env.DB.prepare('INSERT INTO portal_access_events(id,user_id,device_id,event_type,ip) VALUES (?,?,?,?,?)')
+    .bind(crypto.randomUUID(),userId,deviceId||null,type,requesterIP(req)).run();}
+  catch(err){console.error('[AlGzawy] event audit write failed',err);}
+}
+async function signatureAuth(req,env){
+  const id=req.headers.get('X-ALG-DEVICE-ID')||'';
+  const timestamp=Number(req.headers.get('X-ALG-TIMESTAMP')||0);
+  const counter=Number(req.headers.get('X-ALG-COUNTER')||0);
+  const sig=req.headers.get('X-ALG-SIGNATURE')||'';
+  if(!/^[0-9a-f-]{36}$/i.test(id)||!Number.isSafeInteger(timestamp)||Math.abs(Date.now()-timestamp)>300000
+    ||!Number.isSafeInteger(counter)||counter<1||counter>Number.MAX_SAFE_INTEGER
+    ||sig.length<70||sig.length>200||!/^[A-Za-z0-9_-]+$/.test(sig))return null;
+  const record=await env.DB.prepare(
+    'SELECT k.device_id,k.user_id,k.public_key_json,k.approved,k.last_counter,u.label,u.active AS user_active,d.active AS device_active,k.last_ip '
+    +'FROM portal_device_keys k JOIN portal_users u ON u.id=k.user_id JOIN portal_devices d ON d.id=k.device_id WHERE k.device_id=? LIMIT 1'
+  ).bind(id).first();
+  if(!record||record.user_active!==1||record.device_active!==1)return null;
+  let key,verified=false;
+  try{
+    const jwk=JSON.parse(record.public_key_json);
+    key=await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+    const normalized=sig.replace(/-/g,'+').replace(/_/g,'/');
+    const binary=atob(normalized+'='.repeat((4-normalized.length%4)%4));
+    const raw=Uint8Array.from(binary,c=>c.charCodeAt(0));
+    const statement=id+'|'+timestamp+'|'+counter+'|/api/device/state';
+    verified=await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,raw,encoder.encode(statement));
+  }catch(_){return null;}
+  if(!verified||record.last_counter>=counter)return null;
+  // Atomic anti-replay check. No client-controlled counter can roll the device backward.
+  const row=await env.DB.prepare('UPDATE portal_device_keys SET last_counter=? WHERE device_id=? AND last_counter<? RETURNING device_id').bind(counter,id,counter).first();
+  if(!row)return null;
+  return record;
+}
+
 async function settingsFor(env,userId){
   const r=await env.DB.prepare('SELECT script_id,enabled,settings_json FROM portal_preferences WHERE user_id=?').bind(userId).all();
   const out={};
-  for(const item of GROUPS)out[item[0]]={enabled:false,settings:{}};
+  const licensed=await allowedSet(env,userId);
+  for(const item of GROUPS)out[item[0]]={allowed:licensed.has(item[0]),enabled:false,settings:{}};
   for(const row of (r.results||[])){
-    if(!IDS.has(row.script_id))continue;
+    if(!IDS.has(row.script_id)||!licensed.has(row.script_id))continue;
     let settings={};
     try{const val=JSON.parse(row.settings_json||'{}');if(val&&typeof val==='object'&&!Array.isArray(val))settings=val;}catch(_){}
-    out[row.script_id]={enabled:row.enabled===1,settings};
+    out[row.script_id]={allowed:true,enabled:row.enabled===1,settings};
   }
   return out;
 }
@@ -89,7 +136,7 @@ function validateSettings(id,raw){
 async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
-  if(!envOK(env))return bad('portal_not_configured',503);
+  if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
   if(req.method==='GET'&&path[0]==='catalog'&&path.length===1)return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
@@ -106,6 +153,58 @@ async function handler(req,env){
         "UPDATE global_control SET enabled=?, revision=revision+1, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=1 AND enabled<>? RETURNING enabled,revision,updated_at"
       ).bind(n,n).first();
       return reply({ok:true,global:changed?{enabled:changed.enabled===1,revision:changed.revision,updated_at:changed.updated_at}:await globalState(env)});
+    }
+
+    if(path[1]==='users'&&path.length===4&&path[3]==='entitlements'){
+      const uid=path[2];
+      const owner=await env.DB.prepare('SELECT id,label,active FROM portal_users WHERE id=?').bind(uid).first();
+      if(!owner)return bad('not_found',404);
+      if(req.method==='GET'){
+        const access=await allowedSet(env,uid);
+        const devices=await env.DB.prepare('SELECT k.device_id,k.approved,k.first_ip,k.last_ip,k.first_seen,k.last_seen,k.user_agent,d.active '
+        +'FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? ORDER BY k.first_seen DESC').bind(uid).all();
+        const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(uid).first();
+        const events=await env.DB.prepare('SELECT event_type,ip,occurred_at FROM portal_access_events WHERE user_id=? ORDER BY occurred_at DESC LIMIT 30').bind(uid).all();
+        return reply({ok:true,user:owner,allowedIds:[...access],devices:devices.results||[],subscription:sub||{active:1,expires_at:null},events:events.results||[]});
+      }
+      if(req.method==='PUT'){
+        let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+        if(!Array.isArray(payload?.allowedIds)||payload.allowedIds.length>GROUPS.length||new Set(payload.allowedIds).size!==payload.allowedIds.length
+         ||payload.allowedIds.some(id=>typeof id!=='string'||!IDS.has(id)))return bad('invalid_entitlements');
+        const selected=new Set(payload.allowedIds);
+        await env.DB.batch(GROUPS.map(([id])=>env.DB.prepare(
+          "INSERT INTO portal_entitlements(user_id,script_id,allowed) VALUES(?,?,?) ON CONFLICT(user_id,script_id) DO UPDATE SET allowed=excluded.allowed,updated_at=datetime('now')"
+        ).bind(uid,id,selected.has(id)?1:0)));
+        await accessEvent(env,req,uid,null,'entitlements_updated');
+        return reply({ok:true,userId:uid,allowedIds:payload.allowedIds});
+      }
+    }
+    if(path[1]==='users'&&path.length===4&&path[3]==='subscription'&&req.method==='PUT'){
+      let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(typeof payload?.active!=='boolean'||(payload.expiresAt!==null&&!Number.isSafeInteger(payload.expiresAt)))return bad('invalid_subscription');
+      const uid=path[2];
+      await env.DB.prepare("INSERT INTO portal_subscriptions(user_id,active,expires_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET active=excluded.active,expires_at=excluded.expires_at,updated_at=datetime('now')")
+        .bind(uid,payload.active?1:0,payload.expiresAt).run();
+      await accessEvent(env,req,uid,null,'subscription_updated');
+      return reply({ok:true});
+    }
+    if(path[1]==='users'&&path.length===6&&path[3]==='devices'&&req.method==='POST'){
+      if(!['approve','revoke'].includes(path[5]))return bad('not_found',404);
+      const uid=path[2],deviceId=path[4];
+      const owned=await env.DB.prepare('SELECT device_id FROM portal_device_keys WHERE device_id=? AND user_id=?').bind(deviceId,uid).first();
+      if(!owned)return bad('not_found',404);
+      if(path[5]==='approve'){
+        // Explicit approval automatically revokes the previously approved device.
+        await env.DB.batch([
+          env.DB.prepare('UPDATE portal_device_keys SET approved=0 WHERE user_id=?').bind(uid),
+          env.DB.prepare('UPDATE portal_devices SET active=1 WHERE id=?').bind(deviceId),
+          env.DB.prepare('UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=?').bind(deviceId,uid)
+        ]);
+      }else{
+        await env.DB.prepare('UPDATE portal_device_keys SET approved=0 WHERE device_id=? AND user_id=?').bind(deviceId,uid).run();
+      }
+      await accessEvent(env,req,uid,deviceId,path[5]==='approve'?'device_approved':'device_revoked');
+      return reply({ok:true});
     }
     if(path[1]==='users'&&path.length===2){
       if(req.method==='GET'){
@@ -127,25 +226,44 @@ async function handler(req,env){
     }
     return bad('not_found',404);
   }
+
   if(path[0]==='device'&&path[1]==='claim'&&path.length===2&&req.method==='POST'){
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
     if(typeof data?.code!=='string'||!/^alg_p_[a-f0-9]{64}$/.test(data.code))return bad('invalid_code');
-    const codeHash=await digest(data.code,env.PORTAL_HASH_PEPPER);
+    const pub=data.publicKey;
+    if(!pub||typeof pub!=='object'||pub.kty!=='EC'||pub.crv!=='P-256'||typeof pub.x!=='string'||typeof pub.y!=='string'
+      ||pub.x.length!==43||pub.y.length!==43||Object.keys(pub).some(k=>!['kty','crv','x','y','ext','key_ops','alg'].includes(k)))return bad('invalid_public_key');
+    try{await crypto.subtle.importKey('jwk',pub,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);}catch(_){return bad('invalid_public_key');}
     const now=Math.floor(Date.now()/1000);
+    const codeHash=await digest(data.code,env.PORTAL_HASH_PEPPER);
     const claim=await env.DB.prepare('UPDATE portal_pair_codes SET consumed_at=? WHERE code_hash=? AND consumed_at IS NULL AND expires_at>? RETURNING user_id').bind(now,codeHash,now).first();
     if(!claim)return bad('expired_or_used_code',401);
-    const deviceKey='alg_d_'+bytes(32),deviceHash=await digest(deviceKey,env.PORTAL_HASH_PEPPER);
-    await env.DB.prepare('INSERT INTO portal_devices (id,user_id,device_hash,active) VALUES (?,?,?,1)').bind(crypto.randomUUID(),claim.user_id,deviceHash).run();
-    return reply({ok:true,deviceToken:deviceKey});
+    const id=crypto.randomUUID();
+    // Legacy NOT NULL device_hash column gets a random value, but no copyable
+    // authorization token is issued: only the private key can sign state polls.
+    const inertHash=await digest('inert-device-'+bytes(32),env.PORTAL_HASH_PEPPER);
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO portal_devices(id,user_id,device_hash,active) VALUES(?,?,?,1)').bind(id,claim.user_id,inertHash),
+      env.DB.prepare('INSERT INTO portal_device_keys(device_id,user_id,public_key_json,approved,first_ip,last_ip,user_agent) VALUES(?,?,?,0,?,?,?)')
+        .bind(id,claim.user_id,JSON.stringify(pub),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180))
+    ]);
+    await accessEvent(env,req,claim.user_id,id,'device_pair_requested');
+    return reply({ok:true,deviceId:id,status:'pending_approval'},202);
   }
   if(path[0]==='device'&&path[1]==='state'&&req.method==='GET'&&path.length===2){
-    const device=await bearer(req,env,'device');
-    if(!device)return bad('unauthorized',401);
+    const device=await signatureAuth(req,env);
+    if(!device)return bad('device_proof_invalid',401);
+    if(device.approved!==1)return bad('device_pending_approval',403);
+    if(!(await subscriptionOK(env,device.user_id)))return bad('subscription_inactive',403);
+    const ip=requesterIP(req);
+    if(ip && ip!==device.last_ip)await accessEvent(env,req,device.user_id,device.device_id,'ip_changed');
+    await env.DB.prepare("UPDATE portal_device_keys SET last_ip=?,last_seen=datetime('now') WHERE device_id=?").bind(ip,device.device_id).run();
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
-    return reply({ok:true,global,user:{label:device.label},scripts:await settingsFor(env,device.id)});
+    return reply({ok:true,global,user:{label:device.label},scripts:await settingsFor(env,device.user_id)});
   }
   const user=await bearer(req,env,'user');
   if(!user)return bad('unauthorized',401);
+  if(!(await subscriptionOK(env,user.id)))return bad('subscription_inactive',403);
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     return reply({ok:true,user,global,scripts:await settingsFor(env,user.id)});
@@ -153,15 +271,17 @@ async function handler(req,env){
   if(path[0]==='scripts'&&path[1]==='bulk'&&path.length===2&&req.method==='POST'){
     let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
     if(!payload||typeof payload.enabled!=='boolean')return bad('invalid_enabled');
-    // One request/transaction rather than 26 separate requests, for Free-plan quotas.
-    const stmts=GROUPS.map(([id])=>env.DB.prepare(
+    // Only scripts explicitly licensed to this subscription can be toggled.
+    const allow=await allowedSet(env,user.id);
+    const stmts=GROUPS.filter(([id])=>allow.has(id)).map(([id])=>env.DB.prepare(
       "INSERT INTO portal_preferences(user_id,script_id,enabled,settings_json,updated_at) VALUES(?,?,?,'{}',datetime('now')) ON CONFLICT(user_id,script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at"
     ).bind(user.id,id,payload.enabled?1:0));
     await env.DB.batch(stmts);
-    return reply({ok:true,count:GROUPS.length,enabled:payload.enabled});
+    return reply({ok:true,count:stmts.length,enabled:payload.enabled});
   }
   if(path[0]==='scripts'&&path.length===2&&req.method==='PUT'){
     const id=path[1];if(!IDS.has(id))return bad('unknown_script',404);
+    if(!(await allowedSet(env,user.id)).has(id))return bad('script_not_licensed',403);
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
     if(typeof data?.enabled!=='boolean')return bad('invalid_enabled');
     const existing=await env.DB.prepare('SELECT settings_json FROM portal_preferences WHERE user_id=? AND script_id=?').bind(user.id,id).first();
