@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy CLOUD] ربط السكربتات بالموقع
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.0
+// @version      2.0.1
 // @description  Pair once with AlGzawy Cloud, then synchronize script ON/OFF and supported settings
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -35,6 +35,7 @@
   let pending=false,lastRequest=0, timer=null, card=null;
   const LICENSE_UNTIL='algzawy_portal_device_authorized_until';
   const LICENSE_ID='algzawy_portal_approved_device';
+  const GRANT_PREFIX='algzawy_portal_grant_';
   function normalizeOrigin(raw){
     try{
       const url=new URL(raw.trim());
@@ -147,7 +148,7 @@
     localStorage.removeItem(LICENSE_UNTIL);
     localStorage.removeItem(LICENSE_ID);
     let changed=false;
-    for(const id of known)changed=setLocal(id,false)||changed;
+    for(const id of known){localStorage.setItem(GRANT_PREFIX+id,'0');changed=setLocal(id,false)||changed;}
     if(changed)document.dispatchEvent(new Event('algzawy-local-control-changed'));
   }
   // Fail closed if cached authorization is stale. A live worker response is
@@ -168,6 +169,7 @@
       for(const id of known){
         const script=r.scripts[id];
         const enabled=!!(r.global.enabled&&script&&script.enabled===true);
+        localStorage.setItem(GRANT_PREFIX+id,enabled?'1':'0');
         changed=setLocal(id,enabled)||changed;
         applySettings(id,script?.settings||{},enabled);
       }
