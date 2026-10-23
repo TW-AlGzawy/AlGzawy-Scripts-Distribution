@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.1.1-qa1
+// @version      2.1.2-qa1
 // @description  Auto License V2: existing device identity with integrated AlG Control Center QA
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -567,7 +567,7 @@
    if(state==='missing')return 'Cloud Bridge الأصلي غير مفعّل على هذه الصفحة. فعّله من Tampermonkey ولا تحذفه، ثم حدّث اللعبة. لا تحتاج إلى تسجيل جهاز آخر.';
    if(state==='not-ready')return 'Cloud Bridge قيد التهيئة. حدّث صفحة القرية وتأكد أنه يعمل مرة واحدة فقط.';
    if(state==='unlinked')return 'لم يجد الجسر الأصلي ارتباطًا محفوظًا في هذا المتصفح. الربط يحتاج موافقة من صفحة العميل، وليس فتح لوحة القيادة فقط.';
-   return 'الجسر الأصلي يحتفظ بارتباط هذا الجهاز. اضغط «مزامنة الآن» للتحقق من صلاحية الاشتراك من الخادم.';
+   return 'يوجد ربط محفوظ. استخدم المزامنة للتحقق منه، أو تغيير الحساب لإرسال طلب اعتماد جديد من حساب المشترك المفتوح في الموقع.';
  }
  function attachNativeFeedback(){
    if(nativeObserver)return;
@@ -614,7 +614,7 @@
    const pairingState=bridgePairingState();
    if(linkButton){
      linkButton.disabled=pairingState==='missing'||pairingState==='not-ready';
-     linkButton.textContent=pairingState==='linked'?'✓ ربط محفوظ':
+     linkButton.textContent=pairingState==='linked'?'⌁ تغيير الحساب / إعادة الربط':
        pairingState==='unlinked'?'⌁ ربط الجهاز':'الجسر غير جاهز';
      linkButton.title=bridgePairingMessage(pairingState);
    }
@@ -693,7 +693,8 @@
    });
    link.addEventListener('click',()=>{
      const state=bridgePairingState();
-     if(state==='unlinked'){
+     if(state==='unlinked'||state==='linked'){
+       if(state==='linked'&&!confirm('ستفتح صفحة المشترك لإعادة ربط هذا المتصفح بالحساب المسجل هناك. لن يتغير الربط المحلي حتى ينجح الطلب، والجهاز الجديد يحتاج اعتماد المالك. متابعة؟'))return;
        const native=document.getElementById('algzawy-cloud-connect');
        if(native){
          // The only supported enrollment path is the existing original Bridge:
@@ -701,8 +702,6 @@
          native.click();
          syncState={phase:'busy',message:'طلب الربط أُرسل إلى Cloud Bridge. تحقق من نافذة الموافقة التي فتحها الجسر.',at:Date.now()};
        }
-     }else if(state==='linked'){
-       syncState={phase:'busy',message:'الجسر الأصلي مرتبط محليًا. لا تعِد الربط؛ اضغط «مزامنة الآن» للتحقق من صلاحية الجهاز.',at:Date.now()};
      }else{
        syncState={phase:'error',message:bridgePairingMessage(state),at:Date.now()};
      }
