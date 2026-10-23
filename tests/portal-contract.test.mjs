@@ -111,13 +111,13 @@ async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={})
  const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json(),setCookie:r.headers.get('Set-Cookie')};
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
-test('No content before login and 25 catalog script IDs match the bridge',async()=>{
+test('No content before login and 22 catalog script IDs match the bridge',async()=>{
  assert.match(html,/<div class="app-shell" hidden>/);
  assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
- assert.equal(catalog.length,25);
+ assert.equal(catalog.length,22);
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
 });

@@ -38,12 +38,6 @@ test('mass scavenging handles zero- and one-based groups and no blind mass fallb
   assert.match(code,/await dispatchAvailableGroups\(\)/);
 });
 
-test('builder does not accept a timer tick as successful build',()=>{
-  const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  assert.match(code,/after\.count > before\.count/);
-  assert.ok(!code.includes('arraysEqual(after.texts, before.texts)'));
-});
-
 test('attack alert settings object is available to its source',()=>{
   const engine=read('scripts/alg-attacks.js');
   const loader=read('loaders/alg-attacks.user.js');
@@ -65,50 +59,10 @@ test('incoming attack rename requires user opt-in and never calls invented serve
   assert.ok(!code.includes('ajaxaction=rename'));
 });
 
-test('builder V3.3.4 minimizes to its header without saving collapsed geometry',()=>{
-  const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  assert.match(code,/\/\/ @version\s+1\.0/);
-  assert.match(code,/min-height:\s*40px/);
-  assert.match(code,/height:\s*\$\{isMinimized \? '40px' : expandedHeight\}/);
-  assert.match(code,/resize:\s*\$\{isMinimized \? 'none' : 'both'\}/);
-  assert.match(code,/if \(entry\.target !== panel \|\| isMinimized\) continue/);
-  assert.match(code,/if \(height < 180\) continue/);
-  assert.match(code,/panel\.style\.height = isMinimized \? '40px' : expandedHeight/);
-  assert.match(code,/\$\("#panel_content"\)\.css\('display', isMinimized \? 'none' : 'flex'\)/);
-  assert.doesNotMatch(code,/height:\s*calc\(100% - 35px\)/);
-});
-test('builder floating panel can expand after corrupted stored 35px height',()=>{
-  const code=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  assert.match(code,/Number\.isFinite\(savedHeight\) && savedHeight >= 280/);
-  assert.match(code,/let expandedHeight = Math\.min\(/);
-  assert.match(code,/Math\.max\(160, window\.innerHeight - 20\)/);
-  assert.match(code,/#pro_builder_panel #panel_content \{/);
-  assert.match(code,/overflow-y:\s*auto;/);
-  assert.match(code,/min-height:\s*120px/);
-  assert.match(code,/\$\("#min_btn"\)\.on\('mousedown', e => e\.stopPropagation\(\)\)/);
-});
-
-test('builder 3.3.4 starts on either main-page query order and reports engine failures',()=>{
-  const engine=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  const loader=read('loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js');
-  assert.match(engine,/\/\/ @version\s+1\.0/);
-  assert.match(loader,/\/\/ @version\s+1\.0/);
-  assert.ok(loader.includes('@match        https://*/game.php?village=*&screen=main*'));
-  assert.ok(loader.includes('@match        https://*/game.php?screen=main*&village=*'));
-  assert.ok(loader.includes('if(!hasPortalLicense()){stopCore(\'license\');return;}'));
-  assert.ok(loader.includes('if (engineStartFailed || checkInProgress) return;'));
-  assert.ok(loader.includes('document.addEventListener(\'__algzawy_builder_ready_v33\''));
-  assert.ok(loader.includes('document.addEventListener(\'__algzawy_builder_startup_error_v33\''));
-  assert.ok(engine.includes("document.dispatchEvent(new Event('__algzawy_builder_ready_v33'))"));
-  assert.ok(engine.includes("document.dispatchEvent(new Event('__algzawy_builder_startup_error_v33'))"));
-  assert.ok(loader.includes("if (!engineStarted && !engineStartFailed) engineFailure()"));
-});
-test('builder recovery clamps persisted floating position and catches corrupt position state',()=>{
-  const engine=read('scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js');
-  assert.match(engine,/try \{ savedPos = JSON\.parse/);
-  assert.match(engine,/catch \(_\) \{ savedPos = \{\}; \}/);
-  assert.match(engine,/Math\.max\(0, window\.innerHeight - 45\)/);
-  assert.match(engine,/top: \$\{safeTop\}; left: \$\{safeLeft\}; right: \$\{safeRight\}/);
-  assert.ok(engine.includes('const safeRight = hasLeft'));
-  assert.match(engine,/if \(entry\.target !== panel \|\| isMinimized\) continue/);
+test('new builder v1.0 keeps request checkpoints',()=>{
+ const core=read('scripts/algzawy-builder-v1.js'),loader=read('loaders/algzawy-builder-v1.user.js');
+ assert.ok(core.includes("const SCRIPT_ID='algzawy-builder-v1'"));
+ assert.ok(core.includes("phase:'sending'")&&core.includes("phase:'queued'"));
+ assert.ok(loader.includes("if(!hasPortalLicense()){stopCore('license');return;}"));
+ for(const id of ["auto-builder-ar-v054","auto-builder-ar-v061","auto-builder-pro-algzawy-v3-0-free-finish","auto-builder-pro-algzawy-v3-3-fixed-queue"]) assert.ok(!published.some(x=>x.id===id));
 });
