@@ -451,6 +451,18 @@ async function handler(req,env){
         return reply({ok:true,user:{id,label:data.label.trim()},accessKey},201);
       }
     }
+    if(path[1]==='users'&&path.length===4&&path[3]==='enable'){
+      if(req.method!=='POST')return bad('method_not_allowed',405);
+      const uid=path[2];
+      // Restore account access only; preserve subscription, grants and device approvals.
+      // Archived accounts must first be restored explicitly.
+      const result=await env.DB.prepare(
+        'UPDATE portal_users SET active=1 WHERE id=? AND active=0 AND NOT EXISTS(SELECT 1 FROM portal_archived_users WHERE user_id=?)'
+      ).bind(uid,uid).run();
+      if(!result.meta?.changes)return bad('account_not_eligible',409);
+      await accessEvent(env,req,uid,null,'account_enabled');
+      return reply({ok:true,userId:uid,active:true});
+    }
     if(path[1]==='users'&&path.length===4&&path[3]==='disable'&&req.method==='POST'){
       const x=await env.DB.prepare('UPDATE portal_users SET active=0 WHERE id=?').bind(path[2]).run();
       if(!x.meta?.changes)return bad('not_found',404);
