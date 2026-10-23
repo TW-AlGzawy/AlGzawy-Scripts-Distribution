@@ -192,7 +192,7 @@ test('Version 2.1 invalid template data is not resurrected in V2.2',()=>{
   assert.match(pilot,/steps\.push\(\{id,add,target\}\)/);
   assert.doesNotMatch(pilot,/charCodeAt\(4\+i\)/);
   assert.doesNotMatch(pilot,/moveTemplateStep/);
-  assert.match(pilot,/يحافظ على ترتيب كل خطوة وتكرارات المباني/);
+  assert.match(pilot,/قائمة القالب قابلة للطي/);
   assert.match(pilot,/elements\.templateCounter\.textContent=progress\.ready/);
 });
 test('Level readings cannot be invented from costs; templates wait for verified progress',()=>{
@@ -201,7 +201,7 @@ test('Level readings cannot be invented from costs; templates wait for verified 
   assert.match(pilot,/return null; \/\/ Unknown levels are never invented/);
   assert.match(pilot,/if\(!step\|\|step\.level===null\)return null/);
   assert.match(pilot,/if\(templateRefreshing\|\|!lastRefreshOk\|\|currentBuildCount\(\)>0\)return null/);
-  assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
+  assert.match(pilot,/استجابة البناء غير مؤكدة/);
   assert.match(pilot,/mode:'template',version:templateVersion,index:step\.index/);
   assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
 });
