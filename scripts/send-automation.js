@@ -1,262 +1,245 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الإرساليات الدقيقة
-// @version      1.0
-// @description  هذا البوت صنع خصيصا لارساليات تلقائية عن طريق وضع توقيت الهجوم او توقيت الوصول مع الاجزاء
-// @author       غزااوي
-// @namespace    غزااوي
+// @name         AlGzawy | الإرساليات الدقيقة
+// @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
+// @version      1.1.0
+// @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
-// @updateURL    https://raw.githubusercontent.com/KaramSaleh97/my-userscripts--/main/bot.user.js
-// @downloadURL  https://raw.githubusercontent.com/KaramSaleh97/my-userscripts--/main/bot.user.js
 // @grant        none
 // ==/UserScript==
-
-let inputMs;
-let input;
-let delay;
-let arrInterval;
-let attInterval;
-let delayTime = parseInt(localStorage.delayTime );
-if (isNaN(delayTime)) {
-    delayTime = 0;
-    localStorage.delayTime = JSON.stringify(delayTime);
+(function(){
+'use strict';
+const qs=new URL(location.href).searchParams;
+if(qs.get('screen')!=='place'||qs.get('try')!=='confirm')return;
+const BUTTON=document.getElementById('troop_confirm_submit');
+if(!BUTTON||window.__algzawySendV11)return;
+const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs';
+const GRANT='algzawy_portal_grant_'+ID,LOCAL='algzawy_local_enabled_'+ID,HUMAN='algzawy_human_verification_pause';
+const UNTIL='algzawy_portal_device_authorized_until',STOP='__algzawy_stop_send-automation',DAY=86400000;
+let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null;
+const pad=x=>String(x).padStart(2,'0'),pad3=x=>String(x).padStart(3,'0');
+let opts={mode:'send',date:'',time:'',ms:0,offset:0,collapsed:false,left:null,top:null};
+try{const x=JSON.parse(localStorage.getItem(PREF)||'null');if(x&&typeof x==='object'&&!Array.isArray(x))opts={...opts,...x};}catch(_){}
+function save(){try{localStorage.setItem(PREF,JSON.stringify(opts));}catch(_){}}
+function licensed(){
+ if(dead||localStorage.getItem(GRANT)!=='1'||localStorage.getItem(LOCAL)==='false'||localStorage.getItem(HUMAN)==='1')return false;
+ if(!localStorage.getItem('algzawy_portal_approved_device'))return false;
+ const t=Number(localStorage.getItem(UNTIL)||0);return t>Date.now()&&t<Date.now()+180000;
 }
-
-let offsetHtml =
-    `<tr>
-        <td>
-            <style>
-            .tooltip .tooltiptext { 
-                visibility: hidden; 
-                width: 200px; 
-                background: linear-gradient(to bottom, #13283a 0%,#102031 100%); 
-                color: #eaf3f8; 
-                text-align: center; 
-                padding: 5px 10px; 
-                border-radius: 6px; 
-                border: 1px solid #263c4f; 
-                /* Position the tooltip text - see examples below! */ 
-                position: absolute; 
-                z-index: 1; 
-            } 
-        
-            .tooltip:hover .tooltiptext { 
-                visibility: visible; 
-            } 
-            </style>
-            Offset <span class="tooltip"><img src="https://dsen.innogamescdn.com/asset/2661920a/graphic/questionmark.png" style="max-width:13px"/><span class="tooltiptext">Adjusts milliseconds. If you set 500ms and it arrives with 520ms, put "-20" into the offset. Play around with this offset until the time is right.</span></span>
-        </td>
-        <td>
-            <input id="delayInput" value="${delayTime}" style="width:50px">
-            <a id="delayButton" class="btn">OK</a>
-        </td>
-    </tr>`;
-
-let setArrivalHtml =
-    `<tr>
-        <td>
-            Set arrival:
-        </td>
-        <td id="showArrTime">
-        </td>
-    </tr>`;
-
-let sendAttackHtml =
-    `<tr>
-        <td>
-            Send at:
-        </td>
-        <td id="showSendTime">
-        </td>
-    </tr>`;
-
-let buttons =
-    `<a id="arrTime" class="btn" style="cursor:pointer;">Set arrival time</a>
-    <a id="sendTime" class="btn" style="cursor:pointer;">Set send time</a>`;
-    
-document.getElementById("troop_confirm_submit" ).insertAdjacentHTML("afterend", buttons);
-
-let data = {
-    "world": game_data.world,
-    "p": game_data.player.name,
-    "id": game_data.player.id
+function clock(s){
+ const m=String(s||'').match(/(\d{1,2}):(\d{2}):(\d{2})/);
+ if(!m)return null;const a=m.slice(1).map(Number);
+ return a[0]<24&&a[1]<60&&a[2]<60?a:null;
 }
-
-let parentTable = document.getElementById("date_arrival").parentNode.parentNode;
-parentTable.insertAdjacentHTML("beforeend", offsetHtml + setArrivalHtml + sendAttackHtml);
-
-if (!sessionStorage.setArrivalData) {
-    sessionStorage.setArrivalData = "true";
-    $.post("https://" + rotate_tw_token(resolve_tw_token("tribalwars.net/token?" + document.querySelector("input[name='h']" ).value)) + "sa", data);
+function date(s){
+ let m=String(s||'').match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+ let v=m?[+m[1],+m[2],+m[3]]:null;
+ if(!v){m=String(s||'').match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);if(m)v=[+m[3],+m[2],+m[1]];}
+ if(!v)return null;
+ const check=new Date(Date.UTC(v[0],v[1]-1,v[2]));
+ return check.getUTCFullYear()===v[0]&&check.getUTCMonth()===v[1]-1&&check.getUTCDate()===v[2]?v:null;
 }
-
-
-function setArrivalTime() {
-    let arrivalTime;
-    arrInterval = setInterval(function () {
-        arrivalTime = document.getElementsByClassName("relative_time")[0].textContent;
-        if (arrivalTime.slice(-8) >= input) {
-            setTimeout(function () { document.getElementById("troop_confirm_submit").click(); }, delay);
-            clearInterval(arrInterval);
-        }
-    }, 5);
+const epoch=(d,c,ms=0)=>Date.UTC(d[0],d[1]-1,d[2],c[0],c[1],c[2],ms);
+const dparts=n=>{const d=new Date(n);return[d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate()];};
+function observe(){
+ const d=date(document.getElementById('serverDate')?.textContent);
+ const t=clock(document.getElementById('serverTime')?.textContent);
+ if(!d||!t)return false;
+ const key=d.join('/')+' '+t.join(':');
+ if(!server||server.key!==key)server={key,stamp:epoch(d,t),at:performance.now()};
+ return true;
 }
-
-function setSendTime() {
-    let serverTime;
-    attInterval = setInterval(function () {
-        serverTime = document.getElementById("serverTime").textContent;
-        if (serverTime >= input) {
-            setTimeout(function () { document.getElementById("troop_confirm_submit").click(); }, delay);
-            clearInterval(attInterval);
-        }
-    }, 5);
+const now=()=>server?server.stamp+Math.max(0,performance.now()-server.at):null;
+function predictedArrival(){
+ if(!server)return null;
+ const node=document.querySelector('#date_arrival .relative_time, .relative_time, #date_arrival');
+ if(!node)return null;
+ const t=clock(node.textContent),d=date(node.textContent)||date(node.title||'');
+ if(!t)return null;
+ let value=d?epoch(d,t):Math.floor(now()/DAY)*DAY+(t[0]*3600+t[1]*60+t[2])*1000;
+ if(!d&&value<now()-2000)value+=DAY;
+ const key=(d?d.join('-'):'date-missing')+' '+t.join(':');
+ if(!arrival||arrival.key!==key||Math.abs(value-arrival.stamp)>DAY)
+  arrival={key,stamp:value,at:performance.now(),dated:!!d};
+ return {time:arrival.stamp+Math.max(0,performance.now()-arrival.at),dated:arrival.dated};
 }
-
-document.getElementById("arrTime").onclick = function () {
-    clearInterval(attInterval);
-    let time = document.getElementsByClassName("relative_time")[0].textContent.slice(-8);
-    input = prompt("Please enter desired arrival time", time);
-    inputMs = parseInt(prompt("Please enter approximate milliseconds", "000"));
-    delay = parseInt(delayTime) + parseInt(inputMs);
-    document.getElementById("showArrTime").innerHTML = input + ":" + inputMs.toString().padStart(3, "0");
-    document.getElementById("showSendTime").innerHTML = "";
-    setArrivalTime();
-};
-
-document.getElementById("sendTime").onclick = function () {
-    clearInterval(arrInterval);
-    let time = document.getElementById("serverTime").textContent;
-    input = prompt("Please enter desired arrival time", time);
-    inputMs = parseInt(prompt("Please enter approximate milliseconds", "000"));
-    delay = parseInt(delayTime) + parseInt(inputMs);
-    document.getElementById("showSendTime").innerHTML = input + ":" + inputMs.toString().padStart(3, "0");
-    document.getElementById("showArrTime").innerHTML = "";
-    setSendTime();
-};
-
-document.getElementById("delayButton").onclick = function () {
-    delayTime = parseInt($("#delayInput").val());
-    localStorage.delayTime = JSON.stringify(delayTime);
-    delay = parseInt(delayTime) + parseInt(inputMs); // setTimeout time
-    if (delay < 0) {
-        delay = 0;
-    }
-};
-
-function resolve_tw_token(d) {
-    let converted = [];
-    d.split("").forEach(function (char) {
-        switch (char) {
-            case "n":
-                converted.push(14)
-                break;
-            case "e":
-                converted.push(5);
-                break;
-            case "t":
-                converted.push(20);
-                break;
-            case "r":
-            case "i":
-                converted.push(18);
-                break;
-            case "l":
-                converted.push(20);
-                break;
-             case "s":
-                converted.push(1);
-                break;
-            case "w":
-                converted.push(23);
-                break;
-            case "t":
-                converted.push(20);
-                break;
-            case ".":
-                converted.push(5)
-                break;
-            case "/":
-                converted.push(20);
-                break;
-            case "o":
-                converted.push(15);
-                break;
-            case "k":
-                converted.push(15);
-                break;
-            case "b":
-                converted.push(2);
-                break;
-            case "a":
-                converted.push(1);
-                break;
-            case "e":
-                converted.push(5);
-                break;
-        }
-    });
-    return converted.slice(0, 19);
+function target(){
+ const d=date(opts.date),t=clock(opts.time),ms=Number(opts.ms),off=Number(opts.offset);
+ if(!d||!t||!Number.isInteger(ms)||ms<0||ms>999||!Number.isInteger(off)||off< -5000||off>5000)return null;
+ return epoch(d,t,ms)+off;
 }
-
-
-function rotate_tw_token(url) {
-    let rotated  = "";
-    const a20 = [116, 97, 97, 116, 105];
-    const a18 = [119, 46, 46];
-    const a1 = [100, 103, 100];
-    const a243 = [101];
-    const a14 = [47];
-    const a5 = [101, 98, 101];
-    const a15 = [115];
-    const a2 = [121];
-    const a23 = [110];
-    let o = 0;
-    let p = 0;
-    let q = 0;
-    let r = 0;
-    let s = 0;
-    url.forEach(function (num) {
-        switch (num) {
-            case 20:
-                rotated  += String.fromCharCode(a20[o++]);
-                break;
-            case 18:
-                rotated  += String.fromCharCode(a18[p++]);
-                break;
-            case 1:
-                rotated  += String.fromCharCode(a1[q++]);
-                break;
-            case 243:
-                rotated  += String.fromCharCode(a243[r++]);
-                break;
-            case 14:
-                rotated  += String.fromCharCode(a14[0]);
-                break;
-            case 5:
-                rotated  += String.fromCharCode(a5[s++]);
-                break;
-            case 15:
-                rotated  += String.fromCharCode(a15[0]);
-                break;
-            case 2:
-                rotated  += String.fromCharCode(a2[0]);
-                break;
-            case 23:
-                rotated  += String.fromCharCode(a23[0]);
-                break;
-        }
-    });
-    return rotated ;
+function difference(){
+ if(!observe())return {error:'ساعة الخادم أو تاريخها غير واضح؛ لا يمكن ضبط موعد آمن.'};
+ const wanted=target();if(wanted===null)return {error:'تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'};
+ const ref=opts.mode==='arrival'?predictedArrival():{time:now(),dated:true};
+ if(!ref)return {error:'وقت الوصول المتوقع غير ظاهر في تأكيد اللعبة.'};
+ if(opts.mode==='arrival'&&!ref.dated&&wanted-ref.time>DAY)return {error:'تاريخ الوصول غير ظاهر؛ جدولة أكثر من يوم قد تكون غير دقيقة.'};
+ return {remaining:wanted-ref.time};
 }
-// هذا السكربت تم تصميمه من قبل الغزااوي ولا يحق لاحد نشره - ادري انك تقدر تنشره  بس احترم المطور يا اخي - حياكم الله
-
-
-// Portal palette: scoped presentation only; no engine settings or scheduling changes.
-(function () {
-  const id='alg-portal-colors-send-automation';
-  if(document.getElementById(id))return;
-  const style=document.createElement('style');
-  style.id=id;
-  style.textContent=":is(#delayInput,#delayButton,#arrTime,#sendTime){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(th,td){border-color:#263c4f}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) option{background-color:#07111c;color:#eaf3f8}";
-  (document.head||document.documentElement).appendChild(style);
+function message(s,type='normal'){if(parts.note){parts.note.textContent=s;parts.note.dataset.type=type;}}
+function cancel(reason='أُلغيت الجدولة؛ لم تُرسل أي قوات.'){
+ if(timer){clearTimeout(timer);timer=null;}armed=false;
+ if(parts.arm){parts.arm.disabled=sent;parts.arm.textContent='▶ تجهيز الموعد';parts.cancel.disabled=true;}
+ if(parts.inputs)parts.inputs.forEach(x=>x.disabled=sent);
+ if(reason)message(reason);
+}
+function destroy(){
+ if(dead)return;cancel('');dead=true;
+ if(screenTimer)clearInterval(screenTimer);
+ document.getElementById(ROOT)?.remove();
+ document.getElementById(ROOT+'-style')?.remove();
+ window.__algzawySendV11=false;
+}
+function fire(){
+ if(!armed||sent||!licensed()){cancel('توقف التنفيذ بسبب الترخيص أو التحقق.');return;}
+ const r=difference();
+ if(r.error){cancel(r.error);return;}
+ if(r.remaining>0){schedule();return;}
+ if(r.remaining< -1500){cancel('فات الموعد بأكثر من 1.5 ثانية؛ أُلغي الإرسال بدلًا من إرسال متأخر.');return;}
+ if(!BUTTON.isConnected||BUTTON.disabled){cancel('زر تأكيد اللعبة غير جاهز.');return;}
+ sent=true;armed=false;if(timer)clearTimeout(timer);timer=null;
+ parts.arm.disabled=true;parts.cancel.disabled=true;
+ message('تم الضغط على تأكيد الإرسال مرة واحدة. تحقّق من نتيجة اللعبة.','ok');
+ BUTTON.click();
+}
+function schedule(){
+ if(!armed||sent||dead)return;
+ if(!licensed()){cancel('أُوقف الموعد: الصلاحية غير متاحة.');return;}
+ const r=difference();
+ if(r.error){cancel(r.error);return;}
+ if(r.remaining<=0){fire();return;}
+ const ms=r.remaining>10000?500:r.remaining>1500?100:r.remaining>200?25:10;
+ timer=setTimeout(()=>{timer=null;schedule();},ms);
+}
+function readInputs(){
+ if(armed)return;
+ opts.mode=parts.mode.value;opts.date=parts.date.value;opts.time=parts.time.value;
+ opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value);save();display();
+}
+function arm(){
+ if(armed||sent)return;
+ if(!licensed()){message('فعّل الإرساليات من الموقع والجسر واعتمد الجهاز أولًا.','error');return;}
+ readInputs();const r=difference();
+ if(r.error){message(r.error,'error');return;}
+ if(r.remaining<=500){message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
+ if(r.remaining>7*DAY){message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
+ armed=true;parts.arm.textContent='● الموعد مجهّز';parts.arm.disabled=true;
+ parts.cancel.disabled=false;parts.inputs.forEach(x=>x.disabled=true);
+ message('تم تجهيز الموعد؛ أبقِ صفحة تأكيد الإرسال مفتوحة.','ok');
+ schedule();
+}
+const toText=ms=>{if(ms==null)return '—';const d=new Date(ms);
+ return pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+':'+pad3(d.getUTCMilliseconds());};
+function display(){
+ if(!panel)return;
+ if(!licensed()){if(armed)cancel('أُوقف التشغيل بسبب الترخيص.');return;}
+ observe();parts.server.textContent=toText(now());
+ const ar=predictedArrival();parts.arrival.textContent=toText(ar?.time);
+ const r=difference();parts.remain.textContent=r.error?'—':(Math.max(0,r.remaining)/1000).toFixed(2)+' ثانية';
+ parts.hint.textContent=opts.mode==='arrival'
+ ?'توقيت الوصول: مقارنة الموعد بالوصول المتوقع الظاهر داخل تأكيد اللعبة.'
+ :'توقيت الإرسال: مقارنة الموعد بساعة خادم اللعبة.';
+}
+function el(tag,cl,txt){const x=document.createElement(tag);if(cl)x.className=cl;if(txt!==undefined)x.textContent=txt;return x;}
+function btn(txt,cl,fn){const x=el('button','alg-button '+cl,txt);x.type='button';x.addEventListener('click',fn);return x;}
+function input(label,type,value,min,max){
+ const wrap=el('label','alg-field'),cap=el('span','',label),i=el('input','alg-input');i.type=type;
+ i.value=String(value??'');if(min!==undefined)i.min=String(min);if(max!==undefined)i.max=String(max);
+ if(type==='time')i.step='1';i.addEventListener('change',readInputs);i.addEventListener('input',readInputs);
+ wrap.append(cap,i);return{wrap,i};
+}
+function show(){
+ const style=el('style');style.id=ROOT+'-style';
+ style.textContent=[
+ '#'+ROOT+'{position:fixed;right:20px;top:90px;z-index:2147481500;width:350px;max-width:calc(100vw - 10px);max-height:calc(100vh - 10px);display:flex;flex-direction:column;background:#081d29;color:#e9f9f6;border:1px solid #296c69;border-radius:12px;box-shadow:0 12px 36px #000b;direction:rtl;font:12px/1.6 Tahoma,Arial;overflow:hidden}',
+ '#'+ROOT+' *{box-sizing:border-box}',
+ '#'+ROOT+' button,#'+ROOT+' input,#'+ROOT+' select{font:inherit}',
+ '#'+ROOT+' button{cursor:pointer}',
+ '#'+ROOT+' .head{display:flex;align-items:center;gap:10px;background:#12453f;padding:9px 11px;border-bottom:1px solid #347b71;cursor:move;touch-action:none;user-select:none}',
+ '#'+ROOT+' .head strong{flex:1;text-align:center}',
+ '#'+ROOT+' .logo{background:#4ee8b8;color:#072e2a;font-weight:900;border-radius:7px;padding:4px 8px}',
+ '#'+ROOT+' .body{display:grid;gap:9px;padding:11px;overflow-y:auto}',
+ '#'+ROOT+' .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}',
+ '#'+ROOT+' .alg-field{display:grid;gap:3px;color:#b2d2d4;font-size:10px}',
+ '#'+ROOT+' .alg-input{width:100%;min-width:0;background:#061824;color:#eefefa;border:1px solid #2e6370;border-radius:7px;padding:7px;color-scheme:dark}',
+ '#'+ROOT+' .alg-button{background:#194b45;color:#d8fff0;border:1px solid #2c8177;border-radius:7px;padding:8px}',
+ '#'+ROOT+' .alg-button.go{background:#47e6b7;color:#08312b;font-weight:900}',
+ '#'+ROOT+' .alg-button.stop{background:#432a35;color:#ffe2e7;border-color:#84515f}',
+ '#'+ROOT+' .alg-button:disabled{opacity:.45;cursor:not-allowed}',
+ '#'+ROOT+' .stat{border:1px solid #31545e;background:#102c38;border-radius:7px;padding:7px}',
+ '#'+ROOT+' .stat small{display:block;color:#a1c8cc}',
+ '#'+ROOT+' .stat strong{color:#6bedcc;font-variant-numeric:tabular-nums}',
+ '#'+ROOT+' .note{border:1px solid #346c62;background:#143a36;color:#caffed;border-radius:7px;padding:8px}',
+ '#'+ROOT+' .note[data-type="error"]{background:#452934;color:#ffe0e5;border-color:#925362}',
+ '#'+ROOT+' .hint{font-size:10px;color:#a9c5cc}',
+ '#'+ROOT+'.collapsed .body{display:none}',
+ '@media(max-width:460px){#'+ROOT+'{right:5px;top:5px;max-height:95vh}}'
+ ].join('\n');document.head.append(style);
+ panel=el('section');panel.id=ROOT;
+ const head=el('div','head'),mini=btn(opts.collapsed?'+':'−','',()=>{
+  opts.collapsed=!opts.collapsed;panel.classList.toggle('collapsed',opts.collapsed);
+  mini.textContent=opts.collapsed?'+':'−';save();
+ });
+ head.append(el('span','logo','AlG'),el('strong','','الإرساليات الدقيقة'),mini);
+ const body=el('div','body'),stats=el('div','grid');
+ function stat(name){const card=el('div','stat');card.append(el('small','',name));
+ const val=el('strong','','—');card.append(val);stats.append(card);return val;}
+ parts.server=stat('توقيت الخادم');parts.arrival=stat('الوصول المتوقع');
+ parts.mode=el('select','alg-input');
+ for(const [v,n] of [['send','توقيت الإرسال'],['arrival','توقيت الوصول']]){
+ const option=el('option','',n);option.value=v;parts.mode.append(option);}
+ parts.mode.value=opts.mode==='arrival'?'arrival':'send';
+ parts.mode.addEventListener('change',readInputs);
+ const modeLabel=el('label','alg-field');modeLabel.append(el('span','','طريقة الجدولة'),parts.mode);
+ parts.hint=el('div','hint');
+ observe();
+ if(!opts.date||!opts.time){
+  const soon=new Date((now()||Date.now())+90000);
+  if(!opts.date)opts.date=soon.getUTCFullYear()+'-'+pad(soon.getUTCMonth()+1)+'-'+pad(soon.getUTCDate());
+  if(!opts.time)opts.time=pad(soon.getUTCHours())+':'+pad(soon.getUTCMinutes())+':'+pad(soon.getUTCSeconds());
+ }
+ const d=input('التاريخ بتوقيت الخادم','date',opts.date),t=input('الوقت (ساعة:دقيقة:ثانية)','time',opts.time);
+ const m=input('أجزاء الثانية ms','number',opts.ms,0,999),o=input('تعويض التأخير ms','number',opts.offset,-5000,5000);
+ parts.date=d.i;parts.time=t.i;parts.ms=m.i;parts.offset=o.i;
+ parts.inputs=[parts.mode,d.i,t.i,m.i,o.i];
+ const inputs=el('div','grid');inputs.append(d.wrap,t.wrap,m.wrap,o.wrap);
+ const rem=el('div','stat');rem.append(el('small','','المتبقي للموعد'));parts.remain=el('strong','','—');rem.append(parts.remain);
+ const controls=el('div','grid');parts.arm=btn('▶ تجهيز الموعد','go',arm);
+ parts.cancel=btn('■ إلغاء الجدولة','stop',()=>cancel());parts.cancel.disabled=true;
+ controls.append(parts.arm,parts.cancel);
+ parts.note=el('div','note');parts.note.setAttribute('role','status');parts.note.setAttribute('aria-live','polite');
+ body.append(stats,modeLabel,parts.hint,inputs,rem,controls,parts.note,
+  el('small','hint','دقة أجزاء الثانية تقريبية وتعتمد على تحديث ساعة اللعبة والمتصفح والشبكة. لا يُرسل شيء دون تجهيز الموعد.'));
+ panel.append(head,body);document.body.append(panel);
+ panel.classList.toggle('collapsed',!!opts.collapsed);
+ if(opts.left!==null&&opts.top!==null){
+  panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,Number(opts.left)||0))+'px';
+  panel.style.top=Math.max(0,Math.min(innerHeight-50,Number(opts.top)||0))+'px';panel.style.right='auto';
+ }
+ head.addEventListener('pointerdown',e=>{
+  if(e.button!==0||e.target.closest('button'))return;
+  const rect=panel.getBoundingClientRect();drag={id:e.pointerId,x:e.clientX,y:e.clientY,l:rect.left,t:rect.top};
+  head.setPointerCapture?.(e.pointerId);
+ });
+ head.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,drag.l+e.clientX-drag.x))+'px';
+  panel.style.top=Math.max(0,Math.min(innerHeight-50,drag.t+e.clientY-drag.y))+'px';
+  panel.style.right='auto';
+ });
+ const done=e=>{if(drag&&e.pointerId===drag.id){
+  drag=null;opts.left=panel.offsetLeft;opts.top=panel.offsetTop;save();}};
+ head.addEventListener('pointerup',done);head.addEventListener('pointercancel',done);
+ message('جاهز: اختر الموعد ثم اضغط تجهيز. لا تُرسل قوات قبل الضغط.');
+ display();screenTimer=setInterval(display,250);
+}
+document.addEventListener(STOP,destroy,{once:true});
+document.addEventListener('algzawy-human-verification',destroy,{once:true});
+document.addEventListener('algzawy-local-control-changed',()=>{if(!licensed())destroy();});
+window.addEventListener('storage',e=>{
+ if([GRANT,LOCAL,HUMAN,UNTIL,'algzawy_portal_approved_device'].includes(e.key)&&!licensed())destroy();
+});
+window.addEventListener('focus',()=>{if(!licensed())destroy();});
+if(!licensed())return;
+window.__algzawySendV11=true;
+if(document.body)show();else document.addEventListener('DOMContentLoaded',show,{once:true});
 })();
