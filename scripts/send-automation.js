@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.2.0
+// @version      1.2.1
 // @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -91,6 +91,9 @@ function predictedArrival(){
  if(!t)return null;
  let value=d?epoch(d,t):Math.floor(now()/DAY)*DAY+(t[0]*3600+t[1]*60+t[2])*1000;
  if(!d&&value<now()-2000)value+=DAY;
+ // The arrival display shows whole seconds. Its fractional phase follows
+ // the game's precise server clock, not the 100ms screen-refresh moment.
+ value+=((now()%1000)+1000)%1000;
  const key=(d?d.join('-'):'date-missing')+' '+t.join(':');
  if(!arrival||arrival.key!==key||Math.abs(value-arrival.stamp)>DAY)
   arrival={key,stamp:value,at:performance.now(),dated:!!d};

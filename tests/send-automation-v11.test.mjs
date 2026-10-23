@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.2.0 metadata and code compile',()=>{
+test('Arabic floating send scheduler v1.2.1 metadata and code compile',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.2\.0/);
- assert.match(loader,/@version\s+1\.2\.0/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.2.0');
+ assert.match(core,/@version\s+1\.2\.1/);
+ assert.match(loader,/@version\s+1\.2\.1/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.2.1');
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
@@ -76,4 +76,9 @@ test('simulates date rollover from serverDate and valid high resolution Timing s
  assert.equal(app.now(),real);
  opts.dateAuto=false;opts.date='2026-10-28';app.syncServerDate();
  assert.equal(opts.date,'2026-10-28');
+});
+
+test('arrival prediction adopts server milliseconds instead of truncating to 000 at each DOM tick',()=>{
+ assert.ok(core.includes("value+=((now()%1000)+1000)%1000"));
+ assert.ok(core.includes("const key=(d?d.join('-'):'date-missing')+' '+t.join(':')"));
 });
