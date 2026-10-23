@@ -405,7 +405,7 @@ function show(){
  parts.last=el('div','hint');
  try{renderLastClick(JSON.parse(localStorage.getItem(LAST)||'null'));}catch(_){}
  body.append(stats,modeLabel,parts.hint,inputs,parts.source,smartBox,rem,controls,parts.note,parts.last,
-  el('small','hint','قياسات التأخير محلية ولا تُرسل للخارج. زمن الطلبات ليس زمن قبول السيرفر؛ المعايرة تعتمد النتائج التي تدخلها. لا يمكن ضمان الدقة.'));
+  el('small','hint','قياسات التأخير محلية ولا تُرسل للخارج. انحراف الضغط داخل المتصفح ليس وقت قبول السيرفر؛ التعويض الموجب يؤخر الضغط والسالب يقدّمه. المعايرة تعتمد النتائج التي تدخلها ولا تضمن الدقة.'));
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
  if(opts.left!==null&&opts.top!==null){
