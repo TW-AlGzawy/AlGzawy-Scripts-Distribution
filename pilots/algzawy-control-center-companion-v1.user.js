@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | AlG Control Center [QA] (Bridge Companion)
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.0-qa3
+// @version      1.0.0-qa4
 // @description  Floating control center for the separately installed, already approved Cloud Bridge; never migrates or requests private keys.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-end
@@ -69,7 +69,7 @@
  ].join('\n');
  const make=(tag,cls,content)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(content!==undefined)e.textContent=content;return e;};
  const positionKey='algzawy_launcher_geometry_v1';
- let panel,body,list,stats=[],statusText,diagnostic,syncButton,mini,collapsed=false,nativeObserver=null;
+ let panel,body,list,stats=[],statusText,diagnostic,syncButton,linkButton,mini,collapsed=false,nativeObserver=null;
  let syncState={phase:'idle',message:'لا توجد نتيجة مزامنة مؤكدة لهذه الصفحة بعد.',at:0};
  try{collapsed=JSON.parse(localStorage.getItem(positionKey)||'{}').collapsed===true;}catch(_){}
  function authorized(){
@@ -99,6 +99,23 @@
      if(button&&(button.dataset.algScriptId===id||label===oldBridgeLabels[id]))return button;
    }
    return null;
+ }
+ function bridgePairingState(){
+   const bridge=document.getElementById('algzawy-cloud-pair-panel');
+   if(!bridge)return 'missing';
+   const connected=document.getElementById('algzawy-cloud-linked');
+   const pairing=document.getElementById('algzawy-cloud-pair');
+   const original=document.getElementById('algzawy-cloud-connect');
+   if(!connected||!pairing||!original)return 'not-ready';
+   // This is the original Bridge's GM-backed local link state.
+   // A linked state is NOT proof of current signed server authorization.
+   return connected.style.display==='none'?'unlinked':'linked';
+ }
+ function bridgePairingMessage(state){
+   if(state==='missing')return 'Cloud Bridge الأصلي غير مفعّل على هذه الصفحة. فعّله من Tampermonkey ولا تحذفه، ثم حدّث اللعبة. لا تحتاج إلى تسجيل جهاز آخر.';
+   if(state==='not-ready')return 'Cloud Bridge قيد التهيئة. حدّث صفحة القرية وتأكد أنه يعمل مرة واحدة فقط.';
+   if(state==='unlinked')return 'لم يجد الجسر الأصلي ارتباطًا محفوظًا في هذا المتصفح. الربط يحتاج موافقة من صفحة العميل، وليس فتح لوحة القيادة فقط.';
+   return 'الجسر الأصلي يحتفظ بارتباط هذا الجهاز. اضغط «مزامنة الآن» للتحقق من صلاحية الاشتراك من الخادم.';
  }
  function attachNativeFeedback(){
    if(nativeObserver)return;
@@ -142,9 +159,17 @@
      syncButton.disabled=syncState.phase==='loading';
      syncButton.textContent=syncState.phase==='loading'?'↻ جارٍ المزامنة...':'↻ مزامنة الآن';
    }
-   const bridgePresent=!!document.getElementById('algzawy-cloud-pair-panel');
-   if(!bridgePresent)
-     diagnostic.textContent='لم تتهيأ نافذة Cloud Bridge بعد؛ أعد تحميل صفحة اللعبة.';
+   const pairingState=bridgePairingState();
+   if(linkButton){
+     linkButton.disabled=pairingState==='missing'||pairingState==='not-ready';
+     linkButton.textContent=pairingState==='linked'?'✓ ربط محفوظ':
+       pairingState==='unlinked'?'⌁ ربط الجهاز':'الجسر غير جاهز';
+     linkButton.title=bridgePairingMessage(pairingState);
+   }
+   if(pairingState==='missing'||pairingState==='not-ready')
+     diagnostic.textContent=bridgePairingMessage(pairingState);
+   else if(pairingState==='unlinked')
+     diagnostic.textContent=bridgePairingMessage(pairingState);
    else if(!ready())
      diagnostic.textContent=typeof BroadcastChannel==='function'
        ?'لم يكتمل التحقق من هوية هذا التبويب؛ أزرار التشغيل محمية حتى اكتماله.'
@@ -195,7 +220,7 @@
    diagnostic=make('div','diagnostic');
    list=make('div','list');
    const actions=make('div','buttons'),sync=make('button','btn','↻ مزامنة الآن'),link=make('button','btn on','⌁ ربط الجهاز');
-   syncButton=sync;
+   syncButton=sync;linkButton=link;
    sync.type=link.type='button';
    sync.addEventListener('click',()=>{
      const bridgeSync=document.getElementById('algzawy-cloud-sync');
@@ -215,8 +240,21 @@
      render();
    });
    link.addEventListener('click',()=>{
-     const native=document.getElementById('algzawy-cloud-connect');
-     if(native)native.click();else window.open(URL,'_blank','noopener,noreferrer');
+     const state=bridgePairingState();
+     if(state==='unlinked'){
+       const native=document.getElementById('algzawy-cloud-connect');
+       if(native){
+         // The only supported enrollment path is the existing original Bridge:
+         // it generates the signed challenge and opens /v2/?alg_auto=... itself.
+         native.click();
+         syncState={phase:'busy',message:'طلب الربط أُرسل إلى Cloud Bridge. تحقق من نافذة الموافقة التي فتحها الجسر.',at:Date.now()};
+       }
+     }else if(state==='linked'){
+       syncState={phase:'busy',message:'الجسر الأصلي مرتبط محليًا. لا تعِد الربط؛ اضغط «مزامنة الآن» للتحقق من صلاحية الجهاز.',at:Date.now()};
+     }else{
+       syncState={phase:'error',message:bridgePairingMessage(state),at:Date.now()};
+     }
+     render();
    });
    actions.append(sync,link);
    const foot=make('div','foot','التشغيل هنا اختيار خاص بهذا التبويب ولا يتجاوز الترخيص. لتشغيل المحركات، احتفظ بالـ Loaders المرخصة. ');
