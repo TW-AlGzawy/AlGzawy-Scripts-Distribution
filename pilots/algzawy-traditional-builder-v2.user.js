@@ -312,34 +312,26 @@
       if(typeof n==='string'&&/^\d{1,2}$/.test(n.trim()))return Number(n);
       return null;
     };
-    // Some game worlds expose levels in structured page data even if the
-    // Headquarters row omits a level label. Use only explicit level fields.
-    const sources=[
-      window.BuildingMain?.buildings?.[id],
-      gd.village?.buildings?.[id],
-      gd.village?.building_levels?.[id]
-    ];
-    for(const source of sources){
+    // DOM values are refreshed: game_data is an initial-page snapshot only.
+    const row=document.getElementById('main_buildrow_'+id);
+    if(row){
+      const structured=row.getAttribute('data-level')
+        ||row.querySelector('[data-level]')?.getAttribute('data-level');
+      const fromData=val(structured);
+      if(fromData!==null)return fromData;
+      for(const selector of ['.mw','.level','.build_level','.building_level','.buildinglevel']){
+        const el=row.querySelector(selector);
+        if(!el)continue;
+        const match=String(el.textContent||'').match(/(?:المستوى|مستوى|level|lvl|stufe)?\s*(\d{1,2})\s*$/i);
+        if(match&&Number(match[1])<=50)return Number(match[1]);
+      }
+    }
+    for(const source of [window.BuildingMain?.buildings?.[id],
+      gd.village?.buildings?.[id],gd.village?.building_levels?.[id]]){
       const n=val(source);
       if(n!==null)return n;
     }
-    const row=document.getElementById('main_buildrow_'+id);
-    if(!row)return null;
-    const structured=row.getAttribute('data-level')
-      ||row.querySelector('[data-level]')?.getAttribute('data-level');
-    const fromData=val(structured);
-    if(fromData!==null)return fromData;
-    const selectors=['.mw','.level','.build_level','.building_level','.buildinglevel'];
-    for(const selector of selectors){
-      const el=row.querySelector(selector);
-      if(!el)continue;
-      const raw=String(el.textContent||'');
-      const match=raw.match(/(?:المستوى|مستوى|level|lvl|stufe)?\s*(\d{1,2})\s*$/i);
-      if(match&&Number(match[1])<=50)return Number(match[1]);
-    }
-    // Never infer a building's level from a resource cost or a neighboring
-    // building. An unreadable level stops that template stage safely.
-    return null;
+    return null; // Unknown levels are never invented.
   }
   function nextTemplateStep(){
     for(let i=0;i<templateSteps.length;i++){
@@ -395,6 +387,7 @@
   function renderQueue(){
     const list=elements.queue;
     if(!list)return;
+    const scrollTop=list.parentElement?.scrollTop||0;
     list.replaceChildren();
     const tasksMode=templateMode==='tasks';
     if(tasksMode)reconcileTasksSnapshot();
@@ -432,7 +425,9 @@
     elements.start.disabled=stoppedByPolicy;
     if(elements.taskLabel)elements.taskLabel.textContent=tasksMode?'مهام القالب — بنفس التتابع ('+total+')':'قائمة المهام اليدوية — بالترتيب';
     if(elements.clearTasks)elements.clearTasks.textContent=tasksMode?'حذف مهام القالب':'مسح الكل';
+    if(elements.resume)elements.resume.hidden=!pendingAck;
     if(elements.templateQueue)renderTemplate();
+    if(list.parentElement)list.parentElement.scrollTop=scrollTop;
   }
   function reconcileTasksSnapshot(){
     // UI is read-only; persistence is performed by reconcileTasks during a
@@ -459,6 +454,7 @@
     elements.start.className='alg-btn '+(isRunning?'danger':'primary');
     elements.start.setAttribute('aria-pressed',String(isRunning));
     if(elements.instant){elements.instant.setAttribute('aria-pressed',String(instantEnabled));elements.instant.textContent=instantEnabled?'✓ الإنهاء الفوري مفعّل':'○ الإنهاء الفوري متوقف';}
+    if(elements.resume)elements.resume.hidden=!pendingAck;
     if(stoppedByPolicy)status('تم إيقاف المحرك بسبب الترخيص أو التحقق.','error');
     else if(isRunning&&!policyOK())status('موقوف مؤقتًا: تحقق من الترخيص أو فحص الحماية.','warn');
     else if(templateMode==='tasks'&&templateTasks.length){
@@ -575,6 +571,9 @@
     actions.append(elements.start,button('↻ تحديث قائمة اللعبة','alg-btn',()=>{
       void refreshVisibleGameQueue().then(ok=>status(ok?'تم تحديث قائمة بناء اللعبة.':'تعذر تحديث قائمة اللعبة حاليًا.',ok?'normal':'warn'));
     }));
+    elements.resume=button('↻ تحقق واستأنف','alg-btn',()=>recoverAfterInspection(),
+      'يفحص قائمة بناء اللعبة قبل استئناف أي أمر غير مؤكد');
+    elements.resume.style.width='100%';
     const templateCard=node('div','alg-card');
     templateCard.append(node('label','alg-label','📋 قالب مدير الحساب (Account Manager)'));
     elements.templateCode=node('textarea','alg-template-code');
@@ -691,7 +690,7 @@
     const queueScroll=node('div','alg-queue-scroll');queueScroll.append(elements.queue);
     queueCard.append(queueHeader,queueScroll);
     elements.note=node('div','alg-note');
-    body.append(stats,actions,instantCard,templateCard,addCard,settings,queueCard,elements.note,
+    body.append(stats,actions,elements.resume,instantCard,templateCard,addCard,settings,queueCard,elements.note,
       node('div','alg-footer','AlGzawy Scripts · نسخة تجريبية — لا تشغّل بناءين آليين للقرية نفسها'));
     const grip=node('div','alg-resize-grip','◢');
     grip.setAttribute('role','separator');grip.setAttribute('aria-label','اسحب الزاوية اليسرى لتغيير الحجم');
@@ -1032,6 +1031,8 @@
     if(instantTimer){clearTimeout(instantTimer);instantTimer=null;}instantPending=false;
     document.removeEventListener('click',onCancelClick);
     window.removeEventListener('resize',onViewportResize);
+    window.removeEventListener('online',onConnectionRestored);
+    window.removeEventListener('focus',onConnectionRestored);
     resizeObserver?.disconnect();
     panel?.remove();style.remove();
     window.__AlGTraditionalBuilderV2=false;
@@ -1042,7 +1043,19 @@
   function bootstrap(tries){
     if(!document.body){if(tries<15)setTimeout(()=>bootstrap(tries+1),200);return;}
     setupUI();
-    if(isRunning){if(policyOK())beginLoop();else{isRunning=false;saveStatus();renderStatus();}}
+    if(pendingAck){
+      renderQueue();
+      status('تمت استعادة طلب بناء من قبل التحديث. جاري التحقق من حالة اللعبة قبل المتابعة.','warn');
+    }
+    if(isRunning)beginLoop(); // Keep intent during temporary offline/license outage.
+    window.addEventListener('online',onConnectionRestored);
+    window.addEventListener('focus',onConnectionRestored);
+  }
+  function onConnectionRestored(){
+    if(!isRunning||stoppedByPolicy)return;
+    templateRefreshAt=0;lastRefreshOk=false;
+    if(templateMode==='tasks'||templateMode==='template')
+      void refreshVisibleGameQueue();
   }
   bootstrap(0);
 })();
