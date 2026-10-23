@@ -150,3 +150,9 @@ test('compact default UI preserves required fields and collapsible smart/setting
  assert.ok(!core.includes("body.append(stats,modeLabel,parts.hint,inputs,parts.source,smartBox"));
  assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
 });
+
+test('smart fold button uses a valid event listener instead of non-callable callback',()=>{
+ assert.ok(core.includes("const smartFold=el('button','alg-button',opts.smartOpen?'▴':'▾')"));
+ assert.ok(core.includes("smartFold.onclick=()=>{"));
+ assert.ok(!core.includes("const smartFold=btn(opts.smartOpen?'▴':'▾','','')"));
+});

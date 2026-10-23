@@ -427,7 +427,7 @@ function show(){
  smartLabel.append(parts.smart,el('strong','','Smart Timing'));
  parts.smartSummary=el('small','smart-brief','يدوي');
  const smartBody=el('div','alg-smart-body');
- const smartFold=btn(opts.smartOpen?'▴':'▾','','');
+ const smartFold=el('button','alg-button',opts.smartOpen?'▴':'▾');smartFold.type='button';
  smartFold.setAttribute('aria-label','إظهار أو إخفاء إعدادات المعايرة');
  smartFold.setAttribute('aria-expanded',String(!!opts.smartOpen));
  smartFold.onclick=()=>{
