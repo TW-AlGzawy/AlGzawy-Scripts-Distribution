@@ -8,6 +8,8 @@ const html=read('portal/v2/index.html');
 const css=read('portal/v2/alg-cloud-theme.css');
 const app=read('portal/v2/app.js');
 const pilot=read('pilots/algzawy-smart-launcher-v1.user.js');
+const companion=read('pilots/algzawy-control-center-companion-v1.user.js');
+const originalBridge=read('loaders/algzawy-cloud-bridge.user.js');
 const popup=read('extension/popup.js');
 const popupHTML=read('extension/popup.html');
 const popupCSS=read('extension/popup.css');
@@ -183,4 +185,55 @@ test('Village display reads trusted game context and URL fallback without game c
  assert.equal(village(undefined,base),'1363');
  assert.equal(village(undefined,'https://ae101.tribalwars.ae/game.php?screen=main'),'—');
  assert.equal(village({village:{id:'not-a-number'}},base),'—');
+});
+
+
+test('QA companion is a separate floating interface that preserves original Bridge identity',()=>{
+  new vm.Script(companion,{filename:'pilots/algzawy-control-center-companion-v1.user.js'});
+  assert.match(companion,/\/\/ @version\s+1\.0\.0-qa3/);
+  assert.match(companion,/\/\/ @grant\s+unsafeWindow/);
+  assert.doesNotMatch(companion,/\/\/ @grant\s+GM_(get|set)Value/);
+  assert.doesNotMatch(companion,/GM_getValue|GM_setValue|GM_xmlhttpRequest|algzawy_cloud_portable_private_jwk_v2/);
+  assert.match(companion,/const oldBridgeLabels=\{/);
+  assert.match(companion,/row\.querySelector\('span'\)\?\.textContent/);
+  assert.match(companion,/label===oldBridgeLabels\[id\]/);
+  assert.match(companion,/native\.click\(\)/);
+  assert.match(companion,/const allowedIds=new Set\(ids\.filter/);
+  assert.doesNotMatch(companion,/localStorage\.setItem\('algzawy_portal_grant_/);
+  assert.doesNotMatch(companion,/localStorage\.setItem\('algzawy_portal_approved_device'/);
+  assert.match(originalBridge,/const connection=\{\s*device:String\(GM_getValue\(keys\.device/);
+  assert.match(originalBridge,/const keys=\{device:'algzawy_cloud_device_token'/);
+});
+
+test('Companion uses original Bridge authenticated controls without mutating GM identity',()=>{
+  const a=companion.indexOf('function toggleButton(id){');
+  const b=companion.indexOf(' function attachNativeFeedback(){',a);
+  assert.ok(a>0&&b>a);
+  const functionSource=companion.slice(a,b);
+  const root={
+    children:[
+      {querySelector:(sel)=>sel==='span'?{textContent:'تجريبي - الغزااوي - بوت النهب'}:sel==='button'?{click(){},dataset:{}}:null},
+      {querySelector:(sel)=>sel==='span'?{textContent:'تجريبي - الغزااوي - موازنة الموارد'}:sel==='button'?{click(){},dataset:{}}:null}
+    ]
+  };
+  const run=vm.runInNewContext(
+    "const oldBridgeLabels={'bot-farm-2':'تجريبي - الغزااوي - بوت النهب','alg-balance':'تجريبي - الغزااوي - موازنة الموارد'};\n"+
+    functionSource+"\n({farm:!!toggleButton('bot-farm-2'),balance:!!toggleButton('alg-balance'),no:toggleButton('unknown')})",
+    {document:{getElementById:id=>id==='algzawy-cloud-tab-list'?root:null}}
+  );
+  assert.equal(run.farm,true);
+  assert.equal(run.balance,true);
+  assert.equal(run.no,null);
+  assert.doesNotMatch(functionSource,/\.setItem\(|\.setValue\(/);
+});
+
+test('Companion sync delegates to native Bridge and requires observed completed status',()=>{
+  assert.match(companion,/bridgeSync\.click\(\)/);
+  assert.match(companion,/const native=document\.getElementById\('algzawy-cloud-status'\)/);
+  assert.match(companion,/new MutationObserver\(readNative\)/);
+  assert.match(companion,/text\.startsWith\('متصل — '\)/);
+  assert.match(companion,/if\(!phase\)return; \/\/ "جارٍ\.\.\." is not proof/);
+  assert.match(companion,/لم يرد تأكيد جديد من الجسر/);
+  assert.match(companion,/syncState=\{phase:'loading',message:/);
+  assert.match(companion,/statusText\.setAttribute\('aria-live','polite'\)/);
 });
