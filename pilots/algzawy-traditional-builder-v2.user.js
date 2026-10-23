@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         [AlGzawy QA] البناء التقليدي المتطور — نافذة عائمة
-// @version      2.3.0-qa4
+// @version      2.3.0-qa5
 // @description  QA: floating AlG builder, expanded sequential template tasks, queued/completed tracking and tab-resilient resume
 // @author       الغزااوي | AlG
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
@@ -102,6 +102,8 @@
     ?recoveredAck:null;
   let templateIssued=null,templateRefreshAt=0,templateVersion=0,templateRefreshing=false;
   let lastRefreshOk=false,refreshInFlight=null,noticeOnce=false;
+  // Validated read-only snapshots: never transplant remote game-owned DOM.
+  let observedLevels=new Map(),observedBuildCount=null;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
   const elements={};
@@ -305,6 +307,7 @@
       JSON.stringify({format:2,mode:templateMode,steps:templateSteps}));
   }
   function currentLevel(id){
+    if(lastRefreshOk&&observedLevels.has(id))return observedLevels.get(id);
     const val=v=>{
       const n=typeof v==='object'&&v!==null
         ?(v.level??v.currentLevel??v.current_level):v;
@@ -569,7 +572,8 @@
     elements.start=button(isRunning?'■ إيقاف':'▶ تشغيل','alg-btn primary',toggleStart);
     elements.start.style.flex='1';
     actions.append(elements.start,button('↻ تحديث قائمة اللعبة','alg-btn',()=>{
-      void refreshVisibleGameQueue().then(ok=>status(ok?'تم تحديث قائمة بناء اللعبة.':'تعذر تحديث قائمة اللعبة حاليًا.',ok?'normal':'warn'));
+      // Native game initialization retains table columns and event handlers.
+      location.reload();
     }));
     elements.resume=button('↻ تحقق واستأنف','alg-btn',()=>recoverAfterInspection(),
       'يفحص قائمة بناء اللعبة قبل استئناف أي أمر غير مؤكد');
@@ -715,40 +719,44 @@
   }
   function onViewportResize(){restorePosition();}
 
-  // A game queue refresh is visual only. Never silently change the planned queue.
+  // Poll to verify current levels/queue only. The game owns #buildqueue,
+  // timers, widths and event handlers: never replace that DOM with fetched HTML.
   async function refreshVisibleGameQueue(){
     try{
-      const url=location.href;
-      const response=await fetch(url,{credentials:'same-origin',cache:'no-store'});
-      if(!response.ok)return false;
+      const response=await fetch(location.href,{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw new Error('Game HTTP '+response.status);
       const html=new DOMParser().parseFromString(await response.text(),'text/html');
-      const fresh=html.querySelector('#buildqueue');
-      const old=document.querySelector('#buildqueue');
-      if(old&&fresh)old.replaceWith(document.importNode(fresh,true));
-      else if(old&&!fresh)old.remove();
-      else if(!old&&fresh)document.querySelector('#content_value')?.prepend(document.importNode(fresh,true));
-      // Reflect verified village levels from a fresh page response without
-      // changing queue priority or injecting full-page scripts.
-      if(templateMode==='template'||templateMode==='tasks'){
-        for(const step of templateSteps){
-          const selector='#main_buildrow_'+step.id+' .mw';
-          const newLevel=html.querySelector(selector);
-          const oldLevel=document.querySelector(selector);
-          if(newLevel&&oldLevel)oldLevel.textContent=newLevel.textContent;
-        }
-        renderTemplate();
+      if(!html.getElementById('content_value')&&!html.getElementById('buildqueue'))
+        throw new Error('Unexpected game response');
+      const latest=html.getElementById('buildqueue');
+      const nextCount=latest?Math.max(0,latest.rows.length-2):0;
+      const levels=new Map();
+      for(const [id] of BUILDINGS){
+        const row=html.getElementById('main_buildrow_'+id);
+        if(!row)continue;
+        const structured=row.getAttribute('data-level')
+          ||row.querySelector('[data-level]')?.getAttribute('data-level');
+        const raw=structured!==null&&structured!==undefined
+          ?String(structured):String(row.querySelector('.mw,.level,.build_level,.building_level,.buildinglevel')?.textContent||'');
+        const match=raw.match(/(?:المستوى|مستوى|level|lvl|stufe)?\s*(\d{1,2})\s*$/i);
+        if(match&&Number(match[1])<=50)levels.set(id,Number(match[1]));
       }
+      // Atomic snapshot; game-owned HTML remains untouched.
+      observedBuildCount=nextCount;
+      observedLevels=levels;
       lastRefreshOk=true;
       if(templateMode==='tasks')reconcileTasks();
+      if(templateMode==='template'||templateMode==='tasks')renderTemplate();
       reconcileAcknowledgement();
       return true;
     }catch(error){
-      lastRefreshOk=false;
-      console.warn('[AlG Traditional Builder] queue refresh failed',error);
+      lastRefreshOk=false;observedBuildCount=null;observedLevels.clear();
+      console.warn('[AlG Traditional Builder] read-only queue inspection failed',error);
       return false;
     }
   }
   function currentBuildCount(){
+    if(lastRefreshOk&&observedBuildCount!==null)return observedBuildCount;
     const queue=document.getElementById('buildqueue');
     return queue?Math.max(0,queue.rows.length-2):0;
   }
@@ -790,7 +798,7 @@
         status('تم الضغط على زر الإنهاء المجاني المتاح — انتظار تحديث اللعبة.','normal');
         instantTimer=setTimeout(()=>{
           instantTimer=null;instantPending=false;
-          if(isRunning&&policyOK())void refreshVisibleGameQueue();
+          if(isRunning&&policyOK())location.reload();
         },2200);
       }catch(error){
         instantPending=false;
@@ -805,7 +813,12 @@
   function reconcileAcknowledgement(){
     if(!pendingAck)return false;
     const ack=pendingAck,level=currentLevel(ack.id);
-    if(ack.mode!=='manual'&&level!==null&&level>=ack.target){
+    if(level!==null&&level>=ack.target){
+      // The game may have accepted a manual POST before losing its response.
+      // Remove exactly its matching task rather than repeating construction.
+      if(ack.mode==='manual'&&buildingQueue[0]===ack.id){
+        buildingQueue.shift();saveQueue();
+      }
       if(ack.mode==='tasks'&&templateTasks[ack.index]){
         templateTasks[ack.index].state='completed';saveTasks();
       }
@@ -870,9 +883,13 @@
   }
   function activePlan(){
     if(pendingAck)return null;
-    if(templateMode==='manual')return buildingQueue.length
-      ?{id:buildingQueue[0],mode:'manual',version:templateVersion,index:0,
-        level:currentLevel(buildingQueue[0]),target:currentLevel(buildingQueue[0])===null?1:currentLevel(buildingQueue[0])+1}:null;
+    if(templateMode==='manual'){
+      if(!buildingQueue.length)return null;
+      const level=currentLevel(buildingQueue[0]);
+      if(level===null)return null;
+      return {id:buildingQueue[0],mode:'manual',version:templateVersion,index:0,
+        level,target:level+1};
+    }
     if(templateRefreshing||!lastRefreshOk||currentBuildCount()>0)return null;
     if(templateMode==='tasks'){
       const idx=pendingTask();
@@ -890,7 +907,7 @@
     if(!isRunning||!policyOK()||pendingAck||plan.mode!==templateMode
        ||templateVersion!==plan.version)return false;
     if(plan.mode==='manual')
-      return buildingQueue[0]===plan.id&&currentBuildCount()<queueLength;
+      return plan.level!==null&&buildingQueue[0]===plan.id&&currentBuildCount()<queueLength;
     if(templateRefreshing||!lastRefreshOk||currentBuildCount()>0)return false;
     if(plan.mode==='tasks'){
       const idx=pendingTask();
@@ -990,7 +1007,8 @@
         renderQueue();
       }
       status('✓ تمت إضافة '+(LABELS[plan.id]||plan.id)+' إلى قائمة البناء — جارٍ تتبع المستوى.','normal');
-      void refreshVisibleGameQueue();
+      // Persisted first; reload through the game's own page lifecycle.
+      location.reload();
     }).fail(()=>{
       // A network failure after POST does NOT prove the server rejected it.
       // Keep the checkpoint and stop, preventing a duplicate after reload.
@@ -1022,7 +1040,7 @@
     const element=target&&target.closest?.('#buildqueue a[href*="cancel"], #buildqueue button.btn-cancel, #buildqueue .btn-cancel, #buildqueue a[href*="action=cancel"]');
     if(!element)return;
     if(refreshTimer)clearTimeout(refreshTimer);
-    refreshTimer=setTimeout(()=>{refreshTimer=null;void refreshVisibleGameQueue();},1600);
+    refreshTimer=setTimeout(()=>{refreshTimer=null;location.reload();},1600);
   }
   function onRevoked(){
     // A loader revocation must halt scheduled work even if this panel is open.
