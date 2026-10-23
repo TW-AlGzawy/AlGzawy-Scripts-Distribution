@@ -287,6 +287,8 @@
             }
             #pro_builder_panel #panel_header {
                 flex-shrink: 0;
+                touch-action: none;
+                user-select: none;
             }
             #pro_builder_panel #panel_content {
                 flex: 1 1 auto;
@@ -335,11 +337,11 @@
         ) + 'px';
 
         const panelHtml = `
-            <div id="pro_builder_panel" style="position: fixed; top: ${safeTop}; left: ${safeLeft}; right: ${safeRight}; width: ${panelWidth}; height: ${isMinimized ? '40px' : expandedHeight}; resize: ${isMinimized ? 'none' : 'both'}; z-index: 10000; background: #102031; border: 2px solid #95acbc; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
+            <div id="pro_builder_panel" style="position: fixed; top: ${safeTop}; left: ${safeLeft}; right: ${safeRight}; width: ${panelWidth}; height: ${isMinimized ? '40px' : expandedHeight}; resize: ${isMinimized ? 'none' : 'both'}; z-index: 2147482200; background: #102031; border: 2px solid #95acbc; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
                 <div id="panel_header" style="display: flex; justify-content: space-between; align-items: center; background: #123e3d; color: #eaf3f8; padding: 5px 10px; border-top-left-radius: 6px; border-top-right-radius: 6px; cursor: move; height: 25px;">
                     <strong style="font-size: 12px;">تجريبي - الغزااوي - البناء الاحترافي</strong>
                     <div style="display: flex; gap: 5px;">
-                        <span id="min_btn" style="cursor: pointer; font-weight: bold; padding: 0 5px;">${isMinimized ? '□' : '_'}</span>
+                        <button id="min_btn" type="button" aria-label="تصغير أو تكبير نافذة البناء" style="cursor: pointer; font-weight: bold; padding: 0 5px; min-width:28px; min-height:25px;">${isMinimized ? '□' : '−'}</button>
                     </div>
                 </div>
 
@@ -361,13 +363,13 @@
 
                     <div id="building_controls">
                         ${buildingConfig.map(b => `
-                            <div style="display: flex; align-items: center; background: #143e3a; border: 1px solid #263c4f; border-radius: 4px; overflow: hidden; height: 22px; flex-shrink: 0; margin-bottom: 3px;">
-                                <button class="sub-btn" data-id="${b.id}" style="width: 25px; height: 100%; background: #965160; color: #eaf3f8; border: none; cursor: pointer; font-weight: bold;">-</button>
+                            <div style="display: flex; align-items: center; background: #143e3a; border: 1px solid #263c4f; border-radius: 4px; overflow: hidden; height: 30px; flex-shrink: 0; margin-bottom: 3px;">
+                                <button class="sub-btn" type="button" aria-label="إزالة مستوى من ${b.name}" data-id="${b.id}" style="width: 32px; flex-shrink:0; height: 100%; background: #965160; color: #eaf3f8; border: none; cursor: pointer; font-weight: bold;">-</button>
                                 <div class="add-btn-main" data-id="${b.id}" style="flex-grow: 1; height: 100%; display: flex; align-items: center; justify-content: center; color: #eaf3f8; cursor: pointer; font-size: 10px; white-space: nowrap; padding: 0 4px;">
                                     <span class="b-name">${b.name}</span>
                                     <span class="b-count" id="count_${b.id}" style="margin-right: 4px; font-weight: bold; color: #dfb677; display: none;"></span>
                                 </div>
-                                <button class="plus-btn" data-id="${b.id}" style="width: 25px; height: 100%; background: #247a68; color: #eaf3f8; border: none; cursor: pointer; font-weight: bold;">+</button>
+                                <button class="plus-btn" type="button" aria-label="إضافة مستوى إلى ${b.name}" data-id="${b.id}" style="width: 32px; flex-shrink:0; height: 100%; background: #247a68; color: #eaf3f8; border: none; cursor: pointer; font-weight: bold;">+</button>
                             </div>
                         `).join('')}
                     </div>
@@ -410,35 +412,61 @@
         });
         resizeObserver.observe(panel);
 
-        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        header.onmousedown = dragMouseDown;
-
-        function dragMouseDown(e) {
-            e = e || window.event;
+        // Pointer capture keeps dragging local to this panel, without replacing
+        // document mouse handlers used by the game. Controls retain normal clicks.
+        let panelDrag = null;
+        let suppressDragClick = false;
+        const interactiveSelector = 'button,input,select,textarea,a,label,[role="button"],[contenteditable],.add-btn-main,.remove-single';
+        function keepPanelVisible() {
+            const rect = panel.getBoundingClientRect();
+            panel.style.left = Math.round(Math.max(0, Math.min(rect.left, window.innerWidth - rect.width))) + 'px';
+            panel.style.top = Math.round(Math.max(0, Math.min(rect.top, window.innerHeight - rect.height))) + 'px';
+            panel.style.right = 'auto';
+        }
+        function savePanelPosition() {
+            localStorage.setItem(POS_KEY, JSON.stringify({top:panel.style.top,left:panel.style.left}));
+        }
+        panel.addEventListener('pointerdown', e => {
+            if (e.button !== 0 || e.isPrimary === false) return;
+            suppressDragClick = false;
+            if (e.target.closest(interactiveSelector)) return;
+            const rect = panel.getBoundingClientRect();
+            // Leave both native resize corners and the scrollbar available.
+            if ((e.clientY > rect.bottom - 18 && (e.clientX < rect.left + 18 || e.clientX > rect.right - 18))
+                || e.clientX > rect.right - 10 || e.clientX < rect.left + 10) return;
+            suppressDragClick = false;
+            panelDrag = {id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top,moved:false};
+            panel.setPointerCapture(e.pointerId);
             e.preventDefault();
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
-        }
-
-        function elementDrag(e) {
-            e = e || window.event;
+        });
+        panel.addEventListener('pointermove', e => {
+            if (!panelDrag || e.pointerId !== panelDrag.id) return;
+            const dx=e.clientX-panelDrag.x,dy=e.clientY-panelDrag.y;
+            if (!panelDrag.moved && Math.hypot(dx,dy)<4) return;
+            panelDrag.moved=true;
+            panel.style.left=(panelDrag.left+dx)+'px';
+            panel.style.top=(panelDrag.top+dy)+'px';
+            panel.style.right='auto';
+            keepPanelVisible();
             e.preventDefault();
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            panel.style.top = (panel.offsetTop - pos2) + "px";
-            panel.style.left = (panel.offsetLeft - pos1) + "px";
-            panel.style.right = "auto";
+        });
+        function finishPanelDrag(e) {
+            if (!panelDrag || e.pointerId !== panelDrag.id) return;
+            const moved=panelDrag.moved;
+            panelDrag=null;
+            if (panel.hasPointerCapture(e.pointerId)) panel.releasePointerCapture(e.pointerId);
+            if (moved) {suppressDragClick=true;savePanelPosition();}
         }
-
-        function closeDragElement() {
-            document.onmouseup = null;
-            document.onmousemove = null;
-            localStorage.setItem(POS_KEY, JSON.stringify({ top: panel.style.top, left: panel.style.left }));
-        }
+        panel.addEventListener('pointerup',finishPanelDrag);
+        panel.addEventListener('pointercancel',finishPanelDrag);
+        panel.addEventListener('lostpointercapture',finishPanelDrag);
+        panel.addEventListener('click',e=>{
+            if (!suppressDragClick) return;
+            suppressDragClick=false;
+            e.preventDefault();e.stopPropagation();
+        },true);
+        window.addEventListener('resize',()=>{keepPanelVisible();savePanelPosition();});
+        keepPanelVisible();
 
         // Do not initiate the draggable header while clicking minimize.
         $("#min_btn").on('mousedown', e => e.stopPropagation());
@@ -459,16 +487,17 @@
             $("#panel_content").css('display', isMinimized ? 'none' : 'flex');
             panel.style.resize = isMinimized ? 'none' : 'both';
             panel.style.height = isMinimized ? '40px' : expandedHeight;
-            $(this).text(isMinimized ? '□' : '_');
+            $(this).text(isMinimized ? '□' : '−');
+            keepPanelVisible();savePanelPosition();
         });
 
-        $(".add-btn-main, .plus-btn").on('click', function(e) {
+        $("#pro_builder_panel .add-btn-main, #pro_builder_panel .plus-btn").on('click', function(e) {
             e.stopPropagation();
             buildingQueue.push($(this).data('id'));
             saveData(); updateUI(); processBuilding();
         });
 
-        $(".sub-btn").on('click', function(e) {
+        $("#pro_builder_panel .sub-btn").on('click', function(e) {
             e.stopPropagation();
             const id = $(this).data('id');
             const idx = buildingQueue.lastIndexOf(id);
