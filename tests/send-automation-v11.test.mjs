@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.3.0 metadata and code compile',()=>{
+test('Arabic floating send scheduler v1.3.1 metadata and code compile',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.3\.0/);
- assert.match(loader,/@version\s+1\.3\.0/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.3.0');
+ assert.match(core,/@version\s+1\.3\.1/);
+ assert.match(loader,/@version\s+1\.3\.1/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.3.1');
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
@@ -129,4 +129,24 @@ test('Smart feedback field accepts signed values and preserves manual alternativ
  assert.ok(core.includes("parts.smartObserved.inputMode='numeric'"));
  assert.ok(core.includes("/^[+-]?\\d{1,4}$/.test(raw)"));
  assert.ok(core.includes("smart:false"));
+});
+
+test('compact default UI preserves required fields and collapsible smart/settings/diagnostics',()=>{
+ for(const marker of ["compact:true,smartOpen:false,settingsOpen:false,logOpen:false",
+ "parts.smartSummary=el('small','smart-brief'","smartBody.hidden=!opts.smartOpen",
+ "smartFold.setAttribute('aria-expanded'","settings=el('details','alg-fold')",
+ "settings.open=!!opts.settingsOpen","diagnostics.open=!!opts.logOpen",
+ "opts.logOpen=diagnostics.open","panel.classList.toggle('compact',opts.compact!==false)",
+ "panel.classList.toggle('spacious',opts.compact===false)",
+ "body.append(stats,modeLabel,inputs,settings,smartBox,rem,controls,parts.note,diagnostics)",
+ "settingsContent.append(resetDate,parts.source,parts.hint)","parts.last=el('div','hint alg-last')",
+ "انحراف الضغط داخل المتصفح","التعويض الموجب يؤخر الضغط"])
+  assert.ok(core.includes(marker),'missing '+marker);
+ assert.ok(core.includes("parts.smart.addEventListener('change',readInputs)"));
+ assert.ok(core.includes("const m=input('الأجزاء ms'"));
+ assert.ok(core.includes("const d=input('التاريخ'"));
+ assert.ok(core.includes("const controls=el('div','grid')"));
+ assert.ok(core.includes("parts.arm=btn('▶ تجهيز','go',arm)"));
+ assert.ok(!core.includes("body.append(stats,modeLabel,parts.hint,inputs,parts.source,smartBox"));
+ assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
 });

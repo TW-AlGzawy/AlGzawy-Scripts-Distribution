@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.3.0
+// @version      1.3.1
 // @description  AlG Smart Timing v1.3.0 — تعويض ذكي اختياري مع سجل نتائج محلي لكل وضع
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @run-at       document-end

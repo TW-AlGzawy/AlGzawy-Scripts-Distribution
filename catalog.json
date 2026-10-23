@@ -76,12 +76,12 @@
     {
       "id": "send-automation",
       "name": "تجريبي - الغزااوي - الإرساليات الدقيقة",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
       "approved_for_final": false,
-      "note": "Smart Timing: opt-in auto offset from >=3 manually confirmed outcomes per mode; passive same-origin timing, jitter, bounded compensation, safety fallback, frozen offset while armed; no external probes; live-game precision unverified"
+      "note": "Compact floating UI v1.3.1: smart calibration, manual date reset and diagnostics collapsed by default, compact/expanded width toggle, succinct Arabic labels; underlying licensed scheduler unchanged."
     },
     {
       "id": "market-bot-v7",
