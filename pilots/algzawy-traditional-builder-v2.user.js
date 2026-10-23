@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         [AlGzawy QA] البناء التقليدي المتطور — نافذة عائمة
-// @version      2.3.0-qa6
+// @version      2.3.0-qa7
 // @description  QA: floating AlG builder, expanded sequential template tasks, queued/completed tracking and tab-resilient resume
 // @author       الغزااوي | AlG
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
@@ -152,6 +152,71 @@
       return false;
     }
     return true;
+  }
+  // The game owns an acknowledged build; editing future tasks must not
+  // discard its persisted checkpoint or change the construction itself.
+  function canEditFutureTasks(){
+    if(stoppedByPolicy)return false;
+    if(processing||pendingAck?.phase==='sending'){
+      status('هناك أمر بناء قيد الإرسال أو غير مؤكد؛ يجب التحقق منه أولًا.','warn');
+      return false;
+    }
+    return true;
+  }
+  function appendBuildingToPlan(id){
+    if(!Object.hasOwn(LABELS,id)||!canEditFutureTasks())return false;
+    if(templateMode==='template'&&!expandTemplateToTasks())return false;
+    if(templateMode==='tasks'){
+      if(templateTasks.length>=1200){
+        status('بلغت خطة المهام الحد الأقصى (1200).','error');return false;
+      }
+      const level=currentLevel(id);
+      if(level===null){
+        status('لا يمكن قراءة مستوى '+LABELS[id]+'؛ لن أخمّن المستوى.','warn');return false;
+      }
+      const last=templateTasks.reduce((n,t)=>t.id===id?Math.max(n,t.target):n,level);
+      const target=Math.max(last,pendingAck?.phase==='queued'&&pendingAck.id===id?pendingAck.target:0)+1;
+      if(target>50){
+        status('المستوى المطلوب يتجاوز حد اللعبة لهذا المبنى.','error');return false;
+      }
+      templateTasks.push({id,target,state:'pending',step:-1});
+      saveTasks();renderQueue();renderStatus();
+      status('أُضيف '+LABELS[id]+' (+1 إلى مستوى '+target+') بنهاية قائمة مهام القالب.','normal');
+      return true;
+    }
+    if(!canEditPlan())return false;
+    buildingQueue.push(id);saveQueue();renderQueue();renderStatus();
+    status('أُضيف '+LABELS[id]+' إلى القائمة اليدوية.','normal');
+    return true;
+  }
+  function removePlannedTask(index){
+    if(templateMode!=='tasks'||!canEditFutureTasks())return false;
+    const item=templateTasks[index];
+    if(!item)return false;
+    if(item.state==='queued'||pendingAck?.mode==='tasks'&&pendingAck.index===index){
+      status('لا يمكن حذف بناء أُرسل للعبة؛ يمكن حذف المهام غير المرسلة.','warn');return false;
+    }
+    const level=currentLevel(item.id);
+    if(level===null){
+      status('لا يمكن تعديل مستويات '+LABELS[item.id]+' دون قراءة المستوى الحالي.','warn');return false;
+    }
+    if(pendingAck?.mode==='tasks'&&pendingAck.phase==='queued'&&pendingAck.index>index)
+      saveAck({...pendingAck,index:pendingAck.index-1});
+    templateTasks.splice(index,1);
+    let target=level;
+    for(const row of templateTasks){
+      if(row.id!==item.id)continue;
+      if(row.state==='completed'||row.state==='queued')
+        target=Math.max(target,row.target);
+      else row.target=++target;
+    }
+    saveTasks();renderQueue();renderStatus();
+    status('حُذفت المهمة من الخطة، وتم تحديث مستويات نفس المبنى دون إلغاء أي بناء حقيقي.','normal');
+    return true;
+  }
+  function detachAcceptedBuildFromPlan(){
+    if(pendingAck?.phase==='queued'&&pendingAck.mode==='tasks')
+      saveAck({...pendingAck,index:-1});
   }
   function expandTemplateToTasks(){
     if(!templateSteps.length||stoppedByPolicy||!canEditPlan())return false;
@@ -366,7 +431,7 @@
     elements.templateMode.textContent=templateMode==='template'?'✓ وضع القالب مفعل':templateMode==='tasks'?'✓ مهام القالب مفعلّة':'○ وضع القائمة اليدوية';
     elements.templateMode.setAttribute('aria-pressed',String(templateMode==='template'||templateMode==='tasks'));
     elements.templateMode.disabled=!templateSteps.length||stoppedByPolicy;
-    elements.add.disabled=templateMode==='template'||templateMode==='tasks';
+    elements.add.disabled=stoppedByPolicy;
     const current=nextTemplateStep();
     for(let i=0;i<templateSteps.length;i++){
       const step=templateSteps[i],level=currentLevel(step.id);
@@ -414,6 +479,10 @@
         row.append(node('span','alg-index',index+1),
           node('span','alg-building', (LABELS[item.id]||item.id)+' +1 → مستوى '+item.target
             +(done?' ✓ مكتمل':queued?' ✓ أُضيف للبناء':index===current?' ⏳ التالي':'')));
+        const sent=item.state==='queued'||(pendingAck?.mode==='tasks'&&pendingAck.index===index);
+        const remove=button('×','alg-remove',()=>removePlannedTask(index),'حذف المهمة المحلية فقط');
+        remove.disabled=sent;
+        row.append(remove);
         list.append(row);
       });
     }else{
@@ -601,13 +670,13 @@
         if(importTemplate(elements.templateCode.value))elements.templateCode.value='';
       }),
       button('حذف القالب','alg-btn danger',()=>{
-        if(!templateSteps.length||!canEditPlan())return;
-        if(!confirm('حذف القالب المستورد لهذه القرية فقط؟ لا تتغير القائمة اليدوية.'))return;
+        if(!templateSteps.length||!canEditFutureTasks())return;
+        if(!confirm('حذف القالب ومهامه المحلية؟ لن يُلغى البناء الذي قَبِلَته اللعبة.'))return;
         if(isRunning){isRunning=false;saveStatus();endLoop();}
+        detachAcceptedBuildFromPlan();
         templateSteps=[];templateTasks=[];templateMode='manual';templateIssued=null;templateVersion++;
-        saveTasks();saveAck(null);
-        saveTemplate();renderQueue();renderStatus();
-        status('تم إلغاء القالب والعودة للقائمة اليدوية.','normal');
+        saveTasks();saveTemplate();renderQueue();renderStatus();
+        status(pendingAck?'حُذف القالب المحلي؛ بقي طلب اللعبة المقبول محفوظًا للتحقق قبل الاستئناف.':'تم حذف القالب وخطته دون تغيير القائمة اليدوية.','normal');
       })
     );
     const expandButton=button('＋ إضافة خطوات القالب إلى قائمة المهام','alg-btn primary',()=>{
@@ -640,14 +709,13 @@
       elements.templateMode,elements.templateCounter,elements.templateFold,
       node('small','alg-footer','قائمة القالب قابلة للطي. زر إضافة المهام يحوّل كل +مستويات إلى مهام مستقلة مرتبة في قائمة التنفيذ.'));
     const addCard=node('div','alg-card');
-    addCard.append(node('label','alg-label','إضافة مبنى إلى خطة البناء'));
+    addCard.append(node('label','alg-label','إضافة مبنى إلى خطة البناء'),
+      node('small','alg-footer','عند وجود مهام قالب نشطة، تُضاف المهمة إلى نهايتها بنفس التسلسل.'));
     const addRow=node('div','alg-entry');
     elements.select=node('select','alg-input');elements.select.id='alg-traditional-select';
     for(const [id,label] of BUILDINGS){const opt=node('option','',label);opt.value=id;elements.select.append(opt);}
     elements.add=button('+ أضف','alg-btn primary',()=>{
-      if(stoppedByPolicy)return;
-      modifyQueue(()=>buildingQueue.push(elements.select.value));
-      status('أُضيف '+(LABELS[elements.select.value]||elements.select.value)+' إلى آخر القائمة.','normal');
+      appendBuildingToPlan(elements.select.value);
     });
     addRow.append(elements.select,elements.add);
     addCard.append(addRow);
@@ -683,14 +751,14 @@
     elements.taskLabel=node('strong','', 'قائمة المهام — بالترتيب');
     const heading=elements.taskLabel;heading.style.flex='1';
     elements.clearTasks=button('مسح الكل','alg-btn danger',()=>{
-      if(!canEditPlan())return;
+      if(!canEditFutureTasks())return;
       if(templateMode==='tasks'){
         if(!templateTasks.length)return;
-        if(!confirm('حذف مهام القالب المضافة في هذا التبويب؟ يبقى القالب الأصلي محفوظًا.'))return;
+        if(!confirm('مسح المهام المحلية؟ سيبقى القالب الأصلي محفوظًا، ولن يُلغى بناء قبلته اللعبة.'))return;
         if(isRunning){isRunning=false;saveStatus();endLoop();}
-        saveAck(null);templateTasks=[];templateMode=templateSteps.length?'template':'manual';
+        detachAcceptedBuildFromPlan();templateTasks=[];templateMode='manual';
         saveTasks();saveTemplate();renderQueue();renderStatus();
-        status('تم مسح المهام المضافة دون حذف القالب الأصلي.','normal');
+        status(pendingAck?'مُسحت المهام المحلية؛ بقي طلب اللعبة المقبول محفوظًا للتحقق.':'مُسحت مهام الخطة مع الحفاظ على القالب الأصلي.','normal');
         return;
       }
       if(!buildingQueue.length)return;
