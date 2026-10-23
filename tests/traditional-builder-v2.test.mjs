@@ -442,7 +442,7 @@ test('Active/ambiguous builds block template import, expansion, queue editing an
   assert.match(pilot,/function importTemplate\(raw\)\{\s*if\(stoppedByPolicy\|\|!canEditPlan\(\)\)return false/);
   assert.match(pilot,/function modifyQueue\(fn\)\{\s*if\(stoppedByPolicy\|\|!canEditPlan\(\)\)return/);
   assert.match(pilot,/if\(!templateSteps\.length\|\|!canEditPlan\(\)\)return/);
-  assert.match(pilot,/if\(!canEditPlan\(\)\)return;\s*if\(templateMode==='tasks'\)/);
+  assert.match(pilot,/if\(!canEditFutureTasks\(\)\)return;\s*if\(templateMode==='tasks'\)/);
   const a=pilot.indexOf('function canEditPlan(){');
   const b=pilot.indexOf('  function expandTemplateToTasks(){',a);
   assert.ok(a>0&&b>a);
@@ -462,4 +462,167 @@ test('Late AJAX success after license revocation cannot mutate tasks or initiate
   const to=pilot.indexOf('  function beginLoop(){',from);
   assert.ok(from>0&&to>from);
   assert.match(pilot.slice(from,to),/\.done\(response=>\{\s*\/\/[^]*?if\(stoppedByPolicy\)return;/);
+});
+
+
+test('With template tasks active, + add stays enabled and appends to the SAME execution plan',()=>{
+  assert.match(pilot,/elements\.add\.disabled=stoppedByPolicy/);
+  assert.match(pilot,/appendBuildingToPlan\(elements\.select\.value\)/);
+  assert.match(pilot,/function appendBuildingToPlan\(id\)/);
+  const start=pilot.indexOf('function canEditFutureTasks(){');
+  const end=pilot.indexOf('  function expandTemplateToTasks(){',start);
+  assert.ok(start>0&&end>start);
+  const helpers=pilot.slice(start,end);
+  const prefix=[
+    "const LABELS={main:'المقر',storage:'المخزن',market:'السوق'};",
+    "let templateMode='tasks',processing=false,stoppedByPolicy=false,isRunning=true;",
+    "let pendingAck={phase:'queued',mode:'tasks',id:'main',index:0,target:1};",
+    "let templateTasks=Array.from({length:10},(_,i)=>({id:'main',target:i+1,state:i===0?'queued':'pending'}));",
+    "let buildingQueue=['storage'],saved=0,msg='';",
+    "const currentLevel=id=>id==='main'?0:3;",
+    "const saveTasks=()=>{saved++},saveQueue=()=>{},saveAck=a=>{pendingAck=a};",
+    "const renderQueue=()=>{},renderStatus=()=>{},status=msg=>{globalMessage=msg};",
+    "let globalMessage='';const canEditPlan=()=>!pendingAck;",
+    "const expandTemplateToTasks=()=>{throw new Error('must not reset existing tasks')};"
+  ].join('\n');
+  const state=vm.runInNewContext(prefix+'\n'+helpers+
+    "\nconst ok=appendBuildingToPlan('main');({ok,mode:templateMode,tasks:templateTasks,legacy:buildingQueue,ack:pendingAck,saved,globalMessage});");
+  assert.equal(state.ok,true);
+  assert.equal(state.tasks.length,11);
+  assert.equal(state.tasks[10].target,11);
+  assert.equal(state.tasks[10].state,'pending');
+  assert.deepEqual(Array.from(state.legacy),['storage']);
+  assert.equal(state.ack.index,0);
+  assert.equal(state.ack.phase,'queued');
+  assert.equal(state.saved,1);
+  assert.match(state.globalMessage,/نهاية قائمة مهام القالب/);
+});
+
+test('Plan edit guards allow accepted queued builds, but forbid ambiguous POST changes',()=>{
+  const a=pilot.indexOf('function canEditFutureTasks(){');
+  const b=pilot.indexOf('  function appendBuildingToPlan(',a);
+  assert.ok(a>0&&b>a);
+  const prefix=[
+    "let stoppedByPolicy=false,processing=false, pendingAck={phase:'queued'};",
+    "let lastWarning=''; const status=msg=>{lastWarning=msg};"
+  ].join('\n');
+  const out=vm.runInNewContext(prefix+'\n'+pilot.slice(a,b)+
+    "\nconst queued=canEditFutureTasks();pendingAck.phase='sending';const sending=canEditFutureTasks();pendingAck=null;processing=true;const active=canEditFutureTasks();({queued,sending,active,lastWarning})");
+  assert.equal(out.queued,true);
+  assert.equal(out.sending,false);
+  assert.equal(out.active,false);
+  assert.match(out.lastWarning,/التحقق/);
+});
+
+test('Removing a pending template task rebases subsequent matching building levels only',()=>{
+  const a=pilot.indexOf('function removePlannedTask(index){');
+  const b=pilot.indexOf('  function detachAcceptedBuildFromPlan(){',a);
+  assert.ok(a>0&&b>a);
+  const code=[
+    "const LABELS={main:'المقر',storage:'المخزن'};",
+    "let templateMode='tasks',templateTasks=[",
+    "{id:'main',target:1,state:'queued'},",
+    "{id:'storage',target:1,state:'pending'},",
+    "{id:'main',target:2,state:'pending'},",
+    "{id:'main',target:3,state:'pending'}];",
+    "let pendingAck={phase:'queued',mode:'tasks',id:'main',index:0,target:1};",
+    "let saved=0,message='';",
+    "const canEditFutureTasks=()=>true,currentLevel=id=>0;",
+    "const saveTasks=()=>{saved++},saveAck=a=>{pendingAck=a};",
+    "const renderQueue=()=>{},renderStatus=()=>{},status=x=>{message=x};",
+    pilot.slice(a,b),
+    "const queuedBlocked=removePlannedTask(0);",
+    "const removed=removePlannedTask(2);",
+    "({queuedBlocked,removed,templateTasks,pendingAck,saved,message})"
+  ].join('\n');
+  const out=vm.runInNewContext(code);
+  assert.equal(out.queuedBlocked,false);
+  assert.equal(out.removed,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(out.templateTasks)),[
+    {id:'main',target:1,state:'queued'},
+    {id:'storage',target:1,state:'pending'},
+    {id:'main',target:2,state:'pending'}
+  ]);
+  assert.equal(out.pendingAck.index,0);
+  assert.equal(out.saved,1);
+});
+
+test('Removing an earlier completed row safely updates saved queued acknowledgement index',()=>{
+  const a=pilot.indexOf('function removePlannedTask(index){');
+  const b=pilot.indexOf('  function detachAcceptedBuildFromPlan(){',a);
+  const code=[
+    "const LABELS={main:'المقر',storage:'المخزن'};",
+    "let templateMode='tasks',templateTasks=[",
+    "{id:'main',target:1,state:'completed'},",
+    "{id:'storage',target:1,state:'queued'},",
+    "{id:'main',target:2,state:'pending'}];",
+    "let pendingAck={phase:'queued',mode:'tasks',id:'storage',index:1,target:1};",
+    "const canEditFutureTasks=()=>true,currentLevel=id=>id==='main'?1:0;",
+    "const saveTasks=()=>{},saveAck=a=>{pendingAck=a};",
+    "const renderQueue=()=>{},renderStatus=()=>{},status=()=>{};",
+    pilot.slice(a,b),
+    "const ok=removePlannedTask(0);({ok,templateTasks,pendingAck})"
+  ].join('\n');
+  const out=vm.runInNewContext(code);
+  assert.equal(out.ok,true);
+  assert.equal(out.pendingAck.index,0);
+  assert.equal(out.templateTasks[0].id,'storage');
+  assert.equal(out.templateTasks[0].state,'queued');
+  assert.equal(out.templateTasks[1].target,2);
+});
+
+test('Deleting the template or all local tasks keeps accepted construction checkpoint',()=>{
+  assert.match(pilot,/function detachAcceptedBuildFromPlan\(\)\{\s*if\(pendingAck\?\.phase==='queued'&&pendingAck\.mode==='tasks'\)/);
+  const a=pilot.indexOf('function detachAcceptedBuildFromPlan(){');
+  const b=pilot.indexOf('  function expandTemplateToTasks(){',a);
+  const out=vm.runInNewContext([
+    "let pendingAck={phase:'queued',mode:'tasks',id:'main',index:3,target:4};",
+    "const saveAck=a=>{pendingAck=a};",
+    pilot.slice(a,b),
+    "detachAcceptedBuildFromPlan();pendingAck"
+  ].join('\n'));
+  assert.equal(out.index,-1);
+  assert.equal(out.phase,'queued');
+  assert.equal(out.target,4);
+  assert.match(pilot,/detachAcceptedBuildFromPlan\(\);\s*templateSteps=\[\];templateTasks=\[\];templateMode='manual'/);
+  assert.match(pilot,/detachAcceptedBuildFromPlan\(\);templateTasks=\[\];templateMode='manual'/);
+  assert.doesNotMatch(pilot,/saveAck\(null\);templateTasks=\[\];templateMode=/);
+});
+
+test('Adding from original template mode first converts it to individual tasks',()=>{
+  const a=pilot.indexOf('function appendBuildingToPlan(id){');
+  const b=pilot.indexOf('  function removePlannedTask(index){',a);
+  assert.ok(a>0&&b>a);
+  const src=pilot.slice(a,b);
+  const prefix=[
+    "const LABELS={main:'المقر',market:'السوق'};",
+    "let templateMode='template',templateTasks=[],pendingAck=null,buildingQueue=[];",
+    "let saved=0,message='';",
+    "const canEditFutureTasks=()=>true,currentLevel=id=>0;",
+    "const expandTemplateToTasks=()=>{templateMode='tasks'; templateTasks=[{id:'main',target:1,state:'pending'}];return true};",
+    "const saveTasks=()=>{saved++},saveQueue=()=>{},saveAck=()=>{},canEditPlan=()=>true;",
+    "const renderQueue=()=>{},renderStatus=()=>{},status=m=>{message=m};"
+  ].join('\n');
+  const out=vm.runInNewContext(prefix+'\n'+src+
+    "\nconst added=appendBuildingToPlan('market');({added,templateMode,templateTasks,saved,message})");
+  assert.equal(out.added,true);
+  assert.equal(out.templateMode,'tasks');
+  assert.deepEqual(out.templateTasks.map(i=>i.id),['main','market']);
+  assert.equal(out.templateTasks[1].target,1);
+});
+
+test('Cannot append a task with an unknown building level; no fabricated target',()=>{
+  const a=pilot.indexOf('function appendBuildingToPlan(id){');
+  const b=pilot.indexOf('  function removePlannedTask(index){',a);
+  const prefix=[
+    "const LABELS={main:'المقر',market:'السوق'};",
+    "let templateMode='tasks',templateTasks=[{id:'main',target:1,state:'pending'}],buildingQueue=[],pendingAck=null;",
+    "const canEditFutureTasks=()=>true,currentLevel=()=>null;",
+    "const saveTasks=()=>{throw new Error('unsafe write')},saveQueue=()=>{},saveAck=()=>{},canEditPlan=()=>true;",
+    "const renderQueue=()=>{},renderStatus=()=>{},status=()=>{};"
+  ].join('\n');
+  const out=vm.runInNewContext(prefix+'\n'+pilot.slice(a,b)+
+    "\nconst ok=appendBuildingToPlan('market');({ok,len:templateTasks.length})");
+  assert.equal(out.ok,false);
+  assert.equal(out.len,1);
 });
