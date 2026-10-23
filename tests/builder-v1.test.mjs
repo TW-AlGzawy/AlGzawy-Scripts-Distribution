@@ -27,17 +27,17 @@ test('builder QA release advertises matching Cloud Bridge versions and no obsole
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  const center=read('loaders/algzawy-control-center.user.js');
  const engine=read('scripts/algzawy-builder-v1.js');
- assert.ok(bridge.includes('@version      2.3.0'));
+ assert.ok(bridge.includes('@version      2.3.1'));
  assert.ok(center.includes('@version      1.0.3'));
  assert.ok(engine.includes('BETA · v1.0.1'));
  assert.ok(!engine.includes('TRADITIONAL BUILDER · V2'));
 });
 
-test('Cloud Bridge v2.3.0 preserves integrated launcher and one active builder',()=>{
+test('Cloud Bridge v2.3.1 preserves integrated launcher and one active builder',()=>{
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  const center=read('loaders/algzawy-control-center.user.js');
  new vm.Script(bridge);new vm.Script(center);
- assert.match(bridge,/@version\s+2\.3\.0/);
+ assert.match(bridge,/@version\s+2\.3\.1/);
  assert.ok(bridge.includes('algzawy-smart-launcher-qa'));
  assert.ok(bridge.includes("['algzawy-builder-v1','الغزااوي | البناء التقليدي'"));
  for(const id of retired){

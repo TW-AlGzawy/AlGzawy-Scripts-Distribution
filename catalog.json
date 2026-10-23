@@ -162,7 +162,7 @@
     {
       "id": "alg-attacks",
       "name": "الغزااوي | تنبيه الهجمات",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js",
       "approved_for_final": true
@@ -187,7 +187,7 @@
     {
       "id": "attack-renamer",
       "name": "الغزااوي | تسمية الهجمات",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "release_note": "User opt-in. Only native QuickEdit incoming rows; no gameplay verification yet.",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/attack-renamer.user.js",

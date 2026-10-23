@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.3.0
+// @version      2.3.1
 // @description  Auto License V2 + AlG Control Center; approved device and 22 licensed scripts
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -893,7 +893,7 @@
    e.preventDefault();e.stopPropagation();document.body.classList.toggle(CLOAK);
  },true);
  const css=document.createElement('style');
- css.textContent='body.'+CLOAK+' .'+CLASS+',body.'+CLOAK+' #'+CENTER+',body.'+CLOAK+' #algzawy-cloud-pair-panel{visibility:hidden!important;pointer-events:none!important}';
+ css.textContent='body.'+CLOAK+' .'+CLASS+',body.'+CLOAK+' #'+CENTER+',body.'+CLOAK+' #algzawy-cloud-pair-panel,body.'+CLOAK+' #ghzaawi-trainer{visibility:hidden!important;pointer-events:none!important}';
  (document.head||document.documentElement).append(css);
  function init(){
    collect();moveLinked();

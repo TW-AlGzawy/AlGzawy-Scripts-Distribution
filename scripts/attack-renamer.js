@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | تسمية الهجمات
-// @version      1.0.1
+// @version      1.0.2
 // @description  Incoming attacks only; native Tribal Wars QuickEdit UI; configurable and off by default
 // ==/UserScript==
 (function () {
@@ -19,7 +19,7 @@
   panel.id = panelId;
   panel.dir = 'rtl';
   panel.style.cssText='position:fixed;top:210px;right:12px;z-index:999991;width:253px;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:12px;box-shadow:0 6px 20px #0004;font:12px/1.7 Tahoma,Arial;overflow:hidden';
-  panel.innerHTML='<header id="algzawy-renamer-drag" style="background:#123e3d;color:#fff;padding:8px;cursor:move;touch-action:none;user-select:none">🏷️ AlGzawy — تسمية الهجمات القادمة</header>'+
+  panel.innerHTML='<header id="algzawy-renamer-drag" style="background:#123e3d;color:#fff;padding:8px;cursor:move;touch-action:none;user-select:none">🏷️ الغزااوي | تسمية الهجمات</header>'+
     '<div id="algzawy-renamer-body" style="padding:10px">'+
     '<label><input id="algzawy-renamer-enabled" type="checkbox"> تفعيل التسمية تلقائيًا</label>'+
     '<label style="display:block;margin:8px 0">البادئة <input id="algzawy-renamer-prefix" type="text" maxlength="24" style="width:115px"></label>'+

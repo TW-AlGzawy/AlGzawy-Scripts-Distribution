@@ -1,4 +1,4 @@
-// @version      1.0.1
+// @version      1.0.2
 // @name         الغزااوي | تنبيه الهجمات
 (function () {
     'use strict';
@@ -105,7 +105,7 @@
                 '<button id="alg-atk-run" style="' + btnStyle + 'background:' + (isRunning ? '#965160' : '#247a68') + ';font-size:14px;margin-bottom:4px;">' + (isRunning ? 'إيقاف' : 'تشغيل') + '</button>' +
                 '<div id="alg-atk-status" style="margin-top:6px;font-size:11px;color:#eaf3f8;text-align:center;min-height:16px;">' + (isRunning ? 'يراقب...' : 'متوقف') + '</div>' +
                 '<div id="alg-atk-lastcheck" style="margin-top:4px;font-size:12px;color:#b1c9d4;text-align:center;min-height:14px;"></div>' +
-                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">AlGzawy • تنبيه الهجمات ' + (S.version || '?') + '</div>' +
+                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | BETA · v1.0.2</div>' +
             '</div>';
 
         document.body.appendChild(panel);
