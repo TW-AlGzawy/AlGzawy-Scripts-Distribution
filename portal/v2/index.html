@@ -20,7 +20,7 @@
       <div class="login-mark">AlG</div>
       <h1>مركز قيادة واحد.<br><em>تحكم أقوى.</em></h1>
       <p>إدارة سكربتاتك وتراخيصك وربط المتصفح من واجهة موحدة. لا يحتاج الموقع إلى بيانات دخول حرب القبائل.</p>
-      <div class="login-points"><span>● جلسة آمنة 7 أيام</span><span>● الصلاحيات حسب اشتراكك</span><span>● تحكم مركزي فوري</span></div>
+      <div class="login-points"><span>● جلسة آمنة 7 أيام</span><span>● الصلاحيات حسب اشتراكك</span><span>● تحكم مركزي بصلاحيات اشتراكك</span></div>
     </div>
     <form id="loginForm" class="login-card">
       <div class="login-card-top"><span class="logo-small">AlG</span><span class="pill neutral">دخول المشتركين</span></div>
@@ -101,7 +101,8 @@
         <section class="view" data-panel="scripts">
           <div class="page-head"><div><span class="kicker">SCRIPT MANAGEMENT</span><h2>مركز البوتات</h2><p>إدارة جميع السكربتات المسموح بها لهذا الاشتراك. لا يظهر للمشترك ما لم تمنحه الإدارة.</p></div><div class="toolbar-actions"><button id="enableAll" class="btn outline">تشغيل المسموح</button><button id="disableAll" class="btn danger">إيقاف الكل</button></div></div>
           <div class="filter-bar"><label class="search-field">⌕ <input id="scriptSearch" type="search" placeholder="ابحث عن سكربت..." autocomplete="off"></label><div id="categoryFilters" class="chips" aria-label="التصفية حسب الفئة"></div></div>
-          <div class="scripts-summary"><span id="resultsCount">—</span><span>يمكنك فتح التفاصيل لكل سكربت أو تثبيته في Tampermonkey.</span></div>
+          <div class="scripts-summary"><span id="resultsCount">—</span><span>ثبّت ملف كل سكربت مرة واحدة في Tampermonkey قبل تفعيله.</span></div>
+          <div class="info-note">التفعيل هنا يحفظ أمر التشغيل فقط. التنفيذ يحتاج Cloud Bridge وجهازًا معتمدًا وملف السكربت مثبتًا، ثم «تشغيل هنا» ومزامنة داخل تبويب اللعبة. الإيقاف الحالي قد يحتاج تحديث صفحة اللعبة إذا استمر المحرك.</div>
           <div id="scriptsGrid" class="scripts-grid"></div>
         </section>
         <section class="view" data-panel="tasks">
@@ -121,8 +122,9 @@
           <div class="connect-grid">
             <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge V2</h3><p>سكربت واحد للتحقق من صلاحياتك ومزامنة البوتات. عند تشغيله على جهاز جديد تظهر عملية ربط بنقرة واحدة.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge V2 ↗</a></article>
             <article class="step-panel"><span class="step-index">02</span><h3>وافق على الجهاز</h3><p>من داخل اللعبة اضغط «ربط تلقائي». ستظهر صفحة آمنة على نطاق AlGzawy الرسمي للموافقة بحسابك المسجل. لا رموز تُنسخ يدويًا.</p><span class="pill positive">بانتظار اعتماد المالك لكل جهاز جديد</span></article>
-            <article class="step-panel"><span class="step-index">03</span><h3>ترخيص يعمل تلقائيًا</h3><p>يعيد الجسر التحقق من حالة الاشتراك ومفتاح الإدارة وصلاحية كل سكربت. لاستبدال جهاز معتمد، تواصل مع الإدارة أولًا.</p><span class="pill neutral">جهاز واحد لكل اشتراك</span></article>
+            <article class="step-panel"><span class="step-index">03</span><h3>ثبّت السكربت المطلوب</h3><p>افتح مركز البوتات واضغط «تثبيت السكربت» للأداة المرخصة، ثم أكّد التثبيت في Tampermonkey. الجسر وحده لا يشغّل المحركات دون ملفات تشغيلها.</p><button class="btn outline block" data-go="scripts">فتح مركز البوتات ←</button></article>
           </div>
+          <div class="info-note"><strong>04 — التشغيل داخل اللعبة:</strong> فعّل السكربت من مركز البوتات، وحدّث اللعبة بعد التثبيت، ثم اضغط «تشغيل هنا» للسكربت و«مزامنة الآن» في الجسر. يكفي جهاز واحد معتمد لكل اشتراك.</div>
           <div class="info-note">لا يلزم إبقاء موقع AlGzawy مفتوحًا. حالة ON/OFF تُستمد من الخادم. عند رفض الجهاز أو انقطاع التحقق يتوقف السماح بالتشغيل. يظل تثبيت سكربتات اللعبة وعلامة التثبيت في التبويب مطلوبين حسب إعدادات الأمان الحالية.</div>
         </section>
         <section class="view" data-panel="account">
