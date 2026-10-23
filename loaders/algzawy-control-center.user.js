@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - مركز التحكم
+// @name         الغزااوي | مركز السكربتات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.2
+// @version      1.0.3
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -60,7 +60,7 @@
   header.id='algzawy-control-drag';
   header.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#edf2f7;cursor:move;touch-action:none;user-select:none';
   const heading=document.createElement('strong');
-  heading.textContent='AlGzawy Control Center';
+  heading.textContent='الغزااوي | مركز السكربتات';
   const minimize=document.createElement('button');
   minimize.type='button'; minimize.textContent='−';
   minimize.setAttribute('aria-label','تصغير أو تكبير');
