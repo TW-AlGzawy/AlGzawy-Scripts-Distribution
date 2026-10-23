@@ -270,3 +270,42 @@ test('Template folds independently; task queue marks queued and completed green'
  assert.match(pilot,/max-height:240px;overflow-y:auto/);
  assert.match(pilot,/scrollTop=scrollTop/);
 });
+
+
+test('Saved queued task resumes safely and is completed only at verified level',()=>{
+ const start=pilot.indexOf('function reconcileAcknowledgement(){');
+ const end=pilot.indexOf('function recoverAfterInspection(){',start);
+ assert.ok(start>0&&end>start);
+ const fns=pilot.slice(start,end);
+ const prefix=[
+  'let pendingAck={mode:"tasks",phase:"queued",index:0,id:"market",target:2,at:500};',
+  'let templateTasks=[{id:"market",target:2,state:"pending"}];',
+  'let templateIssued={id:"market"};',
+  'let isRunning=true,lastRefreshOk=true,queueCount=1,observedLevel=1,stopped=false,notice="";',
+  'const currentLevel=()=>observedLevel, currentBuildCount=()=>queueCount;',
+  'const saveTasks=()=>{},renderQueue=()=>{},renderStatus=()=>{},endLoop=()=>{stopped=true;},saveStatus=()=>{};',
+  'const saveAck=a=>{pendingAck=a;},status=(msg)=>{notice=msg;};'
+ ].join('\n');
+ const out=vm.runInNewContext(prefix+'\n'+fns+[
+  'const waiting=reconcileAcknowledgement(),queued=templateTasks[0].state;',
+  'observedLevel=2;queueCount=0;',
+  'const finished=reconcileAcknowledgement();',
+  '({waiting,queued,finished,pendingAck,state:templateTasks[0].state,stopped});'
+ ].join('\n'));
+ assert.equal(out.waiting,true);
+ assert.equal(out.queued,'queued');
+ assert.equal(out.finished,false);
+ assert.equal(out.pendingAck,null);
+ assert.equal(out.state,'completed');
+ assert.equal(out.stopped,false);
+});
+
+test('Lost network POST is never blindly replayed after same-tab reload',()=>{
+ assert.match(pilot,/saveAck\(guard\);\s*\$\.ajax\(/);
+ assert.match(pilot,/phase:'sending',at:Date\.now\(\)/);
+ assert.match(pilot,/if\(ack\.phase==='sending'\)/);
+ assert.match(pilot,/if\(lastRefreshOk&&isRunning\)/);
+ assert.match(pilot,/isRunning=false;saveStatus\(\);endLoop\(\)/);
+ assert.match(pilot,/saveAck\(null\);\s*if\(ack\.mode==='tasks'/);
+ assert.match(pilot,/navigator\.onLine===false\)return/);
+});
