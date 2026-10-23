@@ -227,12 +227,41 @@
       JSON.stringify({format:2,mode:templateMode,steps:templateSteps}));
   }
   function currentLevel(id){
+    const val=v=>{
+      const n=typeof v==='object'&&v!==null
+        ?(v.level??v.currentLevel??v.current_level):v;
+      if(typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=50)return n;
+      if(typeof n==='string'&&/^\d{1,2}$/.test(n.trim()))return Number(n);
+      return null;
+    };
+    // Some game worlds expose levels in structured page data even if the
+    // Headquarters row omits a level label. Use only explicit level fields.
+    const sources=[
+      window.BuildingMain?.buildings?.[id],
+      gd.village?.buildings?.[id],
+      gd.village?.building_levels?.[id]
+    ];
+    for(const source of sources){
+      const n=val(source);
+      if(n!==null)return n;
+    }
     const row=document.getElementById('main_buildrow_'+id);
     if(!row)return null;
-    const text=row.querySelector('.mw, .level, [data-level]')?.getAttribute('data-level')
-      ||row.querySelector('.mw, .level, [data-level]')?.textContent;
-    const match=String(text||'').match(/\d+/);
-    return match?Number(match[0]):null;
+    const structured=row.getAttribute('data-level')
+      ||row.querySelector('[data-level]')?.getAttribute('data-level');
+    const fromData=val(structured);
+    if(fromData!==null)return fromData;
+    const selectors=['.mw','.level','.build_level','.building_level','.buildinglevel'];
+    for(const selector of selectors){
+      const el=row.querySelector(selector);
+      if(!el)continue;
+      const raw=String(el.textContent||'');
+      const match=raw.match(/(?:المستوى|مستوى|level|lvl|stufe)?\s*(\d{1,2})\s*$/i);
+      if(match&&Number(match[1])<=50)return Number(match[1]);
+    }
+    // Never infer a building's level from a resource cost or a neighboring
+    // building. An unreadable level stops that template stage safely.
+    return null;
   }
   function nextTemplateStep(){
     for(let i=0;i<templateSteps.length;i++){
@@ -252,7 +281,7 @@
     if(!elements.templateQueue)return;
     elements.templateQueue.replaceChildren();
     const progress=templateProgress();
-    elements.templateCounter.textContent=progress.ready+' / '+progress.total+' مبانٍ وصلت لمستواها المستهدف';
+    elements.templateCounter.textContent=progress.ready+' / '+progress.total+' خطوات بناء مكتملة';
     elements.templateMode.textContent=templateMode==='template'?'✓ وضع القالب مفعل':'○ وضع القائمة اليدوية';
     elements.templateMode.setAttribute('aria-pressed',String(templateMode==='template'));
     elements.templateMode.disabled=!templateSteps.length||stoppedByPolicy;
@@ -261,35 +290,25 @@
     for(let i=0;i<templateSteps.length;i++){
       const step=templateSteps[i],level=currentLevel(step.id);
       const completed=level!==null&&level>=step.target;
-      const text=(LABELS[step.id]||step.id)+' — '+(level===null?'؟':level)+' / '+step.target
+      const text=(LABELS[step.id]||step.id)+' +'+step.add
+        +' (مستوى '+step.target+')'+(level===null?' — الحالي: ؟':' — الحالي: '+level)
         +(completed?' ✓':current?.index===i?' ← التالي':'');
       const li=node('li',completed?'alg-complete':'');
       li.append(node('span','alg-index',i+1),node('span','alg-building',text));
-      li.append(button('↑','',()=>moveTemplateStep(i,-1),'تقديم هذا المبنى في القالب'));
-      li.append(button('↓','',()=>moveTemplateStep(i,1),'تأخير هذا المبنى في القالب'));
       elements.templateQueue.append(li);
     }
     if(!templateSteps.length)elements.templateQueue.append(node('li','', 'لا يوجد قالب مستورد بعد.'));
   }
-  function moveTemplateStep(index,offset){
-    if(stoppedByPolicy)return;
-    const dest=index+offset;
-    if(dest<0||dest>=templateSteps.length)return;
-    const [step]=templateSteps.splice(index,1);
-    templateSteps.splice(dest,0,step);
-    if(isRunning){isRunning=false;saveStatus();endLoop();}
-    templateVersion++;templateIssued=null;saveTemplate();renderQueue();renderTemplate();renderStatus();
-  }
   function importTemplate(raw){
     const decoded=decodeTWTemplate(raw);
-    if(!decoded){status('تعذر قراءة الكود: يجب إدخال كود قالب مدير الحساب بتنسيق V3.3 الصحيح.','error');return false;}
+    if(!decoded){status('تعذر فك كود قالب مدير الحساب الرسمي: صيغة خطوات البناء غير مدعومة أو الكود تالف.','error');return false;}
     // Explicitly stop before switching mode; do not accidentally execute a
     // newly imported template if the old manual builder was running.
     if(isRunning){isRunning=false;saveStatus();endLoop();}
     templateSteps=decoded;templateMode='template';
     templateIssued=null;templateVersion++;
     saveTemplate();renderQueue();renderTemplate();renderStatus();
-    status('تم استيراد '+decoded.length+' مبانٍ بأهدافها. راجع ترتيب الأولويات ثم اضغط تشغيل.','normal');
+    status('تم استيراد '+decoded.length+' خطوة بناء بالتسلسل الأصلي. راجع المستوى الحالي قبل الضغط على تشغيل.','normal');
     return true;
   }
 
@@ -446,7 +465,7 @@
     elements.templateQueue=node('ol','alg-queue');
     templateCard.append(elements.templateCode,importControls,elements.templateMode,
       elements.templateCounter,elements.templateQueue,
-      node('small','alg-footer','كود مدير الحساب يحدد مستويات مستهدفة. يبدأ الترتيب وفق صيغة القالب ويمكنك تغيير الأولوية بالأسهم. يتم البناء تدريجيًا حتى يصل كل مبنى لمستواه.'));
+      node('small','alg-footer','يحافظ على ترتيب كل خطوة وتكرارات المباني كما هي في قالب مدير الحساب. لا يعيد ترتيب القالب أو يدمج المراحل.'));
     const addCard=node('div','alg-card');
     addCard.append(node('label','alg-label','إضافة مبنى إلى خطة البناء'));
     const addRow=node('div','alg-entry');
