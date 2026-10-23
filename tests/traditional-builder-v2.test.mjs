@@ -441,7 +441,7 @@ test('Active/ambiguous builds block template import, expansion, queue editing an
   assert.match(pilot,/if\(!templateSteps\.length\|\|stoppedByPolicy\|\|!canEditPlan\(\)\)return false/);
   assert.match(pilot,/function importTemplate\(raw\)\{\s*if\(stoppedByPolicy\|\|!canEditPlan\(\)\)return false/);
   assert.match(pilot,/function modifyQueue\(fn\)\{\s*if\(stoppedByPolicy\|\|!canEditPlan\(\)\)return/);
-  assert.match(pilot,/if\(!templateSteps\.length\|\|!canEditPlan\(\)\)return/);
+  assert.match(pilot,/if\(!templateSteps\.length\|\|!canEditFutureTasks\(\)\)return/);
   assert.match(pilot,/if\(!canEditFutureTasks\(\)\)return;\s*if\(templateMode==='tasks'\)/);
   const a=pilot.indexOf('function canEditPlan(){');
   const b=pilot.indexOf('  function expandTemplateToTasks(){',a);
@@ -607,7 +607,7 @@ test('Adding from original template mode first converts it to individual tasks',
     "\nconst added=appendBuildingToPlan('market');({added,templateMode,templateTasks,saved,message})");
   assert.equal(out.added,true);
   assert.equal(out.templateMode,'tasks');
-  assert.deepEqual(out.templateTasks.map(i=>i.id),['main','market']);
+  assert.deepEqual(Array.from(out.templateTasks,i=>i.id),['main','market']);
   assert.equal(out.templateTasks[1].target,1);
 });
 
