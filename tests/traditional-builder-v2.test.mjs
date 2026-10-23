@@ -309,3 +309,128 @@ test('Lost network POST is never blindly replayed after same-tab reload',()=>{
  assert.match(pilot,/saveAck\(null\);\s*if\(ack\.mode==='tasks'/);
  assert.match(pilot,/navigator\.onLine===false\)return/);
 });
+
+
+test('Read-only queue refresh never replaces the live game table or strips game event handlers',async()=>{
+  const a=pilot.indexOf('async function refreshVisibleGameQueue(){');
+  const b=pilot.indexOf('  function currentBuildCount(){',a);
+  assert.ok(a>0&&b>a);
+  const source=pilot.slice(a,b);
+  assert.doesNotMatch(source,/replaceWith|\.remove\(\)|importNode|\.innerHTML\s*=|\.textContent\s*=/);
+  const calls=[];
+  const buildrow={
+    getAttribute:()=>null,
+    querySelector:()=>({textContent:'19'})
+  };
+  const gameHTML={
+    getElementById(id){
+      if(id==='content_value')return {};
+      if(id==='buildqueue')return {rows:new Array(4)};
+      if(id==='main_buildrow_storage')return buildrow;
+      return null;
+    }
+  };
+  const context={
+    DOMParser:class {parseFromString(){return gameHTML;}},
+    fetch:async(url,opts)=>{
+      calls.push({url,opts});
+      return {ok:true,text:async()=>'<html>test</html>'};
+    },
+    location:{href:'https://example.org/game.php?village=42&screen=main'},
+    Map,console,
+    reconcileTasks:()=>{},renderTemplate:()=>{},reconcileAcknowledgement:()=>{}
+  };
+  const prelude=[
+    "const BUILDINGS=[['storage','المخزن']];",
+    "let observedLevels=new Map(),observedBuildCount=null,lastRefreshOk=false;",
+    "let templateMode='tasks';"
+  ].join('\n');
+  const output=await vm.runInNewContext(prelude+'\n'+source+
+    '\nrefreshVisibleGameQueue().then(ok=>({ok,observedBuildCount,lastRefreshOk,level:observedLevels.get("storage")}))',context);
+  assert.equal(output.ok,true);
+  assert.equal(output.observedBuildCount,2);
+  assert.equal(output.lastRefreshOk,true);
+  assert.equal(output.level,19);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].opts.credentials,'same-origin');
+  assert.equal(calls[0].opts.cache,'no-store');
+});
+
+test('Acknowledged AJAX build persists checkpoint before native reload, without manipulating #buildqueue',()=>{
+  const start=pilot.indexOf('function doBuild(plan){');
+  const end=pilot.indexOf('  function beginLoop(){',start);
+  assert.ok(start>0&&end>start);
+  const source=pilot.slice(start,end);
+  function simulate(mode){
+    const events=[];
+    let resolve,failed,always;
+    const ajax={
+      done(fn){resolve=fn;return this;},
+      fail(fn){failed=fn;return this;},
+      always(fn){always=fn;return this;}
+    };
+    const ctx={
+      window:{$:{ajax:()=>ajax}},$:{ajax:()=>ajax},
+      location:{reload:()=>events.push('native-reload')},
+      gd:{csrf:'qa'},ID:'7',
+      Date:{now:()=>20000},
+      currentBuildCount:()=>0,
+      canContinue:()=>true,
+      saveAck:ack=>events.push('checkpoint:'+(ack?.phase||'clear')),
+      saveQueue:()=>events.push('saved-manual'),
+      saveTasks:()=>events.push('saved-task'),
+      renderQueue:()=>{},status:()=>{},
+      readJSON:JSON.parse,
+      endLoop:()=>{},saveStatus:()=>{},
+      LABELS:{market:'السوق'},JSON,encodeURIComponent
+    };
+    const prefix=[
+      "let processing=true,isRunning=true;",
+      "let buildingQueue=['market'];",
+      "let templateTasks=[{id:'market',target:2,state:'pending'}];"
+    ].join('\n');
+    vm.runInNewContext(prefix+'\n'+source+
+      '\ndoBuild({id:"market",mode:'+JSON.stringify(mode)+',index:0,level:1,target:2});',ctx);
+    assert.equal(typeof resolve,'function');
+    assert.equal(typeof failed,'function');
+    resolve({success:true});
+    always();
+    return events;
+  }
+  assert.deepEqual(simulate('manual'),[
+    'checkpoint:sending','saved-manual','checkpoint:clear','native-reload'
+  ]);
+  assert.deepEqual(simulate('tasks'),[
+    'checkpoint:sending','checkpoint:queued','saved-task','native-reload'
+  ]);
+  assert.match(pilot,/refreshTimer=setTimeout\(\(\)=>\{refreshTimer=null;location\.reload\(\);\},1600\)/);
+  assert.match(pilot,/if\(isRunning&&policyOK\(\)\)location\.reload\(\)/);
+});
+
+test('Recovered in-flight manual POST consumes only its matching item when level confirms success',()=>{
+  const a=pilot.indexOf('function reconcileAcknowledgement(){');
+  const b=pilot.indexOf('  function recoverAfterInspection(){',a);
+  assert.ok(a>0&&b>a);
+  const source=pilot.slice(a,b);
+  const prelude=[
+    "let pendingAck={mode:'manual',phase:'sending',id:'storage',target:19,index:0,at:10};",
+    "let buildingQueue=['storage','market'],templateTasks=[],templateIssued={};",
+    "let isRunning=true,lastRefreshOk=true,changed=0;",
+    "const currentLevel=()=>19,currentBuildCount=()=>0;",
+    "const saveQueue=()=>{changed++},saveAck=ack=>{pendingAck=ack};",
+    "const renderQueue=()=>{},renderStatus=()=>{},saveTasks=()=>{};",
+    "const saveStatus=()=>{},endLoop=()=>{},status=()=>{};"
+  ].join('\n');
+  const out=vm.runInNewContext(prelude+'\n'+source+
+    '\nconst result=reconcileAcknowledgement();({result,buildingQueue,pendingAck,changed})');
+  assert.equal(out.result,false);
+  assert.deepEqual(Array.from(out.buildingQueue),['market']);
+  assert.equal(out.pendingAck,null);
+  assert.equal(out.changed,1);
+});
+
+test('Unknown manual building level cannot lead to an invented +1 construction',()=>{
+  assert.doesNotMatch(pilot,/currentLevel\(buildingQueue\[0\]\)===null\?1/);
+  assert.match(pilot,/if\(level===null\)return null;\s*return \{id:buildingQueue\[0\],mode:'manual'/);
+  assert.match(pilot,/plan\.level!==null&&buildingQueue\[0\]===plan\.id/);
+});
