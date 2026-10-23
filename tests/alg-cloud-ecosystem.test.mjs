@@ -27,7 +27,7 @@ test('V2 remains the authenticated source of truth, with a separately scoped clo
  assert.match(css,/\.alg-v1 \.scripts-grid/);
  assert.match(css,/@media\(max-width:780px\)/);
  assert.match(css,/prefers-reduced-motion/);
- assert.doesNotMatch(css,/\b!important\b(?!.*prefers-reduced-motion)/);
+ assert.doesNotMatch(css.split('@media(prefers-reduced-motion:reduce)')[0],/!important/);
  new vm.Script(app,{filename:'portal/v2/app.js'});
  assert.match(app,/const catalog=await api\('catalog'\)/);
  assert.match(app,/state\.prefs\[x\.id\]\?\.allowed===true/);
