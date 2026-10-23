@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.1.1
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -31,7 +31,7 @@
       }
     }catch(_){}
     const TW_Helper = {
-      cfg,busy:false,cycleTimer:null,
+      cfg,busy:false,cycleTimer:null,lastRunAt:0,
       permitted:function(){
         return cfg.enabled&&this.isLockedToThisTab()&&
           localStorage.getItem('algzawy_portal_grant_tribal-wars-helper')==='1'&&
@@ -86,13 +86,45 @@
         });
         const run=document.createElement('button');run.type='button';run.textContent='جمع الآن';
         run.style.cssText='background:#48e4b8;border:0;border-radius:5px;color:#0b302e;font-weight:bold;padding:6px;cursor:pointer';
-        run.addEventListener('click',()=>{if(this.permitted()&&!this.busy)void this.checkAndClaimRewards();});
+        run.addEventListener('click',()=>{if(this.permitted()&&!this.busy)void this.checkAndClaimRewards(true);});
         const status=document.createElement('div');status.id='alg-reward-status';status.style.cssText='color:#9affd8;font-size:10px';
-        const footer=document.createElement('small');footer.textContent='BETA · v1.1.0 · © 2026 الغزااوي — جميع الحقوق محفوظة';
+        const footer=document.createElement('small');footer.textContent='BETA · v1.1.1 · © 2026 الغزااوي — جميع الحقوق محفوظة';
         footer.style.cssText='color:#a2c4c9;font-size:9px;text-align:center';
         body.append(run,status,footer);box.prepend(header);box.append(body);
-        const render=()=>{body.hidden=cfg.collapsed;fold.textContent=cfg.collapsed?'＋':'−'};
+        const render=()=>{body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';fold.textContent=cfg.collapsed?'＋':'−'};
         fold.addEventListener('click',()=>{cfg.collapsed=!cfg.collapsed;this.saveConfig();render();});render();
+        // Draggable via the title bar without capturing control clicks.
+        const container=box.closest('.algzawy-container'),positionKey='algzawy_rewards_position_v1';
+        if(container){
+          try{
+            const p=JSON.parse(localStorage.getItem(positionKey)||'null');
+            if(p&&Number.isFinite(p.left)&&Number.isFinite(p.top)){
+              container.style.left=Math.max(0,Math.min(innerWidth-container.offsetWidth,p.left))+'px';
+              container.style.top=Math.max(0,Math.min(innerHeight-45,p.top))+'px';
+            }
+          }catch(_){}
+          header.style.cursor='move';header.style.touchAction='none';
+          let gesture=null;
+          header.addEventListener('pointerdown',event=>{
+            if(event.button!==0||event.target.closest('button,input'))return;
+            const rect=container.getBoundingClientRect();
+            gesture={id:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};
+            header.setPointerCapture?.(event.pointerId);
+          });
+          header.addEventListener('pointermove',event=>{
+            if(!gesture||event.pointerId!==gesture.id)return;
+            container.style.left=Math.max(0,Math.min(innerWidth-container.offsetWidth,gesture.left+event.clientX-gesture.x))+'px';
+            container.style.top=Math.max(0,Math.min(innerHeight-45,gesture.top+event.clientY-gesture.y))+'px';
+          });
+          const stop=event=>{
+            if(!gesture||event.pointerId!==gesture.id)return;
+            gesture=null;
+            try{localStorage.setItem(positionKey,JSON.stringify({left:container.offsetLeft,top:container.offsetTop}));}catch(_){}
+            if(header.hasPointerCapture?.(event.pointerId))header.releasePointerCapture(event.pointerId);
+          };
+          header.addEventListener('pointerup',stop);
+          header.addEventListener('pointercancel',stop);
+        }
       },
         // استخدام اسم النافذة كمعرف ثابت لا يتغير عند تحديث الصفحة
         getTabId: function() {
@@ -292,9 +324,11 @@
         },
 
         // وظيفة فحص وجمع الجوائز
-        checkAndClaimRewards: async function() {
+        checkAndClaimRewards: async function(force=false) {
             if(this.busy||!this.permitted())return;
+            if(!force&&Date.now()-this.lastRunAt<cfg.cycle*1000)return;
             this.busy=true;
+            this.lastRunAt=Date.now();
             this.status('جارٍ الجمع…');
             try{
             const rewardBadge = document.querySelector('#reward-system-badge');
