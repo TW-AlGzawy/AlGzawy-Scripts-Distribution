@@ -36,7 +36,11 @@ test('server-time entry always uses locale-independent 24h HH:mm:ss rather than 
  assert.ok(core.includes('function time24(s)'));
  assert.ok(core.includes('t=time24(opts.time)'));
  assert.ok(!core.includes("t=input('الوقت (ساعة:دقيقة:ثانية)','time',opts.time)"));
- const time24=Function('s',`const clock=s=>{const m=String(s||'').match(/(\\d{1,2}):(\\d{2}):(\\d{2})/);if(!m)return null;const a=m.slice(1).map(Number);return a[0]<24&&a[1]<60&&a[2]<60?a:null;};${core.match(/function time24\\(s\\)\\{[\\s\\S]*?\\n\\}/)?.[0]||''}; return time24(s);`);
+ const start=core.indexOf('function time24(s){');
+ const end=core.indexOf('function target(){',start);
+ assert.ok(start>=0 && end>start,'24-hour parser must exist before target()');
+ const implementation=core.slice(start,end);
+ const time24=new Function('clock',implementation+'\nreturn time24;')(s=>s.split(':').map(Number));
  assert.deepEqual(time24('23:59:59'),[23,59,59]);
  assert.deepEqual(time24('00:00:00'),[0,0,0]);
  for(const wrong of ['24:00:00','12:60:00','7:03:04','11:12 PM','13:30'])assert.equal(time24(wrong),null);
