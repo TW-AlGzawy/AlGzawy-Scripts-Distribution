@@ -759,7 +759,7 @@
    });
    actions.append(sync,link);
    const foot=make('div','foot','التشغيل هنا اختيار خاص بهذا التبويب ولا يتجاوز الترخيص. لتشغيل المحركات، احتفظ بالـ Loaders المرخصة. ');
-   const open=make('a','','فتح الموقع ↗');open.href=URL;open.target='_blank';open.rel='noopener noreferrer';foot.append(open);
+   const open=make('a','','فتح الموقع ↗');open.href=URL;open.target='_blank';open.rel='noopener noreferrer';foot.append(open,make('div','','BETA · © 2026 الغزااوي — جميع الحقوق محفوظة'));
    body.append(box,statusText,diagnostic,make('strong','','السكربتات المسموحة'),list,actions,foot);
    panel.append(head,body);
    document.head.append(Object.assign(document.createElement('style'),{textContent:css}));
@@ -829,7 +829,7 @@
      if(!el.dataset.algzawyCopy){
        el.dataset.algzawyCopy='1';
        const body=el.querySelector('.body,.alg-body,.alg-content,[id$="-body"]');
-       if(body){
+       if(body&&!body.textContent.includes('جميع الحقوق محفوظة')){
          const foot=document.createElement('div');
          foot.textContent='BETA · © 2026 الغزااوي — جميع الحقوق محفوظة';
          foot.style.cssText='text-align:center;padding:5px 2px;margin-top:6px;color:#8bb9bd;font:9px/1.4 Tahoma,Arial;border-top:1px solid #2b6669';

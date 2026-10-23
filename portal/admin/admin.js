@@ -23,15 +23,14 @@ function navigateOwner(page){
  });
  $('ownerPageTitle').textContent=ownerTitles[page][0];
  $('ownerPageSubtitle').textContent=ownerTitles[page][1];
- try{sessionStorage.setItem('algzawy_admin_page_v2',page);}catch(_){}
+
  closeOwnerSidebar();
 }
 ownerLinks.forEach(b=>b.addEventListener('click',()=>navigateOwner(b.dataset.ownerPage)));
 ownerToggle.addEventListener('click',()=>{const open=!ownerSidebar.classList.contains('is-open');ownerSidebar.classList.toggle('is-open',open);ownerBackdrop.hidden=!open;ownerToggle.setAttribute('aria-expanded',String(open));});
 ownerBackdrop.addEventListener('click',closeOwnerSidebar);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOwnerSidebar();});
-let initialOwnerPage='overview';try{initialOwnerPage=sessionStorage.getItem('algzawy_admin_page_v2')||'overview';}catch(_){}
-navigateOwner(initialOwnerPage);
+navigateOwner('overview');
 const errorArabic=err=>({
  unauthorized:'رمز الإدارة غير صحيح أو انتهت صلاحية الجلسة.',
  csrf_invalid:'جلسة الإدارة غير صالحة؛ سجّل الدخول من جديد.',

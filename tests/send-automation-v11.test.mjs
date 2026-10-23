@@ -6,8 +6,8 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
 test('v1.5 clean engine/loader compile, version and catalog match',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.5\.0/);
- assert.match(loader,/@version\s+1\.5\.0/);
+ assert.match(core,/@version\s+1\.5\.1/);
+ assert.match(loader,/@version\s+1\.5\.1/);
  assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(s=>s.id==='send-automation').version,'1.5.1');
 });
 test('adaptive model and all diagnostics removed; no hidden token POST',()=>{
