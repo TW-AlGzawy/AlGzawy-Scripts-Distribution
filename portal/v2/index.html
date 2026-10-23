@@ -109,7 +109,7 @@
           <div class="placeholder-panel"><span class="placeholder-icon">▤</span><h3>بانتظار ربط المحركات بالمهام</h3><p>النسخة الحالية تتحكم بتفعيل السكربتات فعليًا. لعرض مهمة مجدولة وتنفيذها من الموقع يجب أولًا إضافة واجهة تبادل بيانات بين Cloud Bridge ومحرك كل بوت، مع سجل نتيجة التنفيذ.</p><button class="btn primary" data-go="scripts">العودة إلى مركز البوتات ←</button></div>
         </section>
         <section class="view" data-panel="villages">
-          <div class="page-head"><div><span class="kicker">GAME SYNC</span><h2>القرى والمزامنة</h2><p>لن نطلب كلمة مرور اللعبة أو ملفات Cookies من المشترك.</p></div></div>
+          <div class="page-head"><div><span class="kicker">GAME SYNC</span><h2>القرى والمزامنة</h2><p>لا نطلب كلمة مرور اللعبة أو ملفات Cookies من المشترك.</p></div></div>
           <div class="placeholder-panel"><span class="placeholder-icon">▦</span><h3>مزامنة القرى قيد التطوير</h3><p>لم تُفعّل بعد خدمة استقبال بيانات القرى على الخادم. سيُسمح بالمزامنة فقط بعد تأكيد الترخيص وإرسال البيانات التي يوافق المستخدم على مشاركتها من Cloud Bridge.</p><button class="btn subtle" data-go="connect">إعداد الربط ←</button></div>
         </section>
         <section class="view" data-panel="activity">
@@ -117,10 +117,10 @@
           <div id="activityList" class="panel activity-list"></div>
         </section>
         <section class="view" data-panel="connect">
-          <div class="page-head"><div><span class="kicker">AUTO LICENSE V2</span><h2>التفعيل التلقائي للجهاز</h2><p>لا حاجة لإنشاء أو إدخال رمز ربط. بعد تثبيت Cloud Bridge، اضغط ربط تلقائي من نافذته داخل اللعبة، ثم وافق هنا بحساب المشترك.</p></div></div>
+          <div class="page-head"><div><span class="kicker">AUTO LICENSE V2</span><h2>طلب اعتماد الجهاز</h2><p>لا حاجة لإنشاء أو إدخال رمز ربط. بعد تثبيت Cloud Bridge، اضغط ربط تلقائي من نافذته داخل اللعبة، ثم وافق هنا بحساب المشترك.</p></div></div>
           <div class="connect-grid">
             <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge V2</h3><p>سكربت واحد للتحقق من صلاحياتك ومزامنة البوتات. عند تشغيله على جهاز جديد تظهر عملية ربط بنقرة واحدة.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge V2 ↗</a></article>
-            <article class="step-panel"><span class="step-index">02</span><h3>وافق على الجهاز</h3><p>من داخل اللعبة اضغط «ربط تلقائي». ستظهر صفحة آمنة على نطاق AlGzawy الرسمي للموافقة بحسابك المسجل. لا رموز تُنسخ يدويًا.</p><span class="pill positive">موافقة أول جهاز تلقائية</span></article>
+            <article class="step-panel"><span class="step-index">02</span><h3>وافق على الجهاز</h3><p>من داخل اللعبة اضغط «ربط تلقائي». ستظهر صفحة آمنة على نطاق AlGzawy الرسمي للموافقة بحسابك المسجل. لا رموز تُنسخ يدويًا.</p><span class="pill positive">بانتظار اعتماد المالك لكل جهاز جديد</span></article>
             <article class="step-panel"><span class="step-index">03</span><h3>ترخيص يعمل تلقائيًا</h3><p>يعيد الجسر التحقق من حالة الاشتراك ومفتاح الإدارة وصلاحية كل سكربت. لاستبدال جهاز معتمد، تواصل مع الإدارة أولًا.</p><span class="pill neutral">جهاز واحد لكل اشتراك</span></article>
           </div>
           <div class="info-note">لا يلزم إبقاء موقع AlGzawy مفتوحًا. حالة ON/OFF تُستمد من الخادم. عند رفض الجهاز أو انقطاع التحقق يتوقف السماح بالتشغيل. يظل تثبيت سكربتات اللعبة وعلامة التثبيت في التبويب مطلوبين حسب إعدادات الأمان الحالية.</div>
@@ -140,7 +140,7 @@
       <h2 id="autoTitle">الموافقة على ربط هذا الجهاز</h2>
       <p>طلب ربط قادم من اللعبة. لا توافق إلا إذا فتحت هذه النافذة بنفسك من Cloud Bridge داخل متصفحك.</p>
       <div class="dialog-setting"><label>عنوان اللعبة الذي طلب الربط</label><strong id="autoOrigin" dir="ltr"></strong></div>
-      <p class="dialog-note">سيُعتمد الجهاز الأول تلقائيًا لهذا الاشتراك. إذا كان هناك جهاز آخر معتمد بالفعل، لن تُستبدل صلاحيته دون إجراء من الإدارة.</p>
+      <p class="dialog-note">يُرسل كل جهاز جديد إلى المالك للموافقة. يبقى الجهاز السابق معتمدًا حتى يوافق المالك على البديل؛ وعندها يُلغى اعتماد السابق تلقائيًا.</p>
       <p id="autoError" class="feedback error-message" role="alert"></p>
       <div class="dialog-actions"><button id="approveAuto" class="btn primary">أوافق على ربط هذا الجهاز</button><button id="declineAuto" class="btn outline">إلغاء</button></div>
     </section>

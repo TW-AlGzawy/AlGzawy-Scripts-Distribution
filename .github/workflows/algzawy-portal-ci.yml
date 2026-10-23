@@ -5,6 +5,7 @@ on:
       - "portal/**"
       - "loaders/algzawy-cloud-bridge.user.js"
       - "tests/portal-contract.test.mjs"
+      - "tests/portal-v2-contract.test.mjs"
       - "tests/portal-licensing-static.test.mjs"
       - ".github/workflows/algzawy-portal-ci.yml"
   pull_request:
@@ -12,6 +13,7 @@ on:
       - "portal/**"
       - "loaders/algzawy-cloud-bridge.user.js"
       - "tests/portal-contract.test.mjs"
+      - "tests/portal-v2-contract.test.mjs"
       - ".github/workflows/algzawy-portal-ci.yml"
 permissions:
   contents: read
@@ -27,9 +29,10 @@ jobs:
         run: |
           node --check portal/assets/app.js
           node --check portal/admin/admin.js
+          node --check portal/v2/app.js
           node --check "portal/functions/api/[[path]].js"
           node --check loaders/algzawy-cloud-bridge.user.js
       - name: Portal and D1 contract tests
-        run: node --test tests/portal-contract.test.mjs
+        run: node --test tests/portal-contract.test.mjs tests/portal-v2-contract.test.mjs
       - name: Licensing and free-polling regression checks
         run: node --test tests/portal-licensing-static.test.mjs

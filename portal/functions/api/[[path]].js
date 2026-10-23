@@ -151,7 +151,7 @@ async function allowedSet(env,userId){
 }
 async function subscriptionOK(env,userId){
   const row=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(userId).first();
-  return !row||(row.active===1&&(row.expires_at===null||row.expires_at===undefined||Number(row.expires_at)>Math.floor(Date.now()/1000)));
+  return !!row&&row.active===1&&(row.expires_at===null||Number.isSafeInteger(row.expires_at)&&row.expires_at>Math.floor(Date.now()/1000));
 }
 function requesterIP(req){return (req.headers.get('CF-Connecting-IP')||'').slice(0,64);}
 async function accessEvent(env,req,userId,deviceId,type){
@@ -353,7 +353,7 @@ async function handler(req,env){
         +'FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? ORDER BY k.first_seen DESC').bind(uid).all();
         const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(uid).first();
         const events=await env.DB.prepare('SELECT event_type,ip,occurred_at FROM portal_access_events WHERE user_id=? ORDER BY occurred_at DESC LIMIT 30').bind(uid).all();
-        return reply({ok:true,user:owner,allowedIds:[...access],devices:devices.results||[],subscription:sub||{active:1,expires_at:null},events:events.results||[]});
+        return reply({ok:true,user:owner,allowedIds:[...access],devices:devices.results||[],subscription:sub||{active:0,expires_at:null},events:events.results||[]});
       }
       if(req.method==='PUT'){
         let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
@@ -445,6 +445,7 @@ async function handler(req,env){
         if(!sealed)return bad('vault_not_configured',503);
         await env.DB.batch([
           env.DB.prepare('INSERT INTO portal_users (id,label,access_hash,active) VALUES (?,?,?,1)').bind(id,data.label.trim(),hash),
+          env.DB.prepare('INSERT INTO portal_subscriptions(user_id,active,expires_at) VALUES(?,?,?)').bind(id,1,null),
           env.DB.prepare('INSERT INTO portal_access_key_vault(user_id,encrypted_key,iv) VALUES (?,?,?)').bind(id,sealed.value,sealed.iv)
         ]);
         return reply({ok:true,user:{id,label:data.label.trim()},accessKey},201);
@@ -459,9 +460,9 @@ async function handler(req,env){
   }
 
   // Auto License V2: pairing is authorized by the subscriber's existing
-  // first-party 7-day HttpOnly session, not by a code or an external cookie.
-  // Only the FIRST device is automatically approved; all replacements require
-  // an owner to revoke the previous approved device.
+  // first-party HttpOnly session, not by a code or an external cookie.
+  // Every new key stays pending until the owner explicitly approves it.
+  // Recovering an already approved key never changes another device's approval.
   if(path[0]==='device'&&path[1]==='auto-enroll'&&path.length===2){
     if(req.method!=='POST')return bad('method_not_allowed',405);
     const session=await readSubscriberSession(req,env);
@@ -487,8 +488,8 @@ async function handler(req,env){
       catch(_){return false;}
     });
     if(existing?.approved===1)return reply({ok:true,deviceId:existing.device_id,status:'approved',nonce});
-    if(rows.some(x=>x.approved===1))return bad('device_already_linked',409);
-    // Reuse pending identical key only if it can be approved atomically.
+    // Reuse a pending request without creating duplicate rows or audit events.
+    if(existing)return reply({ok:true,deviceId:existing.device_id,status:'pending_approval',nonce},202);
     const id=existing?.device_id||crypto.randomUUID();
     if(!existing){
       const inertHash=await digest('auto-device-'+bytes(32),env.PORTAL_HASH_PEPPER);
@@ -498,15 +499,8 @@ async function handler(req,env){
           .bind(id,userId,JSON.stringify({kty:'EC',crv:'P-256',x:pub.x,y:pub.y}),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180))
       ]);
     }
-    // Single atomic conditional statement is important for concurrent tabs:
-    // one device wins while any other device remains unapproved.
-    const approval=await env.DB.prepare(
-      'UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=? AND approved=0 '
-      +'AND NOT EXISTS(SELECT 1 FROM portal_device_keys WHERE user_id=? AND approved=1 AND device_id<>?) RETURNING device_id'
-    ).bind(id,userId,userId,id).first();
-    if(!approval)return bad('device_already_linked',409);
-    await accessEvent(env,req,userId,id,'device_auto_approved');
-    return reply({ok:true,deviceId:id,status:'approved',nonce},201);
+    await accessEvent(env,req,userId,id,'device_pair_requested');
+    return reply({ok:true,deviceId:id,status:'pending_approval',nonce},202);
   }
   if(path[0]==='device'&&path[1]==='claim'&&path.length===2&&req.method==='POST'){
     let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
@@ -564,7 +558,7 @@ async function handler(req,env){
     const stmts=GROUPS.filter(([id])=>allow.has(id)&&(!payload.enabled||!off.has(id))).map(([id])=>env.DB.prepare(
       "INSERT INTO portal_preferences(user_id,script_id,enabled,settings_json,updated_at) VALUES(?,?,?,'{}',datetime('now')) ON CONFLICT(user_id,script_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at"
     ).bind(user.id,id,payload.enabled?1:0));
-    await env.DB.batch(stmts);
+    if(stmts.length)await env.DB.batch(stmts);
     return reply({ok:true,count:stmts.length,enabled:payload.enabled});
   }
   if(path[0]==='scripts'&&path.length===2&&req.method==='PUT'){

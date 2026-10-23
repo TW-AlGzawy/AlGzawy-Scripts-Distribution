@@ -83,10 +83,11 @@ async function approveDevice(){
   const button=$('approveAuto');button.disabled=true;$('autoError').textContent='';
   try{
     const result=await api('device/auto-enroll',{method:'POST',body:{nonce:autoLink.nonce,publicKey:autoLink.publicKey}});
-    if(result.nonce!==autoLink.nonce||result.status!=='approved'||!/^[0-9a-f-]{36}$/i.test(result.deviceId||''))throw Error('invalid_auto_enrollment');
-    tellGame({ok:true,deviceId:result.deviceId});
-    logAction('الموافقة على ربط الجهاز بنظام Auto License V2');
-    clearAutoLink();toast('تم اعتماد الجهاز تلقائيًا، يمكنك العودة إلى اللعبة');
+    if(result.nonce!==autoLink.nonce||!['approved','pending_approval'].includes(result.status)||!/^[0-9a-f-]{36}$/i.test(result.deviceId||''))throw Error('invalid_auto_enrollment');
+    tellGame({ok:true,deviceId:result.deviceId,status:result.status});
+    const pending=result.status==='pending_approval';
+    logAction(pending?'إرسال طلب اعتماد الجهاز إلى المالك':'استعادة ربط الجهاز المعتمد');
+    clearAutoLink();toast(pending?'أُرسل الطلب؛ انتظر اعتماد المالك ثم اضغط المزامنة داخل اللعبة':'تم التحقق من الجهاز المعتمد، يمكنك العودة إلى اللعبة');
     setTimeout(()=>window.close(),900);
   }catch(err){
     $('autoError').textContent=errText(err);
