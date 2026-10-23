@@ -45,7 +45,7 @@
     {
       "id": "professional-training-v2",
       "name": "الغزااوي | بوت التدريب",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated",

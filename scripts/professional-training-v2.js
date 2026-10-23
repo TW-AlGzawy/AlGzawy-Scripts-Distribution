@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         الغزااوي | بوت التدريب المحسّن
+// @name         الغزااوي | بوت التدريب
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
@@ -180,7 +180,7 @@
             padding: 15px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 99999;
+            z-index: 2147483001;
             font-family: Arial, sans-serif;
             min-width: 300px;
             max-width: 350px;
@@ -190,6 +190,14 @@
         `;
 
         panel.dataset.collapsed=localStorage.getItem('algzawy_training_collapsed_'+VILLAGE)==='1'?'1':'0';
+        const posKey='algzawy_training_position_'+VILLAGE;
+        try{
+          const p=JSON.parse(localStorage.getItem(posKey)||'null');
+          if(p&&Number.isFinite(p.left)&&Number.isFinite(p.top)){
+            panel.style.left=Math.max(0,Math.min(innerWidth-300,p.left))+'px';
+            panel.style.top=Math.max(0,Math.min(innerHeight-45,p.top))+'px';
+          }
+        }catch(_){}
         updatePanelContent(panel);
         panel.addEventListener('click',event=>{
             if(event.target.id!=='algzawy-training-collapse')return;
@@ -215,6 +223,27 @@
             updatePanelContent(panel);
         });
         document.body.appendChild(panel);
+        let drag=null;
+        panel.addEventListener('pointerdown',event=>{
+          if(event.button!==0||!event.target.closest('[data-training-drag]')||
+            event.target.closest('button,input,textarea,select'))return;
+          const r=panel.getBoundingClientRect();
+          drag={id:event.pointerId,x:event.clientX,y:event.clientY,left:r.left,top:r.top};
+          panel.setPointerCapture?.(event.pointerId);
+        });
+        panel.addEventListener('pointermove',event=>{
+          if(!drag||event.pointerId!==drag.id)return;
+          panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,drag.left+event.clientX-drag.x))+'px';
+          panel.style.top=Math.max(0,Math.min(innerHeight-40,drag.top+event.clientY-drag.y))+'px';
+        });
+        function endDrag(event){
+          if(!drag||event.pointerId!==drag.id)return;
+          drag=null;
+          try{localStorage.setItem(posKey,JSON.stringify({left:panel.offsetLeft,top:panel.offsetTop}));}catch(_){}
+          if(panel.hasPointerCapture?.(event.pointerId))panel.releasePointerCapture(event.pointerId);
+        }
+        panel.addEventListener('pointerup',endDrag);
+        panel.addEventListener('pointercancel',endDrag);
     }
 
     function updatePanelContent(panel) {
@@ -222,8 +251,8 @@
 
         let html = `
             <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-                    <h3 style="margin:0;font-size:14px">🤖 الغزااوي | بوت التدريب المحسّن</h3>
+                <div data-training-drag style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:move;touch-action:none;user-select:none">
+                    <h3 style="margin:0;font-size:14px">🤖 الغزااوي | بوت التدريب</h3>
                     <button id="algzawy-training-collapse" type="button" aria-label="تصغير أو تكبير نافذة التدريب" style="border:1px solid #263c4f;background:#123e3d;color:#eaf3f8;border-radius:5px;cursor:pointer">${panel.dataset.collapsed==='1'?'＋':'−'}</button>
                 </div>
                 <div data-training-body style="display:${panel.dataset.collapsed==='1'?'none':'block'}">
@@ -231,7 +260,6 @@
                 <div style="font-size: 11px; opacity: 0.8; margin-top: 5px;">
                     التحديث بالدقائق (0 = معطل): <input id="algzawy-training-refresh" type="number" min="0" max="1440" style="width:66px" value="${CONFIG.AUTO_REFRESH_MINUTES}">
                 </div>
-            </div>
 
             <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 5px; margin-bottom: 10px; font-size: 12px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
@@ -306,7 +334,8 @@
         html += `
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 10px; opacity: 0.7; text-align: center;">
                 آخر تحديث: ${new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
-            </div></div>
+            </div>
+            <div style="margin-top:8px;text-align:center;color:#a6cdcc;font-size:10px">BETA · V1.0 · © 2026 الغزااوي — جميع الحقوق محفوظة</div></div>
         `;
 
         panel.innerHTML = html;
