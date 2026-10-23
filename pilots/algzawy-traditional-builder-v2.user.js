@@ -383,6 +383,7 @@
     // newly imported template if the old manual builder was running.
     if(isRunning){isRunning=false;saveStatus();endLoop();}
     templateSteps=decoded;templateMode='template';
+    templateTasks=[];saveTasks();saveAck(null);
     templateIssued=null;templateVersion++;
     saveTemplate();renderQueue();renderTemplate();renderStatus();
     status('تم استيراد '+decoded.length+' خطوة بناء بالتسلسل الأصلي. راجع المستوى الحالي قبل الضغط على تشغيل.','normal');
@@ -458,6 +459,12 @@
     if(elements.instant){elements.instant.setAttribute('aria-pressed',String(instantEnabled));elements.instant.textContent=instantEnabled?'✓ الإنهاء الفوري مفعّل':'○ الإنهاء الفوري متوقف';}
     if(stoppedByPolicy)status('تم إيقاف المحرك بسبب الترخيص أو التحقق.','error');
     else if(isRunning&&!policyOK())status('موقوف مؤقتًا: تحقق من الترخيص أو فحص الحماية.','warn');
+    else if(templateMode==='tasks'&&templateTasks.length){
+      const left=templateTasks.filter(x=>x.state!=='completed').length;
+      const queued=templateTasks.filter(x=>x.state==='queued').length;
+      status((isRunning?'قائمة مهام القالب تعمل — ':'قائمة مهام القالب متوقفة — ')+
+        (templateTasks.length-left)+' مكتملة • '+queued+' مضافة للبناء • '+left+' متبقية','normal');
+    }
     else if(templateMode==='template'&&templateSteps.length){
       const next=nextTemplateStep(),progress=templateProgress();
       if(!next)status('اكتمل القالب: وصلت جميع المباني إلى المستويات المطلوبة.','normal');
@@ -550,25 +557,41 @@
         if(!templateSteps.length)return;
         if(!confirm('حذف القالب المستورد لهذه القرية فقط؟ لا تتغير القائمة اليدوية.'))return;
         if(isRunning){isRunning=false;saveStatus();endLoop();}
-        templateSteps=[];templateMode='manual';templateIssued=null;templateVersion++;
+        templateSteps=[];templateTasks=[];templateMode='manual';templateIssued=null;templateVersion++;
+        saveTasks();saveAck(null);
         saveTemplate();renderQueue();renderStatus();
         status('تم إلغاء القالب والعودة للقائمة اليدوية.','normal');
       })
     );
+    const expandButton=button('＋ إضافة خطوات القالب إلى قائمة المهام','alg-btn primary',()=>{
+      if(expandTemplateToTasks()){
+        if(elements.templateFold)elements.templateFold.open=false;
+        if(elements.templateCode)elements.templateCode.value='';
+      }
+    },'يفصل كل مستوى بناء إلى مهمة واحدة، محافظًا على الترتيب الأصلي');
+    expandButton.style.width='100%';
     elements.templateMode=button('○ وضع القائمة اليدوية','alg-btn',()=>{
       if(!templateSteps.length||stoppedByPolicy)return;
       if(isRunning){isRunning=false;saveStatus();endLoop();}
-      templateMode=templateMode==='manual'?'template':'manual';
+      saveAck(null);
+      templateMode=templateMode==='manual'?(templateTasks.length?'tasks':'template'):'manual';
       templateVersion++;templateIssued=null;
-      saveTemplate();renderQueue();renderStatus();
-      status('تم التبديل إلى '+(templateMode==='template'?'القالب':'القائمة اليدوية')+'. اضغط تشغيل لبدء العمل.','normal');
+      saveTemplate();saveTasks();renderQueue();renderStatus();
+      status('تم التبديل إلى '+(templateMode==='tasks'?'مهام القالب':templateMode==='template'?'القالب':'القائمة اليدوية')+'. اضغط تشغيل لبدء العمل.','normal');
     });
     elements.templateMode.style.width='100%';
     elements.templateCounter=node('div','alg-template-progress');
     elements.templateQueue=node('ol','alg-queue');
-    templateCard.append(elements.templateCode,importControls,elements.templateMode,
-      elements.templateCounter,elements.templateQueue,
-      node('small','alg-footer','يحافظ على ترتيب كل خطوة وتكرارات المباني كما هي في قالب مدير الحساب. لا يعيد ترتيب القالب أو يدمج المراحل.'));
+    elements.templateFold=node('details','alg-template-fold');
+    elements.templateFold.open=sessionStorage.getItem(TAB_FOLD_KEY)==='1';
+    elements.foldSummary=node('summary','', '▸ عرض / طي خطوات القالب');
+    elements.templateFold.append(elements.foldSummary,elements.templateQueue);
+    elements.templateFold.addEventListener('toggle',()=>{
+      sessionStorage.setItem(TAB_FOLD_KEY,elements.templateFold.open?'1':'0');
+    });
+    templateCard.append(elements.templateCode,importControls,expandButton,
+      elements.templateMode,elements.templateCounter,elements.templateFold,
+      node('small','alg-footer','قائمة القالب قابلة للطي. زر إضافة المهام يحوّل كل +مستويات إلى مهام مستقلة مرتبة في قائمة التنفيذ.'));
     const addCard=node('div','alg-card');
     addCard.append(node('label','alg-label','إضافة مبنى إلى خطة البناء'));
     const addRow=node('div','alg-entry');
