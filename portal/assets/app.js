@@ -63,7 +63,7 @@ function signOut(showNotice=true){
  updateAccount();render();
  if(showNotice)toast('تم تسجيل الخروج');
 }
-$('logoutButton').addEventListener('click',async()=>{try{await api('session',{method:'DELETE'});}catch(_){}signOut();});
+$('logoutButton').addEventListener('click',async()=>{try{await api('session',{method:'DELETE'});}catch(err){toast(errorArabic(err),true);return;}signOut();});
 $('loginSubmit').addEventListener('click',async()=>{
  const token=$('accessToken').value.trim();
  if(!/^alg_u_[a-f0-9]{64}$/.test(token)){$('loginMessage').textContent='أدخل مفتاح وصول مستخدم صحيح يبدأ بـ alg_u_';return;}
@@ -202,7 +202,7 @@ function showSettings(item){
      submit.disabled=true;
      try{
        const r=await api('scripts/'+encodeURIComponent(item.id),{method:'PUT',body:{enabled:!!current.enabled,settings}});
-       state.prefs[item.id]={enabled:r.enabled,settings:r.settings};overlay.remove();toast('تم حفظ الإعدادات وستُزامن مع المتصفح');
+       state.prefs[item.id]={...current,enabled:r.enabled,settings:r.settings};overlay.remove();render();toast('تم حفظ الإعدادات وستُزامن مع المتصفح');
      }catch(err){toast(errorArabic(err),true);submit.disabled=false;}
    });box.append(submit);
  }
