@@ -178,7 +178,7 @@ test('Template progress is per sequential step, including repeats and unknown le
   assert.equal(result.b.id,'main');
   assert.equal(result.b.target,3);
   assert.equal(result.c.id,'market','later unavailable/unfinished entry stays next');
-  assert.equal(result.p.ready,5);
+  assert.equal(result.p.ready,6); // includes first barracks level, already reached
 });
 test('Version 2.1 invalid template data is not resurrected in V2.2',()=>{
   assert.match(pilot,/storedTemplate\?\.format===2/);
