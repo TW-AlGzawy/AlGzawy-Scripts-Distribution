@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         [AlGzawy QA] البناء التقليدي المتطور — نافذة عائمة
-// @version      2.3.0-qa5
+// @version      2.3.0-qa6
 // @description  QA: floating AlG builder, expanded sequential template tasks, queued/completed tracking and tab-resilient resume
 // @author       الغزااوي | AlG
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
@@ -146,8 +146,15 @@
       return level===null||level<item.target;
     });
   }
+  function canEditPlan(){
+    if(processing||pendingAck){
+      status('يوجد أمر بناء جارٍ أو غير مؤكد؛ تحقق من اللعبة أولًا قبل تعديل المهام.','warn');
+      return false;
+    }
+    return true;
+  }
   function expandTemplateToTasks(){
-    if(!templateSteps.length||stoppedByPolicy)return false;
+    if(!templateSteps.length||stoppedByPolicy||!canEditPlan())return false;
     const rows=[];
     for(let i=0;i<templateSteps.length;i++){
       const item=templateSteps[i];
@@ -374,6 +381,7 @@
     if(!templateSteps.length)elements.templateQueue.append(node('li','', 'لا يوجد قالب مستورد بعد.'));
   }
   function importTemplate(raw){
+    if(stoppedByPolicy||!canEditPlan())return false;
     const decoded=decodeTWTemplate(raw);
     if(!decoded){status('تعذر فك كود قالب مدير الحساب الرسمي: صيغة خطوات البناء غير مدعومة أو الكود تالف.','error');return false;}
     // Explicitly stop before switching mode; do not accidentally execute a
@@ -438,7 +446,7 @@
     // visible on the current game's page.
   }
   function modifyQueue(fn){
-    if(stoppedByPolicy)return;
+    if(stoppedByPolicy||!canEditPlan())return;
     fn();saveQueue();renderQueue();
   }
   function moveItem(index,step){
@@ -593,7 +601,7 @@
         if(importTemplate(elements.templateCode.value))elements.templateCode.value='';
       }),
       button('حذف القالب','alg-btn danger',()=>{
-        if(!templateSteps.length)return;
+        if(!templateSteps.length||!canEditPlan())return;
         if(!confirm('حذف القالب المستورد لهذه القرية فقط؟ لا تتغير القائمة اليدوية.'))return;
         if(isRunning){isRunning=false;saveStatus();endLoop();}
         templateSteps=[];templateTasks=[];templateMode='manual';templateIssued=null;templateVersion++;
@@ -610,7 +618,7 @@
     },'يفصل كل مستوى بناء إلى مهمة واحدة، محافظًا على الترتيب الأصلي');
     expandButton.style.width='100%';
     elements.templateMode=button('○ وضع القائمة اليدوية','alg-btn',()=>{
-      if(!templateSteps.length||stoppedByPolicy)return;
+      if(!templateSteps.length||stoppedByPolicy||!canEditPlan())return;
       if(isRunning){isRunning=false;saveStatus();endLoop();}
       saveAck(null);
       templateMode=templateMode==='manual'?(templateTasks.length?'tasks':'template'):'manual';
@@ -675,6 +683,7 @@
     elements.taskLabel=node('strong','', 'قائمة المهام — بالترتيب');
     const heading=elements.taskLabel;heading.style.flex='1';
     elements.clearTasks=button('مسح الكل','alg-btn danger',()=>{
+      if(!canEditPlan())return;
       if(templateMode==='tasks'){
         if(!templateTasks.length)return;
         if(!confirm('حذف مهام القالب المضافة في هذا التبويب؟ يبقى القالب الأصلي محفوظًا.'))return;
@@ -977,6 +986,9 @@
       data:{id:plan.id,force:1,destroy:0,source:ID,h:gd.csrf},
       headers:{'Accept':'application/json, text/javascript, */*; q=0.01','TribalWars-Ajax':1}
     }).done(response=>{
+      // Revocation during the HTTP request must not process a late response
+      // as an instruction to continue, clear checkpoints or reload the game.
+      if(stoppedByPolicy)return;
       const parsed=typeof response==='string'?readJSON(response,null):response;
       if(!parsed||typeof parsed!=='object'||parsed.error){
         saveAck(null);
