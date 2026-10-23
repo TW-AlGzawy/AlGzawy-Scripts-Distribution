@@ -730,7 +730,7 @@
       else if(!old&&fresh)document.querySelector('#content_value')?.prepend(document.importNode(fresh,true));
       // Reflect verified village levels from a fresh page response without
       // changing queue priority or injecting full-page scripts.
-      if(templateMode==='template'){
+      if(templateMode==='template'||templateMode==='tasks'){
         for(const step of templateSteps){
           const selector='#main_buildrow_'+step.id+' .mw';
           const newLevel=html.querySelector(selector);
@@ -739,8 +739,15 @@
         }
         renderTemplate();
       }
+      lastRefreshOk=true;
+      if(templateMode==='tasks')reconcileTasks();
+      reconcileAcknowledgement();
       return true;
-    }catch(error){console.warn('[AlG Traditional Builder] queue refresh failed',error);return false;}
+    }catch(error){
+      lastRefreshOk=false;
+      console.warn('[AlG Traditional Builder] queue refresh failed',error);
+      return false;
+    }
   }
   function currentBuildCount(){
     const queue=document.getElementById('buildqueue');
@@ -749,6 +756,7 @@
   function canBuild(){
     if(!isRunning||processing||!policyOK())return false;
     if(templateMode==='template')return templateSteps.length>0;
+    if(templateMode==='tasks')return templateTasks.length>0;
     return buildingQueue.length>0&&currentBuildCount()<queueLength;
   }
   // V3.3's free finishing behavior, hardened: use only the game's
@@ -793,55 +801,131 @@
     }
     return false;
   }
-  function activePlan(){
-    if(templateMode!=='template')return buildingQueue.length
-      ?{id:buildingQueue[0],mode:'manual',version:templateVersion}:null;
-    const step=nextTemplateStep();
-    if(!step)return null;
-    if(step.level===null)return null; // UNKNOWN level is never zero or completed
-    if(templateIssued&&(templateIssued.id!==step.id||templateIssued.level<step.level)){
-      templateIssued=null;
-    }else if(templateIssued&&currentBuildCount()===0&&Date.now()-templateIssued.at>=90000){
-      // Never reissue an accepted order when we could not verify completion:
-      // stop rather than risk building an additional unintended level.
-      isRunning=false;saveStatus();endLoop();renderQueue();
-      status('قائمة بناء اللعبة فارغة لكن المستوى لم يتحدث خلال 90 ثانية. أوقفت القالب منعًا للتكرار؛ راجع مستوى المبنى.','error');
-      return null;
+  // A checkpoint is written BEFORE the network request. If a tab reloads
+  // mid-request the uncertain command is never replayed blindly.
+  function reconcileAcknowledgement(){
+    if(!pendingAck)return false;
+    const ack=pendingAck,level=currentLevel(ack.id);
+    if(ack.mode!=='manual'&&level!==null&&level>=ack.target){
+      if(ack.mode==='tasks'&&templateTasks[ack.index]){
+        templateTasks[ack.index].state='completed';saveTasks();
+      }
+      saveAck(null);templateIssued=null;
+      renderQueue();renderStatus();
+      return false;
     }
-    // A pending accepted upgrade must finish (or time out with renewed
-    // verification) before any additional construction requests.
-    if(templateIssued||templateRefreshing||currentBuildCount()>0)return null;
-    return {id:step.id,mode:'template',version:templateVersion,
+    if(ack.phase==='sending'){
+      // This may have reached the server even if the response was lost.
+      // Only a confirmed later level proves completion; otherwise stop
+      // until the operator has checked the game.
+      if(lastRefreshOk&&isRunning){
+        isRunning=false;saveStatus();endLoop();
+        status('يوجد طلب بناء أُرسل قبل التحديث ولم تتأكد نتيجته. راجع قائمة البناء ثم اضغط «تحقق واستئناف».','error');
+      }
+      return true;
+    }
+    if(ack.phase==='queued'){
+      if(ack.mode==='tasks'&&templateTasks[ack.index]){
+        if(templateTasks[ack.index].state!=='queued'){
+          templateTasks[ack.index].state='queued';saveTasks();renderQueue();
+        }
+      }
+      if(lastRefreshOk&&currentBuildCount()===0
+          &&Date.now()-ack.at>90000&&level!==null&&level<ack.target){
+        if(isRunning){isRunning=false;saveStatus();endLoop();}
+        status('انتهى وقت انتظار تحديث المستوى بعد قبول البناء. افحص القرية ثم اختر تحقق واستئناف.','error');
+      }
+      return true;
+    }
+    return true;
+  }
+  function recoverAfterInspection(){
+    if(!pendingAck){
+      if(!isRunning){isRunning=true;saveStatus();beginLoop();}
+      return;
+    }
+    void refreshVisibleGameQueue().then(ok=>{
+      if(!ok){status('تعذر التحقق من اللعبة. انتظر عودة الاتصال.','warn');return;}
+      if(!pendingAck){if(!isRunning){isRunning=true;saveStatus();beginLoop();}return;}
+      if(currentBuildCount()>0){
+        // The existing construction queue may contain a different building.
+        // Remain stopped, do not infer ownership of a game queue row.
+        status('هناك بناء في قائمة اللعبة؛ لا أستطيع التأكد أنه الطلب المحفوظ. انتظر اكتماله ثم أعد التحقق.','warn');
+        return;
+      }
+      const ack=pendingAck;
+      const level=currentLevel(ack.id);
+      if(level===null){
+        status('لا أستطيع قراءة مستوى المبنى. يجب التحقق قبل مواصلة التنفيذ.','error');return;
+      }
+      // Only an explicit owner click is allowed to dismiss an ambiguous
+      // network request with zero builds in the queue.
+      if(!confirm('قائمة بناء اللعبة فارغة ومستوى '+LABELS[ack.id]+
+        ' الحالي '+level+'. هل تأكدت أن الطلب السابق لم يُنفذ، وتريد استئناف التحقق؟'))return;
+      saveAck(null);
+      if(ack.mode==='tasks'&&templateTasks[ack.index]){
+        templateTasks[ack.index].state='pending';saveTasks();
+      }
+      isRunning=true;saveStatus();beginLoop();renderQueue();renderStatus();
+    });
+  }
+  function activePlan(){
+    if(pendingAck)return null;
+    if(templateMode==='manual')return buildingQueue.length
+      ?{id:buildingQueue[0],mode:'manual',version:templateVersion,index:0,
+        level:currentLevel(buildingQueue[0]),target:currentLevel(buildingQueue[0])===null?1:currentLevel(buildingQueue[0])+1}:null;
+    if(templateRefreshing||!lastRefreshOk||currentBuildCount()>0)return null;
+    if(templateMode==='tasks'){
+      const idx=pendingTask();
+      if(idx<0)return null;
+      const item=templateTasks[idx],level=currentLevel(item.id);
+      if(level===null)return null;
+      return {id:item.id,mode:'tasks',version:templateVersion,index:idx,level,target:item.target};
+    }
+    const step=nextTemplateStep();
+    if(!step||step.level===null)return null;
+    return {id:step.id,mode:'template',version:templateVersion,index:step.index,
       level:step.level,target:step.target};
   }
   function canContinue(plan){
-    if(!isRunning||!policyOK()||plan.mode!==templateMode
+    if(!isRunning||!policyOK()||pendingAck||plan.mode!==templateMode
        ||templateVersion!==plan.version)return false;
     if(plan.mode==='manual')
       return buildingQueue[0]===plan.id&&currentBuildCount()<queueLength;
+    if(templateRefreshing||!lastRefreshOk||currentBuildCount()>0)return false;
+    if(plan.mode==='tasks'){
+      const idx=pendingTask();
+      return idx===plan.index&&templateTasks[idx]?.id===plan.id
+        &&currentLevel(plan.id)===plan.level&&plan.level<plan.target;
+    }
     const next=nextTemplateStep();
-    return next&&next.id===plan.id&&next.level===plan.level
-      &&next.level!==null&&next.level<plan.target
-      &&!templateIssued&&currentBuildCount()===0;
+    return next&&next.index===plan.index&&next.id===plan.id
+      &&next.level===plan.level&&next.level!==null&&next.level<plan.target;
   }
   function cycle(){
-    if(!isRunning||!policyOK())return;
-    if(templateMode==='template'){
-      // Fetch refreshed building levels and the actual game queue on a
-      // measured cadence; never assume an AJAX acceptance means completed.
+    if(!isRunning||!policyOK()||navigator.onLine===false)return;
+    if(templateMode==='tasks'||templateMode==='template'){
       if(!processing&&!templateRefreshing&&Date.now()-templateRefreshAt>=22000){
         templateRefreshAt=Date.now();
         templateRefreshing=true;
         void refreshVisibleGameQueue().finally(()=>{templateRefreshing=false;});
         return;
       }
-      if(templateRefreshing||!templateSteps.length)return;
-      if(!nextTemplateStep()){
+      if(templateRefreshing||!lastRefreshOk)return;
+      if(reconcileAcknowledgement())return;
+      if(templateMode==='tasks'){
+        if(!templateTasks.length)return;
+        if(pendingTask()<0){
+          isRunning=false;saveStatus();endLoop();renderQueue();
+          status('✓ اكتملت جميع مهام القالب الفردية بالترتيب — توقف المحرك.','normal');
+          return;
+        }
+      }else if(!nextTemplateStep()){
         isRunning=false;saveStatus();endLoop();renderQueue();
-        status('✓ اكتمل القالب بجميع المستويات المطلوبة — توقف البناء تلقائيًا.','normal');
+        status('✓ اكتمل القالب بجميع المستويات المطلوبة — توقف المحرك.','normal');
         return;
       }
-    }
+    }else if(pendingAck){reconcileAcknowledgement();return;}
     if(finishFreeBuilding())return;
     if(!canBuild())return;
     const plan=activePlan();
@@ -868,6 +952,9 @@
       processing=false;status('لم يتم العثور على واجهة اللعبة اللازمة للبناء.','error');return;
     }
     const countBefore=currentBuildCount();
+    const guard={id:plan.id,mode:plan.mode,index:plan.index,
+      level:plan.level,target:plan.target,phase:'sending',at:Date.now()};
+    saveAck(guard);
     $.ajax({
       url:'/game.php?village='+encodeURIComponent(ID)+'&screen=main&ajaxaction=upgrade_building&type=main&',
       type:'post',
@@ -875,33 +962,41 @@
       headers:{'Accept':'application/json, text/javascript, */*; q=0.01','TribalWars-Ajax':1}
     }).done(response=>{
       const parsed=typeof response==='string'?readJSON(response,null):response;
-      if(!isRunning||!policyOK()||templateVersion!==plan.version||templateMode!==plan.mode)return;
       if(!parsed||typeof parsed!=='object'||parsed.error){
-        status('رفضت اللعبة طلب البناء أو أعادت استجابة غير صالحة.','warn');return;
+        saveAck(null);
+        status('رفضت اللعبة طلب البناء؛ المهمة محفوظة ولن يتم حذفها.','warn');
+        return;
       }
-      // Require explicit acceptance or an observed increase in the game queue;
-      // a timer tick, "no error", or old level text are insufficient proof.
       const accepted=Boolean(parsed.response?.success||parsed.success===true
         ||(typeof parsed.success==='string'&&parsed.success)
         ||currentBuildCount()>countBefore);
       if(!accepted){
-        isRunning=false;saveStatus();endLoop();renderQueue();
-        status('تعذر تأكيد قبول طلب البناء. تم إيقاف المحرك منعًا للتكرار؛ تحقق من اللعبة ثم أعد التشغيل.','error');
+        if(isRunning){isRunning=false;saveStatus();endLoop();}
+        status('استجابة البناء غير مؤكدة؛ تم حفظ الطلب وإيقاف التكرار. اضغط تحقق واستئناف بعد مراجعة اللعبة.','error');
         return;
       }
-      if(plan.mode==='template'){
-        templateIssued={id:plan.id,level:plan.level,at:Date.now()};
-        status('✓ قُبل بناء '+LABELS[plan.id]+'. سننتظر اكتمال المستوى '+(plan.level+1)+
-          ' قبل المتابعة في القالب.','normal');
-        renderTemplate();
-      }else if(buildingQueue[0]===plan.id){
-        buildingQueue.shift();
-        saveQueue();renderQueue();
-        status('قُبل طلب بناء '+LABELS[plan.id]+' وتم تحديث القائمة اليدوية.','normal');
+      if(plan.mode==='manual'){
+        // Server confirmed manual queue insertion; the next manual task may
+        // run after reload. Clear checkpoint only after queue is saved.
+        if(buildingQueue[0]===plan.id){
+          buildingQueue.shift();saveQueue();
+        }
+        saveAck(null);renderQueue();
+      }else{
+        const queued={...guard,phase:'queued',at:Date.now()};
+        saveAck(queued);
+        if(plan.mode==='tasks'&&templateTasks[plan.index]){
+          templateTasks[plan.index].state='queued';saveTasks();
+        }
+        renderQueue();
       }
+      status('✓ تمت إضافة '+(LABELS[plan.id]||plan.id)+' إلى قائمة البناء — جارٍ تتبع المستوى.','normal');
       void refreshVisibleGameQueue();
     }).fail(()=>{
-      if(!stoppedByPolicy)status('فشل إرسال طلب البناء؛ لن نحذف المهمة وسنعاود الفحص.','error');
+      // A network failure after POST does NOT prove the server rejected it.
+      // Keep the checkpoint and stop, preventing a duplicate after reload.
+      if(isRunning){isRunning=false;saveStatus();endLoop();}
+      status('انقطع الاتصال أثناء إرسال البناء؛ حُفظ الطلب دون تكرار. راجع اللعبة ثم تحقق واستأنف.','error');
     }).always(()=>{processing=false;});
   }
   function beginLoop(){
