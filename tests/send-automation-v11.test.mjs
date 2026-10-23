@@ -13,7 +13,7 @@ test('Arabic floating send scheduler v1.1 metadata and code compile',()=>{
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
  for(const value of ['توقيت الإرسال','توقيت الوصول','أجزاء الثانية ms','تعويض التأخير ms','إلغاء الجدولة','تجهيز الموعد',
-  'readInputs','readClock','predictedArrival','clearTimeout(timer)',"localStorage.getItem(GRANT)!=='1'","localStorage.getItem(HUMAN)==='1'",
+  'readInputs','function clock(s)','predictedArrival','clearTimeout(timer)',"localStorage.getItem(GRANT)!=='1'","localStorage.getItem(HUMAN)==='1'",
   'document.addEventListener(STOP,destroy',"document.addEventListener('algzawy-human-verification',destroy"])
   assert.ok(core.includes(value),'missing '+value);
  assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
