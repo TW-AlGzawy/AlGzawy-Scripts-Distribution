@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.2.1
+// @version      1.2.2
 // @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -12,7 +12,7 @@ const qs=new URL(location.href).searchParams;
 if(qs.get('screen')!=='place'||qs.get('try')!=='confirm')return;
 const BUTTON=document.getElementById('troop_confirm_submit');
 if(!BUTTON||window.__algzawySendV11)return;
-const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs';
+const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs', LAST='algzawy_sends_last_click_v1';
 const GRANT='algzawy_portal_grant_'+ID,LOCAL='algzawy_local_enabled_'+ID,HUMAN='algzawy_human_verification_pause';
 const UNTIL='algzawy_portal_device_authorized_until',STOP='__algzawy_stop_send-automation',DAY=86400000;
 let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null;
@@ -131,6 +131,32 @@ function destroy(){
  document.getElementById(ROOT+'-style')?.remove();
  window.__algzawySendV11=false;
 }
+function recordClick(){
+ // This is the browser's dispatch time, NOT game-server acceptance time.
+ const pressedAt=now();
+ const predicted=opts.mode==='arrival'?predictedArrival():null;
+ const reference=opts.mode==='arrival'?predicted?.time:pressedAt;
+ const adjusted=target(),offset=Number(opts.offset);
+ if(!Number.isFinite(reference)||!Number.isFinite(pressedAt)||!Number.isFinite(adjusted))return;
+ const entry={
+  version:'1.2.2',mode:opts.mode,pressedAt,referenceAtClick:reference,
+  targetWithOffset:adjusted,originalTarget:adjusted-offset,offset,
+  browserDeviationMs:Math.round(reference-adjusted),
+  clockSource:server?.source||'unknown',recordedAt:new Date().toISOString()
+ };
+ try{localStorage.setItem(LAST,JSON.stringify(entry));}catch(_){}
+ renderLastClick(entry);
+}
+function renderLastClick(entry){
+ if(!parts.last||!entry||!Number.isFinite(Number(entry.pressedAt)))return;
+ const diff=Number(entry.browserDeviationMs);
+ const mode=entry.mode==='arrival'?'الوصول':'الإرسال';
+ const signed=n=>(n>=0?'+':'')+n;
+ parts.last.textContent='آخر تنفيذ في المتصفح ('+mode+'): '+toText(Number(entry.pressedAt))
+  +' | انحراف عن الموعد المعوَّض '+signed(diff)+'ms'
+  +' | التعويض '+signed(Number(entry.offset))+'ms'
+  +' | المرجع: '+(entry.clockSource==='game'?'ساعة اللعبة':'ساعة العرض');
+}
 function fire(){
  if(!armed||sent||!licensed()){cancel('توقف التنفيذ بسبب الترخيص أو التحقق.');return;}
  const r=difference();
@@ -141,6 +167,7 @@ function fire(){
  sent=true;armed=false;if(timer)clearTimeout(timer);timer=null;
  parts.arm.disabled=true;parts.cancel.disabled=true;
  message('تم الضغط على تأكيد الإرسال مرة واحدة. تحقّق من نتيجة اللعبة.','ok');
+ recordClick();
  BUTTON.click();
 }
 function schedule(){
@@ -267,8 +294,10 @@ function show(){
  parts.cancel=btn('■ إلغاء الجدولة','stop',()=>cancel());parts.cancel.disabled=true;
  controls.append(parts.arm,parts.cancel);
  parts.note=el('div','note');parts.note.setAttribute('role','status');parts.note.setAttribute('aria-live','polite');
- body.append(stats,modeLabel,parts.hint,inputs,parts.source,rem,controls,parts.note,
-  el('small','hint','إذا تأخر الأمر 292ms عن الموعد، جرّب تعويض -292ms. زمن وصول الطلب للخادم يتأثر بالاتصال؛ الدقة ليست مضمونة.'));
+ parts.last=el('div','hint');
+ try{renderLastClick(JSON.parse(localStorage.getItem(LAST)||'null'));}catch(_){}
+ body.append(stats,modeLabel,parts.hint,inputs,parts.source,rem,controls,parts.note,parts.last,
+  el('small','hint','سجل آخر تنفيذ يقيس انحراف الضغط داخل المتصفح فقط، وليس قبول السيرفر. عاير كل وضع على حدة؛ التعويض الموجب يؤخر الضغط.'));
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
  if(opts.left!==null&&opts.top!==null){

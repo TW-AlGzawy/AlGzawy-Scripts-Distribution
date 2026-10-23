@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.2.1
+// @version      1.2.2
 // @description  توقيت الإرسال والوصول بأجزاء الثانية، لوحة عربية عائمة وترخيص Cloud Bridge
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @run-at       document-end

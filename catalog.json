@@ -76,12 +76,12 @@
     {
       "id": "send-automation",
       "name": "تجريبي - الغزااوي - الإرساليات الدقيقة",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
       "approved_for_final": false,
-      "note": "Auto server-date rollover, high resolution game clock and arrival subsecond phase aligned with server clock where available; manual latency offset; requires live game validation"
+      "note": "Local-only browser-click instrumentation: records request moment and scheduling error separately from unknown server transit latency, maintains send/arrival behavior"
     },
     {
       "id": "market-bot-v7",

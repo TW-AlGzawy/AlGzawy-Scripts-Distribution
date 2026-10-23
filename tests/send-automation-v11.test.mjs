@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.2.1 metadata and code compile',()=>{
+test('Arabic floating send scheduler v1.2.2 metadata and code compile',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.2\.1/);
- assert.match(loader,/@version\s+1\.2\.1/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.2.1');
+ assert.match(core,/@version\s+1\.2\.2/);
+ assert.match(loader,/@version\s+1\.2\.2/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.2.2');
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
@@ -53,7 +53,7 @@ test('automatically selects real server date across midnight, respecting manual 
 });
 test('uses millisecond game clock or fallback with shorter final timers',()=>{
  for(const fragment of ["window.Timing?.getCurrentServerTime?.()","source:'game'","source:'display'","performance.now()",
-  "r.remaining>35?5","setInterval(display,100)","تعويض -292ms"])
+  "r.remaining>35?5","setInterval(display,100)","انحراف الضغط داخل المتصفح"])
   assert.ok(core.includes(fragment),fragment);
 });
 test('simulates date rollover from serverDate and valid high resolution Timing source',()=>{
@@ -81,4 +81,20 @@ test('simulates date rollover from serverDate and valid high resolution Timing s
 test('arrival prediction adopts server milliseconds instead of truncating to 000 at each DOM tick',()=>{
  assert.ok(core.includes("value+=((now()%1000)+1000)%1000"));
  assert.ok(core.includes("const key=(d?d.join('-'):'date-missing')+' '+t.join(':')"));
+});
+
+test('last-click diagnostics persist locally and distinguish browser timing from network acknowledgement',()=>{
+ assert.ok(core.includes("LAST='algzawy_sends_last_click_v1'"));
+ assert.ok(core.includes("function recordClick()"));
+ assert.ok(core.includes("function renderLastClick(entry)"));
+ assert.ok(core.includes("recordClick();\n BUTTON.click();"));
+ assert.ok(core.includes("localStorage.setItem(LAST,JSON.stringify(entry))"));
+ assert.ok(core.includes("localStorage.getItem(LAST)"));
+ assert.ok(core.includes("browserDeviationMs:Math.round(reference-adjusted)"));
+ assert.ok(core.includes("clockSource:server?.source"));
+ assert.ok(core.includes("parts.last=el('div','hint')"));
+ assert.ok(core.includes("parts.note,parts.last"));
+ assert.ok(core.includes("التعويض الموجب يؤخر الضغط"));
+ assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
+ assert.doesNotMatch(core,/\$\.post/);
 });
