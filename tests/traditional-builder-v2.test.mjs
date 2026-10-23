@@ -24,7 +24,8 @@ test('Migrates saved original village queue unchanged and keeps each village iso
   assert.match(pilot,/const STATUS_KEY='autoBuilderStatus_'\+ID/);
   assert.match(pilot,/const QUEUE_KEY='autoBuilderQueue'/);
   assert.match(pilot,/const QA_ARMED_KEY='algzawy_traditional_qa_armed_v2_'/);
-  assert.match(pilot,/localStorage\.getItem\(STATUS_KEY\)==='true'&&localStorage\.getItem\(QA_ARMED_KEY\)==='1'/);
+  assert.match(pilot,/let isRunning=sessionStorage\.getItem\(TAB_RUNNING_KEY\)==='1'/);
+  assert.match(pilot,/function saveStatus\(\)\{sessionStorage\.setItem\(TAB_RUNNING_KEY,isRunning\?'1':'0'\);\}/);
   assert.match(pilot,/all\[ID\]=\{buildingQueue:buildingQueue\.slice\(\),buildingQueueLength:queueLength\}/);
   assert.match(pilot,/buildingQueue\.splice\(index,1\)/);
   assert.match(pilot,/const \[item\]=buildingQueue\.splice\(index,1\)/);
@@ -38,6 +39,9 @@ test('AlG panel is draggable, resizable, collapsible and saves expanded geometry
   assert.match(pilot,/touch-action:none;cursor:move/);
   assert.match(pilot,/handle\.addEventListener\('pointermove'/);
   assert.match(pilot,/resizeObserver=typeof ResizeObserver/);
+  assert.match(pilot,/function installResize\(grip\)/);
+  assert.match(pilot,/grip\.addEventListener\('pointermove'/);
+  assert.match(pilot,/resize: none|resize:none/);
   assert.match(pilot,/layout\.minimized=value/);
   assert.match(pilot,/if\(!layout\.minimized\)\{safe\.width=Math\.round\(rect\.width\);safe\.height=Math\.round\(rect\.height\);\}/);
   assert.match(pilot,/Math\.max\(0,innerWidth-panel\.offsetWidth\)/);
@@ -196,8 +200,73 @@ test('Level readings cannot be invented from costs; templates wait for verified 
   assert.match(pilot,/gd\.village\?\.buildings\?\.\[id\]/);
   assert.match(pilot,/if\(!row\)return null/);
   assert.match(pilot,/if\(step\.level===null\)return null/);
-  assert.match(pilot,/templateIssued\|\|templateRefreshing\|\|currentBuildCount\(\)>0/);
+  assert.match(pilot,/if\(templateRefreshing\|\|!lastRefreshOk\|\|currentBuildCount\(\)>0\)return null/);
   assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
   assert.match(pilot,/if\(plan\.mode==='template'\)/);
   assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
+});
+
+test('Template expansion generates every target increment in EXACT original order',()=>{
+ const begin=pilot.indexOf('function expandTemplateToTasks(){');
+ const end=pilot.indexOf('function policyOK(){',begin);
+ assert.ok(begin>0&&end>begin);
+ const source=pilot.slice(begin,end);
+ const sourcePrefix=[
+  'let templateSteps=[{id:"main",add:1,target:1},{id:"storage",add:1,target:1},'+
+   '{id:"main",add:1,target:2},{id:"market",add:25,target:25}];',
+  'let templateTasks=[],templateMode="template",isRunning=false,stoppedByPolicy=false;',
+  'let templateIssued=null,templateVersion=0;',
+  'const status=()=>{},saveAck=()=>{},saveTemplate=()=>{},saveTasks=()=>{},',
+  'reconcileTasks=()=>{},renderQueue=()=>{},renderStatus=()=>{};',
+  'const saveStatus=()=>{},endLoop=()=>{};',
+  'const confirm=()=>true;'
+ ].join('\n');
+ const result=vm.runInNewContext(sourcePrefix+source+
+  '\nexpandTemplateToTasks();({templateTasks,templateMode});');
+ const output=JSON.parse(JSON.stringify(result.templateTasks));
+ assert.equal(result.templateMode,'tasks');
+ assert.equal(output.length,28);
+ assert.deepEqual(output.slice(0,4).map(x=>x.id),
+  ['main','storage','main','market']);
+ assert.deepEqual(output.slice(-25).map(x=>x.target),
+  Array.from({length:25},(_,i)=>i+1));
+ assert.ok(output.every(x=>x.state==='pending'));
+ const actualSteps=JSON.parse(JSON.stringify(decode(BARQ)));
+ assert.equal(actualSteps.length,75);
+ const full=actualSteps.flatMap(step=>Array.from({length:step.add},
+  (_,i)=>({id:step.id,target:step.target-step.add+1+i})));
+ assert.equal(full.filter(x=>x.id==='market').length,25);
+ assert.equal(full.filter(x=>x.id==='main').length,30);
+ assert.equal(full.filter(x=>x.id==='storage').length,30);
+ assert.deepEqual(full.slice(0,8).map(x=>x.id),
+ ['main','statue','place','storage','main','storage','main','barracks']);
+});
+
+test('Per-tab persistence is independent of legacy per-village ON setting',()=>{
+ assert.match(pilot,/const TAB_RUNNING_KEY='algzawy_builder_v23_tab_running_'\+ID/);
+ assert.match(pilot,/const TAB_TASKS_KEY='algzawy_builder_v23_tasks_'\+ID/);
+ assert.match(pilot,/const TAB_ACK_KEY='algzawy_builder_v23_ack_'\+ID/);
+ assert.match(pilot,/sessionStorage\.getItem\(TAB_RUNNING_KEY\)==='1'/);
+ assert.match(pilot,/sessionStorage\.setItem\(TAB_TASKS_KEY/);
+ assert.match(pilot,/sessionStorage\.setItem\(TAB_ACK_KEY/);
+ assert.match(pilot,/phase:'sending'/);
+ assert.match(pilot,/phase:'queued'/);
+ assert.match(pilot,/if\(pendingAck\)return null/);
+ assert.match(pilot,/if\(isRunning\)beginLoop\(\)/);
+ assert.match(pilot,/window\.addEventListener\('online',onConnectionRestored\)/);
+ assert.match(pilot,/function reconcileAcknowledgement\(\)/);
+ assert.match(pilot,/function recoverAfterInspection\(\)/);
+ assert.match(pilot,/const ack=pendingAck,level=currentLevel\(ack\.id\)/);
+ assert.match(pilot,/if\(!confirm\('قائمة بناء اللعبة فارغة/);
+});
+
+test('Template folds independently; task queue marks queued and completed green',()=>{
+ assert.match(pilot,/elements\.templateFold=node\('details','alg-template-fold'\)/);
+ assert.match(pilot,/sessionStorage\.setItem\(TAB_FOLD_KEY/);
+ assert.match(pilot,/button\('＋ إضافة خطوات القالب إلى قائمة المهام'/);
+ assert.match(pilot,/elements\.templateFold\.open=false/);
+ assert.match(pilot,/const className=done\?'alg-complete':queued\?'alg-queued'/);
+ assert.match(pilot,/مكتمل':queued\?' ✓ أُضيف للبناء'/);
+ assert.match(pilot,/max-height:240px;overflow-y:auto/);
+ assert.match(pilot,/scrollTop=scrollTop/);
 });
