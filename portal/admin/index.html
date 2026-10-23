@@ -33,27 +33,31 @@
       <div class="owner-brand"><span class="brand-mark">AlG</span><div><strong>AlGzawy Cloud</strong><small>لوحة إدارة الاشتراكات</small></div></div>
       <div class="owner-top-actions"><span id="cloudState" class="pill pill-neutral">التحقق من الحالة</span><button id="ownerLogout" type="button" class="button button-outline button-sm">تسجيل الخروج</button></div>
     </header>
-    <main class="owner-main">
-
-          <div class="page-header"><span class="section-kicker">الإدارة</span><h1>إدارة حسابات الزبائن</h1><p>أنشئ الحسابات وحدد التراخيص واعتمد الأجهزة من لوحة الإدارة المستقلة. لا تشارك رمز الإدارة مع المستخدمين.</p></div>
-          <div class="admin-grid">
-            <div class="settings-card"><h3>جلسة الإدارة</h3><p class="field-note">يتم التحقق من كل عملية على الخادم بجلسة إدارة مستقلة.</p><button id="adminLoad" type="button" class="button button-primary">تحديث قائمة المشتركين</button></div>
-            <div class="settings-card"><h3>إضافة زبون</h3><label for="newUser">اسم الزبون</label><input id="newUser" type="text" maxlength="80" placeholder="اسم الحساب"><button id="createUser" type="button" class="button button-outline">إنشاء مفتاح وصول</button><div id="createdSecret" class="generated-secret" hidden></div></div>
-          </div>
-          <div class="settings-card owner-global-card"><h3>مفتاح التشغيل المركزي</h3><p class="field-note">يؤثر على جميع السكربتات المدعومة، تمامًا مثل لوحة Cloudflare القديمة.</p><div class="bulk-controls"><button id="adminGlobalOn" class="button button-primary" type="button">تشغيل المنظومة ON</button><button id="adminGlobalOff" class="button button-danger" type="button">إيقاف المنظومة OFF</button><button id="adminGlobalRefresh" class="button button-outline" type="button">تحديث الحالة</button></div><p id="adminGlobalMessage" class="field-note"></p></div>
-          <section class="settings-card users-card" aria-labelledby="scriptControlsTitle">
-<h3 id="scriptControlsTitle">التحكم الفردي بالسكربتات</h3>
-<p class="field-note">إيقاف سكربت واحد يمنع تشغيله لدى جميع المشتركين، دون التأثير على المفتاح المركزي.</p>
-<label for="adminScriptSearch">البحث عن سكربت</label>
-<input id="adminScriptSearch" type="search" placeholder="ابحث عن اسم السكربت">
-<div id="adminScriptControls" class="admin-script-controls" aria-live="polite"></div>
-<button id="adminScriptReload" type="button" class="button button-outline">تحديث الحالات</button>
-</section>
-<div class="settings-card users-card"><h3>الحسابات الموجودة</h3><p class="field-note">تجهيز مشترك جديد: أنشئ الحساب ← افتح «الصلاحيات والأجهزة» وحدد الاشتراك والسكربتات ← سلّمه مفتاحه ← اعتمد طلب جهازه بعد الربط. الحساب الجديد يبدأ دون سكربتات مرخصة.</p><label for="adminUserSearch">البحث باسم المشترك</label><input id="adminUserSearch" type="search" placeholder="اكتب اسم المشترك…" autocomplete="off"><p id="adminUserResults" class="field-note" role="status" aria-live="polite"></p><div id="adminUsers" class="users-list"><p>سجل الدخول ببيانات الإدارة لاستعراض الحسابات.</p></div></div>
-          <section class="settings-card users-card" aria-label="الحسابات المؤرشفة"><h3>الحسابات المؤرشفة</h3><p class="field-note">تبقى معطّلة إلى أن تعيد تفعيلها يدويًا. يمكن استعادتها أو حذفها نهائيًا.</p><div id="adminArchivedUsers" class="users-list"></div></section>
-          <a class="text-link" href="https://algzawy-control-api.karm-saleh-usa2.workers.dev/admin" target="_blank" rel="noopener noreferrer">فتح لوحة الإيقاف المركزي القديمة ↗</a>
-
-    </main>
+    <div class="owner-layout">
+      <aside id="ownerSidebar" class="owner-sidebar" aria-label="القائمة الجانبية للإدارة">
+        <div class="owner-sidebar-brand"><span class="brand-mark">AlG</span><div><strong>الغزااوي | الإدارة</strong><small>AlG CLOUD CONTROL</small></div></div>
+        <nav class="owner-navigation" aria-label="أقسام الإدارة"><button class="owner-nav-link" type="button" data-owner-page="overview">⌂ نظرة عامة</button><details class="owner-nav-group" open><summary>المشتركون</summary><button class="owner-nav-link" type="button" data-owner-page="users">الحسابات والأجهزة</button><button class="owner-nav-link" type="button" data-owner-page="create">إضافة مشترك</button><button class="owner-nav-link" type="button" data-owner-page="archive">الأرشيف</button></details><details class="owner-nav-group" open><summary>السكربتات</summary><button class="owner-nav-link" type="button" data-owner-page="global">التشغيل المركزي</button><button class="owner-nav-link" type="button" data-owner-page="scripts">السكربتات</button></details><details class="owner-nav-group" ><summary>النظام</summary><button class="owner-nav-link" type="button" data-owner-page="session">جلسة الإدارة</button></details></nav>
+        <div class="owner-side-foot">BETA · © 2026 الغزااوي — جميع الحقوق محفوظة</div>
+      </aside>
+      <button id="ownerSidebarBackdrop" type="button" class="owner-sidebar-backdrop" aria-label="إغلاق القائمة" hidden></button>
+      <main class="owner-main">
+        <header class="owner-content-head"><button id="ownerMenuToggle" class="button button-outline button-sm owner-menu-toggle" type="button" aria-controls="ownerSidebar" aria-expanded="false">☰ القائمة</button>
+          <div><span class="section-kicker">ALGZAWY CLOUD CONTROL</span><h1 id="ownerPageTitle">نظرة عامة</h1><p id="ownerPageSubtitle">إدارة سهلة وسريعة.</p></div>
+        </header>
+        <section class="owner-page-panel" data-owner-view="overview" ><div class="owner-panel-kicker">نظرة عامة</div><div class="owner-quick-grid">
+<button class="owner-quick-card" data-owner-page="users" type="button"><strong>المشتركون والأجهزة</strong><small>إدارة الحسابات والترخيص وطلبات اعتماد الأجهزة</small></button>
+<button class="owner-quick-card" data-owner-page="create" type="button"><strong>إضافة مشترك</strong><small>حساب جديد ومفتاح وصول</small></button>
+<button class="owner-quick-card" data-owner-page="scripts" type="button"><strong>السكربتات</strong><small>صلاحيات التشغيل الفردية</small></button>
+<button class="owner-quick-card" data-owner-page="global" type="button"><strong>التحكم المركزي</strong><small>إيقاف وتشغيل المنظومة</small></button>
+</div><div class="settings-card"><h3>مركز إدارة الغزااوي</h3><p class="field-note">اختر القسم المطلوب من القائمة الجانبية. ما زالت العمليات تعمل بالواجهات المحمية نفسها دون تغيير بيانات المشتركين.</p></div></section>
+<section class="owner-page-panel" data-owner-view="users" hidden><div class="owner-panel-kicker">المشتركون / الحسابات والأجهزة</div><div class="settings-card users-card"><h3>الحسابات الموجودة</h3><p class="field-note">أنشئ حسابًا ثم افتح «الصلاحيات والأجهزة» وحدد الترخيص والاشتراك واعتمد الجهاز.</p><label for="adminUserSearch">البحث باسم المشترك</label><input id="adminUserSearch" type="search" placeholder="اكتب اسم المشترك…" autocomplete="off"><p id="adminUserResults" class="field-note" role="status" aria-live="polite"></p><div id="adminUsers" class="users-list"><p>سجّل الدخول لاستعراض الحسابات.</p></div></div></section>
+<section class="owner-page-panel" data-owner-view="create" hidden><div class="owner-panel-kicker">المشتركون / إضافة مشترك</div><div class="settings-card"><h3>إضافة مشترك</h3><label for="newUser">اسم الزبون</label><input id="newUser" type="text" maxlength="80" placeholder="اسم الحساب"><button id="createUser" type="button" class="button button-outline">إنشاء مفتاح وصول</button><div id="createdSecret" class="generated-secret" hidden></div></div></section>
+<section class="owner-page-panel" data-owner-view="archive" hidden><div class="owner-panel-kicker">المشتركون / الأرشيف</div><section class="settings-card users-card" aria-label="الحسابات المؤرشفة"><h3>الحسابات المؤرشفة</h3><p class="field-note">تبقى معطلة إلى أن تعيد تفعيلها يدويًا. يمكن استعادتها أو حذفها نهائيًا.</p><div id="adminArchivedUsers" class="users-list"></div></section></section>
+<section class="owner-page-panel" data-owner-view="global" hidden><div class="owner-panel-kicker">السكربتات / التشغيل المركزي</div><div class="settings-card owner-global-card"><h3>مفتاح التشغيل المركزي</h3><p class="field-note">يؤثر على جميع السكربتات المدعومة.</p><div class="bulk-controls"><button id="adminGlobalOn" class="button button-primary" type="button">تشغيل المنظومة ON</button><button id="adminGlobalOff" class="button button-danger" type="button">إيقاف المنظومة OFF</button><button id="adminGlobalRefresh" class="button button-outline" type="button">تحديث الحالة</button></div><p id="adminGlobalMessage" class="field-note"></p></div></section>
+<section class="owner-page-panel" data-owner-view="scripts" hidden><div class="owner-panel-kicker">السكربتات / السكربتات</div><section class="settings-card users-card" aria-labelledby="scriptControlsTitle"><h3 id="scriptControlsTitle">التحكم الفردي بالسكربتات</h3><p class="field-note">إيقاف سكربت واحد يمنع تشغيله لجميع المشتركين، دون التأثير على المفتاح المركزي.</p><label for="adminScriptSearch">البحث عن سكربت</label><input id="adminScriptSearch" type="search" placeholder="ابحث عن اسم السكربت"><div id="adminScriptControls" class="admin-script-controls" aria-live="polite"></div><button id="adminScriptReload" type="button" class="button button-outline">تحديث الحالات</button></section></section>
+<section class="owner-page-panel" data-owner-view="session" hidden><div class="owner-panel-kicker">النظام / جلسة الإدارة</div><div class="settings-card"><h3>جلسة الإدارة</h3><p class="field-note">يتم التحقق من كل عملية على الخادم بجلسة إدارة مستقلة.</p><button id="adminLoad" type="button" class="button button-primary">تحديث قائمة المشتركين</button></div><div class="settings-card"><h3>لوحة التحكم السابقة</h3><a class="text-link" href="https://algzawy-control-api.karm-saleh-usa2.workers.dev/admin" target="_blank" rel="noopener noreferrer">فتح لوحة الإيقاف المركزي القديمة ↗</a></div></section>
+      </main>
+    </div>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>

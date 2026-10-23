@@ -7,6 +7,31 @@ let csrfToken='';
 let toastTimer=null;
 const toast=(msg,error=false)=>{const el=$('toast');el.textContent=msg;el.classList.toggle('error',error);el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},4400);};
 const h=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=String(text);return el;};
+
+const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"]};
+const ownerPanels=[...document.querySelectorAll('[data-owner-view]')];
+const ownerLinks=[...document.querySelectorAll('[data-owner-page]')];
+const ownerSidebar=$('ownerSidebar'),ownerBackdrop=$('ownerSidebarBackdrop'),ownerToggle=$('ownerMenuToggle');
+function closeOwnerSidebar(){ownerSidebar.classList.remove('is-open');ownerBackdrop.hidden=true;ownerToggle.setAttribute('aria-expanded','false');}
+function navigateOwner(page){
+ if(!Object.hasOwn(ownerTitles,page))page='overview';
+ ownerPanels.forEach(p=>{p.hidden=p.dataset.ownerView!==page;});
+ ownerLinks.forEach(n=>{
+  const active=n.dataset.ownerPage===page;n.classList.toggle('is-active',active);
+  if(n.matches('nav button')){if(active)n.setAttribute('aria-current','page');else n.removeAttribute('aria-current');}
+  if(active)n.closest('details')?.setAttribute('open','');
+ });
+ $('ownerPageTitle').textContent=ownerTitles[page][0];
+ $('ownerPageSubtitle').textContent=ownerTitles[page][1];
+ try{sessionStorage.setItem('algzawy_admin_page_v2',page);}catch(_){}
+ closeOwnerSidebar();
+}
+ownerLinks.forEach(b=>b.addEventListener('click',()=>navigateOwner(b.dataset.ownerPage)));
+ownerToggle.addEventListener('click',()=>{const open=!ownerSidebar.classList.contains('is-open');ownerSidebar.classList.toggle('is-open',open);ownerBackdrop.hidden=!open;ownerToggle.setAttribute('aria-expanded',String(open));});
+ownerBackdrop.addEventListener('click',closeOwnerSidebar);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOwnerSidebar();});
+let initialOwnerPage='overview';try{initialOwnerPage=sessionStorage.getItem('algzawy_admin_page_v2')||'overview';}catch(_){}
+navigateOwner(initialOwnerPage);
 const errorArabic=err=>({
  unauthorized:'رمز الإدارة غير صحيح أو انتهت صلاحية الجلسة.',
  csrf_invalid:'جلسة الإدارة غير صالحة؛ سجّل الدخول من جديد.',
