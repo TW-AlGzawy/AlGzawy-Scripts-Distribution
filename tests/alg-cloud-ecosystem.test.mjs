@@ -47,7 +47,7 @@ test('The first-party page includes every DOM control referenced by V2 JS',()=>{
 
 test('Bundled QA launcher keeps original signed Bridge and no direct licensing bypass',()=>{
  new vm.Script(pilot,{filename:'pilots/algzawy-smart-launcher-v1.user.js'});
- assert.match(pilot,/\/\/ @version\s+1\.0\.0-qa1/);
+ assert.match(pilot,/\/\/ @version\s+1\.0\.0-qa2/);
  assert.match(pilot,/const PORTAL_ORIGIN='https:\/\/algzawy-cloud-control\.pages\.dev'/);
  assert.match(pilot,/async function deviceProof\(\)/);
  assert.match(pilot,/async function synchronize\(force=false\)/);
@@ -61,6 +61,8 @@ test('Bundled QA launcher keeps original signed Bridge and no direct licensing b
  assert.match(ui,/algzawy-smart-launcher-qa/);
  assert.match(ui,/AlG CLOUD CONTROL · V1\.0/);
  assert.match(ui,/const permitted=ids\.filter/);
+ assert.match(ui,/const allowedIds=new Set\(allowedButtons\.map/);
+ assert.match(ui,/const permitted=ids\.filter\(\(\[id\]\)=>allowedIds\.has\(id\)\)/);
  assert.match(ui,/localStorage\.getItem\('algzawy_portal_grant_'\+id\)==='1'/);
  assert.doesNotMatch(ui,/localStorage\.setItem\('algzawy_portal_grant_/);
  assert.doesNotMatch(ui,/localStorage\.setItem\('algzawy_portal_approved_device'/);
@@ -93,4 +95,91 @@ test('One-install claim is limited to Bridge + Control Center, with real engine 
  assert.match(html,/محركات البوتات تحتاج إلى Cloud Bridge V2 وملفات Loader المرخصة الحالية/);
  assert.match(pilot,/separately installed authorized game engines still required/);
  assert.doesNotMatch(popup,/localStorage\.setItem/);
+});
+
+
+test('Cloud Bridge reports only completed signed sync outcomes, errors and pending states',async()=>{
+ const a=pilot.indexOf('async function synchronize(force=false){');
+ const b=pilot.indexOf('  let lastBlocked=null',a);
+ assert.ok(a>0&&b>a);
+ const code=pilot.slice(a,b);
+ async function scenario(fails){
+  const reports=[], messages=[],changes=[];
+  const context={
+   Date,Error,String,Number,Set,Map,Event:class Event{constructor(type){this.type=type}},
+   console,document:{dispatchEvent:e=>changes.push(e.type)},
+   localStorage:{setItem:(key,value)=>changes.push(key+':'+String(value))},
+   GM_setValue:()=>{},stopAll:()=>changes.push('stop'),
+   renderPinControls:()=>changes.push('renderPins'),
+   setLocal:()=>false,
+   applySettings:()=>{},showMessage:(value,ok)=>messages.push({value,ok}),
+   notifyLauncherSync:(phase,message,extra)=>reports.push({phase,message,extra}),
+   deviceProof:async()=>({'X-ALG-DEVICE-ID':'never-export'}),
+   request:async()=>{
+    if(fails)throw Error('network check failed');
+    return {global:{enabled:true},user:{label:'مستخدم اختباري'},
+      scripts:{'test-id':{allowed:true,enabled:true}}};
+   },
+  };
+  const head=[
+   "let pending=false,lastRequest=0;",
+   "let connection={device:'approved-device',last:0};",
+   "let licensedPins=new Set();",
+   "const known=['test-id'];",
+   "const LICENSE_UNTIL='license-until',LICENSE_ID='license-id';",
+   "const GRANT_PREFIX='grant-';",
+   "const storageKey=id=>'algzawy_local_enabled_'+id;"
+  ].join('\n');
+  return vm.runInNewContext(head+'\n'+code+
+    '\n(async()=>{await synchronize(true);return {pending,reports:bridgeReports,changes:bridgeChanges}})()',{
+      ...context,bridgeReports:reports,bridgeChanges:changes
+    });
+ }
+ const good=await scenario(false);
+ assert.equal(good.pending,false);
+ assert.deepEqual(Array.from(good.reports,r=>r.phase),['loading','success']);
+ assert.equal(good.reports[1].extra.allowed,1);
+ assert.equal(good.reports[1].extra.enabled,1);
+ assert.doesNotMatch(JSON.stringify(good.reports),/never-export|approved-device/);
+ const bad=await scenario(true);
+ assert.deepEqual(Array.from(bad.reports,r=>r.phase),['loading','error']);
+ assert.match(bad.reports[1].message,/فشلت المزامنة/);
+ assert.ok(!bad.reports.some(r=>r.phase==='success'));
+});
+
+test('Sync button now reports Bridge results, and avoids silent no-op when hidden Bridge is absent',()=>{
+ const a=pilot.indexOf('/* QA floating manager');
+ const ui=pilot.slice(a);
+ assert.match(pilot,/function notifyLauncherSync\(phase,message,extra=\{\}\)/);
+ assert.match(pilot,/document\.dispatchEvent\(new CustomEvent\('algzawy-launcher-sync-state'/);
+ assert.match(pilot,/notifyLauncherSync\('loading'/);
+ assert.match(pilot,/notifyLauncherSync\(r\.global\.enabled\?'success':'paused'/);
+ assert.match(pilot,/notifyLauncherSync\('error'/);
+ assert.match(ui,/document\.addEventListener\('algzawy-launcher-sync-state'/);
+ assert.match(ui,/syncState=\{phase:'loading',message:/);
+ assert.match(ui,/syncState=\{phase:'error',message:'Cloud Bridge لم يكتمل تحميله/);
+ assert.match(ui,/statusText\.setAttribute\('aria-live','polite'\)/);
+ assert.match(ui,/↻ جارٍ المزامنة/);
+ assert.match(ui,/diagnostic\.textContent='لم تتهيأ نافذة Cloud Bridge/);
+ assert.match(ui,/لم يكتمل التحقق من هوية هذا التبويب/);
+ assert.match(ui,/لم يؤكد Cloud Bridge القائمة بعد/);
+ assert.doesNotMatch(ui,/statusText\.textContent=authorized\(\)\?'● الجهاز متحقق مؤقتًا/);
+});
+
+test('Village display reads trusted game context and URL fallback without game code injection',()=>{
+ const start=pilot.indexOf('function villageId(){');
+ const end=pilot.indexOf(' function pinned(id){',start);
+ assert.ok(start>0&&end>start);
+ const fn=pilot.slice(start,end);
+ const base='https://ae101.tribalwars.ae/game.php?village=1363&screen=main';
+ function village(game,url){
+  return vm.runInNewContext(fn+'\nvillageId()',{
+   unsafeWindow:{game_data:game},window:{},
+   location:{href:url},URL,Number,String
+  });
+ }
+ assert.equal(village({village:{id:5099}},base),'5099');
+ assert.equal(village(undefined,base),'1363');
+ assert.equal(village(undefined,'https://ae101.tribalwars.ae/game.php?screen=main'),'—');
+ assert.equal(village({village:{id:'not-a-number'}},base),'—');
 });
