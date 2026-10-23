@@ -12,7 +12,7 @@ test('Arabic floating send scheduler v1.3.1 metadata and code compile',()=>{
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
- for(const value of ['توقيت الإرسال','توقيت الوصول','أجزاء الثانية ms','تعويض التأخير ms','إلغاء الجدولة','تجهيز الموعد',
+ for(const value of ['توقيت الإرسال','توقيت الوصول','الأجزاء ms','التعويض ms','■ إلغاء','▶ تجهيز',
   'readInputs','function clock(s)','predictedArrival','clearTimeout(timer)',"localStorage.getItem(GRANT)!=='1'","localStorage.getItem(HUMAN)==='1'",
   'document.addEventListener(STOP,destroy',"document.addEventListener('algzawy-human-verification',destroy"])
   assert.ok(core.includes(value),'missing '+value);
@@ -29,7 +29,7 @@ test('only game native confirmation is used; remove unneeded outbound tracking',
 });
 
 test('server-time entry always uses locale-independent 24h HH:mm:ss rather than AM/PM',()=>{
- assert.ok(core.includes("t=input('الوقت بنظام 24 ساعة HH:mm:ss','text',opts.time)"));
+ assert.ok(core.includes("t=input('الوقت 24h','text',opts.time)"));
  assert.ok(core.includes("i.placeholder='HH:mm:ss'"));
  assert.ok(core.includes("i.dir='ltr'"));
  assert.ok(core.includes("t.i.classList.add('alg-clock24')"));
@@ -92,8 +92,8 @@ test('last-click diagnostics persist locally and distinguish browser timing from
  assert.ok(core.includes("localStorage.getItem(LAST)"));
  assert.ok(core.includes("browserDeviationMs:Math.round(reference-adjusted)"));
  assert.ok(core.includes("clockSource:server?.source"));
- assert.ok(core.includes("parts.last=el('div','hint')"));
- assert.ok(core.includes("parts.note,parts.last"));
+ assert.ok(core.includes("parts.last=el('div','hint alg-last')"));
+ assert.ok(core.includes("diagnosticsBody.append(parts.last"));
  assert.ok(core.includes("التعويض الموجب يؤخر الضغط"));
  assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
  assert.doesNotMatch(core,/\$\.post/);
