@@ -388,8 +388,8 @@ function show(){
  parts.smartAdvice=el('div','stat');
  const smartHelp=el('small','hint','بعد كل إرسالية أدخل فرق التوقيت عن الموعد الأصلي: + متأخر / - مبكر بالـ ms. يستخدم سجلًا مستقلًا لكل وضع، ولا يفعّل التعويض التلقائي قبل توفر 3 نتائج موثوقة.');
  const smartRow=el('div','smart-row');
- parts.smartObserved=el('input','alg-input');parts.smartObserved.type='number';
- parts.smartObserved.min='-1500';parts.smartObserved.max='1500';parts.smartObserved.placeholder='مثال +45';
+ parts.smartObserved=el('input','alg-input');parts.smartObserved.type='text';
+ parts.smartObserved.maxLength=5;parts.smartObserved.inputMode='numeric';parts.smartObserved.dir='ltr';parts.smartObserved.placeholder='مثال +45 أو -20';
  const add=btn('حفظ النتيجة','',storeOutcome);
  smartRow.append(parts.smartObserved,add);
  smartBox.append(smartLabel,parts.smartNetwork,parts.smartSamples,parts.smartAdvice,smartHelp,smartRow,

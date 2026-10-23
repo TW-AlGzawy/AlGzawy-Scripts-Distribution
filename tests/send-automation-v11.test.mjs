@@ -123,3 +123,10 @@ test('Smart Timing rejects too few or unstable results, bounds compensation, ble
  assert.equal(smartEvaluate(log([220,225,222,1500]),none).offset,-222);
  assert.equal(smartEvaluate([{lag:230,at:Date.now()-20*86400000}],none).count,0);
 });
+
+test('Smart feedback field accepts signed values and preserves manual alternative',()=>{
+ assert.ok(core.includes("parts.smartObserved.type='text'"));
+ assert.ok(core.includes("parts.smartObserved.inputMode='numeric'"));
+ assert.ok(core.includes("/^[+-]?\\d{1,4}$/.test(raw)"));
+ assert.ok(core.includes("smart:false"));
+});
