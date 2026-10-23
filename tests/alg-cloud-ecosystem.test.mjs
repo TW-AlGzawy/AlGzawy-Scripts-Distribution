@@ -193,7 +193,7 @@ test('Village display reads trusted game context and URL fallback without game c
 
 test('QA companion is a separate floating interface that preserves original Bridge identity',()=>{
   new vm.Script(companion,{filename:'pilots/algzawy-control-center-companion-v1.user.js'});
-  assert.match(companion,/\/\/ @version\s+1\.0\.0-qa3/);
+  assert.match(companion,/\/\/ @version\s+1\.0\.0-qa4/);
   assert.match(companion,/\/\/ @grant\s+unsafeWindow/);
   assert.doesNotMatch(companion,/\/\/ @grant\s+GM_(get|set)Value/);
   assert.doesNotMatch(companion,/GM_getValue|GM_setValue|GM_xmlhttpRequest|algzawy_cloud_portable_private_jwk_v2/);
@@ -239,4 +239,71 @@ test('Companion sync delegates to native Bridge and requires observed completed 
   assert.match(companion,/لم يرد تأكيد جديد من الجسر/);
   assert.match(companion,/syncState=\{phase:'loading',message:/);
   assert.match(companion,/statusText\.setAttribute\('aria-live','polite'\)/);
+});
+
+
+test('QA4 device link never silently opens the ordinary customer dashboard',()=>{
+ assert.doesNotMatch(companion,/else window\.open\(URL,'_blank'/);
+ assert.match(companion,/function bridgePairingState\(\)/);
+ assert.match(companion,/bridgePairingMessage\(state\)/);
+ assert.match(companion,/pairingState==='missing'\|\|pairingState==='not-ready'/);
+ assert.match(companion,/linkButton\.disabled=pairingState==='missing'\|\|pairingState==='not-ready'/);
+ assert.match(companion,/pairingState==='linked'\?'✓ ربط محفوظ'/);
+ const start=companion.indexOf("link.addEventListener('click',()=>{");
+ const end=companion.indexOf("\n   actions.append(sync,link);",start);
+ assert.ok(start>0&&end>start);
+ const handler=companion.slice(start,end);
+ assert.match(handler,/state==='unlinked'/);
+ assert.match(handler,/native\.click\(\)/);
+ assert.match(handler,/state==='linked'/);
+ assert.doesNotMatch(handler,/window\.open|location\.href|https?:\/\//);
+});
+
+test('Companion delegates enrollment only to native Bridge and never re-enrolls linked devices',()=>{
+ const pairStart=companion.indexOf('function bridgePairingState(){');
+ const pairEnd=companion.indexOf(' function attachNativeFeedback(){',pairStart);
+ const clickStart=companion.indexOf("link.addEventListener('click',()=>{");
+ const clickEnd=companion.indexOf("\n   actions.append(sync,link);",clickStart);
+ assert.ok(pairStart>0&&pairEnd>pairStart&&clickStart>0&&clickEnd>clickStart);
+ const pairingFns=companion.slice(pairStart,pairEnd);
+ const clickHandler=companion.slice(clickStart,clickEnd);
+ function simulate(state){
+   let clicks=0,opened=0,rendered=0;
+   const hidden={style:{display:'none'}};
+   const shown={style:{display:''}};
+   const original={click:()=>clicks++};
+   const elements=state==='missing'?{}:state==='not-ready'?{'algzawy-cloud-pair-panel':{}}:
+    {'algzawy-cloud-pair-panel':{},'algzawy-cloud-linked':state==='unlinked'?hidden:shown,
+     'algzawy-cloud-pair':{},'algzawy-cloud-connect':original};
+   const listener={};
+   const out=vm.runInNewContext(
+    'let syncState={phase:"idle",message:"",at:0};\n'+pairingFns+
+    '\nconst link={addEventListener(type,fn){controller.fn=fn}};\n'+
+    clickHandler+
+    '\nconst detected=bridgePairingState();controller.fn();({detected,syncState})',
+    {document:{getElementById:id=>elements[id]||null},Date,
+      controller:listener,render:()=>rendered++,window:{open:()=>opened++}}
+   );
+   return {out,clicks,opened,rendered};
+ }
+ for(const type of ['missing','not-ready','linked','unlinked']){
+   const result=simulate(type);
+   assert.equal(result.out.detected,type);
+   assert.equal(result.opened,0,'companion must not open generic portal');
+   assert.equal(result.clicks,type==='unlinked'?1:0,'only unlinked native Bridge opens signed approval');
+   assert.equal(result.rendered,1);
+   if(type==='missing'||type==='not-ready')assert.equal(result.out.syncState.phase,'error');
+   if(type==='linked')assert.match(result.out.syncState.message,/لا تعِد الربط/);
+   if(type==='unlinked')assert.match(result.out.syncState.message,/نافذة الموافقة/);
+ }
+});
+
+test('Existing Bridge V2 actually opens signed approval link with alg_auto payload',()=>{
+ assert.match(originalBridge,/async function openAutoLicense\(\)/);
+ assert.match(originalBridge,/const nonce=crypto\.randomUUID\(\)/);
+ assert.match(originalBridge,/const payload=\{nonce,origin,publicKey:identity\.publicKey\}/);
+ assert.match(originalBridge,/popup\.location\.href=PORTAL_ORIGIN\+'\/v2\/\?alg_auto='/);
+ assert.match(originalBridge,/event\.origin!==PORTAL_ORIGIN/);
+ assert.match(originalBridge,/data\.nonce!==nonce/);
+ assert.match(originalBridge,/document\.getElementById\('algzawy-cloud-connect'\)|q\('connect'\)\.addEventListener\('click',\(\)=>void openAutoLicense\(\)\)/);
 });
