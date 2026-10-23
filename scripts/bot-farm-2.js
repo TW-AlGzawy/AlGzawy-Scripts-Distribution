@@ -21,15 +21,15 @@
   const panel = document.createElement('section');
   panel.id = 'algzawy-bot2-panel';
   panel.setAttribute('dir','rtl');
-  panel.style.cssText = 'position:fixed;top:145px;right:15px;z-index:999991;width:235px;background:#f7f9fc;color:#15273a;border:1px solid #b3c3d3;border-radius:12px;box-shadow:0 8px 22px #0004;font:12px/1.6 Tahoma,Arial;overflow:hidden';
+  panel.style.cssText = 'position:fixed;top:145px;right:15px;z-index:999991;width:235px;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:12px;box-shadow:0 8px 22px #0004;font:12px/1.6 Tahoma,Arial;overflow:hidden';
   panel.innerHTML =
-    '<header id="algzawy-bot2-header" style="background:#162c42;color:white;padding:9px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between"><b>تجريبي - الغزااوي - بوت النهب</b><button id="algzawy-bot2-min" type="button" style="color:white;background:transparent;border:0">−</button></header>'+
+    '<header id="algzawy-bot2-header" style="background:#123e3d;color:#eaf3f8;padding:9px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between"><b>تجريبي - الغزااوي - بوت النهب</b><button id="algzawy-bot2-min" type="button" style="color:#40e1bf;background:transparent;border:0">−</button></header>'+
     '<div id="algzawy-bot2-body" style="padding:10px">'+
-    '<label>قالب النهب <select id="algzawy-bot2-template" style="width:100%;padding:4px"><option>A</option><option>B</option><option>C</option></select></label>'+
-    '<div style="display:flex;gap:7px;margin-top:7px"><label style="flex:1">أقل تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-min-delay" style="width:90%"></label><label style="flex:1">أقصى تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-max-delay" style="width:90%"></label></div>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-switch"> التنقل بين القرى تلقائيًا</label>'+
-    '<button type="button" id="algzawy-bot2-toggle" style="width:100%;margin-top:9px;padding:8px;border:0;border-radius:7px;background:#15803d;color:white;cursor:pointer"></button>'+
-    '<div id="algzawy-bot2-status" aria-live="polite" style="font-size:11px;color:#42566d;margin-top:6px"></div></div>';
+    '<label>قالب النهب <select id="algzawy-bot2-template" style="width:100%;padding:4px;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"><option>A</option><option>B</option><option>C</option></select></label>'+
+    '<div style="display:flex;gap:7px;margin-top:7px"><label style="flex:1">أقل تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-min-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label><label style="flex:1">أقصى تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-max-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label></div>'+
+    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-switch" style="accent-color:#40e1bf;color-scheme:dark"> التنقل بين القرى تلقائيًا</label>'+
+    '<button type="button" id="algzawy-bot2-toggle" style="width:100%;margin-top:9px;padding:8px;border:0;border-radius:7px;background:#40e1bf;color:#06332f;cursor:pointer"></button>'+
+    '<div id="algzawy-bot2-status" aria-live="polite" style="font-size:11px;color:#95acbc;margin-top:6px"></div></div>';
   document.body.appendChild(panel);
   const q = id => document.getElementById('algzawy-bot2-'+id);
   const status = msg => { q('status').textContent = msg; };
@@ -41,7 +41,8 @@
   q('switch').checked = settings.switchVillages !== false;
   function updateButton() {
     q('toggle').textContent = settings.enabled ? 'إيقاف النهب' : 'تشغيل النهب';
-    q('toggle').style.background = settings.enabled ? '#b91c1c' : '#15803d';
+    q('toggle').style.background = settings.enabled ? '#372330' : '#40e1bf';
+    q('toggle').style.color = settings.enabled ? '#f2abb1' : '#06332f';
   }
   function saveInputs() {
     settings.template = q('template').value in cols ? q('template').value : 'A';
