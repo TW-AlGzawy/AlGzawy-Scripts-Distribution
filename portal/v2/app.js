@@ -234,7 +234,7 @@ function renderScripts(){
     const detail=status(item),pill=el('span','bot-status'+(pref.enabled?' on':''),detail.label);
     const actions=el('div','bot-actions');
     const info=el('button','btn outline','التفاصيل');info.addEventListener('click',()=>openScript(item.id));
-    const install=el('a','btn subtle','تثبيت ↗');install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';
+    const install=el('a','btn subtle','تثبيت السكربت ↗');install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';
     actions.append(info,install);lower.append(pill,actions);card.append(top,title,description,lower);root.append(card);
   }
 }
@@ -268,7 +268,7 @@ async function setEnabled(item,next){
     const r=await api('scripts/'+encodeURIComponent(item.id),{method:'PUT',body:{enabled:next,settings:safeSettings(item)}});
     state.prefs[item.id]={...before,allowed:true,enabled:r.enabled,settings:r.settings};
     logAction((next?'تشغيل: ':'إيقاف: ')+item.name);
-    toast(next?'تم حفظ التشغيل — ينتظر مزامنة متصفح اللعبة':'تم إيقاف السكربت من حسابك');
+    toast(next?'حُفظ طلب التشغيل. ثبّت ملف السكربت ثم زامن الجسر داخل اللعبة.':'حُفظ طلب الإيقاف. زامن الجسر؛ إن استمر المحرك فحدّث صفحة اللعبة.');
   }catch(err){toast(errText(err),true);}
   finally{state.working.delete(item.id);renderMetrics();renderQuick();renderScripts();renderStatus();}
 }
@@ -282,7 +282,7 @@ async function bulk(next){
     state.prefs=data.scripts||{};
     state.global=data.global||state.global;
     logAction(next?'طلب تشغيل جميع السكربتات المسموحة':'إيقاف جميع السكربتات');
-    toast(next?'حُفظت أوامر التشغيل بحسب صلاحياتك':'تم إيقاف جميع السكربتات المرخصة');
+    toast(next?'حُفظت أوامر التشغيل. يلزم تثبيت ملفات السكربتات ومزامنة الجسر.':'حُفظ طلب إيقاف الكل. زامن الجسر وحدّث اللعبة إذا استمر أي محرك.');
     render();
   }catch(err){toast(errText(err),true);}
   finally{$('enableAll').disabled=$('disableAll').disabled=false;}
@@ -294,6 +294,7 @@ function openScript(id){
   const info=status(item);
   const title=el('h2','',item.name);title.id='dialogTitle';
   root.append(title,el('p','',item.description||''));
+  root.append(el('p','dialog-note','قبل التشغيل: ثبّت هذا السكربت في Tampermonkey مع Cloud Bridge، واعتمد جهازك، ثم حدّد السكربت لهذا التبويب وزامن الجسر. زر التفعيل يحفظ اختيارك ولا يثبت الملف تلقائيًا.'));
   const pill=el('span','pill '+info.className,info.label);root.append(pill);
   const actions=el('div','dialog-actions');
   const toggle=el('button','btn '+(state.prefs[id]?.enabled?'danger':'primary'),state.prefs[id]?.enabled?'إيقاف السكربت':'تفعيل السكربت');
