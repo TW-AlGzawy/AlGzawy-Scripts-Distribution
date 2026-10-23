@@ -316,7 +316,7 @@ test('Catalog is private and subscriber-visible entries come solely from per-use
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
  list=await api(db,'catalog',{token:userToken});
  assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
- assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,22);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,9);
  await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
  assert.equal((await api(db,'catalog',{token:userToken})).status,403);
 });
@@ -372,7 +372,7 @@ test('Only disabled accounts can be archived or deleted, and restore leaves them
  assert.ok(db.users.some(x=>x.id===other));
  assert.equal(db.global.revision,globalBefore);
 });
-test('Tab pinning must gate all 22 loaders before source execution',()=>{
+test('Tab pinning must gate all 9 loaders before source execution',()=>{
  const ids=catalog.map(x=>x.id);
  assert.equal(ids.length,9);
  for(const id of ids){
@@ -382,7 +382,7 @@ test('Tab pinning must gate all 22 loaders before source execution',()=>{
    assert.match(src,/document\.addEventListener\('algzawy-tab-pin-changed'/);
    assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
    const engine=read('scripts/'+id+'.js'),item=catalog.find(x=>x.id===id);
-   assert.match(src,/^\/\/ @version\s+(?:1\.0\.1|1\.0\.2|1\.5\.2)/m);
+   assert.match(src,/^\/\/ @version\s+(?:1\.0\.1|1\.0\.2|1\.1\.0|1\.5\.2)/m);
    assert.match(src,/^\/\/ @name\s+الغزااوي \| /m);
    assert.match(engine,/^\/\/ @name\s+الغزااوي \| /m,id+' engine name');
    assert.equal(item.version,src.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/loader version');
@@ -398,14 +398,13 @@ test('Tab pinning must gate all 22 loaders before source execution',()=>{
  assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);
 });
-test('Warehouse alert keeps its size state and position across reloads',()=>{
- const src=read('scripts/warehouse-alert-safe.js');
- assert.match(src,/algzawy_warehouse_panel_layout_v1/);
- assert.match(src,/setCollapsed\(layout\.collapsed\)/);
- assert.match(src,/localStorage\.setItem\(UI_KEY/);
- assert.match(src,/addEventListener\('pointerup',endDrag\)/);
+test('retired warehouse alerts are excluded from published catalog and their installer is inert',()=>{
+ const catalogIds=catalog.map(x=>x.id);
+ assert.ok(!catalogIds.includes('warehouse-alert-safe'));
+ const old=read('loaders/warehouse-alert-safe.user.js');
+ assert.match(old,/@version\s+99\.0\.0/);
+ assert.doesNotMatch(old,/SOURCE_URL/);
 });
-
 test('22 loaders reject startup before tab pin but check cloud license once pinned',()=>{
  for(const item of catalog){
    const id=item.id;

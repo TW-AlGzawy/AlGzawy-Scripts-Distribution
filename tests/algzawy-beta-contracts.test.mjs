@@ -51,12 +51,11 @@ test('local control center contains every published bot',()=>{
   assert.deepEqual(new Set(ids),new Set(published.map(x=>x.id)));
 });
 
-test('incoming attack rename requires user opt-in and never calls invented server API',()=>{
-  const code=read('scripts/attack-renamer.js');
-  assert.match(code,/enabled:false/);
-  assert.match(code,/\.rename-icon/);
-  assert.match(code,/\.quickedit-label/);
-  assert.ok(!code.includes('ajaxaction=rename'));
+test('retired attack rename does not ship an executable engine',()=>{
+  assert.ok(!published.some(x=>x.id==='attack-renamer'));
+  const stub=read('loaders/attack-renamer.user.js');
+  assert.match(stub,/@version\s+99\.0\.0/);
+  assert.ok(!stub.includes('SOURCE_URL'));
 });
 
 test('new builder v1.0 keeps request checkpoints',()=>{

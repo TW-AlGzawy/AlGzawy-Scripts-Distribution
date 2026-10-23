@@ -1,5 +1,5 @@
-// @name         الغزااوي | البناء التقليدي
-// @version      1.0.1
+// @name         الغزااوي | البناء المتطور
+// @version      1.0.2
 // Licensed AlG Builder v1.0. The browser receives executable source: public JS is inspectable.
 (function () {
   'use strict';
@@ -618,8 +618,8 @@
     panel.setAttribute('aria-label','AlG الغزااوي — البناء التقليدي');
     const head=node('header','alg-head');
     const logo=node('span','alg-logo','AlG');
-    const title=node('span','alg-title','الغزااوي | البناء التقليدي');
-    title.append(node('small','alg-subtitle','BETA · v1.0.1'));
+    const title=node('span','alg-title','الغزااوي | البناء المتطور');
+    title.append(node('small','alg-subtitle','BETA · v1.0.2'));
     elements.min=button('−','alg-min',()=>setMinimized(!layout.minimized),'تصغير / تكبير');
     head.append(logo,title,elements.min);
     body=node('div','alg-body');
