@@ -815,12 +815,23 @@
  try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(v))links=v.filter(x=>typeof x==='string'&&/^alg(?:zawy)?[-_]/.test(x)).slice(0,15);}catch(_){}
  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(links));}catch(_){}};
  const master=()=>document.getElementById(CENTER);
- const nodes=()=>[...document.querySelectorAll('[id^="alg"],[id^="AlG"]')].filter(el=>
-   el.id!==CENTER&&!/blocked|verification|notice|overlay|toast|modal|status/i.test(el.id)
-   &&!el.closest('#'+CENTER)&&!el.closest('#algzawy-cloud-pair-panel')
-   &&el.offsetWidth>=110&&el.offsetHeight>=23
-   &&getComputedStyle(el).position==='fixed'
-   &&!!el.querySelector('header,.head,.alg-head,[id*="hdr"],[id*="header"],.alg-title'));
+ // Legacy engines use IDs outside the AlG prefix; only these exact known panels
+ // are eligible, so the cloak never hides unrelated Tribal Wars controls.
+ const extraPanels=[
+   'tw-light-widget','tw-train-panel','tw-control-panel','training-bot-panel',
+   'tribal-bot-panel','correct_reserve_v2','smart_reserve_v4','smart_reserve_v5',
+   'autoReserveBarbarians_container','ghzaawi-trainer'
+ ];
+ const panelSelector=['[id^="alg"]','[id^="AlG"]','.algzawy-container',...extraPanels.map(x=>'#'+x)].join(',');
+ const nodes=()=>[...document.querySelectorAll(panelSelector)].filter(el=>{
+   if(el.id===CENTER||!el.id&&!el.classList.contains('algzawy-container'))return false;
+   if(/blocked|verification|notice|overlay|toast|modal|status/i.test(el.id))return false;
+   if(el.closest('#'+CENTER)||el.closest('#algzawy-cloud-pair-panel'))return false;
+   if(el.offsetWidth<110||el.offsetHeight<23)return false;
+   if(getComputedStyle(el).position!=='fixed'&&el.id!=='ghzaawi-trainer')return false;
+   return extraPanels.includes(el.id)||el.classList.contains('algzawy-container')||
+     !!el.querySelector('header,.head,.alg-head,[id*="hdr"],[id*="header"],.alg-title');
+ });
  function collect(){
    const list=nodes();
    for(const el of list){
@@ -828,7 +839,8 @@
      if(el.style.zIndex!=='2147483001')el.style.zIndex='2147483001';
      if(!el.dataset.algzawyCopy){
        el.dataset.algzawyCopy='1';
-       const body=el.querySelector('.body,.alg-body,.alg-content,[id$="-body"]');
+       const body=el.querySelector('.body,.alg-body,.alg-content,.tw-panel-content,[id$="-body"]')||
+         (extraPanels.includes(el.id)?el:null);
        if(body&&!body.textContent.includes('جميع الحقوق محفوظة')){
          const foot=document.createElement('div');
          foot.textContent='BETA · © 2026 الغزااوي — جميع الحقوق محفوظة';
@@ -887,7 +899,11 @@
    collect();moveLinked();
    const c=master(),h=c?.querySelector('.h');
    if(h){h.addEventListener('pointermove',moveLinked);h.addEventListener('pointerup',()=>setTimeout(moveLinked,0));}
-   new MutationObserver(()=>collect()).observe(document.body,{childList:true,subtree:true});
+   let queued=false;
+   new MutationObserver(()=>{
+     if(queued)return;
+     queued=true;setTimeout(()=>{queued=false;collect();},160);
+   }).observe(document.body,{childList:true,subtree:true});
    setInterval(()=>{if(document.visibilityState==='visible')moveLinked();},2000);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
