@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - التدريب الخفيف
+// @name         الغزااوي | التدريب الخفيف
 // @namespace    tw-ae-aec1-stable-light
-// @version      1.0
+// @version      1.0.1
 // @description  Auto-run: train max light cavalry; on success wait 10–15 min randomly; on failure wait then refresh and retry; includes live monitoring widget.
 // @match        https://*.tribalwars.ae/game.php?*&screen=stable*
 // @run-at       document-idle

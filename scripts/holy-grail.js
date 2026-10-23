@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - المساعد المتكامل
-// @version      1.0
+// @name         الغزااوي | المساعد المتكامل
+// @version      1.0.1
 // @author       Anonymous
 // @description  TW Auto Helper with sound alert for bot detection
 // @match        https://*.tribalwars.ae/game.php?*

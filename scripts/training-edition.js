@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - التدريب البديل
+// @name         الغزااوي | التدريب البديل
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @match        https://*/*=train*
 // @grant        GM_setValue
 // @grant        GM_getValue

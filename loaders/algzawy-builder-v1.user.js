@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         البناء التقليدي المتطور
+// @name         الغزااوي | البناء التقليدي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
-// @description  Licensed cloud builder v1.0; explicit device and subscription authorization
+// @version      1.0.1
+// @description  AlGzawy BETA — المرخص للمشترك والجهاز المعتمد
 // @match        https://*/game.php?village=*&screen=main*
 // @match        https://*/game.php?screen=main*&village=*
 // @run-at       document-end
@@ -19,6 +19,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/algzawy-builder-v1.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "algzawy-builder-v1";
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.1');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
