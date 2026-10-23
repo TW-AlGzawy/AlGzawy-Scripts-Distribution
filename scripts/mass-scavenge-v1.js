@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الإغارات الجماعية
+// @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -44,7 +44,7 @@
                         <span id="minimize-btn" title="تصغير" style="font-weight: bold; font-size: 16px;">—</span>
                         <span id="maximize-btn" title="تكبير" style="display: none; font-weight: bold; font-size: 16px;">+</span>
                     </div>
-                    <h4 style="margin:0; color: #eaf3f8; order: 2; font-size: 14px;">تجريبي - الغزااوي - الإغارات الجماعية</h4>
+                    <h4 style="margin:0; color: #eaf3f8; order: 2; font-size: 14px;">الغزااوي | الإغارات الجماعية</h4>
                 </div>
                 <div id="algzawy-body" style="padding: 10px; text-align: center;">
                     <button id="toggle-bot-btn" class="btn" style="width: 100%; margin-bottom: 10px;"></button>
@@ -75,7 +75,7 @@
                          <button id="check-update-btn" class="btn" style="background: none; border: none; color: #40e1bf; cursor: pointer; text-decoration: underline; padding: 0;">التحقق من التحديثات</button>
                          <span style="font-size: 11px; color: #eaf3f8; display: block; margin-top: 5px;">الإصدار: ${GM_info.script.version}</span>
                     </div>
-                    <p style="font-size: 10px; color: #95acbc; margin: 10px 0 0 0;">&copy; الحقوق محفوظة / AlGzawy</p>
+                    <p style="font-size: 10px; color: #95acbc; margin: 10px 0 0 0;">BETA · © 2026 الغزااوي — جميع الحقوق محفوظة</p>
                 </div>
             </div>
             <style>

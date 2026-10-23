@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - بوت السوق
+// @name         الغزااوي | بوت السوق
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  بوت احترافي لشراء الموارد تلقائياً مع معالجة ذكية للنوافذ المنبثقة وتحريك القائمة المنسدلة.
 // @author       الغزااوي AlGzawy & Manus AI
 // @match      https://*/*=exchange*
@@ -78,7 +78,7 @@
         panel.style.cssText = "position:fixed;top:10px;right:10px;width:300px;background:linear-gradient(135deg,#13283a 0%,#102031 100%);border:2px solid #263c4f;border-radius:10px;padding:15px;z-index:9999;font-family:Arial,sans-serif;color:#eaf3f8;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
         panel.innerHTML = `
             <div style="text-align:center;margin-bottom:10px;">
-                <h3 style="margin:0;color:#40e1bf;">🤖 تجريبي - الغزااوي - بوت السوق (v1.0)</h3>
+                <h3 style="margin:0;color:#40e1bf;">🤖 الغزااوي | بوت السوق (v1.0)</h3>
             </div>
             <div><strong>الحالة:</strong> <span id="bot-status">${botStatus}</span></div>
             <div><strong>آخر فحص:</strong> <span id="last-check">${lastCheck.toLocaleTimeString("ar-SA")}</span></div>

@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - جامع الجوائز التلقائي
+// @name         الغزااوي | جامع الجوائز
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
-// @description  نسخة اختبار؛ غير معتمدة بعد؛ تحكم مركزي من Cloudflare
+// @version      1.0.1
+// @description  AlGzawy BETA — اشتراك وجهاز معتمد
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.com.sa/game.php*
@@ -20,6 +20,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/tribal-wars-helper.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "tribal-wars-helper";
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.1');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -67,7 +68,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - جامع الجوائز التلقائي",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"الغزااوي | جامع الجوائز التلقائي",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}

@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الصقل المتكامل
-// @version      1.0
+// @name         الغزااوي | الصقل المتكامل
+// @version      1.0.1
 // @author       غزااوي
 // @description  بوت صقل متكامل مع سحب الموارد والتنبيه عند رسالة البوت
 // @match        https://*.tribalwars.ae/game.php?*
