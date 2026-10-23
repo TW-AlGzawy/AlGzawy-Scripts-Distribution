@@ -320,7 +320,7 @@ test('Read-only queue refresh never replaces the live game table or strips game 
   const calls=[];
   const buildrow={
     getAttribute:()=>null,
-    querySelector:()=>({textContent:'19'})
+    querySelector:selector=>selector==='[data-level]'?null:{textContent:'19'}
   };
   const gameHTML={
     getElementById(id){
