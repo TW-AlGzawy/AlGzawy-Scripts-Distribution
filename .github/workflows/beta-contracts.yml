@@ -2,7 +2,7 @@ name: AlGzawy BETA static contracts
 on:
   push:
     branches: [main]
-    paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
+    paths: ['scripts/**', 'loaders/**', 'pilots/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
   pull_request:
     paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
   workflow_dispatch:
@@ -18,3 +18,7 @@ jobs:
           node-version: '22'
       - run: node --check scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js
       - run: node --test tests/algzawy-beta-contracts.test.mjs
+      - name: Validate AlG floating traditional builder QA pilot
+        run: |
+          node --check pilots/algzawy-traditional-builder-v2.user.js
+          node --test tests/traditional-builder-v2.test.mjs
