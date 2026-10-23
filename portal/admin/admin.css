@@ -67,3 +67,22 @@
  .owner-main{padding:16px 14px 42px}
 }
 @media(max-width:570px){.owner-quick-grid{grid-template-columns:1fr}.owner-content-head h1{font-size:19px}.owner-main .admin-grid{grid-template-columns:1fr}}
+
+/* AlG nine approved scripts, compact admin cards */
+.admin-script-controls{display:grid;gap:12px;max-height:none;overflow:visible;padding:6px 0}
+.admin-script-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;color:#9ccbc9}
+.admin-script-filter{max-width:250px;width:100%;min-height:34px;background:#0b2431;color:#e0fff4;border:1px solid #305e70;border-radius:7px;padding:7px}
+.admin-script-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.admin-script-card{border:1px solid #315467;border-radius:12px;padding:13px;background:#11283b;cursor:pointer;display:grid;min-width:0;gap:11px}
+.admin-script-card.is-on{border-color:#2f8b79;background:#12383c}.admin-script-card.is-off{opacity:.8}
+.admin-script-card:hover{border-color:#59e5bc}
+.admin-script-card-head{display:flex;align-items:center;gap:7px;color:#a5cacc;font-size:10px}
+.admin-script-card-head small{flex:1}
+.admin-script-icon{background:#1c5b51;color:#6af2c9;border-radius:7px;padding:4px 8px}
+.admin-script-state{color:#62e4b7}.admin-script-card.is-off .admin-script-state{color:#ffb9c2}
+.admin-script-name{color:#f0fffa;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.admin-script-toggle{display:flex;gap:9px;align-items:center;border-top:1px solid #315362;padding-top:8px}
+.admin-script-toggle input{width:19px;height:19px;accent-color:#3fddb0;cursor:pointer}
+.admin-script-toggle b{color:#83ebc8;font-size:11px}
+@media(max-width:1200px){.admin-script-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.admin-script-grid{grid-template-columns:1fr}}

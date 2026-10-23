@@ -362,31 +362,50 @@ async function adminGlobal(action){
 $('adminGlobalRefresh').addEventListener('click',()=>adminGlobal(null));
 $('adminGlobalOn').addEventListener('click',()=>{if(confirm('تشغيل جميع سكربتات الزبائن المتصلة بالمنظومة؟'))adminGlobal(true);});
 $('adminGlobalOff').addEventListener('click',()=>{if(confirm('إيقاف جميع سكربتات الزبائن المرتبطة بالنظام؟'))adminGlobal(false);});
-const globalScriptView={all:[],filter:''};
+
+const scriptCategory={raids:['الإغارات','♜'],build:['البناء','▦'],training:['التدريب','♟'],resources:['الموارد','◈'],military:['الإرساليات والتنبيهات','⚑'],tools:['الأدوات','✦']};
+const globalScriptView={all:[],filter:'',category:'all'};
 async function loadScriptControls(){
-  const data=await api('admin/scripts');
-  globalScriptView.all=data.scripts||[];
-  renderScriptControls();
+ const data=await api('admin/scripts');globalScriptView.all=data.scripts||[];renderScriptControls();
 }
 function renderScriptControls(){
-  const box=$('adminScriptControls');box.replaceChildren();
-  const filter=globalScriptView.filter.trim().toLowerCase();
-  for(const x of globalScriptView.all.filter(x=>(x.name+' '+x.id).toLowerCase().includes(filter))){
-    const row=h('label','admin-script-row'),title=h('span','',x.name);
-    const input=h('input');input.type='checkbox';input.checked=x.enabled;
-    input.setAttribute('aria-label','تفعيل '+x.name);
-    const status=h('small','',x.enabled?'ON':'OFF');
-    input.addEventListener('change',async()=>{
-      const on=input.checked;
-      if(!on&&!confirm('إيقاف '+x.name+' لجميع المشتركين؟')){input.checked=x.enabled;return;}
-      input.disabled=true;
-      try{await api('admin/scripts',{method:'PUT',body:{id:x.id,enabled:on}});
-        x.enabled=on;status.textContent=on?'ON':'OFF';toast('تم تحديث '+x.name);
-      }catch(err){input.checked=x.enabled;toast(errorArabic(err),true);}
-      finally{input.disabled=false;}
-    });
-    row.append(title,input,status);box.append(row);
-  }
+ const root=$('adminScriptControls');root.replaceChildren();
+ const text=globalScriptView.filter.trim().toLowerCase();
+ const toolbar=h('div','admin-script-toolbar'),select=h('select','admin-script-filter');
+ select.setAttribute('aria-label','القسم');
+ for(const [id,label] of [['all','كل الأقسام'],...Object.entries(scriptCategory).map(([id,[label]])=>[id,label])]){
+   const opt=h('option','',label);opt.value=id;select.append(opt);
+ }
+ select.value=globalScriptView.category;
+ select.addEventListener('change',()=>{globalScriptView.category=select.value;renderScriptControls();});
+ const list=globalScriptView.all.filter(x=>(globalScriptView.category==='all'||x.category===globalScriptView.category)&&
+  (x.name+' '+x.id).toLowerCase().includes(text));
+ toolbar.append(select,h('small','', 'النتائج '+list.length+' / '+globalScriptView.all.length+
+  ' · المفعّل '+globalScriptView.all.filter(x=>x.enabled).length));
+ root.append(toolbar);
+ if(!list.length){root.append(h('p','field-note','لا توجد نتائج مطابقة.'));return;}
+ const grid=h('div','admin-script-grid');
+ for(const x of list){
+   const item=h('label','admin-script-card '+(x.enabled?'is-on':'is-off'));
+   const head=h('div','admin-script-card-head');
+   const [label,icon]=scriptCategory[x.category]||['أدوات','✦'];
+   head.append(h('span','admin-script-icon',icon),h('small','',label),h('span','admin-script-state',x.enabled?'نشط':'موقوف'));
+   const title=h('strong','admin-script-name',x.name);
+   const toggle=h('input');toggle.type='checkbox';toggle.checked=x.enabled;
+   toggle.setAttribute('aria-label','تفعيل '+x.name);
+   const row=h('div','admin-script-toggle');row.append(toggle,h('b','',x.enabled?'ON':'OFF'));
+   toggle.addEventListener('change',async()=>{
+     const next=toggle.checked;
+     if(!next&&!confirm('إيقاف '+x.name+' لجميع المشتركين؟')){toggle.checked=x.enabled;return;}
+     toggle.disabled=true;
+     try{await api('admin/scripts',{method:'PUT',body:{id:x.id,enabled:next}});
+       x.enabled=next;toast('تم تحديث '+x.name);renderScriptControls();
+     }catch(err){toggle.checked=x.enabled;toast(errorArabic(err),true);}
+     finally{toggle.disabled=false;}
+   });
+   item.append(head,title,row);grid.append(item);
+ }
+ root.append(grid);
 }
 $('adminScriptSearch').addEventListener('input',e=>{globalScriptView.filter=e.target.value;renderScriptControls();});
 $('adminScriptReload').addEventListener('click',()=>loadScriptControls().catch(e=>toast(errorArabic(e),true)));
