@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.3.1 metadata and code compile',()=>{
+test('Arabic floating send scheduler v1.3.2 metadata and code compile',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.3\.1/);
- assert.match(loader,/@version\s+1\.3\.1/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.3.1');
+ assert.match(core,/@version\s+1\.3\.2/);
+ assert.match(loader,/@version\s+1\.3\.2/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.3.2');
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
@@ -155,4 +155,19 @@ test('smart fold button uses a valid event listener instead of non-callable call
  assert.ok(core.includes("const smartFold=el('button','alg-button',opts.smartOpen?'▴':'▾')"));
  assert.ok(core.includes("smartFold.onclick=()=>{"));
  assert.ok(!core.includes("const smartFold=btn(opts.smartOpen?'▴':'▾','','')"));
+});
+
+test('v1.3.2 migrates old expanded UI once and uses a 310px panel',()=>{
+ for(const marker of ["width:310px;max-width:calc(100vw - 10px)",
+  "'#'+ROOT+'.spacious{width:360px}'",
+  "const firstCompact132=opts.uiLayoutVersion!=='1.3.2'",
+  "opts.compact=true;opts.smartOpen=false;opts.settingsOpen=false;opts.logOpen=false",
+  "opts.uiLayoutVersion='1.3.2'","if(firstCompact132)save()",
+  "'الإرساليات · v1.3.2'",
+  "parts.smartSummary.textContent=(opts.smart?'ذكي':'يدوي')+' '+offset+'ms'",
+  "settingsHeader=el('summary','','⚙ إضافي')",
+  "diagnosticsHeader=el('summary','','سجل التنفيذ')"])
+  assert.ok(core.includes(marker),'missing '+marker);
+ assert.ok(core.includes("opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value)"));
+ assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
 });

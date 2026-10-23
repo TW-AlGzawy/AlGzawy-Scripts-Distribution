@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.3.1
+// @version      1.3.2
 // @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -22,7 +22,11 @@ try{const loaded=JSON.parse(localStorage.getItem(SMART)||'null');for(const mode 
 const pad=x=>String(x).padStart(2,'0'),pad3=x=>String(x).padStart(3,'0');
 let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,smart:false,collapsed:false,compact:true,smartOpen:false,settingsOpen:false,logOpen:false,left:null,top:null};
 try{const x=JSON.parse(localStorage.getItem(PREF)||'null');if(x&&typeof x==='object'&&!Array.isArray(x))opts={...opts,...x};}catch(_){}
+// One-time layout migration: no changes to scheduling preferences, subscription or device.
+const firstCompact132=opts.uiLayoutVersion!=='1.3.2';
+if(firstCompact132){opts.compact=true;opts.smartOpen=false;opts.settingsOpen=false;opts.logOpen=false;opts.uiLayoutVersion='1.3.2';}
 function save(){try{localStorage.setItem(PREF,JSON.stringify(opts));}catch(_){}}
+if(firstCompact132)save();
 function licensed(){
  if(dead||localStorage.getItem(GRANT)!=='1'||localStorage.getItem(LOCAL)==='false'||localStorage.getItem(HUMAN)==='1')return false;
  if(!localStorage.getItem('algzawy_portal_approved_device'))return false;
@@ -153,7 +157,7 @@ function smartRender(){
   :n.source==='estimated'?'تقدير RTT: '+Math.round(n.median)+'ms (غير كافٍ وحده للمعايرة)'
   :'لا توجد طلبات قابلة للقياس حاليًا';
  parts.smartSamples.textContent='نتائج '+(opts.mode==='arrival'?'الوصول':'الإرسال')+': '+m.count+' (الحد الأدنى 3)';
- if(parts.smartSummary)parts.smartSummary.textContent=(opts.smart?'ذكي':'يدوي')+' '+offset+'ms · '+m.count+'/3';
+ if(parts.smartSummary)parts.smartSummary.textContent=(opts.smart?'ذكي':'يدوي')+' '+offset+'ms';
  parts.smartAdvice.textContent=opts.smart
   ?m.ready?'تعويض تلقائي: '+m.offset+'ms'+(m.shift?' | تغير الاتصال '+Math.round(m.shift)+'ms':'')
    :m.unstable?'التلقائي موقوف بسبب التذبذب — اليدوي '+offset+'ms'
@@ -315,15 +319,15 @@ function input(label,type,value,min,max){
 function show(){
  const style=el('style');style.id=ROOT+'-style';
  style.textContent=[
- '#'+ROOT+'{position:fixed;right:12px;top:75px;z-index:2147481500;width:332px;max-width:calc(100vw - 10px);max-height:calc(100vh - 10px);display:flex;flex-direction:column;background:#081d29;color:#e9f9f6;border:1px solid #296c69;border-radius:12px;box-shadow:0 12px 36px #000b;direction:rtl;font:12px/1.45 Tahoma,Arial;overflow:hidden}',
+ '#'+ROOT+'{position:fixed;right:12px;top:75px;z-index:2147481500;width:310px;max-width:calc(100vw - 10px);max-height:calc(100vh - 10px);display:flex;flex-direction:column;background:#081d29;color:#e9f9f6;border:1px solid #296c69;border-radius:12px;box-shadow:0 12px 36px #000b;direction:rtl;font:12px/1.45 Tahoma,Arial;overflow:hidden}',
  '#'+ROOT+' *{box-sizing:border-box}',
  '#'+ROOT+' button,#'+ROOT+' input,#'+ROOT+' select{font:inherit}',
  '#'+ROOT+' button{cursor:pointer}',
- '#'+ROOT+' .head{display:flex;align-items:center;gap:6px;background:#12453f;padding:7px 9px;border-bottom:1px solid #347b71;cursor:move;touch-action:none;user-select:none}',
+ '#'+ROOT+' .head{display:flex;align-items:center;gap:5px;background:#12453f;padding:6px 8px;border-bottom:1px solid #347b71;cursor:move;touch-action:none;user-select:none}',
  '#'+ROOT+' .head strong{flex:1;text-align:center}',
  '#'+ROOT+' .logo{background:#4ee8b8;color:#072e2a;font-weight:900;border-radius:7px;padding:4px 8px}',
- '#'+ROOT+' .body{display:grid;gap:6px;padding:8px;overflow-y:auto;overscroll-behavior:contain}',
- '#'+ROOT+' .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}',
+ '#'+ROOT+' .body{display:grid;gap:5px;padding:7px;overflow-y:auto;overscroll-behavior:contain}',
+ '#'+ROOT+' .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}',
  '#'+ROOT+' .alg-field{display:grid;gap:2px;color:#b2d2d4;font-size:10px}',
  '#'+ROOT+' .alg-input{width:100%;min-width:0;background:#061824;color:#eefefa;border:1px solid #2e6370;border-radius:6px;padding:5px 6px;color-scheme:dark;min-height:29px}',
  '#'+ROOT+' .alg-clock24{direction:ltr;text-align:center;font-variant-numeric:tabular-nums}',
@@ -337,15 +341,15 @@ function show(){
  '#'+ROOT+' .note{border:1px solid #346c62;background:#143a36;color:#caffed;border-radius:7px;padding:8px}',
  '#'+ROOT+' .note[data-type="error"]{background:#452934;color:#ffe0e5;border-color:#925362}',
  '#'+ROOT+' .hint{font-size:10px;color:#a9c5cc}',
- '#'+ROOT+' .alg-smart{display:grid;gap:5px;background:#103631;border:1px solid #2c7669;border-radius:7px;padding:5px 7px}',
+ '#'+ROOT+' .alg-smart{display:grid;gap:4px;background:#103631;border:1px solid #2c7669;border-radius:7px;padding:4px 6px}',
  '#'+ROOT+' .alg-smart label{display:flex;align-items:center;gap:5px;min-width:0}',
  '#'+ROOT+' .alg-smart input[type=checkbox]{width:16px;height:16px;accent-color:#47e6b7}',
  '#'+ROOT+' .smart-row{display:flex;gap:6px;align-items:center}',
  '#'+ROOT+' .smart-row input{flex:1;min-width:0}',
 
  '#'+ROOT+' .alg-smart-head{display:flex;align-items:center;gap:5px;min-height:25px}',
- '#'+ROOT+' .alg-smart-head .alg-smart-check{display:flex;align-items:center;gap:5px;flex:1;min-width:0;white-space:nowrap}',
- '#'+ROOT+' .alg-smart-head .smart-brief{font-size:10px;color:#76efd0;white-space:nowrap}',
+ '#'+ROOT+' .alg-smart-head .alg-smart-check{display:flex;align-items:center;gap:4px;flex:1;min-width:0;white-space:nowrap;font-size:11px}',
+ '#'+ROOT+' .alg-smart-head .smart-brief{font-size:9px;color:#76efd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
  '#'+ROOT+' .alg-smart-head .alg-button{min-height:24px;padding:2px 7px}',
  '#'+ROOT+' .alg-smart-body{display:grid;gap:5px;padding-top:5px;border-top:1px solid #2d6d62}',
  '#'+ROOT+' .alg-smart-body[hidden]{display:none!important}',
@@ -364,10 +368,10 @@ function show(){
  '#'+ROOT+' .alg-remaining small{font-size:10px}',
  '#'+ROOT+' .alg-remaining strong{font-size:13px!important}',
  '#'+ROOT+' .alg-compact-toggle{min-width:27px}',
- '#'+ROOT+'.compact .note{padding:5px 7px;font-size:10px;line-height:1.5}',
+ '#'+ROOT+'.compact .note{padding:4px 6px;font-size:10px;line-height:1.4}',
  '#'+ROOT+'.compact .stat small{font-size:9px}',
  '#'+ROOT+'.compact .stat strong{font-size:12px}',
- '#'+ROOT+'.spacious{width:385px}',
+ '#'+ROOT+'.spacious{width:360px}',
  '#'+ROOT+'.spacious .body{gap:10px;padding:11px}',
  '#'+ROOT+'.spacious .alg-button{padding:8px}',
  '#'+ROOT+'.spacious .alg-input{padding:8px}',
@@ -391,7 +395,7 @@ function show(){
  compact.title=opts.compact===false?'عرض مضغوط':'توسيع العرض';
  compact.setAttribute('aria-label','تبديل حجم واجهة الإرساليات');
  mini.setAttribute('aria-label','طي نافذة الإرساليات');
- head.append(el('span','logo','AlG'),el('strong','','الإرساليات الدقيقة'),compact,mini);
+ head.append(el('span','logo','AlG'),el('strong','','الإرساليات · v1.3.2'),compact,mini);
  const body=el('div','body'),stats=el('div','grid');
  function stat(name){const card=el('div','stat');card.append(el('small','',name));
  const val=el('strong','','—');card.append(val);stats.append(card);return val;}
@@ -440,7 +444,7 @@ function show(){
  smartHead.append(smartLabel,parts.smartSummary,smartFold);
  parts.smartNetwork=el('div','hint');parts.smartSamples=el('div','hint');
  parts.smartAdvice=el('div','stat');
- const smartHelp=el('small','hint','نتيجة الإرسال: + تأخير / - تبكير (ms). 3 قياسات لكل وضع.');
+ const smartHelp=el('small','hint','فرق التوقيت: + تأخر، - مبكر (ms).');
  const smartRow=el('div','smart-row');
  parts.smartObserved=el('input','alg-input');parts.smartObserved.type='text';
  parts.smartObserved.maxLength=5;parts.smartObserved.inputMode='numeric';parts.smartObserved.dir='ltr';parts.smartObserved.placeholder='+45 / -20';
@@ -460,13 +464,13 @@ function show(){
  parts.note=el('div','note');parts.note.setAttribute('role','status');parts.note.setAttribute('aria-live','polite');
  parts.last=el('div','hint alg-last');
  try{renderLastClick(JSON.parse(localStorage.getItem(LAST)||'null'));}catch(_){}
- const settings=el('details','alg-fold'),settingsHeader=el('summary','','⚙ إعدادات إضافية');
+ const settings=el('details','alg-fold'),settingsHeader=el('summary','','⚙ إضافي');
  settings.open=!!opts.settingsOpen;
  const settingsContent=el('div','alg-fold-content');
  settingsContent.append(resetDate,parts.source,parts.hint);
  settings.append(settingsHeader,settingsContent);
  settings.addEventListener('toggle',()=>{opts.settingsOpen=settings.open;save();});
- const diagnostics=el('details','alg-fold'),diagnosticsHeader=el('summary','','سجل التنفيذ والمساعدة');
+ const diagnostics=el('details','alg-fold'),diagnosticsHeader=el('summary','','سجل التنفيذ');
  diagnostics.open=!!opts.logOpen;
  const diagnosticsBody=el('div','alg-fold-content');
  diagnosticsBody.append(parts.last,el('small','hint','انحراف الضغط داخل المتصفح ليس وقت قبول السيرفر؛ التعويض الموجب يؤخر الضغط والسالب يقدّمه. القياسات محلية ولا تضمن الدقة.'));

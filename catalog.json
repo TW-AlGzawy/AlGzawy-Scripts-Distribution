@@ -76,12 +76,12 @@
     {
       "id": "send-automation",
       "name": "تجريبي - الغزااوي - الإرساليات الدقيقة",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
       "approved_for_final": false,
-      "note": "Compact floating UI v1.3.1: smart calibration, manual date reset and diagnostics collapsed by default, compact/expanded width toggle, succinct Arabic labels; underlying licensed scheduler unchanged."
+      "note": "310px compact interface with fold state reset once on upgrade, 360px expanded option, brief Arabic labels; no scheduling changes."
     },
     {
       "id": "market-bot-v7",
