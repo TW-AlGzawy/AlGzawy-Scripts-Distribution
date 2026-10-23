@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.1.1
+// @version      1.2.0
 // @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -17,7 +17,7 @@ const GRANT='algzawy_portal_grant_'+ID,LOCAL='algzawy_local_enabled_'+ID,HUMAN='
 const UNTIL='algzawy_portal_device_authorized_until',STOP='__algzawy_stop_send-automation',DAY=86400000;
 let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null;
 const pad=x=>String(x).padStart(2,'0'),pad3=x=>String(x).padStart(3,'0');
-let opts={mode:'send',date:'',time:'',ms:0,offset:0,collapsed:false,left:null,top:null};
+let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,collapsed:false,left:null,top:null};
 try{const x=JSON.parse(localStorage.getItem(PREF)||'null');if(x&&typeof x==='object'&&!Array.isArray(x))opts={...opts,...x};}catch(_){}
 function save(){try{localStorage.setItem(PREF,JSON.stringify(opts));}catch(_){}}
 function licensed(){
@@ -40,15 +40,49 @@ function date(s){
 }
 const epoch=(d,c,ms=0)=>Date.UTC(d[0],d[1]-1,d[2],c[0],c[1],c[2],ms);
 const dparts=n=>{const d=new Date(n);return[d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate()];};
+// Prefer the game's own millisecond server clock; DOM digits are only whole seconds.
+function gameClock(sec){
+ try{
+  const raw=Number(window.Timing?.getCurrentServerTime?.());
+  if(!Number.isFinite(raw)||raw<1e12)return null;
+  const offset=Math.round((sec-raw)/3600000)*3600000;
+  if(Math.abs(offset)>14*3600000)return null;
+  const value=raw+offset;
+  return Math.abs(value-sec)<=1600?{value,offset}:null;
+ }catch(_){return null;}
+}
 function observe(){
  const d=date(document.getElementById('serverDate')?.textContent);
  const t=clock(document.getElementById('serverTime')?.textContent);
  if(!d||!t)return false;
- const key=d.join('/')+' '+t.join(':');
- if(!server||server.key!==key)server={key,stamp:epoch(d,t),at:performance.now()};
+ const key=d.join('/')+' '+t.join(':'),sec=epoch(d,t),precise=gameClock(sec),p=performance.now();
+ if(precise)server={key,stamp:precise.value,at:p,source:'game',offset:precise.offset};
+ else if(!server||server.key!==key)server={key,stamp:sec,at:p,source:'display',offset:null};
  return true;
 }
-const now=()=>server?server.stamp+Math.max(0,performance.now()-server.at):null;
+function now(){
+ if(!server)return null;
+ if(server.source==='game'){
+  try{
+   const time=Number(window.Timing?.getCurrentServerTime?.())+server.offset;
+   if(Number.isFinite(time)&&Math.abs(time-(server.stamp+Math.max(0,performance.now()-server.at)))<1200)return time;
+  }catch(_){}
+ }
+ return server.stamp+Math.max(0,performance.now()-server.at);
+}
+function serverDateISO(ms){
+ const d=new Date(ms);
+ return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());
+}
+function syncServerDate(){
+ if(armed||opts.dateAuto===false||!server)return;
+ const today=serverDateISO(now());
+ if(opts.date!==today){
+  opts.date=today;
+  if(parts.date)parts.date.value=today;
+  save();
+ }
+}
 function predictedArrival(){
  if(!server)return null;
  const node=document.querySelector('#date_arrival .relative_time, .relative_time, #date_arrival');
@@ -73,6 +107,7 @@ function target(){
 }
 function difference(){
  if(!observe())return {error:'ساعة الخادم أو تاريخها غير واضح؛ لا يمكن ضبط موعد آمن.'};
+ syncServerDate();
  const wanted=target();if(wanted===null)return {error:'تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'};
  const ref=opts.mode==='arrival'?predictedArrival():{time:now(),dated:true};
  if(!ref)return {error:'وقت الوصول المتوقع غير ظاهر في تأكيد اللعبة.'};
@@ -111,7 +146,7 @@ function schedule(){
  const r=difference();
  if(r.error){cancel(r.error);return;}
  if(r.remaining<=0){fire();return;}
- const ms=r.remaining>10000?500:r.remaining>1500?100:r.remaining>200?25:10;
+ const ms=r.remaining>10000?500:r.remaining>1500?100:r.remaining>200?20:r.remaining>35?5:Math.max(0,Math.min(3,r.remaining-1));
  timer=setTimeout(()=>{timer=null;schedule();},ms);
 }
 function readInputs(){
@@ -139,6 +174,7 @@ function display(){
  observe();parts.server.textContent=toText(now());
  const ar=predictedArrival();parts.arrival.textContent=toText(ar?.time);
  const r=difference();parts.remain.textContent=r.error?'—':(Math.max(0,r.remaining)/1000).toFixed(2)+' ثانية';
+ if(parts.source)parts.source.textContent=server?.source==='game'?'المرجع: ساعة اللعبة الدقيقة':'المرجع: ساعة العرض بالثواني — اضبط التعويض';
  parts.hint.textContent=opts.mode==='arrival'
  ?'توقيت الوصول: مقارنة الموعد بالوصول المتوقع الظاهر داخل تأكيد اللعبة.'
  :'توقيت الإرسال: مقارنة الموعد بساعة خادم اللعبة.';
@@ -152,7 +188,10 @@ function input(label,type,value,min,max){
   i.maxLength=8;i.placeholder='HH:mm:ss';i.dir='ltr';i.autocomplete='off';i.spellcheck=false;
   i.setAttribute('aria-label','الوقت بنظام 24 ساعة HH:mm:ss');
  }
- i.addEventListener('change',readInputs);i.addEventListener('input',readInputs);
+ for(const ev of ['change','input'])i.addEventListener(ev,()=>{
+  if(i===parts.date)opts.dateAuto=false;
+  readInputs();
+ });
  wrap.append(cap,i);return{wrap,i};
 }
 function show(){
@@ -201,24 +240,32 @@ function show(){
  const modeLabel=el('label','alg-field');modeLabel.append(el('span','','طريقة الجدولة'),parts.mode);
  parts.hint=el('div','hint');
  observe();
+ // Ignore yesterday's persisted date unless explicitly overridden by the user.
+ syncServerDate();
  if(!opts.date||!opts.time){
   const soon=new Date((now()||Date.now())+90000);
-  if(!opts.date)opts.date=soon.getUTCFullYear()+'-'+pad(soon.getUTCMonth()+1)+'-'+pad(soon.getUTCDate());
+  if(!opts.date)opts.date=serverDateISO(soon.getTime());
   if(!opts.time)opts.time=pad(soon.getUTCHours())+':'+pad(soon.getUTCMinutes())+':'+pad(soon.getUTCSeconds());
  }
- const d=input('التاريخ بتوقيت الخادم','date',opts.date),t=input('الوقت بنظام 24 ساعة HH:mm:ss','text',opts.time);
+ const d=input('تاريخ السيرفر (تلقائي)','date',opts.date),t=input('الوقت بنظام 24 ساعة HH:mm:ss','text',opts.time);
+ const resetDate=btn('↻ تاريخ السيرفر','',()=>{
+  if(armed)return;
+  opts.dateAuto=true;syncServerDate();readInputs();
+ });
+ d.wrap.append(resetDate);
  t.i.classList.add('alg-clock24');
  const m=input('أجزاء الثانية ms','number',opts.ms,0,999),o=input('تعويض التأخير ms','number',opts.offset,-5000,5000);
  parts.date=d.i;parts.time=t.i;parts.ms=m.i;parts.offset=o.i;
- parts.inputs=[parts.mode,d.i,t.i,m.i,o.i];
+ parts.inputs=[parts.mode,d.i,t.i,m.i,o.i,resetDate];
  const inputs=el('div','grid');inputs.append(d.wrap,t.wrap,m.wrap,o.wrap);
+ parts.source=el('small','hint','جارٍ قراءة مرجع الوقت');
  const rem=el('div','stat');rem.append(el('small','','المتبقي للموعد'));parts.remain=el('strong','','—');rem.append(parts.remain);
  const controls=el('div','grid');parts.arm=btn('▶ تجهيز الموعد','go',arm);
  parts.cancel=btn('■ إلغاء الجدولة','stop',()=>cancel());parts.cancel.disabled=true;
  controls.append(parts.arm,parts.cancel);
  parts.note=el('div','note');parts.note.setAttribute('role','status');parts.note.setAttribute('aria-live','polite');
- body.append(stats,modeLabel,parts.hint,inputs,rem,controls,parts.note,
-  el('small','hint','دقة أجزاء الثانية تقريبية وتعتمد على تحديث ساعة اللعبة والمتصفح والشبكة. لا يُرسل شيء دون تجهيز الموعد.'));
+ body.append(stats,modeLabel,parts.hint,inputs,parts.source,rem,controls,parts.note,
+  el('small','hint','إذا تأخر الأمر 292ms عن الموعد، جرّب تعويض -292ms. زمن وصول الطلب للخادم يتأثر بالاتصال؛ الدقة ليست مضمونة.'));
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
  if(opts.left!==null&&opts.top!==null){
@@ -240,7 +287,7 @@ function show(){
   drag=null;opts.left=panel.offsetLeft;opts.top=panel.offsetTop;save();}};
  head.addEventListener('pointerup',done);head.addEventListener('pointercancel',done);
  message('جاهز: اختر الموعد ثم اضغط تجهيز. لا تُرسل قوات قبل الضغط.');
- display();screenTimer=setInterval(display,250);
+ display();screenTimer=setInterval(display,100);
 }
 document.addEventListener(STOP,destroy,{once:true});
 document.addEventListener('algzawy-human-verification',destroy,{once:true});

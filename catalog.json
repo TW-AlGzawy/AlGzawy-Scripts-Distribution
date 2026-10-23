@@ -76,12 +76,12 @@
     {
       "id": "send-automation",
       "name": "تجريبي - الغزااوي - الإرساليات الدقيقة",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
       "approved_for_final": false,
-      "note": "Arabic floating scheduler with explicit locale-independent HH:mm:ss 24-hour input; send/arrival, milliseconds, offset; live-game timing not verified"
+      "note": "Automatic server-date rollover with manual date override; high resolution Timing.getCurrentServerTime when available, faster deadline polling and per-user offset; live-game accuracy not verified"
     },
     {
       "id": "market-bot-v7",
