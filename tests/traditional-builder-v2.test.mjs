@@ -96,7 +96,7 @@ test('Policy shutdown cancels pending build, free finish, UI event listeners and
   assert.match(pilot,/stoppedByPolicy=true;isRunning=false;saveStatus\(\);endLoop\(\)/);
   assert.match(pilot,/if\(instantTimer\)\{clearTimeout\(instantTimer\);instantTimer=null;\}/);
   assert.match(pilot,/if\(pendingTimer\)\{clearTimeout\(pendingTimer\);pendingTimer=null;\}/);
-  assert.match(pilot,/if\(!isRunning\|\|!policyOK\(\)\)return/);
+  assert.match(pilot,/if\(!isRunning\|\|!policyOK\(\)\|\|navigator\.onLine===false\)return/);
   assert.match(pilot,/if\(!canContinue\(plan\)\)\{processing=false;return;\}/);
 });
 
@@ -198,11 +198,11 @@ test('Version 2.1 invalid template data is not resurrected in V2.2',()=>{
 test('Level readings cannot be invented from costs; templates wait for verified progress',()=>{
   assert.match(pilot,/window\.BuildingMain\?\.buildings\?\.\[id\]/);
   assert.match(pilot,/gd\.village\?\.buildings\?\.\[id\]/);
-  assert.match(pilot,/if\(!row\)return null/);
-  assert.match(pilot,/if\(step\.level===null\)return null/);
+  assert.match(pilot,/return null; \/\/ Unknown levels are never invented/);
+  assert.match(pilot,/if\(!step\|\|step\.level===null\)return null/);
   assert.match(pilot,/if\(templateRefreshing\|\|!lastRefreshOk\|\|currentBuildCount\(\)>0\)return null/);
   assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
-  assert.match(pilot,/if\(plan\.mode==='template'\)/);
+  assert.match(pilot,/mode:'template',version:templateVersion,index:step\.index/);
   assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
 });
 
