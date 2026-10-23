@@ -93,7 +93,10 @@ test('MV3 extension is local companion only, with least-privilege permissions',(
 });
 
 test('One-install claim is limited to Bridge + Control Center, with real engine installation disclosed',()=>{
- assert.match(html,/السكربتات التشغيلية تحتاج ملفاتها المرخصة حاليًا/);
+ assert.match(html,/السكربتات التشغيلية تحتاج ملفاتها المرخصة/);
+ assert.match(html,/احتفظ بـ Cloud Bridge الأصلي/);
+ assert.match(html,/algzawy-control-center-companion-v1\.user\.js/);
+ assert.doesNotMatch(html,/href="[^"]*\/pilots\/algzawy-smart-launcher-v1\.user\.js"/);
  assert.match(html,/محركات البوتات تحتاج إلى Cloud Bridge V2 وملفات Loader المرخصة الحالية/);
  assert.match(pilot,/separately installed authorized game engines still required/);
  assert.doesNotMatch(popup,/localStorage\.setItem/);
