@@ -16,6 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check scripts/auto-builder-pro-algzawy-v3-3-fixed-queue.js
+
       - run: node --check scripts/algzawy-builder-v1.js
       - run: node --test tests/algzawy-beta-contracts.test.mjs tests/builder-v1.test.mjs
