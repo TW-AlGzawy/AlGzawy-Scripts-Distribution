@@ -1,12 +1,30 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - تنبيه المخازن
-// @version      1.0
+// @version      1.0.1
 // @description  Monitor stock percentages, with user selected warning threshold.
 // ==/UserScript==
 (function () {
   'use strict';
   if (document.getElementById('algzawy-warehouse-alert-panel')) return;
   const KEY='algzawy_warehouse_alert_settings_v01';
+  let stopped=false;
+  const notices=new Set();
+  const STOP_EVENT='__algzawy_stop_warehouse-alert-safe';
+  function stop(){
+    if(stopped)return;
+    stopped=true;
+    window.removeEventListener('resize',onResize);
+    document.removeEventListener('algzawy-local-control-changed',onControl);
+    notices.forEach(notice=>notice.remove());notices.clear();
+    panel.remove();
+  }
+  function onControl(){
+    if(localStorage.getItem('algzawy_local_enabled_warehouse-alert-safe')==='false'||localStorage.getItem('algzawy_portal_grant_warehouse-alert-safe')!=='1'){stop();return;}
+    try{Object.assign(settings,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(_){}
+    q('enable').checked=!!settings.enabled;
+    q('pct').value=settings.percent;
+    check();
+  }
   let settings;
   try { settings=JSON.parse(localStorage.getItem(KEY)||'null'); } catch (_) { settings=null; }
   settings=Object.assign({enabled:true,percent:90},settings||{});
@@ -50,8 +68,12 @@
   };
   setCollapsed(layout.collapsed);
   q('collapse').addEventListener('click',()=>setCollapsed(!layout.collapsed));
-  window.addEventListener('resize',()=>{keepVisible();saveLayout();});
+  function onResize(){if(!stopped){keepVisible();saveLayout();}}
+  window.addEventListener('resize',onResize);
+  document.addEventListener(STOP_EVENT,stop,{once:true});
+  document.addEventListener('algzawy-local-control-changed',onControl);
   const save=()=>{
+    if(stopped)return;
     settings.enabled=q('enable').checked;
     settings.percent=Math.max(50,Math.min(100,Math.round(Number(q('pct').value)||90)));
     q('pct').value=settings.percent;
@@ -78,6 +100,7 @@
     return possible.map(numeric).find(x=>Number.isFinite(x)&&x>0)||0;
   };
   function check(){
+    if(stopped)return;
     const c=capacity();
     const resource=getResources();
     if(!c){q('status').textContent='تعذر قراءة السعة/الموارد من هذه الصفحة';return;}
@@ -95,8 +118,9 @@
     notice.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:2147483001;direction:rtl;background:#fff4e0;color:#763600;border:2px solid #eab308;padding:12px;border-radius:10px;box-shadow:0 3px 15px #0004;font:14px Tahoma';
     notice.textContent='📦 مخازن الغزاوي: نسبة '+Math.round(peak)+'% تجاوزت حد التنبيه ('+settings.percent+'%). انقر لإغلاق التنبيه.';
     notice.addEventListener('click',()=>notice.remove());
+    notices.add(notice);
     document.body.appendChild(notice);
-    setTimeout(()=>notice.remove(),12000);
+    setTimeout(()=>{notice.remove();notices.delete(notice);},12000);
   }
   const h=q('header');let drag=null;
   h.addEventListener('pointerdown',ev=>{
