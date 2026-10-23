@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] البناء التقليدي المتطور — نافذة عائمة
-// @version      2.1.0-qa2
-// @description  QA only - AlGzawy floating traditional builder with account manager templates and free finish <3m
+// @version      2.2.0-qa3
+// @description  QA only - AlGzawy builder with exact sequential Account Manager construction template decoder
 // @author       الغزااوي | AlG
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-traditional-floating-builder-v2-2026-10-23/pilots/algzawy-traditional-builder-v2.user.js
@@ -38,19 +38,20 @@
   const BUILDINGS=[
     ['main','المقر الرئيسي'],['barracks','الثكنات'],['stable','الإسطبل'],
     ['garage','الورشة'],['watchtower','برج المراقبة'],['snob','الأكاديمية'],
-    ['smith','الحداد'],['statue','النصب التذكاري'],['market','السوق'],
+    ['smith','الحداد'],['statue','النصب التذكاري'],['place','نقطة التجمع'],['market','السوق'],
     ['wood','معمل الخشب'],['stone','محجر الطين'],['iron','منجم الحديد'],
     ['farm','المزرعة'],['storage','المخزن'],['hide','المخبأ'],['wall','السور']
   ];
   const LABELS=Object.fromEntries(BUILDINGS);
-  // Order used by the game's account-manager base64 template format,
-  // matching the decoder already proven in Auto Builder Pro V3.3.
-  // It stores target levels, NOT a chronological click-by-click build plan.
-  const ACCOUNT_MANAGER_ORDER=[
-    'main','barracks','stable','garage','church','church_f','snob',
-    'smith','place','statue','market','wood','stone','iron','farm',
-    'storage','hide','wall','watchtower'
-  ];
+  // Verified against the user's BarQ template: 2-byte little-endian
+  // byte-length, then ordered [buildingIndex, extraLevels] pairs.
+  // The export DOES NOT encode 19 fixed target bytes at offset 4.
+  const ACCOUNT_MANAGER_CODES={
+    0:'main',1:'barracks',2:'stable',3:'garage',
+    7:'snob',8:'smith',9:'place',10:'statue',11:'market',
+    12:'wood',13:'stone',14:'iron',15:'farm',16:'storage',
+    17:'hide',18:'wall',20:'watchtower'
+  };
   const DEFAULT_LENGTH=gd.features && gd.features.Premium && gd.features.Premium.active?5:2;
   const MAX_LENGTH=DEFAULT_LENGTH===2?2:10;
   const readJSON=(text, fallback)=>{try{return JSON.parse(text);}catch(_){return fallback;}};
@@ -71,11 +72,16 @@
   // Template execution is separate from manual queue. Never delete or rewrite
   // legacy manual items during import or template progression.
   const storedTemplate=readJSON(localStorage.getItem(TEMPLATE_KEY)||'{}',{});
-  let templateSteps=Array.isArray(storedTemplate?.steps)
-    ?storedTemplate.steps.filter(step=>step&&Object.hasOwn(LABELS,step.id)
-      &&Number.isInteger(step.target)&&step.target>0&&step.target<=50).slice(0,BUILDINGS.length)
-    :[];
-  let templateMode=storedTemplate?.mode==='template'&&templateSteps.length>0?'template':'manual';
+  // Never trust the former V2.1 "target-bytes" imports: their format was
+  // incorrect. Force a fresh import of the ORIGINAL game export.
+  let templateSteps=storedTemplate?.format===2&&Array.isArray(storedTemplate.steps)
+    &&storedTemplate.steps.length>0&&storedTemplate.steps.length<=1000
+    &&storedTemplate.steps.every(step=>step&&Object.hasOwn(LABELS,step.id)
+      &&Number.isInteger(step.add)&&step.add>=1&&step.add<=50
+      &&Number.isInteger(step.target)&&step.target>=step.add&&step.target<=50)
+      ?storedTemplate.steps:[];
+  let templateMode=storedTemplate?.format===2&&storedTemplate?.mode==='template'
+    &&templateSteps.length>0?'template':'manual';
   let templateIssued=null,templateRefreshAt=0,templateVersion=0,templateRefreshing=false;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
@@ -186,28 +192,39 @@
   document.head.appendChild(style);
 
 
-  // The account-manager export carries levels at byte offsets 4..22;
-  // it does not encode user-created execution stages. Imported targets are
-  // initially ordered by the game's internal fields, and can be reordered
-  // explicitly using the up/down arrows in the V2 panel.
+  // Decode the ACTUAL game export, preserving every step and repetition.
+  // BarQ: length=150 bytes, 75 ordered pairs starting at byte offset 2,
+  // then optional game-owned metadata (template name, flags).
   function decodeTWTemplate(code){
     if(typeof code!=='string')return null;
-    const clean=code.replace(/\s+/g,'').trim().replace(/-/g,'+').replace(/_/g,'/');
-    if(clean.length<30||clean.length>4096||!/^[A-Za-z0-9+/]*={0,2}$/.test(clean))return null;
-    let decoded;
-    try{decoded=atob(clean);}catch(_){return null;}
-    if(decoded.length<4+ACCOUNT_MANAGER_ORDER.length)return null;
-    const steps=[];
-    for(let i=0;i<ACCOUNT_MANAGER_ORDER.length;i++){
-      const id=ACCOUNT_MANAGER_ORDER[i],target=decoded.charCodeAt(4+i);
-      if(!target)continue;
+    let clean=code.trim();
+    const bb=clean.match(/^\[construction_template\]([\s\S]*?)\[\/construction_template\]$/i);
+    if(bb)clean=bb[1].trim();
+    clean=clean.replace(/\s+/g,'').replace(/-/g,'+').replace(/_/g,'/');
+    if(clean.length<8||clean.length>12000||!/^[A-Za-z0-9+/]*={0,2}$/.test(clean))return null;
+    let binary;
+    try{binary=atob(clean);}catch(_){return null;}
+    if(binary.length<6)return null;
+    const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
+    const byteLength=bytes[0]|(bytes[1]<<8);
+    if(byteLength<2||byteLength%2!==0||byteLength>2000
+      ||bytes.length<2+byteLength)return null;
+    const levels={},steps=[];
+    for(let p=2;p<2+byteLength;p+=2){
+      const type=bytes[p],add=bytes[p+1],id=ACCOUNT_MANAGER_CODES[type];
+      // Unknown building index or zero-level instruction must never turn
+      // into a silently skipped action or an invented target.
+      if(!id||!Object.hasOwn(LABELS,id)||add<1||add>50)return null;
+      const target=(levels[id]||0)+add;
       if(target>50)return null;
-      if(Object.hasOwn(LABELS,id))steps.push({id,target});
+      levels[id]=target;
+      steps.push({id,add,target});
     }
     return steps.length?steps:null;
   }
   function saveTemplate(){
-    localStorage.setItem(TEMPLATE_KEY,JSON.stringify({mode:templateMode,steps:templateSteps}));
+    localStorage.setItem(TEMPLATE_KEY,
+      JSON.stringify({format:2,mode:templateMode,steps:templateSteps}));
   }
   function currentLevel(id){
     const row=document.getElementById('main_buildrow_'+id);
