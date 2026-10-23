@@ -97,81 +97,107 @@ test('Policy shutdown cancels pending build, free finish, UI event listeners and
 });
 
 
-test('Account Manager decoder imports exact V3.3 target bytes and advances only on levels',()=>{
-  const begin=pilot.indexOf('function decodeTWTemplate(code){');
-  const stop=pilot.indexOf('function renderQueue(){',begin);
-  assert.ok(begin>0&&stop>begin);
-  const functions=pilot.slice(begin,stop);
-  const order=['main','barracks','stable','garage','church','church_f','snob',
-    'smith','place','statue','market','wood','stone','iron','farm',
-    'storage','hide','wall','watchtower'];
-  const labels=Object.fromEntries(order.filter(x=>!['church','church_f','place'].includes(x)).map(x=>[x,x]));
-  const bytes=Buffer.alloc(4+order.length);
-  bytes[4+order.indexOf('main')]=3;
-  bytes[4+order.indexOf('wood')]=8;
-  bytes[4+order.indexOf('stone')]=9;
-  const prefix=[
-    'const ACCOUNT_MANAGER_ORDER='+JSON.stringify(order)+';',
-    'const LABELS='+JSON.stringify(labels)+';',
-    'let templateSteps=[],templateMode="manual",templateIssued=null,templateVersion=0,isRunning=false;',
-    'let stoppedByPolicy=false,buildingQueue=[],elements={},layout={};',
-    'const renderQueue=()=>{},renderStatus=()=>{},endLoop=()=>{},saveStatus=()=>{},status=()=>{};',
-    'const localStorage={setItem:()=>{},getItem:()=>null};',
-    'const levels={main:3,wood:7,stone:2};',
-    'const document={getElementById:(key)=>{const val=levels[key.replace("main_buildrow_","")];'+
-     'return val===undefined?null:{querySelector:()=>({textContent:String(val),getAttribute:()=>null})};}};',
-    'const node=()=>({append(){}});const button=()=>({});'
-  ].join('\n');
-  const ctx={atob:value=>Buffer.from(value,'base64').toString('binary')};
-  const body=[
-    'const imported=decodeTWTemplate('+JSON.stringify(bytes.toString('base64'))+');',
-    'templateSteps=imported;',
-    'const first=nextTemplateStep(),initial=templateProgress();',
-    'levels.wood=8;const second=nextTemplateStep();',
-    'levels.stone=9;const done=nextTemplateStep();',
-    'const bad=decodeTWTemplate("wrong");',
-    '({imported,first,initial,second,done,bad});'
-  ].join('\n');
-  const outcome=vm.runInNewContext(prefix+'\n'+functions+'\n'+body,ctx);
-  assert.deepEqual(JSON.parse(JSON.stringify(outcome.imported)),[
-    {id:'main',target:3},{id:'wood',target:8},{id:'stone',target:9}
+const BARQ="lgAAAQoBCQEQAQABEAEAAQEBEAEAARABAAEQAQABEAEAARABAAEQAQABEAEAARABAAEQAQABEAEAARABAAEQAQABEAEAARABAAEQAQABEAEAARABAAEQAQABEAEAARABAAEQAQABEAEAARABAAEQAQABEAELGQgUBwEBGAweDR4OHg8eAhQDDxEKEhQUAfSAgIBCYXJR9ICAgDQ=";
+const map={0:'main',1:'barracks',2:'stable',3:'garage',7:'snob',
+  8:'smith',9:'place',10:'statue',11:'market',12:'wood',13:'stone',
+  14:'iron',15:'farm',16:'storage',17:'hide',18:'wall',20:'watchtower'};
+const decoderSource=()=>{
+  const start=pilot.indexOf('function decodeTWTemplate(code){');
+  const end=pilot.indexOf('function saveTemplate(){',start);
+  assert.ok(start>0&&end>start);
+  return pilot.slice(start,end);
+};
+function decode(code){
+  const prefix='const ACCOUNT_MANAGER_CODES='+JSON.stringify(map)+';const LABELS='+JSON.stringify(mapKeys)+';';
+  return vm.runInNewContext(prefix+decoderSource()+'\ndecodeTWTemplate('+JSON.stringify(code)+');',{
+    atob:s=>Buffer.from(s,'base64').toString('binary'),Uint8Array,Object
+  });
+}
+const mapKeys=Object.fromEntries(Object.values(map).map(id=>[id,id]));
+
+test('Real BarQ Account Manager export contains 75 ORDERED actions, not 13 target values',()=>{
+  const steps=decode(BARQ);
+  assert.ok(Array.isArray(steps));
+  assert.equal(steps.length,75);
+  const actual=JSON.parse(JSON.stringify(steps));
+  assert.deepEqual(actual.slice(0,8),[
+    {id:'main',add:1,target:1},{id:'statue',add:1,target:1},
+    {id:'place',add:1,target:1},{id:'storage',add:1,target:1},
+    {id:'main',add:1,target:2},{id:'storage',add:1,target:2},
+    {id:'main',add:1,target:3},{id:'barracks',add:1,target:1}
   ]);
-  assert.equal(outcome.first.id,'wood');
-  assert.equal(outcome.first.level,7);
-  assert.equal(outcome.initial.ready,1);
-  assert.equal(outcome.second.id,'stone');
-  assert.equal(outcome.done,null);
-  assert.equal(outcome.bad,null);
-  bytes[4+order.indexOf('wood')]=60;
-  const corrupted=vm.runInNewContext(prefix+'\n'+functions+
-    '\ndecodeTWTemplate('+JSON.stringify(bytes.toString('base64'))+');',{...ctx});
-  assert.equal(corrupted,null);
+  assert.equal(actual.filter(x=>x.id==='main').length,30);
+  assert.equal(actual.filter(x=>x.id==='storage').length,30);
+  assert.deepEqual(actual.slice(-12),[
+    {id:'market',add:25,target:25},{id:'smith',add:20,target:20},
+    {id:'snob',add:1,target:1},{id:'barracks',add:24,target:25},
+    {id:'wood',add:30,target:30},{id:'stone',add:30,target:30},
+    {id:'iron',add:30,target:30},{id:'farm',add:30,target:30},
+    {id:'stable',add:20,target:20},{id:'garage',add:15,target:15},
+    {id:'hide',add:10,target:10},{id:'wall',add:20,target:20}
+  ]);
+  const binary=Buffer.from(BARQ,'base64');
+  assert.equal(binary.readUInt16LE(0),150,'150 bytes of paired steps');
+  assert.equal(binary.length,167,'footer is not parsed as steps');
+  assert.equal(decode('[construction_template]'+BARQ+'[/construction_template]').length,75);
 });
-
-test('Template keeps sequential targets without consuming manual queue',()=>{
-  assert.match(pilot,/const TEMPLATE_KEY='algzawy_traditional_template_v2_'\+ID/);
-  assert.match(pilot,/const ACCOUNT_MANAGER_ORDER=\[/);
-  assert.match(pilot,/templateSteps=decoded;templateMode='template'/);
-  assert.match(pilot,/if\(level===null\|\|level<step\.target\)return/);
-  assert.match(pilot,/if\(templateIssued\|\|templateRefreshing\|\|currentBuildCount\(\)>0\)return null/);
-  assert.match(pilot,/templateIssued=\{id:plan\.id,level:plan\.level,at:Date\.now\(\)\}/);
-  assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
-  assert.match(pilot,/Math\.max\(0,queue\.rows\.length-2\)/);
-  assert.match(pilot,/قائمة بناء اللعبة فارغة لكن المستوى لم يتحدث خلال 90 ثانية/);
-  assert.match(pilot,/templateIssued&&currentBuildCount\(\)===0&&Date\.now\(\)-templateIssued\.at>=90000/);
-  assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
-  assert.match(pilot,/void refreshVisibleGameQueue\(\)\.finally\(\(\)=>\{templateRefreshing=false;\}\)/);
-  assert.match(pilot,/isRunning=false;saveStatus\(\);endLoop\(\);renderQueue\(\)/);
+test('No silent skipping on damaged BarQ exports or unsupported building IDs',()=>{
+  assert.equal(decode('wrong'),null);
+  const raw=Buffer.from(BARQ,'base64');
+  const badBuilding=Buffer.from(raw);
+  badBuilding[2]=255;
+  assert.equal(decode(badBuilding.toString('base64')),null);
+  const zero=Buffer.from(raw);
+  zero[3]=0;
+  assert.equal(decode(zero.toString('base64')),null);
+  const truncated=raw.subarray(0,151);
+  assert.equal(decode(truncated.toString('base64')),null);
+  const badLength=Buffer.from(raw);
+  badLength.writeUInt16LE(151,0);
+  assert.equal(decode(badLength.toString('base64')),null);
 });
-
-test('Template UI imports code, allows order edits and mode switching',()=>{
-  assert.match(pilot,/elements\.templateCode=node\('textarea','alg-template-code'\)/);
-  assert.match(pilot,/elements\.templateCode\.maxLength=4096/);
-  assert.match(pilot,/button\('استيراد القالب'/);
-  assert.match(pilot,/button\('حذف القالب'/);
-  assert.match(pilot,/templateMode=templateMode==='manual'\?'template':'manual'/);
+test('Template progress is per sequential step, including repeats and unknown levels',()=>{
+  const start=pilot.indexOf('function nextTemplateStep(){');
+  const end=pilot.indexOf('function renderTemplate(){',start);
+  assert.ok(start>0&&end>start);
+  const steps=JSON.parse(JSON.stringify(decode(BARQ)));
+  const levels={main:2,statue:1,place:1,storage:1,barracks:1};
+  const contextCode=[
+    'const templateSteps='+JSON.stringify(steps)+';',
+    'const levels='+JSON.stringify(levels)+';',
+    'const currentLevel=id=>levels[id]??null;',
+    pilot.slice(start,end),
+    'const a=nextTemplateStep(),p=templateProgress();',
+    'levels.storage=2;const b=nextTemplateStep();',
+    'levels.main=30;levels.storage=30;const c=nextTemplateStep();',
+    '({a,p,b,c})'
+  ].join('\n');
+  const result=vm.runInNewContext(contextCode);
+  assert.equal(result.a.id,'storage');
+  assert.equal(result.a.target,2);
+  assert.equal(result.b.id,'main');
+  assert.equal(result.b.target,3);
+  assert.equal(result.c.id,'market','later unavailable/unfinished entry stays next');
+  assert.equal(result.p.ready,5);
+});
+test('Version 2.1 invalid template data is not resurrected in V2.2',()=>{
+  assert.match(pilot,/storedTemplate\?\.format===2/);
+  assert.match(pilot,/JSON\.stringify\(\{format:2,mode:templateMode,steps:templateSteps\}\)/);
+  assert.match(pilot,/const byteLength=bytes\[0\]\|\(bytes\[1\]<<8\)/);
+  assert.match(pilot,/for\(let p=2;p<2\+byteLength;p\+=2\)/);
+  assert.match(pilot,/steps\.push\(\{id,add,target\}\)/);
+  assert.doesNotMatch(pilot,/charCodeAt\(4\+i\)/);
+  assert.doesNotMatch(pilot,/moveTemplateStep/);
+  assert.match(pilot,/يحافظ على ترتيب كل خطوة وتكرارات المباني/);
   assert.match(pilot,/elements\.templateCounter\.textContent=progress\.ready/);
-  assert.match(pilot,/button\('↑','',\(\)=>moveTemplateStep/);
-  assert.match(pilot,/button\('↓','',\(\)=>moveTemplateStep/);
-  assert.match(pilot,/elements\.add\.disabled=templateMode==='template'/);
+});
+test('Level readings cannot be invented from costs; templates wait for verified progress',()=>{
+  assert.match(pilot,/window\.BuildingMain\?\.buildings\?\.\[id\]/);
+  assert.match(pilot,/gd\.village\?\.buildings\?\.\[id\]/);
+  assert.match(pilot,/if\(!row\)return null/);
+  assert.match(pilot,/if\(step\.level===null\)return null/);
+  assert.match(pilot,/templateIssued\|\|templateRefreshing\|\|currentBuildCount\(\)>0/);
+  assert.match(pilot,/تعذر تأكيد قبول طلب البناء/);
+  assert.match(pilot,/if\(plan\.mode==='template'\)/);
+  assert.match(pilot,/if\(buildingQueue\[0\]===plan\.id\)/);
 });
