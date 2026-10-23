@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.2.2 metadata and code compile',()=>{
+test('Arabic floating send scheduler v1.3.0 metadata and code compile',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.2\.2/);
- assert.match(loader,/@version\s+1\.2\.2/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.2.2');
+ assert.match(core,/@version\s+1\.3\.0/);
+ assert.match(loader,/@version\s+1\.3\.0/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.3.0');
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
@@ -97,4 +97,29 @@ test('last-click diagnostics persist locally and distinguish browser timing from
  assert.ok(core.includes("التعويض الموجب يؤخر الضغط"));
  assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
  assert.doesNotMatch(core,/\$\.post/);
+});
+
+test('Smart Timing license-safe opt-in, passive measurements, per-mode local calibration',()=>{
+ for(const marker of ["SMART='algzawy_send_smart_v13'","smart:false","history={send:[],arrival:[]}",
+ "function collectNetwork()","performance.getEntriesByType('resource')","u.origin!==location.origin",
+ "function storeOutcome()","function clearSmartResults()","armedOffset=currentOffset()",
+ "if(armedOffset!==null)return armedOffset","opts.smart=!!parts.smart?.checked",
+ "parts.smart.type='checkbox'","parts.inputs.push(parts.smart)","history[mode].push(",
+ "localStorage.setItem(SMART,JSON.stringify(history))","netMedian:collectNetwork()"])
+  assert.ok(core.includes(marker),'missing '+marker);
+ assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
+});
+test('Smart Timing rejects too few or unstable results, bounds compensation, blends trusted network changes',()=>{
+ const st=core.indexOf('// SMART_MODEL_START'),en=core.indexOf('// SMART_MODEL_END');
+ assert.ok(st>0&&en>st);
+ const {smartEvaluate}=new Function(core.slice(st,en)+'\nreturn {smartEvaluate};')();
+ const log=(a,net=100)=>a.map((lag,i)=>({lag,at:Date.now()-i*1000,net}));
+ const none={source:'unavailable',median:null,jitter:null,count:0};
+ assert.equal(smartEvaluate(log([210,220]),none).ready,false);
+ assert.equal(smartEvaluate(log([205,215,225,230]),none).offset,-220);
+ assert.equal(smartEvaluate(log([205,215,225,230]),{source:'observed',median:140,jitter:10,count:8}).offset,-240);
+ assert.equal(smartEvaluate(log([70,220,450]),none).ready,false);
+ assert.equal(smartEvaluate(log([210,220,230]),{source:'observed',median:100,jitter:150,count:8}).ready,false);
+ assert.equal(smartEvaluate(log([220,225,222,1500]),none).offset,-222);
+ assert.equal(smartEvaluate([{lag:230,at:Date.now()-20*86400000}],none).count,0);
 });

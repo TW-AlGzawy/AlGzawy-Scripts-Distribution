@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.2.2
-// @description  توقيت الإرسال والوصول بأجزاء الثانية، لوحة عربية عائمة وترخيص Cloud Bridge
+// @version      1.3.0
+// @description  AlG Smart Timing v1.3.0 — تعويض ذكي اختياري مع سجل نتائج محلي لكل وضع
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @run-at       document-end
 // @connect      raw.githubusercontent.com

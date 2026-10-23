@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.2.2
+// @version      1.3.0
 // @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -12,12 +12,15 @@ const qs=new URL(location.href).searchParams;
 if(qs.get('screen')!=='place'||qs.get('try')!=='confirm')return;
 const BUTTON=document.getElementById('troop_confirm_submit');
 if(!BUTTON||window.__algzawySendV11)return;
-const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs', LAST='algzawy_sends_last_click_v1';
+const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs', LAST='algzawy_sends_last_click_v1', SMART='algzawy_send_smart_v13';
 const GRANT='algzawy_portal_grant_'+ID,LOCAL='algzawy_local_enabled_'+ID,HUMAN='algzawy_human_verification_pause';
 const UNTIL='algzawy_portal_device_authorized_until',STOP='__algzawy_stop_send-automation',DAY=86400000;
-let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null;
+let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null,armedOffset=null;
+let history={send:[],arrival:[]},netEntries=[],netSeen=new Set(),lastNetScan=0;
+let network={source:'unavailable',median:null,jitter:null,count:0};
+try{const loaded=JSON.parse(localStorage.getItem(SMART)||'null');for(const mode of ['send','arrival'])if(Array.isArray(loaded?.[mode]))history[mode]=loaded[mode].slice(-20);}catch(_){}
 const pad=x=>String(x).padStart(2,'0'),pad3=x=>String(x).padStart(3,'0');
-let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,collapsed:false,left:null,top:null};
+let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,smart:false,collapsed:false,left:null,top:null};
 try{const x=JSON.parse(localStorage.getItem(PREF)||'null');if(x&&typeof x==='object'&&!Array.isArray(x))opts={...opts,...x};}catch(_){}
 function save(){try{localStorage.setItem(PREF,JSON.stringify(opts));}catch(_){}}
 function licensed(){
@@ -99,12 +102,96 @@ function predictedArrival(){
   arrival={key,stamp:value,at:performance.now(),dated:!!d};
  return {time:arrival.stamp+Math.max(0,performance.now()-arrival.at),dated:arrival.dated};
 }
+// SMART_MODEL_START
+function smartMedian(xs){if(!xs.length)return null;const s=xs.slice().sort((a,b)=>a-b),k=Math.floor(s.length/2);return s.length%2?s[k]:(s[k-1]+s[k])/2;}
+function smartEvaluate(log,net){
+ const rows=(Array.isArray(log)?log:[]).filter(x=>x&&Number.isFinite(x.lag)&&x.lag>=0&&x.lag<=1200&&Number.isFinite(x.at)&&Date.now()-x.at>=0&&Date.now()-x.at<=14*86400000).slice(-20);
+ const mid=smartMedian(rows.map(x=>x.lag)),spread=mid===null?null:smartMedian(rows.map(x=>Math.abs(x.lag-mid)));
+ const paired=rows.map(x=>x.net).filter(x=>Number.isFinite(x)&&x>0);
+ const baseline=smartMedian(paired);
+ const good=net?.source==='observed'&&net.count>=3&&net.jitter<=90;
+ const shift=good&&paired.length>=3?Math.max(-60,Math.min(60,(net.median-baseline)*0.5)):0;
+ const unstable=rows.length>=3&&(spread>100||(net?.source==='observed'&&net.count>=3&&net.jitter>100));
+ const ready=rows.length>=3&&!unstable;
+ return {ready,unstable,count:rows.length,lag:mid,spread,shift,offset:ready?Math.max(-600,Math.min(0,-Math.round(mid+shift))):null};
+}
+// SMART_MODEL_END
+function collectNetwork(){
+ const p=performance.now();if(p-lastNetScan<1500)return network;lastNetScan=p;
+ try{
+  for(const e of performance.getEntriesByType('resource').slice(-180)){
+   if(!['fetch','xmlhttprequest'].includes(e.initiatorType)||e.startTime<p-90000)continue;
+   const u=new URL(e.name,location.href);
+   if(u.origin!==location.origin||!u.pathname.endsWith('/game.php'))continue;
+   const key=e.name+'@'+e.startTime;if(netSeen.has(key))continue;netSeen.add(key);
+   const d=e.responseStart-e.requestStart;
+   if(Number.isFinite(d)&&d>0&&d<2500)netEntries.push({ms:d,at:p});
+  }
+ }catch(_){}
+ if(netSeen.size>1000)netSeen.clear();
+ netEntries=netEntries.filter(x=>p-x.at<90000).slice(-60);
+ if(netEntries.length){
+  const vals=netEntries.map(x=>x.ms),m=smartMedian(vals);
+  network={source:'observed',median:m,jitter:smartMedian(vals.map(x=>Math.abs(x-m))),count:vals.length};
+ }else{
+  const a=Number(navigator.connection?.rtt);
+  network={source:Number.isFinite(a)&&a>0?'estimated':'unavailable',median:Number.isFinite(a)&&a>0?a:null,jitter:null,count:0};
+ }
+ return network;
+}
+function smartCurrent(){return smartEvaluate(history[opts.mode==='arrival'?'arrival':'send'],collectNetwork());}
+function currentOffset(){
+ if(armedOffset!==null)return armedOffset;
+ const m=opts.smart?smartCurrent():null;
+ return m?.ready?m.offset:Number(opts.offset);
+}
+function smartRender(){
+ if(!parts.smartNetwork)return;
+ const n=collectNetwork(),m=smartCurrent(),offset=currentOffset();
+ parts.smartNetwork.textContent=n.source==='observed'
+  ?'زمن طلبات اللعبة: '+Math.round(n.median)+'ms | تذبذب '+Math.round(n.jitter)+'ms | '+n.count+' قياسات'
+  :n.source==='estimated'?'تقدير RTT: '+Math.round(n.median)+'ms (غير كافٍ وحده للمعايرة)'
+  :'لا توجد طلبات قابلة للقياس حاليًا';
+ parts.smartSamples.textContent='نتائج '+(opts.mode==='arrival'?'الوصول':'الإرسال')+': '+m.count+' (الحد الأدنى 3)';
+ parts.smartAdvice.textContent=opts.smart
+  ?m.ready?'تعويض تلقائي: '+m.offset+'ms'+(m.shift?' | تغير الاتصال '+Math.round(m.shift)+'ms':'')
+   :m.unstable?'التلقائي موقوف بسبب التذبذب — اليدوي '+offset+'ms'
+    :'بانتظار نتائج كافية — اليدوي '+offset+'ms'
+  :'تعويض يدوي '+offset+'ms | اقتراح ذكي '+(m.ready?m.offset+'ms':'غير جاهز');
+}
+function storeOutcome(){
+ if(armed||sent)return;
+ const raw=String(parts.smartObserved?.value||'').trim();
+ if(!/^[+-]?\d{1,4}$/.test(raw)||Math.abs(Number(raw))>1500){message('أدخل فرق النتيجة: +45 تأخر أو -20 مبكر (ms).','error');return;}
+ let prev;try{prev=JSON.parse(localStorage.getItem(LAST)||'null');}catch(_){}
+ const age=prev&&Date.now()-Date.parse(prev.recordedAt);
+ if(!prev||!Number.isFinite(age)||age<0||age>48*3600000||!['send','arrival'].includes(prev.mode)
+    ||!Number.isFinite(Number(prev.offset))||!Number.isFinite(Number(prev.browserDeviationMs))){
+  message('لا توجد إرسالية سابقة صالحة للمعايرة خلال 48 ساعة.','error');return;
+ }
+ const key=prev.recordedAt+'@'+prev.pressedAt;
+ if(['send','arrival'].some(mode=>history[mode].some(x=>x.key===key))){message('تم حفظ هذه الإرسالية سابقًا.','error');return;}
+ const lag=Number(raw)-Number(prev.offset)-Number(prev.browserDeviationMs);
+ if(!Number.isFinite(lag)||lag<0||lag>1200){message('نتيجة غير صالحة؛ تحقق من فرق الوصول واتجاه التعويض.','error');return;}
+ const mode=prev.mode;
+ history[mode].push({key,lag,at:Date.now(),net:Number.isFinite(prev.netMedian)?prev.netMedian:null});
+ history[mode]=history[mode].slice(-20);
+ try{localStorage.setItem(SMART,JSON.stringify(history));}catch(_){}
+ parts.smartObserved.value='';smartRender();
+ message('حُفظت معايرة '+(mode==='arrival'?'الوصول':'الإرسال')+' محليًا.','ok');
+}
+function clearSmartResults(){
+ if(armed||sent)return;
+ history[opts.mode==='arrival'?'arrival':'send']=[];
+ try{localStorage.setItem(SMART,JSON.stringify(history));}catch(_){}
+ smartRender();message('صُفّرت معايرة هذا الوضع.');
+}
 function time24(s){
  if(!/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(String(s||'')))return null;
  return clock(s);
 }
 function target(){
- const d=date(opts.date),t=time24(opts.time),ms=Number(opts.ms),off=Number(opts.offset);
+ const d=date(opts.date),t=time24(opts.time),ms=Number(opts.ms),off=Number(currentOffset());
  if(!d||!t||!Number.isInteger(ms)||ms<0||ms>999||!Number.isInteger(off)||off< -5000||off>5000)return null;
  return epoch(d,t,ms)+off;
 }
@@ -119,7 +206,7 @@ function difference(){
 }
 function message(s,type='normal'){if(parts.note){parts.note.textContent=s;parts.note.dataset.type=type;}}
 function cancel(reason='أُلغيت الجدولة؛ لم تُرسل أي قوات.'){
- if(timer){clearTimeout(timer);timer=null;}armed=false;
+ if(timer){clearTimeout(timer);timer=null;}armed=false;armedOffset=null;
  if(parts.arm){parts.arm.disabled=sent;parts.arm.textContent='▶ تجهيز الموعد';parts.cancel.disabled=true;}
  if(parts.inputs)parts.inputs.forEach(x=>x.disabled=sent);
  if(reason)message(reason);
@@ -136,13 +223,13 @@ function recordClick(){
  const pressedAt=now();
  const predicted=opts.mode==='arrival'?predictedArrival():null;
  const reference=opts.mode==='arrival'?predicted?.time:pressedAt;
- const adjusted=target(),offset=Number(opts.offset);
+ const adjusted=target(),offset=Number(currentOffset());
  if(!Number.isFinite(reference)||!Number.isFinite(pressedAt)||!Number.isFinite(adjusted))return;
  const entry={
-  version:'1.2.2',mode:opts.mode,pressedAt,referenceAtClick:reference,
+  version:'1.3.0',mode:opts.mode,pressedAt,referenceAtClick:reference,
   targetWithOffset:adjusted,originalTarget:adjusted-offset,offset,
   browserDeviationMs:Math.round(reference-adjusted),
-  clockSource:server?.source||'unknown',recordedAt:new Date().toISOString()
+  clockSource:server?.source||'unknown',netMedian:collectNetwork().source==='observed'?network.median:null,recordedAt:new Date().toISOString()
  };
  try{localStorage.setItem(LAST,JSON.stringify(entry));}catch(_){}
  renderLastClick(entry);
@@ -182,15 +269,15 @@ function schedule(){
 function readInputs(){
  if(armed)return;
  opts.mode=parts.mode.value;opts.date=parts.date.value;opts.time=parts.time.value;
- opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value);save();display();
+ opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value);opts.smart=!!parts.smart?.checked;save();display();
 }
 function arm(){
  if(armed||sent)return;
  if(!licensed()){message('فعّل الإرساليات من الموقع والجسر واعتمد الجهاز أولًا.','error');return;}
- readInputs();const r=difference();
- if(r.error){message(r.error==='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
- if(r.remaining<=500){message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
- if(r.remaining>7*DAY){message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
+ readInputs();armedOffset=currentOffset();const r=difference();
+ if(r.error){armedOffset=null;message(r.error==='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
+ if(r.remaining<=500){armedOffset=null;message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
+ if(r.remaining>7*DAY){armedOffset=null;message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
  armed=true;parts.arm.textContent='● الموعد مجهّز';parts.arm.disabled=true;
  parts.cancel.disabled=false;parts.inputs.forEach(x=>x.disabled=true);
  message('تم تجهيز الموعد؛ أبقِ صفحة تأكيد الإرسال مفتوحة.','ok');
@@ -203,7 +290,7 @@ function display(){
  if(!licensed()){if(armed)cancel('أُوقف التشغيل بسبب الترخيص.');return;}
  observe();parts.server.textContent=toText(now());
  const ar=predictedArrival();parts.arrival.textContent=toText(ar?.time);
- const r=difference();parts.remain.textContent=r.error?'—':(Math.max(0,r.remaining)/1000).toFixed(2)+' ثانية';
+ const r=difference();parts.remain.textContent=r.error?'—':(Math.max(0,r.remaining)/1000).toFixed(2)+' ثانية';smartRender();
  if(parts.source)parts.source.textContent=server?.source==='game'?'المرجع: ساعة اللعبة الدقيقة':'المرجع: ساعة العرض بالثواني — اضبط التعويض';
  parts.hint.textContent=opts.mode==='arrival'
  ?'توقيت الوصول: مقارنة الموعد بالوصول المتوقع الظاهر داخل تأكيد اللعبة.'
@@ -249,6 +336,11 @@ function show(){
  '#'+ROOT+' .note{border:1px solid #346c62;background:#143a36;color:#caffed;border-radius:7px;padding:8px}',
  '#'+ROOT+' .note[data-type="error"]{background:#452934;color:#ffe0e5;border-color:#925362}',
  '#'+ROOT+' .hint{font-size:10px;color:#a9c5cc}',
+ '#'+ROOT+' .alg-smart{display:grid;gap:7px;background:#103631;border:1px solid #2c7669;border-radius:9px;padding:9px}',
+ '#'+ROOT+' .alg-smart label{display:flex;align-items:center;gap:8px}',
+ '#'+ROOT+' .alg-smart input[type=checkbox]{width:16px;height:16px;accent-color:#47e6b7}',
+ '#'+ROOT+' .smart-row{display:flex;gap:6px;align-items:center}',
+ '#'+ROOT+' .smart-row input{flex:1;min-width:0}',
  '#'+ROOT+'.collapsed .body{display:none}',
  '@media(max-width:460px){#'+ROOT+'{right:5px;top:5px;max-height:95vh}}'
  ].join('\n');document.head.append(style);
@@ -288,6 +380,22 @@ function show(){
  parts.date=d.i;parts.time=t.i;parts.ms=m.i;parts.offset=o.i;
  parts.inputs=[parts.mode,d.i,t.i,m.i,o.i,resetDate];
  const inputs=el('div','grid');inputs.append(d.wrap,t.wrap,m.wrap,o.wrap);
+ const smartBox=el('section','alg-smart'),smartLabel=el('label');
+ parts.smart=el('input');parts.smart.type='checkbox';parts.smart.checked=!!opts.smart;
+ parts.smart.addEventListener('change',readInputs);
+ smartLabel.append(parts.smart,el('strong','','AlG Smart Timing — تعويض تلقائي'));
+ parts.smartNetwork=el('div','hint');parts.smartSamples=el('div','hint');
+ parts.smartAdvice=el('div','stat');
+ const smartHelp=el('small','hint','بعد كل إرسالية أدخل فرق التوقيت عن الموعد الأصلي: + متأخر / - مبكر بالـ ms. يستخدم سجلًا مستقلًا لكل وضع، ولا يفعّل التعويض التلقائي قبل توفر 3 نتائج موثوقة.');
+ const smartRow=el('div','smart-row');
+ parts.smartObserved=el('input','alg-input');parts.smartObserved.type='number';
+ parts.smartObserved.min='-1500';parts.smartObserved.max='1500';parts.smartObserved.placeholder='مثال +45';
+ const add=btn('حفظ النتيجة','',storeOutcome);
+ smartRow.append(parts.smartObserved,add);
+ smartBox.append(smartLabel,parts.smartNetwork,parts.smartSamples,parts.smartAdvice,smartHelp,smartRow,
+  btn('مسح معايرة الوضع الحالي','',clearSmartResults));
+ parts.inputs.push(parts.smart);
+
  parts.source=el('small','hint','جارٍ قراءة مرجع الوقت');
  const rem=el('div','stat');rem.append(el('small','','المتبقي للموعد'));parts.remain=el('strong','','—');rem.append(parts.remain);
  const controls=el('div','grid');parts.arm=btn('▶ تجهيز الموعد','go',arm);
@@ -296,8 +404,8 @@ function show(){
  parts.note=el('div','note');parts.note.setAttribute('role','status');parts.note.setAttribute('aria-live','polite');
  parts.last=el('div','hint');
  try{renderLastClick(JSON.parse(localStorage.getItem(LAST)||'null'));}catch(_){}
- body.append(stats,modeLabel,parts.hint,inputs,parts.source,rem,controls,parts.note,parts.last,
-  el('small','hint','سجل آخر تنفيذ يقيس انحراف الضغط داخل المتصفح فقط، وليس قبول السيرفر. عاير كل وضع على حدة؛ التعويض الموجب يؤخر الضغط.'));
+ body.append(stats,modeLabel,parts.hint,inputs,parts.source,smartBox,rem,controls,parts.note,parts.last,
+  el('small','hint','قياسات التأخير محلية ولا تُرسل للخارج. زمن الطلبات ليس زمن قبول السيرفر؛ المعايرة تعتمد النتائج التي تدخلها. لا يمكن ضمان الدقة.'));
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
  if(opts.left!==null&&opts.top!==null){
