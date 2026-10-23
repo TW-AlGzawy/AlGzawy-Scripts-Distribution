@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | AlG Smart Launcher [QA]
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.0-qa1
+// @version      1.0.0-qa2
 // @description  QA unified cloud Bridge plus in-game controls; separately installed authorized game engines still required
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -265,6 +265,13 @@
     const el=document.getElementById('algzawy-cloud-status');
     if(el){el.textContent=msg;el.style.color=good?'#46e8ae':'#ffcfcf';}
   }
+  // Read-only, non-secret synchronization feedback for the QA control center.
+  // Never include device keys, subscriber credentials or signed headers.
+  function notifyLauncherSync(phase,message,extra={}){
+    document.dispatchEvent(new CustomEvent('algzawy-launcher-sync-state',{
+      detail:{phase,message,at:Date.now(),...extra}
+    }));
+  }
   function applySettings(id,opts,enabled){
     if(id==='bot-farm-2'){
       const key='algzawy_bot2_settings_v02';
@@ -341,9 +348,21 @@
   // Every new game page must get a fresh signed server decision first.
   stopAll();
   async function synchronize(force=false){
-    if(pending||!connection.device)return;
+    if(pending){
+      notifyLauncherSync('busy','المزامنة السابقة ما زالت قيد التنفيذ.');
+      return;
+    }
+    if(!connection.device){
+      notifyLauncherSync('disconnected','هذا المتصفح غير مرتبط بحسابك. اضغط ربط الجهاز أولاً.');
+      return;
+    }
+    if(force&&Date.now()-lastRequest<10000){
+      notifyLauncherSync('busy','طُلبت مزامنة مؤخرًا؛ تحقّق من النتيجة أو أعد المحاولة بعد قليل.');
+      return;
+    }
     if(!force&&Date.now()-lastRequest<20000)return;
     pending=true;lastRequest=Date.now();
+    notifyLauncherSync('loading','جارٍ التحقق من الجهاز والاشتراك والصلاحيات...');
     try{
       const r=await request('device/state',{headers:await deviceProof()});
       if(!r.global||typeof r.global.enabled!=='boolean'||!r.scripts||typeof r.scripts!=='object')throw Error('استجابة مزامنة غير مكتملة');
@@ -362,7 +381,13 @@
       connection.last=Date.now();GM_setValue(keys.last,connection.last);
       if(changed)document.dispatchEvent(new Event('algzawy-local-control-changed'));
       showMessage((r.global.enabled?'متصل — ': 'الإدارة أوقفت جميع السكربتات — ')+(r.user?.label||'الحساب'),r.global.enabled);
+      notifyLauncherSync(r.global.enabled?'success':'paused',
+        r.global.enabled?'اكتملت المزامنة وتم التحقق من الترخيص.':'اكتملت المزامنة، لكن الإدارة أوقفت التشغيل المركزي.',
+        {allowed:licensedPins.size,enabled:known.filter(id=>
+          r.global.enabled&&r.scripts[id]?.allowed===true&&r.scripts[id]?.enabled===true).length});
     }catch(e){
+      notifyLauncherSync('error',
+        'فشلت المزامنة: '+String(e?.message||'تعذر التحقق').slice(0,120));
       if(e.message==='device_pending_approval'){stopAll();showMessage('الجهاز بانتظار موافقة الإدارة؛ لا تعمل السكربتات قبل اعتماده.');}
       else if(e.message==='device_proof_invalid'){
         stopAll();
