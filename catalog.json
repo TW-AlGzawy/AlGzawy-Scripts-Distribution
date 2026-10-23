@@ -80,7 +80,7 @@
     {
       "id": "tribal-wars-helper",
       "name": "الغزااوي | جامع الجوائز",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js",
       "approved_for_final": true

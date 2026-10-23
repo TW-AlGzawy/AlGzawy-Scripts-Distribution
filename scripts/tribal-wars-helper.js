@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.1.0
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -16,7 +16,84 @@
     // التحقق من وجود بيانات اللعبة
     if (typeof game_data === 'undefined') return;
 
+    const CFG_KEY='algzawy_reward_timing_v11';
+    const DEFAULT={enabled:true,cycle:60,openDelay:2000,tabDelay:1500,clickDelay:1200,jitter:0,collapsed:false};
+    const clamp=(v,min,max,fallback)=>{
+      const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,Math.round(n))):fallback;
+    };
+    const cfg={...DEFAULT};
+    try{
+      const stored=JSON.parse(localStorage.getItem(CFG_KEY)||'null');
+      if(stored&&typeof stored==='object'){
+        cfg.enabled=stored.enabled!==false;cfg.collapsed=!!stored.collapsed;
+        for(const [key,min,max] of [['cycle',10,3600],['openDelay',100,20000],['tabDelay',100,20000],['clickDelay',100,20000],['jitter',0,5000]])
+          cfg[key]=clamp(stored[key],min,max,DEFAULT[key]);
+      }
+    }catch(_){}
     const TW_Helper = {
+      cfg,busy:false,cycleTimer:null,
+      permitted:function(){
+        return cfg.enabled&&this.isLockedToThisTab()&&
+          localStorage.getItem('algzawy_portal_grant_tribal-wars-helper')==='1'&&
+          localStorage.getItem('algzawy_local_enabled_tribal-wars-helper')!=='false'&&
+          localStorage.getItem('algzawy_human_verification_pause')!=='1';
+      },
+      sleep:function(ms){
+        const random=cfg.jitter?Math.floor(Math.random()*(cfg.jitter+1)):0;
+        return new Promise(resolve=>setTimeout(resolve,ms+random));
+      },
+      saveConfig:function(){try{localStorage.setItem(CFG_KEY,JSON.stringify(cfg));}catch(_){}},
+      status:function(s){const n=document.getElementById('alg-reward-status');if(n)n.textContent=s;},
+      schedule:function(wait=cfg.cycle*1000){
+        if(this.cycleTimer!==null)clearTimeout(this.cycleTimer);
+        if(!cfg.enabled){this.status('متوقف');return;}
+        this.status('الدورة التالية خلال '+Math.ceil(wait/1000)+' ثانية');
+        this.cycleTimer=setTimeout(async()=>{
+          this.cycleTimer=null;
+          try{if(this.permitted())await this.checkAndClaimRewards();}
+          catch(err){console.warn('[AlG Rewards]',err);}
+          this.schedule();
+        },wait);
+      },
+      timingPanel:function(){
+        const box=document.querySelector('.algzawy-watermark');if(!box)return;
+        const header=document.createElement('div');header.id='alg-reward-header';
+        header.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:7px';
+        const title=document.createElement('strong');title.textContent='الغزااوي | جامع الجوائز';
+        const fold=document.createElement('button');fold.type='button';fold.textContent=cfg.collapsed?'＋':'−';
+        fold.style.cssText='cursor:pointer;border:1px solid #3f9b89;background:#164d42;color:#ddfff5;border-radius:5px';
+        header.append(title,fold);
+        const body=document.createElement('div');body.id='alg-reward-settings';body.style.cssText='display:grid;gap:6px;min-width:215px';
+        const activeRow=document.createElement('label');activeRow.textContent=' تشغيل تلقائي ';
+        const active=document.createElement('input');active.type='checkbox';active.checked=cfg.enabled;activeRow.prepend(active);
+        body.append(activeRow);
+        const fields=[['cycle','كل دورة (ث)',10,3600],['openDelay','فتح المهمات (ms)',100,20000],
+          ['tabDelay','فتح الجوائز (ms)',100,20000],['clickDelay','بين الضغطات (ms)',100,20000],
+          ['jitter','تفاوت إضافي (ms)',0,5000]];
+        for(const [key,label,min,max] of fields){
+          const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:6px';
+          const cap=document.createElement('span');cap.textContent=label;
+          const input=document.createElement('input');input.type='number';input.min=String(min);input.max=String(max);
+          input.value=String(cfg[key]);input.style.cssText='width:78px;direction:ltr;color:#eafff8;background:#081d2a;border:1px solid #36766f;border-radius:5px;padding:4px';
+          input.addEventListener('change',()=>{
+            cfg[key]=clamp(input.value,min,max,DEFAULT[key]);input.value=String(cfg[key]);
+            this.saveConfig();if(!this.busy)this.schedule();
+          });
+          row.append(cap,input);body.append(row);
+        }
+        active.addEventListener('change',()=>{
+          cfg.enabled=active.checked;this.saveConfig();if(!this.busy)this.schedule(cfg.enabled?1000:0);
+        });
+        const run=document.createElement('button');run.type='button';run.textContent='جمع الآن';
+        run.style.cssText='background:#48e4b8;border:0;border-radius:5px;color:#0b302e;font-weight:bold;padding:6px;cursor:pointer';
+        run.addEventListener('click',()=>{if(this.permitted()&&!this.busy)void this.checkAndClaimRewards();});
+        const status=document.createElement('div');status.id='alg-reward-status';status.style.cssText='color:#9affd8;font-size:10px';
+        const footer=document.createElement('small');footer.textContent='BETA · v1.1.0 · © 2026 الغزااوي — جميع الحقوق محفوظة';
+        footer.style.cssText='color:#a2c4c9;font-size:9px;text-align:center';
+        body.append(run,status,footer);box.prepend(header);box.append(body);
+        const render=()=>{body.hidden=cfg.collapsed;fold.textContent=cfg.collapsed?'＋':'−'};
+        fold.addEventListener('click',()=>{cfg.collapsed=!cfg.collapsed;this.saveConfig();render();});render();
+      },
         // استخدام اسم النافذة كمعرف ثابت لا يتغير عند تحديث الصفحة
         getTabId: function() {
             if (!window.name || window.name === "") {
@@ -26,27 +103,12 @@
         },
 
         init: function() {
-            this.tabId = this.getTabId();
+            this.tabId=this.getTabId();
             this.addStyles();
-            this.addWatermark(); // إضافة العلامة المائية والقفل
-            this.setupPointsObserver(); // إعداد مراقب النقاط
-
-            // فحص دوري كل دقيقة (60000 مللي ثانية)
-            setInterval(() => {
-                if (this.isLockedToThisTab()) {
-                    console.log("[AlGzawy Helper] Periodic check triggered (Tab Locked).");
-                    this.checkAndClaimRewards();
-                }
-            }, 60000);
-
-            // فحص فوري عند التحميل (إذا كان القفل مفعلاً لهذه النافذة)
-            setTimeout(() => {
-                if (this.isLockedToThisTab()) {
-                    this.checkAndClaimRewards();
-                }
-            }, 2000);
-
-            console.log("[AlGzawy Helper] v2.3 initialized with Stable Tab Locking!");
+            this.addWatermark();
+            this.timingPanel();
+            this.setupPointsObserver();
+            this.schedule(2000);
         },
 
         // التحقق مما إذا كان السكربت مقفلاً على هذه النافذة تحديداً
@@ -196,7 +258,7 @@
                             if (this.isLockedToThisTab()) {
                                 console.log("[AlGzawy Helper] Points changed! Checking for rewards.");
                                 lastPoints = currentPoints;
-                                this.checkAndClaimRewards();
+                                void this.checkAndClaimRewards();
                             }
                         }
                     });
@@ -231,6 +293,10 @@
 
         // وظيفة فحص وجمع الجوائز
         checkAndClaimRewards: async function() {
+            if(this.busy||!this.permitted())return;
+            this.busy=true;
+            this.status('جارٍ الجمع…');
+            try{
             const rewardBadge = document.querySelector('#reward-system-badge');
             const questIcon = document.querySelector('#new_quest');
 
@@ -242,16 +308,19 @@
 
                 if (!document.querySelector('#quest_dialog')) {
                     if (questIcon) questIcon.click();
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    await this.sleep(cfg.openDelay);
+                    if(!this.permitted())return;
                 }
 
                 const rewardTab = document.querySelector('a.tab-link[data-tab="reward-tab"]');
                 if (rewardTab) {
                     rewardTab.click();
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    await this.sleep(cfg.tabDelay);
+                    if(!this.permitted())return;
 
                     let continueChecking = true;
-                    while (continueChecking) {
+                    let limit=0;
+                    while (continueChecking&&limit++<30&&this.permitted()) {
                         const res = this.getCurrentResources();
                         const claimableRewardsTable = document.getElementById('reward-system-rewards');
                         if (!claimableRewardsTable) break;
@@ -280,7 +349,7 @@
                             if ((res.wood + rewardWood <= res.max) && (res.stone + rewardStone <= res.max) && (res.iron + rewardIron <= res.max)) {
                                 claimButton.click();
                                 foundActiveButtonInThisPass = true;
-                                await new Promise(resolve => setTimeout(resolve, 1200));
+                                await this.sleep(cfg.clickDelay);
                                 break;
                             }
                         }
@@ -288,8 +357,9 @@
                     }
                 }
                 const closeButton = document.querySelector('.popup_box_close');
-                if (closeButton) closeButton.click();
+                if(closeButton&&this.permitted())closeButton.click();
             }
+            }finally{this.busy=false;this.status(cfg.enabled?'اكتملت الدورة':'متوقف');}
         }
     };
 
