@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.3.2
-// @description  Auto License V2 + AlG Control Center; approved device and 22 licensed scripts
+// @version      2.4.0
+// @description  Auto License V2 + AlG Control Center; approved device and 9 approved scripts
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
 // @grant        GM_xmlhttpRequest
@@ -20,16 +20,20 @@
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
   const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
-  const known=[
-    'mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1','professional-training-v2','send-automation','attack-renamer','alg-attacks','warehouse-alert-safe','polish-all-in-one','alg-coins','market-bot-v7','training-edition','professional-training','light','train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians','holy-grail','tribal-wars-helper'
-  ];
+  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","alg-coins","tribal-wars-helper"];
+  const retiredIds=["training-edition","light","train-master-b","holy-grail","market-bot-v7","polish-all-in-one","professional-training","reserve-correct-v2","reserve-smart-v4","reserve-smart-v5","auto-reserve-barbarians","warehouse-alert-safe","attack-renamer"];
+  // Fail closed for licenses cached by previously installed scripts.
+  for(const oldId of retiredIds){
+    try{localStorage.setItem('algzawy_portal_grant_'+oldId,'0');localStorage.setItem('algzawy_local_enabled_'+oldId,'false');}catch(_){}
+    document.dispatchEvent(new Event('__algzawy_stop_'+oldId));
+  }
   // Pin state is TAB-local convenience, never an authentication or licensing proof.
   // A duplicated tab may inherit sessionStorage, so a live-tab handshake clears
   // inherited pins when the original tab is still open.
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","professional-training-v2":"الغزااوي | بوت التدريب المحسّن","send-automation":"الغزااوي | الإرساليات الدقيقة","attack-renamer":"الغزااوي | تسمية الهجمات","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","polish-all-in-one":"الغزااوي | الصقل المتكامل","alg-coins":"الغزااوي | الصقل المتطور","market-bot-v7":"الغزااوي | بوت السوق","training-edition":"الغزااوي | التدريب البديل","professional-training":"الغزااوي | التدريب الاحترافي","light":"الغزااوي | التدريب الخفيف","train-master-b":"الغزااوي | مدرب الجنود","reserve-smart-v5":"الغزااوي | الحجز الذكي الخامس","reserve-smart-v4":"الغزااوي | الحجز الذكي الرابع","reserve-correct-v2":"الغزااوي | الحجز المصحح","auto-reserve-barbarians":"الغزااوي | حجز القرى البربرية","holy-grail":"الغزااوي | المساعد المتكامل","tribal-wars-helper":"الغزااوي | جامع الجوائز","algzawy-builder-v1":"الغزااوي | البناء التقليدي"};
+  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
@@ -477,27 +481,14 @@
  ['mass-scavenge-v1','الغزااوي | الإغارات الجماعية','♜'],
  ['bot-farm-2','الغزااوي | بوت النهب','⚔'],
  ['alg-balance','الغزااوي | موازنة الموارد','◈'],
- ['algzawy-builder-v1','الغزااوي | البناء التقليدي','▦'],
- ['professional-training-v2','الغزااوي | بوت التدريب المحسّن','♟'],
+ ['algzawy-builder-v1','الغزااوي | البناء المتطور','▦'],
+ ['professional-training-v2','الغزااوي | بوت التدريب','♟'],
  ['send-automation','الغزااوي | الإرساليات الدقيقة','⇢'],
- ['attack-renamer','الغزااوي | تسمية الهجمات','⌁'],
  ['alg-attacks','الغزااوي | تنبيه الهجمات','⚑'],
- ['warehouse-alert-safe','الغزااوي | تنبيه المخازن','▣'],
- ['polish-all-in-one','الغزااوي | الصقل المتكامل','◇'],
  ['alg-coins','الغزااوي | الصقل المتطور','◉'],
- ['market-bot-v7','الغزااوي | بوت السوق','▥'],
- ['training-edition','الغزااوي | التدريب البديل','♟'],
- ['professional-training','الغزااوي | التدريب الاحترافي','♟'],
- ['light','الغزااوي | التدريب الخفيف','♟'],
- ['train-master-b','الغزااوي | مدرب الجنود','♟'],
- ['reserve-smart-v5','الغزااوي | الحجز الذكي الخامس','⛨'],
- ['reserve-smart-v4','الغزااوي | الحجز الذكي الرابع','⛨'],
- ['reserve-correct-v2','الغزااوي | الحجز المصحح','⛨'],
- ['auto-reserve-barbarians','الغزااوي | حجز القرى البربرية','⛨'],
- ['holy-grail','الغزااوي | المساعد المتكامل','✧'],
  ['tribal-wars-helper','الغزااوي | جامع الجوائز','✦']
  ];
- const oldBridgeLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","professional-training-v2":"الغزااوي | بوت التدريب المحسّن","send-automation":"الغزااوي | الإرساليات الدقيقة","attack-renamer":"الغزااوي | تسمية الهجمات","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","polish-all-in-one":"الغزااوي | الصقل المتكامل","alg-coins":"الغزااوي | الصقل المتطور","market-bot-v7":"الغزااوي | بوت السوق","training-edition":"الغزااوي | التدريب البديل","professional-training":"الغزااوي | التدريب الاحترافي","light":"الغزااوي | التدريب الخفيف","train-master-b":"الغزااوي | مدرب الجنود","reserve-smart-v5":"الغزااوي | الحجز الذكي الخامس","reserve-smart-v4":"الغزااوي | الحجز الذكي الرابع","reserve-correct-v2":"الغزااوي | الحجز المصحح","auto-reserve-barbarians":"الغزااوي | حجز القرى البربرية","holy-grail":"الغزااوي | المساعد المتكامل","tribal-wars-helper":"الغزااوي | جامع الجوائز","algzawy-builder-v1":"الغزااوي | البناء التقليدي"};
+ const oldBridgeLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
  const css=[
  '#algzawy-smart-launcher-qa{position:fixed;right:15px;bottom:15px;z-index:2147482100;width:354px;max-width:calc(100vw - 12px);max-height:86vh;display:flex;flex-direction:column;background:#091e2c;color:#e0f9f2;border:1px solid #2c9388;border-radius:12px;box-shadow:0 15px 38px #000c;overflow:hidden;font:12px/1.6 Tahoma,Arial;direction:rtl}',
  '#algzawy-smart-launcher-qa *{box-sizing:border-box}',

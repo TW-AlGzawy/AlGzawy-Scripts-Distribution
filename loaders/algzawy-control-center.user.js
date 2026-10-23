@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | مركز السكربتات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.3
+// @version      1.1.0
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -25,32 +25,16 @@
   const POS_KEY = 'algzawy_unified_panel_position';
   const MIN_KEY = 'algzawy_unified_panel_collapsed';
   const items = [
-    ['mass-scavenge-v1','الإغارات الجماعية'],
-    ['bot-farm-2','بوت النهب A/B/C'],
-    ['alg-balance','موازنة الموارد'],
-    ['algzawy-builder-v1','البناء التقليدي المتطور'],
-    ['professional-training-v2','التدريب التلقائي'],
-    ['send-automation','الإرساليات'],
-    ['alg-attacks','تنبيه الهجمات'],
-    ['polish-all-in-one','الصقل'],
-    ['warehouse-alert-safe','تنبيه المخازن']
+    ['mass-scavenge-v1','الغزااوي | الإغارات الجماعية'],
+    ['bot-farm-2','الغزااوي | بوت النهب'],
+    ['alg-balance','الغزااوي | موازنة الموارد'],
+    ['algzawy-builder-v1','الغزااوي | البناء المتطور'],
+    ['professional-training-v2','الغزااوي | بوت التدريب'],
+    ['send-automation','الغزااوي | الإرساليات الدقيقة'],
+    ['alg-attacks','الغزااوي | تنبيه الهجمات'],
+    ['alg-coins','الغزااوي | الصقل المتطور'],
+    ['tribal-wars-helper','الغزااوي | جامع الجوائز']
   ];
-  const coreIds = new Set(items.map(([id])=>id));
-  items.push(
-    ['training-edition','تدريب AlGzawy Edition'],
-    ['light','Light'],
-    ['train-master-b','Train Master B'],
-    ['holy-grail','Holy Grail'],
-    ['tribal-wars-helper','Tribal Wars Helper'],
-    ['market-bot-v7','بوت السوق'],
-    ['professional-training','التدريب الاحترافي القديم'],
-    ['reserve-correct-v2','حجز Correct v2'],
-    ['reserve-smart-v4','حجز Smart v4'],
-    ['reserve-smart-v5','حجز Smart v5'],
-    ['auto-reserve-barbarians','حجز القرى البربرية'],
-    ['alg-coins','AlG_COINS'],
-    ['attack-renamer','تسمية الهجمات القادمة']
-  );
   const key = id => 'algzawy_local_enabled_' + id;
   const host = document.createElement('section');
   host.id = 'algzawy-unified-control';

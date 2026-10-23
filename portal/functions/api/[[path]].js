@@ -2,31 +2,18 @@
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
-  ['mass-scavenge-v1','الغزااوي | الإغارات الجماعية','raids','إدارة مجموعات الإغارات الخمس'],
-  ['bot-farm-2','الغزااوي | بوت النهب','raids','القوالب وسرعة النهب والتنقل بين القرى'],
-  ['alg-balance','الغزااوي | موازنة الموارد','resources','موازنة الموارد بين القرى'],
-  ['algzawy-builder-v1','الغزااوي | البناء التقليدي','build','مخططات بناء مرتبة وقائمة مهام ونافذة عائمة'],
-  ['professional-training-v2','الغزااوي | بوت التدريب المحسّن','training','تدريب الوحدات مع إعدادات من داخل اللعبة'],
-  ['send-automation','الغزااوي | الإرساليات الدقيقة','military','تحديد إرسال أو وصول القوات'],
-  ['attack-renamer','الغزااوي | تسمية الهجمات','military','تسمية الهجمات عبر QuickEdit'],
-  ['alg-attacks','الغزااوي | تنبيه الهجمات','military','تنبيهات الهجمات الواردة'],
-  ['warehouse-alert-safe','الغزااوي | تنبيه المخازن','resources','تنبيه حسب نسبة الامتلاء'],
-  ['polish-all-in-one','الغزااوي | الصقل المتكامل','resources','الصقل وإدارة الموارد'],
-  ['alg-coins','الغزااوي | الصقل المتطور','resources','محرك الصقل والسوق المتطور'],
-  ['market-bot-v7','الغزااوي | بوت السوق','resources','الموارد والسوق'],
-  ['training-edition','الغزااوي | التدريب البديل','training','نسخة تدريب بديلة'],
-  ['professional-training','الغزااوي | التدريب الاحترافي','training','نسخة تدريب سابقة'],
-  ['light','الغزااوي | التدريب الخفيف','training','تدريب وحدات خفيف'],
-  ['train-master-b','الغزااوي | مدرب الجنود','training','نظام تدريب آخر'],
-  ['reserve-smart-v5','الغزااوي | الحجز الذكي الخامس','military','الحجز الذكي'],
-  ['reserve-smart-v4','الغزااوي | الحجز الذكي الرابع','military','نسخة الحجز السابقة'],
-  ['reserve-correct-v2','الغزااوي | الحجز المصحح','military','الحجز'],
-  ['auto-reserve-barbarians','الغزااوي | حجز القرى البربرية','military','إدارة حجوزات القرى'],
-  ['holy-grail','الغزااوي | المساعد المتكامل','tools','أدوات تبويب اللعبة'],
-  ['tribal-wars-helper','الغزااوي | جامع الجوائز','tools','أدوات ومساعدات']
+  ['mass-scavenge-v1','الغزااوي | الإغارات الجماعية','raids','الإغارات الجماعية'],
+  ['bot-farm-2','الغزااوي | بوت النهب','raids','بوت النهب'],
+  ['alg-balance','الغزااوي | موازنة الموارد','resources','موازنة الموارد'],
+  ['algzawy-builder-v1','الغزااوي | البناء المتطور','build','خطط البناء وقائمة المهام'],
+  ['professional-training-v2','الغزااوي | بوت التدريب','training','التدريب المتقدم'],
+  ['send-automation','الغزااوي | الإرساليات الدقيقة','military','جدولة الإرسال والوصول'],
+  ['alg-attacks','الغزااوي | تنبيه الهجمات','military','تنبيه الهجمات الواردة'],
+  ['alg-coins','الغزااوي | الصقل المتطور','resources','الصقل المتطور'],
+  ['tribal-wars-helper','الغزااوي | جامع الجوائز','tools','جمع جوائز المهمات']
 ];
 const IDS = new Set(GROUPS.map(x=>x[0]));
-const FAV = new Set(GROUPS.slice(0,10).map(x=>x[0]));
+const FAV = new Set(GROUPS.map(x=>x[0]));
 const H = {'Content-Type':'application/json;charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const reply=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{...H,...headers}});
 const bad=(code,status=400)=>reply({ok:false,error:code},status);
@@ -293,7 +280,7 @@ async function handler(req,env){
     if(path[1]==='scripts'&&path.length===2){
       if(req.method==='GET'){
         const disabled=await globallyDisabledScripts(env);
-        return reply({ok:true,scripts:GROUPS.map(([id,name])=>({id,name,enabled:!disabled.has(id)}))});
+        return reply({ok:true,scripts:GROUPS.map(([id,name,category])=>({id,name,category,enabled:!disabled.has(id)}))});
       }
       if(req.method!=='PUT')return bad('method_not_allowed',405);
       let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
