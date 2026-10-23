@@ -111,13 +111,13 @@ async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={})
  const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json(),setCookie:r.headers.get('Set-Cookie')};
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
-test('No content before login and 25 catalog script IDs match the bridge',async()=>{
+test('No content before login and 22 catalog script IDs match the bridge',async()=>{
  assert.match(html,/<div class="app-shell" hidden>/);
  assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
- assert.equal(catalog.length,25);
+ assert.equal(catalog.length,22);
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
 });
@@ -271,7 +271,7 @@ test('Admin per-script OFF overrides grants and preferences without changing glo
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2','alg-balance']}});
  assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,200);
  const baseline=db.global.revision;
- assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,25);
+ assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,22);
  const off=await api(db,'admin/scripts',{token:admin,method:'PUT',body:{id:'bot-farm-2',enabled:false}});
  assert.equal(off.status,200);
  const status=await api(db,'me',{token});
@@ -316,7 +316,7 @@ test('Catalog is private and subscriber-visible entries come solely from per-use
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
  list=await api(db,'catalog',{token:userToken});
  assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
- assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,25);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,22);
  await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
  assert.equal((await api(db,'catalog',{token:userToken})).status,403);
 });
@@ -372,9 +372,9 @@ test('Only disabled accounts can be archived or deleted, and restore leaves them
  assert.ok(db.users.some(x=>x.id===other));
  assert.equal(db.global.revision,globalBefore);
 });
-test('Tab pinning must gate all 25 loaders before source execution',()=>{
+test('Tab pinning must gate all 22 loaders before source execution',()=>{
  const ids=catalog.map(x=>x.id);
- assert.equal(ids.length,25);
+ assert.equal(ids.length,22);
  for(const id of ids){
    const src=read('loaders/'+id+'.user.js');
    assert.match(src,/const hasTabPin=/);
@@ -382,9 +382,11 @@ test('Tab pinning must gate all 25 loaders before source execution',()=>{
    assert.match(src,/document\.addEventListener\('algzawy-tab-pin-changed'/);
    assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
    assert.match(src,/\/\/ @version\s+1\.0/);
-   assert.match(src,/\/\/ @name\s+تجريبي - الغزااوي -/);
+   if(id==='algzawy-builder-v1')assert.match(src,/\/\/ @name\s+البناء التقليدي المتطور/);
+   else assert.match(src,/\/\/ @name\s+تجريبي - الغزااوي -/);
    const engine=read('scripts/'+id+'.js'),item=catalog.find(x=>x.id===id);
-   assert.match(engine,/^\/\/ @name\s+تجريبي - الغزااوي -/m,id+' engine name');
+   if(id==='algzawy-builder-v1')assert.match(engine,/^\/\/ @name\s+البناء التقليدي المتطور/m);
+   else assert.match(engine,/^\/\/ @name\s+تجريبي - الغزااوي -/m,id+' engine name');
    assert.match(engine,/^\/\/ @version\s+1\.0/m,id+' engine version');
    assert.equal(item.version,'1.0',id+' public catalog version');
    assert.equal(item.name,src.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/loader names match');
@@ -405,7 +407,7 @@ test('Warehouse alert keeps its size state and position across reloads',()=>{
  assert.match(src,/addEventListener\('pointerup',endDrag\)/);
 });
 
-test('25 loaders reject startup before tab pin but check cloud license once pinned',()=>{
+test('22 loaders reject startup before tab pin but check cloud license once pinned',()=>{
  for(const item of catalog){
    const id=item.id;
    const localValues=new Map([

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - مركز التحكم
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
+// @version      1.0.1
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -28,8 +28,7 @@
     ['mass-scavenge-v1','الإغارات الجماعية'],
     ['bot-farm-2','بوت النهب A/B/C'],
     ['alg-balance','موازنة الموارد'],
-    ['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء التلقائي'],
-    ['auto-builder-ar-v061','البناء العربي'],
+    ['algzawy-builder-v1','البناء التقليدي المتطور'],
     ['professional-training-v2','التدريب التلقائي'],
     ['send-automation','الإرساليات'],
     ['alg-attacks','تنبيه الهجمات'],
@@ -38,8 +37,6 @@
   ];
   const coreIds = new Set(items.map(([id])=>id));
   items.push(
-    ['auto-builder-ar-v054','البناء العربي القديم v0.54'],
-    ['auto-builder-pro-algzawy-v3-0-free-finish','البناء V3.0'],
     ['training-edition','تدريب AlGzawy Edition'],
     ['light','Light'],
     ['train-master-b','Train Master B'],

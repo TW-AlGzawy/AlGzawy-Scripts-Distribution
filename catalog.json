@@ -3,35 +3,17 @@
   "channel": "beta",
   "source_of_truth": "https://algzawy-control-api.karm-saleh-usa2.workers.dev/status",
   "installed_pilot_ids": [
-    "spear-training-pilot",
-    "builder-v33-one-build-pilot"
+    "spear-training-pilot"
   ],
   "published_candidates": [
     {
-      "id": "auto-builder-ar-v054",
-      "name": "تجريبي - الغزااوي - البناء العربي القديم",
+      "id": "algzawy-builder-v1",
+      "name": "البناء التقليدي المتطور",
       "version": "1.0",
       "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v054.user.js",
-      "approved_for_final": false
-    },
-    {
-      "id": "auto-builder-pro-algzawy-v3-0-free-finish",
-      "name": "تجريبي - الغزااوي - البناء الاحترافي القديم",
-      "version": "1.0",
-      "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-0-free-finish.user.js",
-      "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
-      "approved_for_final": false
-    },
-    {
-      "id": "auto-builder-pro-algzawy-v3-3-fixed-queue",
-      "name": "تجريبي - الغزااوي - البناء الاحترافي",
-      "version": "1.0",
-      "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-pro-algzawy-v3-3-fixed-queue.user.js",
-      "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
-      "approved_for_final": false
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-builder-v1.user.js",
+      "approved_for_final": false,
+      "note": "Original QA7 engine integrated with Cloud Bridge; live game QA required"
     },
     {
       "id": "bot-farm-2",
@@ -192,15 +174,6 @@
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
       "approved_for_final": true
-    },
-    {
-      "id": "auto-builder-ar-v061",
-      "name": "تجريبي - الغزااوي - البناء التقليدي",
-      "version": "1.0",
-      "test_status": "needs-live-test",
-      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/auto-builder-ar-v061.user.js",
-      "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
-      "approved_for_final": false
     },
     {
       "id": "warehouse-alert-safe",
