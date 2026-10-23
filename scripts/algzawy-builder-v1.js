@@ -521,7 +521,7 @@
     elements.start.textContent=isRunning?'■ إيقاف':'▶ تشغيل';
     elements.start.className='alg-btn '+(isRunning?'danger':'primary');
     elements.start.setAttribute('aria-pressed',String(isRunning));
-    if(elements.instant){elements.instant.setAttribute('aria-pressed',String(instantEnabled));elements.instant.textContent=instantEnabled?'✓ الإنهاء الفوري مفعّل':'○ الإنهاء الفوري متوقف';}
+    if(elements.instant){elements.instant.setAttribute('aria-pressed',String(instantEnabled));elements.instant.textContent=instantEnabled?'✓ الإنهاء الفوري مفعّل':'■ توقف الإنهاء الفوري';}
     if(elements.resume)elements.resume.hidden=!pendingAck;
     if(stoppedByPolicy)status('تم إيقاف المحرك بسبب الترخيص أو التحقق.','error');
     else if(isRunning&&!policyOK())status('موقوف مؤقتًا: تحقق من الترخيص أو فحص الحماية.','warn');
@@ -707,16 +707,14 @@
     });
     addRow.append(elements.select,elements.add);
     addCard.append(addRow);
-    const instantCard=node('div','alg-card');
-    instantCard.append(node('label','alg-label','ميزة البناء الاحترافي V3.3 — الإنهاء المجاني'));
     elements.instant=button('✓ الإنهاء الفوري مفعّل','alg-btn subtle',()=>{
       instantEnabled=!instantEnabled;
       localStorage.setItem(INSTANT_KEY,String(instantEnabled));
       if(!instantEnabled&&instantTimer){clearTimeout(instantTimer);instantTimer=null;instantPending=false;}
       renderStatus();
-    },'إنهاء المبنى بزر اللعبة المجاني عند أقل من 3 دقائق');
+    });
     elements.instant.setAttribute('aria-pressed',String(instantEnabled));
-    instantCard.append(elements.instant,node('small','alg-footer','يستخدم زر اللعبة المجاني فقط (.btn-instant-free) عند ظهوره. لا ينفق نقاط بريميوم.'));
+    elements.instant.style.alignSelf='flex-start';
     const settings=node('div','alg-card');
     settings.append(node('label','alg-label','عدد المباني المسموح بها في قائمة بناء اللعبة'));
     const settingsRow=node('div','alg-entry');
@@ -759,7 +757,7 @@
     const queueScroll=node('div','alg-queue-scroll');queueScroll.append(elements.queue);
     queueCard.append(queueHeader,queueScroll);
     elements.note=node('div','alg-note');
-    body.append(stats,actions,elements.resume,instantCard,templateCard,addCard,settings,queueCard,elements.note,
+    body.append(stats,actions,elements.resume,elements.instant,templateCard,addCard,settings,queueCard,elements.note,
       node('div','alg-footer','AlGzawy Scripts · نسخة تجريبية — لا تشغّل بناءين آليين للقرية نفسها'));
     const grip=node('div','alg-resize-grip','◢');
     grip.setAttribute('role','separator');grip.setAttribute('aria-label','اسحب الزاوية اليسرى لتغيير الحجم');

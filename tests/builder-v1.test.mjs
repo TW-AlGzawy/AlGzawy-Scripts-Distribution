@@ -46,3 +46,17 @@ test('Cloud Bridge v2.2.0 preserves integrated launcher and one active builder',
  assert.ok(bridge.includes('row.dataset.algScriptId=id;'));
  assert.ok(center.includes('window.__AlGSmartLauncherQA'));
 });
+
+test('free finish controls render one standalone button without old heading, description, tooltip, or v3.3 label',()=>{
+ const core=read('scripts/algzawy-builder-v1.js');
+ new vm.Script(core);
+ for(const oldText of ['ميزة البناء الاحترافي V3.3 — الإنهاء المجاني','يستخدم زر اللعبة المجاني فقط','إنهاء المبنى بزر اللعبة المجاني عند أقل من 3 دقائق'])
+   assert.ok(!core.includes(oldText),'removed UI text persists: '+oldText);
+ assert.ok(!core.includes("const instantCard=node("));
+ assert.ok(core.includes("body.append(stats,actions,elements.resume,elements.instant,"));
+ assert.ok(core.includes("elements.instant.style.alignSelf='flex-start'"));
+ assert.ok(core.includes("elements.instant.setAttribute('aria-pressed'"));
+ assert.ok(core.includes("localStorage.setItem(INSTANT_KEY,String(instantEnabled))"));
+ assert.ok(core.includes("✓ الإنهاء الفوري مفعّل"));
+ assert.ok(core.includes("■ توقف الإنهاء الفوري"));
+});
