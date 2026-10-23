@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - مركز التحكم
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.1
+// @version      1.0.2
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -14,7 +14,7 @@
 // ==/UserScript==
 (function () {
   'use strict';
-  if (document.getElementById('algzawy-unified-control')) return;
+  if (document.getElementById('algzawy-unified-control') || window.__AlGSmartLauncherQA || document.getElementById('algzawy-smart-launcher-qa')) return;
   // If several scripts are disabled, show one shared warning launcher
   // instead of stacking identical cards over the game's interface.
   const css = document.createElement('style');
