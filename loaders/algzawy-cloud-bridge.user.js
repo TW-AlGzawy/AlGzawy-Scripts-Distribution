@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0
+// @version      2.0.1
 // @description  Auto License V2: authorize once from subscriber portal, sync permitted scripts automatically
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -238,7 +238,9 @@
         GM_setValue(keys.device,connection.device);GM_setValue(keys.mode,'portable');
         GM_setValue(keys.last,0);GM_setValue('algzawy_cloud_counter',0);
         stopAll();renderLinked();void synchronize(true);checkPublisher();
-        showMessage('تم اعتماد الجهاز تلقائيًا. جارٍ التحقق من السكربتات.',true);
+        showMessage(data.status==='pending_approval'
+          ?'أُرسل طلب الجهاز إلى المالك. السكربتات متوقفة حتى الاعتماد؛ ثم اضغط مزامنة.'
+          :'تم التحقق من الجهاز. جارٍ مزامنة السكربتات.',data.status!=='pending_approval');
       };
       window.addEventListener('message',listener);
       setTimeout(()=>window.removeEventListener('message',listener),5*60*1000);
@@ -344,6 +346,7 @@
     if(pending||!connection.device)return;
     if(!force&&Date.now()-lastRequest<20000)return;
     pending=true;lastRequest=Date.now();
+    showMessage('جارٍ التحقق من الجهاز والاشتراك ومزامنة الصلاحيات...');
     try{
       const r=await request('device/state',{headers:await deviceProof()});
       if(!r.global||typeof r.global.enabled!=='boolean'||!r.scripts||typeof r.scripts!=='object')throw Error('استجابة مزامنة غير مكتملة');
