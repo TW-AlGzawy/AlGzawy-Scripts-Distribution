@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] البناء التقليدي المتطور — نافذة عائمة
-// @version      2.2.0-qa3
-// @description  QA only - AlGzawy builder with exact sequential Account Manager construction template decoder
+// @version      2.3.0-qa4
+// @description  QA: floating AlG builder, expanded sequential template tasks, queued/completed tracking and tab-resilient resume
 // @author       الغزااوي | AlG
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-traditional-floating-builder-v2-2026-10-23/pilots/algzawy-traditional-builder-v2.user.js
@@ -26,6 +26,10 @@
   // Keep the exact legacy keys: upgrading the UI must not lose any village queue.
   const STATUS_KEY='autoBuilderStatus_'+ID;
   const QA_ARMED_KEY='algzawy_traditional_qa_armed_v2_'+ID;
+  const TAB_RUNNING_KEY='algzawy_builder_v23_tab_running_'+ID;
+  const TAB_TASKS_KEY='algzawy_builder_v23_tasks_'+ID;
+  const TAB_ACK_KEY='algzawy_builder_v23_ack_'+ID;
+  const TAB_FOLD_KEY='algzawy_builder_v23_fold_'+ID;
   const QUEUE_KEY='autoBuilderQueue';
   const LAYOUT_KEY='algzawy_traditional_layout_v2_'+ID;
   const INSTANT_KEY='algzawy_traditional_instant_free_v2_'+ID;
@@ -66,7 +70,7 @@
     ?Math.max(1,Math.min(MAX_LENGTH,Number(queueRecord.buildingQueueLength))):DEFAULT_LENGTH;
   // Never launch a new QA pilot automatically solely because V1 saved ON.
   // After the operator explicitly starts V2 once, preserve its own restart intent.
-  let isRunning=localStorage.getItem(STATUS_KEY)==='true'&&localStorage.getItem(QA_ARMED_KEY)==='1';
+  let isRunning=sessionStorage.getItem(TAB_RUNNING_KEY)==='1';
   let processing=false,pendingTimer=null,loop=null,refreshTimer=null,stoppedByPolicy=false,panel=null,body=null;
   let instantEnabled=localStorage.getItem(INSTANT_KEY)!=='false',instantPending=false,lastInstantAt=0,instantTimer=null;
   // Template execution is separate from manual queue. Never delete or rewrite
@@ -80,9 +84,24 @@
       &&Number.isInteger(step.add)&&step.add>=1&&step.add<=50
       &&Number.isInteger(step.target)&&step.target>=step.add&&step.target<=50)
       ?storedTemplate.steps:[];
-  let templateMode=storedTemplate?.format===2&&storedTemplate?.mode==='template'
-    &&templateSteps.length>0?'template':'manual';
+  const storedTasks=readJSON(sessionStorage.getItem(TAB_TASKS_KEY)||'null',null);
+  let templateTasks=storedTasks?.format===3&&Array.isArray(storedTasks.items)
+    &&storedTasks.items.length<=1200
+    &&storedTasks.items.every(item=>item&&Object.hasOwn(LABELS,item.id)
+      &&Number.isInteger(item.target)&&item.target>=1&&item.target<=50
+      &&['pending','queued','completed'].includes(item.state))
+      ?storedTasks.items:[];
+  let templateMode=templateTasks.length&&storedTasks.mode==='tasks'?'tasks'
+    :storedTemplate?.format===2&&storedTemplate?.mode==='template'
+      &&templateSteps.length>0?'template':'manual';
+  const recoveredAck=readJSON(sessionStorage.getItem(TAB_ACK_KEY)||'null',null);
+  let pendingAck=recoveredAck&&['sending','queued'].includes(recoveredAck.phase)
+    &&Object.hasOwn(LABELS,recoveredAck.id)
+    &&['manual','tasks','template'].includes(recoveredAck.mode)
+    &&Number.isInteger(recoveredAck.target)&&recoveredAck.target>0&&recoveredAck.target<=50
+    ?recoveredAck:null;
   let templateIssued=null,templateRefreshAt=0,templateVersion=0,templateRefreshing=false;
+  let lastRefreshOk=false,refreshInFlight=null,noticeOnce=false;
   let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
   const elements={};
@@ -93,7 +112,56 @@
     all[ID]={buildingQueue:buildingQueue.slice(),buildingQueueLength:queueLength};
     localStorage.setItem(QUEUE_KEY,JSON.stringify(all));
   }
-  function saveStatus(){localStorage.setItem(QA_ARMED_KEY,'1');localStorage.setItem(STATUS_KEY,String(isRunning));}
+  // sessionStorage survives reloads and same-tab world navigation, without
+  // activating the same village automation in a DIFFERENT tab.
+  function saveStatus(){sessionStorage.setItem(TAB_RUNNING_KEY,isRunning?'1':'0');}
+  function saveTasks(){sessionStorage.setItem(TAB_TASKS_KEY,JSON.stringify({format:3,mode:templateMode,items:templateTasks}));}
+  function saveAck(ack){
+    pendingAck=ack;
+    if(ack)sessionStorage.setItem(TAB_ACK_KEY,JSON.stringify(ack));
+    else sessionStorage.removeItem(TAB_ACK_KEY);
+  }
+  function markTaskState(index,next){
+    const item=templateTasks[index];
+    if(!item||item.state===next)return;
+    item.state=next;saveTasks();
+    renderQueue();
+  }
+  function reconcileTasks(){
+    if(!templateTasks.length)return;
+    let changed=false;
+    for(const task of templateTasks){
+      const level=currentLevel(task.id);
+      if(level!==null&&level>=task.target&&task.state!=='completed'){
+        task.state='completed';changed=true;
+      }
+    }
+    if(changed){saveTasks();renderQueue();}
+  }
+  function pendingTask(){
+    return templateTasks.findIndex(item=>{
+      const level=currentLevel(item.id);
+      return level===null||level<item.target;
+    });
+  }
+  function expandTemplateToTasks(){
+    if(!templateSteps.length||stoppedByPolicy)return false;
+    const rows=[];
+    for(let i=0;i<templateSteps.length;i++){
+      const item=templateSteps[i];
+      for(let lvl=item.target-item.add+1;lvl<=item.target;lvl++){
+        rows.push({id:item.id,target:lvl,state:'pending',step:i});
+        if(rows.length>1200){status('القالب كبير جدًا ولا يمكن إضافته بأمان (أكثر من 1200 مهمة).','error');return false;}
+      }
+    }
+    if(templateTasks.length&&!confirm('استبدال مهام القالب السابقة؟ لن تتغير القائمة اليدوية.'))return false;
+    if(isRunning){isRunning=false;saveStatus();endLoop();}
+    saveAck(null);templateIssued=null;templateVersion++;
+    templateTasks=rows;templateMode='tasks';saveTemplate();saveTasks();
+    reconcileTasks();renderQueue();renderStatus();
+    status('أضيفت '+rows.length+' مهمة بالترتيب الأصلي (كل مستوى مهمة مستقلة). اضغط تشغيل عند الاستعداد.','normal');
+    return true;
+  }
   function policyOK(){
     if (stoppedByPolicy||localStorage.getItem(HUMAN_KEY)==='1')return false;
     if (localStorage.getItem(LOCAL_KEY)==='false')return false;
