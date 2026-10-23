@@ -1,5 +1,5 @@
-// @version      1.0
-// @name         تجريبي - الغزااوي - تنبيه الهجمات
+// @version      1.0.1
+// @name         الغزااوي | تنبيه الهجمات
 (function () {
     'use strict';
 
@@ -89,7 +89,7 @@
 
         panel.innerHTML =
             '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#123e3d,#102031);color:#eaf3f8;padding:7px 10px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
-                '<b>AlGzawy - تنبيه الهجمات</b>' +
+                '<b>الغزااوي | تنبيه الهجمات</b>' +
                 '<button id="alg-atk-min" style="background:none;border:none;color:#40e1bf;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;">' + (minimized ? '+' : '−') + '</button>' +
             '</div>' +
             '<div id="alg-atk-body" style="padding:10px;display:' + (minimized ? 'none' : 'block') + ';">' +
@@ -515,7 +515,7 @@
             method: 'POST',
             url: 'https://api.telegram.org/bot' + token + '/sendMessage',
             headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({ chat_id: chatId, text: 'اختبار بوت AlGzawy - تنبيه الهجمات\nالاتصال يعمل بشكل صحيح!' }),
+            data: JSON.stringify({ chat_id: chatId, text: 'اختبار بوت الغزااوي | تنبيه الهجمات\nالاتصال يعمل بشكل صحيح!' }),
             onload: function (resp) {
                 if (resp.status === 200) {
                     setStatus('تم الإرسال بنجاح!');

@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - تنبيه المخازن
+// @name         الغزااوي | تنبيه المخازن
 // @version      1.0.1
 // @description  Monitor stock percentages, with user selected warning threshold.
 // ==/UserScript==
@@ -32,7 +32,7 @@
   panel.id='algzawy-warehouse-alert-panel';
   panel.setAttribute('dir','rtl');
   panel.style.cssText='position:fixed;bottom:12px;right:12px;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:10px;box-shadow:0 4px 20px #0004;font:12px/1.6 Tahoma,Arial;z-index:999990;width:224px;overflow:hidden';
-  panel.innerHTML='<div id="algzawy-warehouse-header" style="background:#123e3d;color:#eaf3f8;padding:8px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between;align-items:center"><span>📦 تجريبي - الغزااوي - تنبيه المخازن</span><button id="algzawy-warehouse-collapse" type="button" aria-label="طي نافذة المخازن" style="color:#eaf3f8;border:0;background:none;cursor:pointer;font-size:18px">−</button></div>'+
+  panel.innerHTML='<div id="algzawy-warehouse-header" style="background:#123e3d;color:#eaf3f8;padding:8px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between;align-items:center"><span>📦 الغزااوي | تنبيه المخازن</span><button id="algzawy-warehouse-collapse" type="button" aria-label="طي نافذة المخازن" style="color:#eaf3f8;border:0;background:none;cursor:pointer;font-size:18px">−</button></div>'+
     '<div id="algzawy-warehouse-body" style="padding:9px">'+
     '<label><input id="algzawy-warehouse-enable" type="checkbox"> تفعيل التنبيه</label>'+
     '<label style="display:block;margin:6px 0">نسبة التنبيه <input id="algzawy-warehouse-pct" type="number" min="50" max="100" step="1" style="width:48px">%</label>'+

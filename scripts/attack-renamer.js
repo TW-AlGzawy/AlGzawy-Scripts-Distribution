@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - تسمية الهجمات
-// @version      1.0
+// @name         الغزااوي | تسمية الهجمات
+// @version      1.0.1
 // @description  Incoming attacks only; native Tribal Wars QuickEdit UI; configurable and off by default
 // ==/UserScript==
 (function () {

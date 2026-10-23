@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - تسمية الهجمات
+// @name         الغزااوي | تسمية الهجمات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
-// @description  Incoming attack native QuickEdit optional labels; source 0.1.1; BETA not game-tested
+// @version      1.0.1
+// @description  AlGzawy BETA — اشتراك وجهاز معتمد
 // @match        https://*.tribalwars.ae/game.php*screen=overview*
 // @match        https://*.tribalwars.net/game.php*screen=overview*
 // @match        https://*.tribalwars.com/game.php*screen=overview*
@@ -20,6 +20,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/attack-renamer.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "attack-renamer";
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.1');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -64,7 +65,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - تسمية الهجمات",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"الغزااوي | تسمية الهجمات",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
