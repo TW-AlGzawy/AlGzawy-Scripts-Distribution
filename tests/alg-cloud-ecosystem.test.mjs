@@ -335,7 +335,7 @@ test('Integrated center loads in same original Bridge installer with no second u
  const metadataCount=(originalBridge.match(/\/\/ ==UserScript==/g)||[]).length;
  assert.equal(metadataCount,1);
  assert.match(originalBridge,/\/\* QA companion — existing linked Bridge owns permissions and per-tab pin changes/);
- assert.match(originalBridge,/if\(window\.__algzawyCloudBridge\) return/);
+ assert.match(originalBridge,/if\s*\(window\.__algzawyCloudBridge\) return/);
  assert.match(originalBridge,/if\(window\.__AlGSmartLauncherQA\|\|document\.getElementById\(ID\)\)return/);
  assert.match(originalBridge,/body\.algzawy-integrated-ui-ready #algzawy-cloud-pair-panel/);
  assert.match(originalBridge,/document\.body\.append\(panel\);\s*document\.body\.classList\.add\('algzawy-integrated-ui-ready'\)/);
