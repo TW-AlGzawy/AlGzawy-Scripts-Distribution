@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.5.1
+// @version      1.5.2
 // @description  نواة v1.5 آمنة للإرسال والوصول؛ تاريخ السيرفر و24h وأجزاء الثانية وجسر AlG
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -17,8 +17,10 @@ const GRANT='algzawy_portal_grant_'+ID,LOCAL='algzawy_local_enabled_'+ID,HUMAN='
 const UNTIL='algzawy_portal_device_authorized_until',STOP='__algzawy_stop_send-automation',DAY=86400000;
 let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null;
 const pad=x=>String(x).padStart(2,'0'),pad3=x=>String(x).padStart(3,'0');
-let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,collapsed:false,compact:true,settingsOpen:false,left:null,top:null};
+let opts={mode:'send',date:'',dateAuto:true,time:'',ms:200,offset:-20,collapsed:false,settingsOpen:false,left:null,top:null};
 try{const x=JSON.parse(localStorage.getItem(PREF)||'null');if(x&&typeof x==='object'&&!Array.isArray(x))opts={...opts,...x};}catch(_){}
+// Retire the old expandable-width option; keep the saved timing and panel position.
+delete opts.compact;
 // Remove all old adaptive-calculation preferences/history but retain scheduling settings.
 for(const key of ['smart','smartOpen','logOpen','uiLayoutVersion'])delete opts[key];
 try{localStorage.removeItem('algzawy_send_smart_v13');localStorage.removeItem('algzawy_sends_last_click_v1');}catch(_){}
@@ -242,14 +244,9 @@ function show(){
  '#'+ROOT+' .alg-remaining{display:flex;justify-content:space-between;gap:6px;align-items:center}',
  '#'+ROOT+' .alg-remaining small{font-size:10px}',
  '#'+ROOT+' .alg-remaining strong{font-size:13px!important}',
- '#'+ROOT+' .alg-compact-toggle{min-width:27px}',
  '#'+ROOT+'.compact .note{padding:4px 6px;font-size:10px;line-height:1.4}',
  '#'+ROOT+'.compact .stat small{font-size:9px}',
  '#'+ROOT+'.compact .stat strong{font-size:12px}',
- '#'+ROOT+'.spacious{width:360px}',
- '#'+ROOT+'.spacious .body{gap:10px;padding:11px}',
- '#'+ROOT+'.spacious .alg-button{padding:8px}',
- '#'+ROOT+'.spacious .alg-input{padding:8px}',
  '#'+ROOT+'.collapsed .body{display:none}',
  '@media(max-width:460px){#'+ROOT+'{right:5px;top:5px;max-height:95vh}}'
  ].join('\n');document.head.append(style);
@@ -258,16 +255,6 @@ function show(){
   opts.collapsed=!opts.collapsed;panel.classList.toggle('collapsed',opts.collapsed);
   mini.textContent=opts.collapsed?'+':'−';save();
  });
- const compact=btn(opts.compact===false?'▣':'↗','alg-compact-toggle',()=>{
-  opts.compact=opts.compact===false;
-  panel.classList.toggle('compact',opts.compact!==false);
-  panel.classList.toggle('spacious',opts.compact===false);
-  compact.textContent=opts.compact===false?'▣':'↗';
-  compact.title=opts.compact===false?'عرض مضغوط':'توسيع العرض';
-  save();
- });
- compact.title=opts.compact===false?'عرض مضغوط':'توسيع العرض';
- compact.setAttribute('aria-label','تبديل حجم واجهة الإرساليات');
  mini.setAttribute('aria-label','طي نافذة الإرساليات');
  head.append(el('span','logo','AlG'),el('strong','','الغزااوي | الإرساليات الدقيقة'),mini);
  const body=el('div','body'),stats=el('div','grid');
@@ -314,8 +301,7 @@ function show(){
  body.append(stats,modeLabel,inputs,settings,rem,controls,parts.note,el('small','hint','BETA · © 2026 الغزااوي — جميع الحقوق محفوظة'));
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
- panel.classList.toggle('compact',opts.compact!==false);
- panel.classList.toggle('spacious',opts.compact===false);
+ panel.classList.add('compact');
  if(opts.left!==null&&opts.top!==null){
   panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,Number(opts.left)||0))+'px';
   panel.style.top=Math.max(0,Math.min(innerHeight-50,Number(opts.top)||0))+'px';panel.style.right='auto';

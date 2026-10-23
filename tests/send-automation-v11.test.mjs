@@ -6,9 +6,9 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
 test('v1.5 clean engine/loader compile, version and catalog match',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.5\.1/);
- assert.match(loader,/@version\s+1\.5\.1/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(s=>s.id==='send-automation').version,'1.5.1');
+ assert.match(core,/@version\s+1\.5\.2/);
+ assert.match(loader,/@version\s+1\.5\.2/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(s=>s.id==='send-automation').version,'1.5.2');
 });
 test('adaptive model and all diagnostics removed; no hidden token POST',()=>{
  assert.doesNotMatch(core,/SMART_MODEL|Smart Timing|smartEvaluate|smartRender|storeOutcome|collectNetwork|currentOffset|recordClick|parts\.smart|parts\.last|netEntries|netSeen|smartBox/);
@@ -63,4 +63,12 @@ test('loader requires approved device and licensed entitlement',()=>{
  "const STOP_EVENT =",
  "scripts/send-automation.js"
  ])assert.ok(loader.includes(text),'missing '+text);
+});
+
+test('v1.5.2 always uses 310px UI without removed expand button; new installs default to 200/-20',()=>{
+ assert.match(core,/ms:200,offset:-20,collapsed:false/);
+ assert.match(core,/width:310px/);
+ assert.doesNotMatch(core,/const compact=btn|\.spacious|alg-compact-toggle/);
+ assert.ok(core.includes("delete opts.compact;"));
+ assert.ok(core.includes("head.append(el('span','logo','AlG'),el('strong','','الغزااوي | الإرساليات الدقيقة'),mini)"));
 });
