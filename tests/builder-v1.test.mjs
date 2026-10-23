@@ -22,3 +22,13 @@ test('engine and loader syntax and fail-closed license gates',()=>{
 test('legacy installers are inert after update',()=>{
  for(const id of retired){const loader=read('loaders/'+id+'.user.js');new vm.Script(loader);assert.ok(loader.includes('@version      99.0.0'));assert.ok(!loader.includes('SOURCE_URL'));}
 });
+
+test('builder QA release advertises matching Cloud Bridge versions and no obsolete UI version',()=>{
+ const bridge=read('loaders/algzawy-cloud-bridge.user.js');
+ const center=read('loaders/algzawy-control-center.user.js');
+ const engine=read('scripts/algzawy-builder-v1.js');
+ assert.ok(bridge.includes('@version      2.0.2'));
+ assert.ok(center.includes('@version      1.0.1'));
+ assert.ok(engine.includes('TRADITIONAL BUILDER · V1.0'));
+ assert.ok(!engine.includes('TRADITIONAL BUILDER · V2'));
+});

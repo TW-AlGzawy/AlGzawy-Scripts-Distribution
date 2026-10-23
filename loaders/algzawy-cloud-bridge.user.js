@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.0.1
+// @version      2.0.2
 // @description  Auto License V2: authorize once from subscriber portal, sync permitted scripts automatically
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
