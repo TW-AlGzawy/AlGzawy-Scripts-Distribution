@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - حجز القرى البربرية
+// @name         الغزااوي | حجز القرى البربرية
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  حجز تلقائي للقرى البربرية مع فلتر للقرى غير الموجودة - يعمل على جميع العوالم
 // @author       غزااوي
 // @icon         https://files.manuscdn.com/user_upload_by_module/session_file/310419663029215752/GYTOxdyXXZqmFprq.jpg

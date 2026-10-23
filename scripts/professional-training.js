@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - التدريب الاحترافي
+// @name         الغزااوي | التدريب الاحترافي
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  تحكم في تدريب الوحدات مع إمكانية تحديد وقت الانتظار لكل وحدة
 // @match        https://*.tribalwars.ae/game.php?*
 // @grant        none

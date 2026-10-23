@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الحجز الذكي الخامس
+// @name         الغزااوي | الحجز الذكي الخامس
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  نظام حجز بربر آلي ومحسّن: بحث في الخريطة، حجز مباشر في المخطط، وتكرار تلقائي
 // @author       Manus AI
 // @match        https://*.tribalwars.ae/game.php*screen=map*
@@ -18,7 +18,7 @@
 (function() {
     'use strict';
 
-    const SCRIPT_NAME = "تجريبي - الغزااوي - الحجز الذكي الخامس v1.0";
+    const SCRIPT_NAME = "الغزااوي | الحجز الذكي الخامس v1.0";
     const VERSION = "5.0";
     const MAP_URL = `/game.php?village=${game_data.village.id}&screen=map`;
     const RESERVATIONS_URL = `/game.php?village=${game_data.village.id}&screen=ally&mode=reservations`;

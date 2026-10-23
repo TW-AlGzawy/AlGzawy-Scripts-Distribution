@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الحجز الذكي الخامس
+// @name         الغزااوي | الحجز الذكي الخامس
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
-// @description  اختبار Cloudflare المركزي؛ غير مُعتمد قبل التجربة
+// @version      1.0.1
+// @description  AlGzawy BETA — اشتراك وجهاز معتمد
 // @match        https://*.tribalwars.ae/game.php*screen=map*
 // @match        https://*.tribalwars.ae/game.php*screen=ally&mode=reservations*
 // @run-at       document-end
@@ -24,6 +24,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/reserve-smart-v5.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "reserve-smart-v5";
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.1');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -68,7 +69,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - الحجز الذكي الخامس",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"الغزااوي | الحجز الذكي الخامس",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}

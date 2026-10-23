@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الحجز الذكي الرابع
+// @name         الغزااوي | الحجز الذكي الرابع
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  نظام حجز بربر آلي وفعال بالكامل - بحث، حجز، تأكيد، وتكرار
 // @author       Manus AI
 // @match        https://*.tribalwars.ae/game.php*screen=map*
@@ -16,7 +16,7 @@
 (function() {
     'use strict';
 
-    const SCRIPT_NAME = "تجريبي - الغزااوي - الحجز الذكي الرابع v1.0";
+    const SCRIPT_NAME = "الغزااوي | الحجز الذكي الرابع v1.0";
     const VERSION = "4.0";
 
     // --- الإعدادات الافتراضية ---
