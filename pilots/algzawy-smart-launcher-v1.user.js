@@ -519,6 +519,10 @@
  '#algzawy-smart-launcher-qa .stat{border:1px solid #326572;background:#0e303d;border-radius:8px;padding:6px 3px;text-align:center;font-size:9px;color:#b0d0d3}',
  '#algzawy-smart-launcher-qa .stat strong{display:block;font-size:17px;color:#66f0d0}',
  '#algzawy-smart-launcher-qa .note{background:#0c3b35;border:1px solid #2d685d;color:#b7f7dd;border-radius:8px;padding:8px;margin:10px 0;font-size:10px}',
+ '#algzawy-smart-launcher-qa .note[data-sync="loading"]{background:#153a4a;border-color:#327fb4;color:#b6e8ff}',
+ '#algzawy-smart-launcher-qa .note[data-sync="error"],#algzawy-smart-launcher-qa .note[data-sync="disconnected"]{background:#432c34;border-color:#a95e68;color:#ffced3}',
+ '#algzawy-smart-launcher-qa .note[data-sync="paused"]{background:#473928;border-color:#ad8250;color:#ffdfb2}',
+ '#algzawy-smart-launcher-qa .diagnostic{font-size:10px;color:#ecc98c;padding:0 2px 8px;line-height:1.8}',
  '#algzawy-smart-launcher-qa .list{display:grid;gap:6px;max-height:295px;overflow:auto;scrollbar-width:thin}',
  '#algzawy-smart-launcher-qa .item{display:flex;align-items:center;gap:7px;background:#0d2c39;border:1px solid #285c63;border-radius:7px;padding:7px}',
  '#algzawy-smart-launcher-qa .symbol{width:30px;height:30px;border:1px solid #2f8371;border-radius:7px;display:grid;place-items:center;color:#62efd0;background:#11443e}',
@@ -537,13 +541,23 @@
  ].join('\n');
  const make=(tag,cls,content)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(content!==undefined)e.textContent=content;return e;};
  const positionKey='algzawy_launcher_geometry_v1';
- let panel,body,list,stats=[],statusText,mini,collapsed=false;
+ let panel,body,list,stats=[],statusText,diagnostic,syncButton,mini,collapsed=false;
+ let syncState={phase:'idle',message:'لا توجد نتيجة مزامنة مؤكدة لهذه الصفحة بعد.',at:0};
  try{collapsed=JSON.parse(localStorage.getItem(positionKey)||'{}').collapsed===true;}catch(_){}
  function authorized(){
    return !!localStorage.getItem('algzawy_portal_approved_device')&&
      Number(localStorage.getItem('algzawy_portal_device_authorized_until')||0)>Date.now();
  }
  function ready(){const id=sessionStorage.getItem('algzawy_tab_instance_v1');return !!id&&sessionStorage.getItem('algzawy_tab_pins_ready_v1')===id;}
+ function villageId(){
+   // Tampermonkey's sandbox has a different window from Tribal Wars.
+   // Do not inject code into the game page to retrieve the village ID.
+   try{
+     const game=typeof unsafeWindow!=='undefined'?unsafeWindow.game_data:window.game_data;
+     const value=game?.village?.id||new URL(location.href).searchParams.get('village');
+     return /^\d{1,12}$/.test(String(value||''))?String(value):'—';
+   }catch(_){return '—';}
+ }
  function pinned(id){
    const tab=sessionStorage.getItem('algzawy_tab_instance_v1');
    return ready()&&sessionStorage.getItem('algzawy_tab_pin_v1_'+id)===tab;
@@ -554,20 +568,54 @@
  }
  function render(){
    if(!panel||document.visibilityState==='hidden')return;
-   const permitted=ids.filter(([id])=>localStorage.getItem('algzawy_portal_grant_'+id)==='1');
-   stats[0].textContent=String(permitted.length);
-   stats[1].textContent=String(permitted.filter(([id])=>pinned(id)).length);
-   stats[2].textContent=String(window.game_data?.village?.id||'—');
-   statusText.textContent=authorized()?'● الجهاز متحقق مؤقتًا، صلاحياتك من السحابة':'○ بانتظار ربط الجهاز والتحقق السحابي';
+   // Authoritative allowed list is the Bridge's latest signed response, not
+   // stale local grants that can survive an unsuccessful reconnect attempt.
+   const allowedButtons=[...document.querySelectorAll('#algzawy-cloud-tab-list button[data-alg-script-id]')];
+   const allowedIds=new Set(allowedButtons.map(b=>b.dataset.algScriptId));
+   const permitted=ids.filter(([id])=>allowedIds.has(id));
+   const cachedOnly=ids.filter(([id])=>
+     localStorage.getItem('algzawy_portal_grant_'+id)==='1'&&!allowedIds.has(id)).length;
+   stats[0].textContent=ready()?String(permitted.length):'—';
+   stats[1].textContent=ready()?String(permitted.filter(([id])=>pinned(id)).length):'—';
+   stats[2].textContent=villageId();
+   statusText.dataset.sync=syncState.phase;
+   const time=syncState.at?new Date(syncState.at).toLocaleTimeString('ar-BE'):'';
+   statusText.textContent=syncState.phase==='idle'
+     ?(authorized()?'○ ترخيص محلي مؤقت — لم تتأكد المزامنة الجديدة.':'○ بانتظار التحقق من الجهاز والترخيص.')
+     :({loading:'↻ ',success:'✓ ',paused:'⚠ ',error:'✕ ',disconnected:'✕ ',busy:'◷ '}[syncState.phase]||'')+
+      syncState.message+(time?' · '+time:'');
+   if(syncButton){
+     syncButton.disabled=syncState.phase==='loading';
+     syncButton.textContent=syncState.phase==='loading'?'↻ جارٍ المزامنة...':'↻ مزامنة الآن';
+   }
+   const bridgePresent=!!document.getElementById('algzawy-cloud-pair-panel');
+   if(!bridgePresent)
+     diagnostic.textContent='لم تتهيأ نافذة Cloud Bridge بعد؛ أعد تحميل صفحة اللعبة.';
+   else if(!ready())
+     diagnostic.textContent=typeof BroadcastChannel==='function'
+       ?'لم يكتمل التحقق من هوية هذا التبويب؛ أزرار التشغيل محمية حتى اكتماله.'
+       :'المتصفح لا يدعم BroadcastChannel؛ تعذّر تأمين عزل التبويبات.';
+   else if(!allowedButtons.length&&cachedOnly)
+     diagnostic.textContent='توجد '+cachedOnly+' صلاحيات محفوظة محليًا، لكن لم يؤكد Cloud Bridge القائمة بعد. تحقق من نتيجة المزامنة.';
+   else diagnostic.textContent='';
    list.replaceChildren();
-   if(!authorized()){list.append(make('div','note','اربط جهازك من موقع AlGzawy لعرض سكربتات اشتراكك.'));return;}
-   if(!permitted.length){list.append(make('div','note','لا توجد سكربتات مسموحة أو المزامنة غير مكتملة.'));return;}
+   if(!authorized()){
+     list.append(make('div','note','اربط جهازك وتحقق من الترخيص السحابي لعرض الأوامر المسموحة.'));return;
+   }
+   if(!permitted.length){
+     list.append(make('div','note','لا توجد سكربتات مؤكدة حاليًا. اضغط مزامنة الآن وراجع الرسالة أعلاه.'));return;
+   }
    for(const [id,name,symbol] of permitted){
      const row=make('div','item'),meta=make('div','meta'),button=make('button','btn'+(pinned(id)?' on':''),pinned(id)?'إيقاف هنا':'تشغيل هنا');
-     button.type='button';button.disabled=!ready()||!toggleButton(id);
+     button.type='button';
+     button.disabled=!authorized()||!ready()||!toggleButton(id);
      button.setAttribute('aria-pressed',String(pinned(id)));
      meta.append(make('strong','',name),make('small','',pinned(id)?'محدد لهذا التبويب':'مسموح — غير محدد هنا'));
-     button.addEventListener('click',()=>{const native=toggleButton(id);if(native)native.click();render();});
+     button.addEventListener('click',()=>{
+       const native=toggleButton(id);
+       if(!native||!ready()||!authorized()){render();return;}
+       native.click();render();
+     });
      row.append(make('span','symbol',symbol),meta,button);list.append(row);
    }
  }
@@ -587,10 +635,24 @@
      const stat=make('div','stat'),b=make('strong','','—');
      stat.append(b,make('span','',label));box.append(stat);stats.push(b);
    }
-   statusText=make('div','note');list=make('div','list');
+   statusText=make('div','note');
+   statusText.setAttribute('role','status');
+   statusText.setAttribute('aria-live','polite');
+   diagnostic=make('div','diagnostic');
+   list=make('div','list');
    const actions=make('div','buttons'),sync=make('button','btn','↻ مزامنة الآن'),link=make('button','btn on','⌁ ربط الجهاز');
+   syncButton=sync;
    sync.type=link.type='button';
-   sync.addEventListener('click',()=>{document.getElementById('algzawy-cloud-sync')?.click();render();});
+   sync.addEventListener('click',()=>{
+     const bridgeSync=document.getElementById('algzawy-cloud-sync');
+     if(!bridgeSync){
+       syncState={phase:'error',message:'Cloud Bridge لم يكتمل تحميله؛ أعد فتح صفحة اللعبة.',at:Date.now()};
+     }else{
+       syncState={phase:'loading',message:'إرسال طلب تحقق إلى Cloud Bridge...',at:Date.now()};
+       bridgeSync.click(); // Signed cloud request still belongs to the Bridge.
+     }
+     render();
+   });
    link.addEventListener('click',()=>{
      const native=document.getElementById('algzawy-cloud-connect');
      if(native)native.click();else window.open(URL,'_blank','noopener,noreferrer');
@@ -598,7 +660,7 @@
    actions.append(sync,link);
    const foot=make('div','foot','التشغيل هنا اختيار خاص بهذا التبويب ولا يتجاوز الترخيص. لتشغيل المحركات، احتفظ بالـ Loaders المرخصة. ');
    const open=make('a','','فتح الموقع ↗');open.href=URL;open.target='_blank';open.rel='noopener noreferrer';foot.append(open);
-   body.append(box,statusText,make('strong','','السكربتات المسموحة'),list,actions,foot);
+   body.append(box,statusText,diagnostic,make('strong','','السكربتات المسموحة'),list,actions,foot);
    panel.append(head,body);
    document.head.append(Object.assign(document.createElement('style'),{textContent:css}));
    document.body.append(panel);
@@ -625,6 +687,14 @@
        panel.style.right='auto';panel.style.bottom='auto';
      }
    }catch(_){}
+   document.addEventListener('algzawy-launcher-sync-state',event=>{
+     const detail=event.detail;
+     if(!detail||!['loading','busy','success','paused','error','disconnected'].includes(detail.phase))return;
+     syncState={phase:detail.phase,message:String(detail.message||'').slice(0,190),
+       at:Number(detail.at)||Date.now()};
+     render();
+   });
+   document.addEventListener('algzawy-tab-pins-ready',render);
    document.addEventListener('algzawy-tab-pin-changed',render);
    document.addEventListener('algzawy-local-control-changed',render);
    window.addEventListener('online',render);
