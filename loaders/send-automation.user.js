@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.3.2
-// @description  Smart Timing v1.3.2 — نافذة 310px وقوائم قابلة للطي
+// @version      1.5.0
+// @description  نواة v1.5 نظيفة بلا معايرة تلقائية — 24h وتاريخ السيرفر وواجهة 310px
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @run-at       document-end
 // @connect      raw.githubusercontent.com

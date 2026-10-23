@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.3.2
-// @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
+// @version      1.5.0
+// @description  نواة v1.5 آمنة للإرسال والوصول؛ تاريخ السيرفر و24h وأجزاء الثانية وجسر AlG
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
 // ==/UserScript==
@@ -12,21 +12,18 @@ const qs=new URL(location.href).searchParams;
 if(qs.get('screen')!=='place'||qs.get('try')!=='confirm')return;
 const BUTTON=document.getElementById('troop_confirm_submit');
 if(!BUTTON||window.__algzawySendV11)return;
-const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs', LAST='algzawy_sends_last_click_v1', SMART='algzawy_send_smart_v13';
+const ID='send-automation', ROOT='algzawy-send-float-v11', PREF='algzawy_sends_v11_prefs';
 const GRANT='algzawy_portal_grant_'+ID,LOCAL='algzawy_local_enabled_'+ID,HUMAN='algzawy_human_verification_pause';
 const UNTIL='algzawy_portal_device_authorized_until',STOP='__algzawy_stop_send-automation',DAY=86400000;
-let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null,armedOffset=null;
-let history={send:[],arrival:[]},netEntries=[],netSeen=new Set(),lastNetScan=0;
-let network={source:'unavailable',median:null,jitter:null,count:0};
-try{const loaded=JSON.parse(localStorage.getItem(SMART)||'null');for(const mode of ['send','arrival'])if(Array.isArray(loaded?.[mode]))history[mode]=loaded[mode].slice(-20);}catch(_){}
+let dead=false,armed=false,sent=false,timer=null,screenTimer=null,server=null,arrival=null,panel=null,parts={},drag=null;
 const pad=x=>String(x).padStart(2,'0'),pad3=x=>String(x).padStart(3,'0');
-let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,smart:false,collapsed:false,compact:true,smartOpen:false,settingsOpen:false,logOpen:false,left:null,top:null};
+let opts={mode:'send',date:'',dateAuto:true,time:'',ms:0,offset:0,collapsed:false,compact:true,settingsOpen:false,left:null,top:null};
 try{const x=JSON.parse(localStorage.getItem(PREF)||'null');if(x&&typeof x==='object'&&!Array.isArray(x))opts={...opts,...x};}catch(_){}
-// One-time layout migration: no changes to scheduling preferences, subscription or device.
-const firstCompact132=opts.uiLayoutVersion!=='1.3.2';
-if(firstCompact132){opts.compact=true;opts.smartOpen=false;opts.settingsOpen=false;opts.logOpen=false;opts.uiLayoutVersion='1.3.2';}
+// Remove all old adaptive-calculation preferences/history but retain scheduling settings.
+for(const key of ['smart','smartOpen','logOpen','uiLayoutVersion'])delete opts[key];
+try{localStorage.removeItem('algzawy_send_smart_v13');localStorage.removeItem('algzawy_sends_last_click_v1');}catch(_){}
 function save(){try{localStorage.setItem(PREF,JSON.stringify(opts));}catch(_){}}
-if(firstCompact132)save();
+save();
 function licensed(){
  if(dead||localStorage.getItem(GRANT)!=='1'||localStorage.getItem(LOCAL)==='false'||localStorage.getItem(HUMAN)==='1')return false;
  if(!localStorage.getItem('algzawy_portal_approved_device'))return false;
@@ -106,97 +103,12 @@ function predictedArrival(){
   arrival={key,stamp:value,at:performance.now(),dated:!!d};
  return {time:arrival.stamp+Math.max(0,performance.now()-arrival.at),dated:arrival.dated};
 }
-// SMART_MODEL_START
-function smartMedian(xs){if(!xs.length)return null;const s=xs.slice().sort((a,b)=>a-b),k=Math.floor(s.length/2);return s.length%2?s[k]:(s[k-1]+s[k])/2;}
-function smartEvaluate(log,net){
- const rows=(Array.isArray(log)?log:[]).filter(x=>x&&Number.isFinite(x.lag)&&x.lag>=0&&x.lag<=1200&&Number.isFinite(x.at)&&Date.now()-x.at>=0&&Date.now()-x.at<=14*86400000).slice(-20);
- const mid=smartMedian(rows.map(x=>x.lag)),spread=mid===null?null:smartMedian(rows.map(x=>Math.abs(x.lag-mid)));
- const paired=rows.map(x=>x.net).filter(x=>Number.isFinite(x)&&x>0);
- const baseline=smartMedian(paired);
- const good=net?.source==='observed'&&net.count>=3&&net.jitter<=90;
- const shift=good&&paired.length>=3?Math.max(-60,Math.min(60,(net.median-baseline)*0.5)):0;
- const unstable=rows.length>=3&&(spread>100||(net?.source==='observed'&&net.count>=3&&net.jitter>100));
- const ready=rows.length>=3&&!unstable;
- return {ready,unstable,count:rows.length,lag:mid,spread,shift,offset:ready?Math.max(-600,Math.min(0,-Math.round(mid+shift))):null};
-}
-// SMART_MODEL_END
-function collectNetwork(){
- const p=performance.now();if(p-lastNetScan<1500)return network;lastNetScan=p;
- try{
-  for(const e of performance.getEntriesByType('resource').slice(-180)){
-   if(!['fetch','xmlhttprequest'].includes(e.initiatorType)||e.startTime<p-90000)continue;
-   const u=new URL(e.name,location.href);
-   if(u.origin!==location.origin||!u.pathname.endsWith('/game.php'))continue;
-   const key=e.name+'@'+e.startTime;if(netSeen.has(key))continue;netSeen.add(key);
-   const d=e.responseStart-e.requestStart;
-   if(Number.isFinite(d)&&d>0&&d<2500)netEntries.push({ms:d,at:p});
-  }
- }catch(_){}
- if(netSeen.size>1000)netSeen.clear();
- netEntries=netEntries.filter(x=>p-x.at<90000).slice(-60);
- if(netEntries.length){
-  const vals=netEntries.map(x=>x.ms),m=smartMedian(vals);
-  network={source:'observed',median:m,jitter:smartMedian(vals.map(x=>Math.abs(x-m))),count:vals.length};
- }else{
-  const a=Number(navigator.connection?.rtt);
-  network={source:Number.isFinite(a)&&a>0?'estimated':'unavailable',median:Number.isFinite(a)&&a>0?a:null,jitter:null,count:0};
- }
- return network;
-}
-function smartCurrent(){return smartEvaluate(history[opts.mode==='arrival'?'arrival':'send'],collectNetwork());}
-function currentOffset(){
- if(armedOffset!==null)return armedOffset;
- const m=opts.smart?smartCurrent():null;
- return m?.ready?m.offset:Number(opts.offset);
-}
-function smartRender(){
- if(!parts.smartNetwork)return;
- const n=collectNetwork(),m=smartCurrent(),offset=currentOffset();
- parts.smartNetwork.textContent=n.source==='observed'
-  ?'زمن طلبات اللعبة: '+Math.round(n.median)+'ms | تذبذب '+Math.round(n.jitter)+'ms | '+n.count+' قياسات'
-  :n.source==='estimated'?'تقدير RTT: '+Math.round(n.median)+'ms (غير كافٍ وحده للمعايرة)'
-  :'لا توجد طلبات قابلة للقياس حاليًا';
- parts.smartSamples.textContent='نتائج '+(opts.mode==='arrival'?'الوصول':'الإرسال')+': '+m.count+' (الحد الأدنى 3)';
- if(parts.smartSummary)parts.smartSummary.textContent=(opts.smart?'ذكي':'يدوي')+' '+offset+'ms';
- parts.smartAdvice.textContent=opts.smart
-  ?m.ready?'تعويض تلقائي: '+m.offset+'ms'+(m.shift?' | تغير الاتصال '+Math.round(m.shift)+'ms':'')
-   :m.unstable?'التلقائي موقوف بسبب التذبذب — اليدوي '+offset+'ms'
-    :'بانتظار نتائج كافية — اليدوي '+offset+'ms'
-  :'تعويض يدوي '+offset+'ms | اقتراح ذكي '+(m.ready?m.offset+'ms':'غير جاهز');
-}
-function storeOutcome(){
- if(armed||sent)return;
- const raw=String(parts.smartObserved?.value||'').trim();
- if(!/^[+-]?\d{1,4}$/.test(raw)||Math.abs(Number(raw))>1500){message('أدخل فرق النتيجة: +45 تأخر أو -20 مبكر (ms).','error');return;}
- let prev;try{prev=JSON.parse(localStorage.getItem(LAST)||'null');}catch(_){}
- const age=prev&&Date.now()-Date.parse(prev.recordedAt);
- if(!prev||!Number.isFinite(age)||age<0||age>48*3600000||!['send','arrival'].includes(prev.mode)
-    ||!Number.isFinite(Number(prev.offset))||!Number.isFinite(Number(prev.browserDeviationMs))){
-  message('لا توجد إرسالية سابقة صالحة للمعايرة خلال 48 ساعة.','error');return;
- }
- const key=prev.recordedAt+'@'+prev.pressedAt;
- if(['send','arrival'].some(mode=>history[mode].some(x=>x.key===key))){message('تم حفظ هذه الإرسالية سابقًا.','error');return;}
- const lag=Number(raw)-Number(prev.offset)-Number(prev.browserDeviationMs);
- if(!Number.isFinite(lag)||lag<0||lag>1200){message('نتيجة غير صالحة؛ تحقق من فرق الوصول واتجاه التعويض.','error');return;}
- const mode=prev.mode;
- history[mode].push({key,lag,at:Date.now(),net:Number.isFinite(prev.netMedian)?prev.netMedian:null});
- history[mode]=history[mode].slice(-20);
- try{localStorage.setItem(SMART,JSON.stringify(history));}catch(_){}
- parts.smartObserved.value='';smartRender();
- message('حُفظت معايرة '+(mode==='arrival'?'الوصول':'الإرسال')+' محليًا.','ok');
-}
-function clearSmartResults(){
- if(armed||sent)return;
- history[opts.mode==='arrival'?'arrival':'send']=[];
- try{localStorage.setItem(SMART,JSON.stringify(history));}catch(_){}
- smartRender();message('صُفّرت معايرة هذا الوضع.');
-}
 function time24(s){
  if(!/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(String(s||'')))return null;
  return clock(s);
 }
 function target(){
- const d=date(opts.date),t=time24(opts.time),ms=Number(opts.ms),off=Number(currentOffset());
+ const d=date(opts.date),t=time24(opts.time),ms=Number(opts.ms),off=Number(opts.offset);
  if(!d||!t||!Number.isInteger(ms)||ms<0||ms>999||!Number.isInteger(off)||off< -5000||off>5000)return null;
  return epoch(d,t,ms)+off;
 }
@@ -211,7 +123,7 @@ function difference(){
 }
 function message(s,type='normal'){if(parts.note){parts.note.textContent=s;parts.note.dataset.type=type;}}
 function cancel(reason='أُلغيت الجدولة؛ لم تُرسل أي قوات.'){
- if(timer){clearTimeout(timer);timer=null;}armed=false;armedOffset=null;
+ if(timer){clearTimeout(timer);timer=null;}armed=false;
  if(parts.arm){parts.arm.disabled=sent;parts.arm.textContent='▶ تجهيز';parts.cancel.disabled=true;}
  if(parts.inputs)parts.inputs.forEach(x=>x.disabled=sent);
  if(reason)message(reason);
@@ -223,32 +135,6 @@ function destroy(){
  document.getElementById(ROOT+'-style')?.remove();
  window.__algzawySendV11=false;
 }
-function recordClick(){
- // This is the browser's dispatch time, NOT game-server acceptance time.
- const pressedAt=now();
- const predicted=opts.mode==='arrival'?predictedArrival():null;
- const reference=opts.mode==='arrival'?predicted?.time:pressedAt;
- const adjusted=target(),offset=Number(currentOffset());
- if(!Number.isFinite(reference)||!Number.isFinite(pressedAt)||!Number.isFinite(adjusted))return;
- const entry={
-  version:'1.3.0',mode:opts.mode,pressedAt,referenceAtClick:reference,
-  targetWithOffset:adjusted,originalTarget:adjusted-offset,offset,
-  browserDeviationMs:Math.round(reference-adjusted),
-  clockSource:server?.source||'unknown',netMedian:collectNetwork().source==='observed'?network.median:null,recordedAt:new Date().toISOString()
- };
- try{localStorage.setItem(LAST,JSON.stringify(entry));}catch(_){}
- renderLastClick(entry);
-}
-function renderLastClick(entry){
- if(!parts.last||!entry||!Number.isFinite(Number(entry.pressedAt)))return;
- const diff=Number(entry.browserDeviationMs);
- const mode=entry.mode==='arrival'?'الوصول':'الإرسال';
- const signed=n=>(n>=0?'+':'')+n;
- parts.last.textContent='آخر تنفيذ في المتصفح ('+mode+'): '+toText(Number(entry.pressedAt))
-  +' | انحراف عن الموعد المعوَّض '+signed(diff)+'ms'
-  +' | التعويض '+signed(Number(entry.offset))+'ms'
-  +' | المرجع: '+(entry.clockSource==='game'?'ساعة اللعبة':'ساعة العرض');
-}
 function fire(){
  if(!armed||sent||!licensed()){cancel('توقف التنفيذ بسبب الترخيص أو التحقق.');return;}
  const r=difference();
@@ -259,7 +145,6 @@ function fire(){
  sent=true;armed=false;if(timer)clearTimeout(timer);timer=null;
  parts.arm.disabled=true;parts.cancel.disabled=true;
  message('تم الضغط على تأكيد الإرسال مرة واحدة. تحقّق من نتيجة اللعبة.','ok');
- recordClick();
  BUTTON.click();
 }
 function schedule(){
@@ -268,21 +153,22 @@ function schedule(){
  const r=difference();
  if(r.error){cancel(r.error);return;}
  if(r.remaining<=0){fire();return;}
- const ms=r.remaining>10000?500:r.remaining>1500?100:r.remaining>200?20:r.remaining>35?5:Math.max(0,Math.min(3,r.remaining-1));
+ // v1.5 timing style: check the game clock repeatedly (5ms in the final window).
+ const ms=r.remaining>10000?500:r.remaining>1500?100:r.remaining>250?20:5;
  timer=setTimeout(()=>{timer=null;schedule();},ms);
 }
 function readInputs(){
  if(armed)return;
  opts.mode=parts.mode.value;opts.date=parts.date.value;opts.time=parts.time.value;
- opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value);opts.smart=!!parts.smart?.checked;save();display();
+ opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value);save();display();
 }
 function arm(){
  if(armed||sent)return;
  if(!licensed()){message('فعّل الإرساليات من الموقع والجسر واعتمد الجهاز أولًا.','error');return;}
- readInputs();armedOffset=currentOffset();const r=difference();
- if(r.error){armedOffset=null;message(r.error==='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
- if(r.remaining<=500){armedOffset=null;message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
- if(r.remaining>7*DAY){armedOffset=null;message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
+ readInputs();const r=difference();
+ if(r.error){message(r.error='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
+ if(r.remaining<=500){message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
+ if(r.remaining>7*DAY){message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
  armed=true;parts.arm.textContent='● مجهّز';parts.arm.disabled=true;
  parts.cancel.disabled=false;parts.inputs.forEach(x=>x.disabled=true);
  message('الموعد جاهز؛ أبقِ الصفحة مفتوحة.','ok');
@@ -295,7 +181,7 @@ function display(){
  if(!licensed()){if(armed)cancel('أُوقف التشغيل بسبب الترخيص.');return;}
  observe();parts.server.textContent=toText(now());
  const ar=predictedArrival();parts.arrival.textContent=toText(ar?.time);
- const r=difference();parts.remain.textContent=r.error?'—':(Math.max(0,r.remaining)/1000).toFixed(2)+' ثانية';smartRender();
+ const r=difference();parts.remain.textContent=r.error?'—':(Math.max(0,r.remaining)/1000).toFixed(2)+' ثانية';
  if(parts.source)parts.source.textContent=server?.source==='game'?'المرجع: ساعة اللعبة الدقيقة':'المرجع: ساعة العرض بالثواني — اضبط التعويض';
  parts.hint.textContent=opts.mode==='arrival'
  ?'توقيت الوصول: مقارنة الموعد بالوصول المتوقع الظاهر داخل تأكيد اللعبة.'
@@ -341,18 +227,7 @@ function show(){
  '#'+ROOT+' .note{border:1px solid #346c62;background:#143a36;color:#caffed;border-radius:7px;padding:8px}',
  '#'+ROOT+' .note[data-type="error"]{background:#452934;color:#ffe0e5;border-color:#925362}',
  '#'+ROOT+' .hint{font-size:10px;color:#a9c5cc}',
- '#'+ROOT+' .alg-smart{display:grid;gap:4px;background:#103631;border:1px solid #2c7669;border-radius:7px;padding:4px 6px}',
- '#'+ROOT+' .alg-smart label{display:flex;align-items:center;gap:5px;min-width:0}',
- '#'+ROOT+' .alg-smart input[type=checkbox]{width:16px;height:16px;accent-color:#47e6b7}',
- '#'+ROOT+' .smart-row{display:flex;gap:6px;align-items:center}',
- '#'+ROOT+' .smart-row input{flex:1;min-width:0}',
 
- '#'+ROOT+' .alg-smart-head{display:flex;align-items:center;gap:5px;min-height:25px}',
- '#'+ROOT+' .alg-smart-head .alg-smart-check{display:flex;align-items:center;gap:4px;flex:1;min-width:0;white-space:nowrap;font-size:11px}',
- '#'+ROOT+' .alg-smart-head .smart-brief{font-size:9px;color:#76efd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
- '#'+ROOT+' .alg-smart-head .alg-button{min-height:24px;padding:2px 7px}',
- '#'+ROOT+' .alg-smart-body{display:grid;gap:5px;padding-top:5px;border-top:1px solid #2d6d62}',
- '#'+ROOT+' .alg-smart-body[hidden]{display:none!important}',
  '#'+ROOT+' .alg-fold{border:1px solid #31545e;border-radius:6px;background:#102732;padding:0 6px}',
  '#'+ROOT+' .alg-fold summary{cursor:pointer;list-style:none;display:flex;align-items:center;min-height:24px;font-size:10px;color:#afcdd3;user-select:none}',
  '#'+ROOT+' .alg-fold summary::-webkit-details-marker{display:none}',
@@ -375,7 +250,6 @@ function show(){
  '#'+ROOT+'.spacious .body{gap:10px;padding:11px}',
  '#'+ROOT+'.spacious .alg-button{padding:8px}',
  '#'+ROOT+'.spacious .alg-input{padding:8px}',
- '#'+ROOT+'.spacious .alg-smart{padding:9px}',
  '#'+ROOT+'.collapsed .body{display:none}',
  '@media(max-width:460px){#'+ROOT+'{right:5px;top:5px;max-height:95vh}}'
  ].join('\n');document.head.append(style);
@@ -395,7 +269,7 @@ function show(){
  compact.title=opts.compact===false?'عرض مضغوط':'توسيع العرض';
  compact.setAttribute('aria-label','تبديل حجم واجهة الإرساليات');
  mini.setAttribute('aria-label','طي نافذة الإرساليات');
- head.append(el('span','logo','AlG'),el('strong','','الإرساليات · v1.3.2'),compact,mini);
+ head.append(el('span','logo','AlG'),el('strong','','الإرساليات · v1.5.0'),compact,mini);
  const body=el('div','body'),stats=el('div','grid');
  function stat(name){const card=el('div','stat');card.append(el('small','',name));
  const val=el('strong','','—');card.append(val);stats.append(card);return val;}
@@ -425,58 +299,19 @@ function show(){
  parts.date=d.i;parts.time=t.i;parts.ms=m.i;parts.offset=o.i;
  parts.inputs=[parts.mode,d.i,t.i,m.i,o.i,resetDate];
  const inputs=el('div','grid');inputs.append(d.wrap,t.wrap,m.wrap,o.wrap);
- const smartBox=el('section','alg-smart'),smartHead=el('div','alg-smart-head'),smartLabel=el('label','alg-smart-check');
- parts.smart=el('input');parts.smart.type='checkbox';parts.smart.checked=!!opts.smart;
- parts.smart.addEventListener('change',readInputs);
- smartLabel.append(parts.smart,el('strong','','Smart Timing'));
- parts.smartSummary=el('small','smart-brief','يدوي');
- const smartBody=el('div','alg-smart-body');
- const smartFold=el('button','alg-button',opts.smartOpen?'▴':'▾');smartFold.type='button';
- smartFold.setAttribute('aria-label','إظهار أو إخفاء إعدادات المعايرة');
- smartFold.setAttribute('aria-expanded',String(!!opts.smartOpen));
- smartFold.onclick=()=>{
-  opts.smartOpen=!opts.smartOpen;
-  smartBody.hidden=!opts.smartOpen;
-  smartFold.textContent=opts.smartOpen?'▴':'▾';
-  smartFold.setAttribute('aria-expanded',String(opts.smartOpen));
-  save();
- };
- smartHead.append(smartLabel,parts.smartSummary,smartFold);
- parts.smartNetwork=el('div','hint');parts.smartSamples=el('div','hint');
- parts.smartAdvice=el('div','stat');
- const smartHelp=el('small','hint','فرق التوقيت: + تأخر، - مبكر (ms).');
- const smartRow=el('div','smart-row');
- parts.smartObserved=el('input','alg-input');parts.smartObserved.type='text';
- parts.smartObserved.maxLength=5;parts.smartObserved.inputMode='numeric';parts.smartObserved.dir='ltr';parts.smartObserved.placeholder='+45 / -20';
- const add=btn('حفظ','',storeOutcome);
- smartRow.append(parts.smartObserved,add);
- smartBody.append(parts.smartNetwork,parts.smartSamples,parts.smartAdvice,smartHelp,smartRow,
-  btn('تصفير قياسات الوضع','alg-mini-action',clearSmartResults));
- smartBody.hidden=!opts.smartOpen;
- smartBox.append(smartHead,smartBody);
- parts.inputs.push(parts.smart);
-
  parts.source=el('small','hint','جارٍ قراءة مرجع الوقت');
  const rem=el('div','stat alg-remaining');rem.append(el('small','','المتبقي'));parts.remain=el('strong','','—');rem.append(parts.remain);
  const controls=el('div','grid');parts.arm=btn('▶ تجهيز','go',arm);
  parts.cancel=btn('■ إلغاء','stop',()=>cancel());parts.cancel.disabled=true;
  controls.append(parts.arm,parts.cancel);
  parts.note=el('div','note');parts.note.setAttribute('role','status');parts.note.setAttribute('aria-live','polite');
- parts.last=el('div','hint alg-last');
- try{renderLastClick(JSON.parse(localStorage.getItem(LAST)||'null'));}catch(_){}
  const settings=el('details','alg-fold'),settingsHeader=el('summary','','⚙ إضافي');
  settings.open=!!opts.settingsOpen;
  const settingsContent=el('div','alg-fold-content');
  settingsContent.append(resetDate,parts.source,parts.hint);
  settings.append(settingsHeader,settingsContent);
  settings.addEventListener('toggle',()=>{opts.settingsOpen=settings.open;save();});
- const diagnostics=el('details','alg-fold'),diagnosticsHeader=el('summary','','سجل التنفيذ');
- diagnostics.open=!!opts.logOpen;
- const diagnosticsBody=el('div','alg-fold-content');
- diagnosticsBody.append(parts.last,el('small','hint','انحراف الضغط داخل المتصفح ليس وقت قبول السيرفر؛ التعويض الموجب يؤخر الضغط والسالب يقدّمه. القياسات محلية ولا تضمن الدقة.'));
- diagnostics.append(diagnosticsHeader,diagnosticsBody);
- diagnostics.addEventListener('toggle',()=>{opts.logOpen=diagnostics.open;save();});
- body.append(stats,modeLabel,inputs,settings,smartBox,rem,controls,parts.note,diagnostics);
+ body.append(stats,modeLabel,inputs,settings,rem,controls,parts.note);
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
  panel.classList.toggle('compact',opts.compact!==false);
@@ -499,7 +334,7 @@ function show(){
  const done=e=>{if(drag&&e.pointerId===drag.id){
   drag=null;opts.left=panel.offsetLeft;opts.top=panel.offsetTop;save();}};
  head.addEventListener('pointerup',done);head.addEventListener('pointercancel',done);
- message('جاهز؛ حدّد الوقت واضغط تجهيز.');
+ message('جاهز؛ حدّد وقت 24h وأجزاء الثانية واضغط تجهيز.');
  display();screenTimer=setInterval(display,100);
 }
 document.addEventListener(STOP,destroy,{once:true});

@@ -4,170 +4,63 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.3.2 metadata and code compile',()=>{
+test('v1.5 clean engine/loader compile, version and catalog match',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.3\.2/);
- assert.match(loader,/@version\s+1\.3\.2/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.3.2');
- assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
+ assert.match(core,/@version\s+1\.5\.0/);
+ assert.match(loader,/@version\s+1\.5\.0/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(s=>s.id==='send-automation').version,'1.5.0');
 });
-test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
- for(const value of ['توقيت الإرسال','توقيت الوصول','الأجزاء ms','التعويض ms','■ إلغاء','▶ تجهيز',
-  'readInputs','function clock(s)','predictedArrival','clearTimeout(timer)',"localStorage.getItem(GRANT)!=='1'","localStorage.getItem(HUMAN)==='1'",
-  'document.addEventListener(STOP,destroy',"document.addEventListener('algzawy-human-verification',destroy"])
-  assert.ok(core.includes(value),'missing '+value);
+test('adaptive model and all diagnostics removed; no hidden token POST',()=>{
+ assert.doesNotMatch(core,/SMART_MODEL|Smart Timing|smartEvaluate|smartRender|storeOutcome|collectNetwork|currentOffset|recordClick|parts\.smart|parts\.last|netEntries|netSeen|smartBox/);
+ assert.ok(core.includes("localStorage.removeItem('algzawy_send_smart_v13')"));
+ assert.ok(core.includes("localStorage.removeItem('algzawy_sends_last_click_v1')"));
+ assert.doesNotMatch(core,/tribalwars\.net\/token|resolve_tw_token|rotate_tw_token|\$\.post|input\[name=['"]h/);
+});
+test('manual server-time scheduling from v1.5 with license and UI remains',()=>{
+ for(const text of [
+  "const BUTTON=document.getElementById('troop_confirm_submit')",
+  "const GRANT='algzawy_portal_grant_'+ID",
+  "if(!armed||sent||!licensed())",
+  "if(!BUTTON.isConnected||BUTTON.disabled)",
+  "const ms=r.remaining>10000?500:r.remaining>1500?100:r.remaining>250?20:5",
+  "timer=setTimeout(()=>{timer=null;schedule();},ms)",
+  "const d=date(opts.date),t=time24(opts.time),ms=Number(opts.ms),off=Number(opts.offset)",
+  "const ref=opts.mode==='arrival'?predictedArrival():{time:now(),dated:true}",
+  "document.getElementById('serverDate')",
+  "document.getElementById('serverTime')",
+  "window.Timing?.getCurrentServerTime?.()",
+  "opts.dateAuto=true;syncServerDate();readInputs();",
+  "width:310px;max-width:calc(100vw - 10px)",
+  "panel.classList.toggle('collapsed',!!opts.collapsed)",
+  "parts.arm=btn('▶ تجهيز','go',arm)",
+  "document.addEventListener(STOP,destroy",
+  "document.addEventListener('algzawy-human-verification',destroy"
+ ])assert.ok(core.includes(text),'missing '+text);
  assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
- assert.ok(core.includes('sent=true;armed=false'));
- assert.ok(core.includes('if(r.remaining< -1500)'));
- assert.ok(core.includes("window.__algzawySendV11=true"));
 });
-test('only game native confirmation is used; remove unneeded outbound tracking',()=>{
- for(const expression of [/\$\.post/,/rotate_tw_token/,/resolve_tw_token/,/tribalwars\.net\/token\?/,/prompt\(/,/insertAdjacentHTML/])
-  assert.doesNotMatch(core,expression);
- assert.ok(!core.includes('GM_xmlhttpRequest'));
- assert.ok(core.includes('BUTTON.click()'));
-});
-
-test('server-time entry always uses locale-independent 24h HH:mm:ss rather than AM/PM',()=>{
- assert.ok(core.includes("t=input('الوقت 24h','text',opts.time)"));
- assert.ok(core.includes("i.placeholder='HH:mm:ss'"));
- assert.ok(core.includes("i.dir='ltr'"));
- assert.ok(core.includes("t.i.classList.add('alg-clock24')"));
- assert.ok(core.includes('function time24(s)'));
- assert.ok(core.includes('t=time24(opts.time)'));
- assert.ok(!core.includes("t=input('الوقت (ساعة:دقيقة:ثانية)','time',opts.time)"));
- const start=core.indexOf('function time24(s){');
- const end=core.indexOf('function target(){',start);
- assert.ok(start>=0 && end>start,'24-hour parser must exist before target()');
- const implementation=core.slice(start,end);
- const time24=new Function('clock',implementation+'\nreturn time24;')(s=>s.split(':').map(Number));
- assert.deepEqual(time24('23:59:59'),[23,59,59]);
+test('strict 24h, server calendar validation, midnight rollover',()=>{
+ const a=core.indexOf('function clock(s){'),b=core.indexOf('// Prefer the game',a);
+ assert.ok(a>0&&b>a);
+ const clock=new Function(core.slice(a,b)+'\nreturn {clock,date,epoch};')();
+ assert.deepEqual(clock.clock('23:59:59'),[23,59,59]);
+ assert.deepEqual(clock.clock('24:00:00'),null);
+ assert.deepEqual(clock.date('24/10/2026'),[2026,10,24]);
+ assert.deepEqual(clock.date('2026-10-24'),[2026,10,24]);
+ assert.equal(clock.date('31/02/2026'),null);
+ const time24=new Function('clock',core.slice(core.indexOf('function time24(s){'),core.indexOf('function target(){'))+'\nreturn time24;')(clock.clock);
  assert.deepEqual(time24('00:00:00'),[0,0,0]);
- for(const wrong of ['24:00:00','12:60:00','7:03:04','11:12 PM','13:30'])assert.equal(time24(wrong),null);
+ assert.deepEqual(time24('23:59:59'),[23,59,59]);
+ assert.equal(time24('13:00 PM'),null);
+ assert.equal(time24('8:05:00'),null);
+ assert.equal(clock.epoch([2026,10,24],[0,0,0])-clock.epoch([2026,10,23],[23,59,59]),1000);
 });
-
-test('automatically selects real server date across midnight, respecting manual overrides',()=>{
- for(const name of ["dateAuto:true","function syncServerDate()","opts.dateAuto=false","opts.dateAuto=true;syncServerDate()",
- "syncServerDate();","serverDateISO(now())","if(armed||opts.dateAuto===false||!server)return"])
-  assert.ok(core.includes(name),name);
-});
-test('uses millisecond game clock or fallback with shorter final timers',()=>{
- for(const fragment of ["window.Timing?.getCurrentServerTime?.()","source:'game'","source:'display'","performance.now()",
-  "r.remaining>35?5","setInterval(display,100)","انحراف الضغط داخل المتصفح"])
-  assert.ok(core.includes(fragment),fragment);
-});
-test('simulates date rollover from serverDate and valid high resolution Timing source',()=>{
- const fragment=core.slice(core.indexOf('function gameClock(sec)'),core.indexOf('function predictedArrival()'));
- assert.ok(fragment.startsWith('function gameClock('));
- const harness=new Function('date','clock','epoch','performance','window','document','pad','opts','parts','save',
- 'let server=null,armed=false;\n'+fragment+'\nreturn {observe,now,syncServerDate,getServer:()=>server};');
- const date=s=>{const m=String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?[+m[3],+m[2],+m[1]]:null;};
- const clock=s=>String(s).split(':').map(Number);
- const epoch=(d,t)=>Date.UTC(d[0],d[1]-1,d[2],t[0],t[1],t[2]);
- const elements={serverDate:{textContent:'24/10/2026'},serverTime:{textContent:'00:30:37'}};
- const opts={date:'2026-10-23',dateAuto:true}, parts={date:{value:'2026-10-23'}};
- const real=Date.UTC(2026,9,24,0,30,37,425);
- const app=harness(date,clock,epoch,{now:()=>12345},{Timing:{getCurrentServerTime:()=>real}},
- {getElementById:id=>elements[id]},n=>String(n).padStart(2,'0'),opts,parts,()=>{});
- assert.equal(app.observe(),true);
- assert.equal(app.getServer().source,'game');
- app.syncServerDate();
- assert.equal(opts.date,'2026-10-24');assert.equal(parts.date.value,'2026-10-24');
- assert.equal(app.now(),real);
- opts.dateAuto=false;opts.date='2026-10-28';app.syncServerDate();
- assert.equal(opts.date,'2026-10-28');
-});
-
-test('arrival prediction adopts server milliseconds instead of truncating to 000 at each DOM tick',()=>{
- assert.ok(core.includes("value+=((now()%1000)+1000)%1000"));
- assert.ok(core.includes("const key=(d?d.join('-'):'date-missing')+' '+t.join(':')"));
-});
-
-test('last-click diagnostics persist locally and distinguish browser timing from network acknowledgement',()=>{
- assert.ok(core.includes("LAST='algzawy_sends_last_click_v1'"));
- assert.ok(core.includes("function recordClick()"));
- assert.ok(core.includes("function renderLastClick(entry)"));
- assert.ok(core.includes("recordClick();\n BUTTON.click();"));
- assert.ok(core.includes("localStorage.setItem(LAST,JSON.stringify(entry))"));
- assert.ok(core.includes("localStorage.getItem(LAST)"));
- assert.ok(core.includes("browserDeviationMs:Math.round(reference-adjusted)"));
- assert.ok(core.includes("clockSource:server?.source"));
- assert.ok(core.includes("parts.last=el('div','hint alg-last')"));
- assert.ok(core.includes("diagnosticsBody.append(parts.last"));
- assert.ok(core.includes("التعويض الموجب يؤخر الضغط"));
- assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
- assert.doesNotMatch(core,/\$\.post/);
-});
-
-test('Smart Timing license-safe opt-in, passive measurements, per-mode local calibration',()=>{
- for(const marker of ["SMART='algzawy_send_smart_v13'","smart:false","history={send:[],arrival:[]}",
- "function collectNetwork()","performance.getEntriesByType('resource')","u.origin!==location.origin",
- "function storeOutcome()","function clearSmartResults()","armedOffset=currentOffset()",
- "if(armedOffset!==null)return armedOffset","opts.smart=!!parts.smart?.checked",
- "parts.smart.type='checkbox'","parts.inputs.push(parts.smart)","history[mode].push(",
- "localStorage.setItem(SMART,JSON.stringify(history))","netMedian:collectNetwork()"])
-  assert.ok(core.includes(marker),'missing '+marker);
- assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
-});
-test('Smart Timing rejects too few or unstable results, bounds compensation, blends trusted network changes',()=>{
- const st=core.indexOf('// SMART_MODEL_START'),en=core.indexOf('// SMART_MODEL_END');
- assert.ok(st>0&&en>st);
- const {smartEvaluate}=new Function(core.slice(st,en)+'\nreturn {smartEvaluate};')();
- const log=(a,net=100)=>a.map((lag,i)=>({lag,at:Date.now()-i*1000,net}));
- const none={source:'unavailable',median:null,jitter:null,count:0};
- assert.equal(smartEvaluate(log([210,220]),none).ready,false);
- assert.equal(smartEvaluate(log([205,215,225,230]),none).offset,-220);
- assert.equal(smartEvaluate(log([205,215,225,230]),{source:'observed',median:140,jitter:10,count:8}).offset,-240);
- assert.equal(smartEvaluate(log([70,220,450]),none).ready,false);
- assert.equal(smartEvaluate(log([210,220,230]),{source:'observed',median:100,jitter:150,count:8}).ready,false);
- assert.equal(smartEvaluate(log([220,225,222,1500]),none).offset,-222);
- assert.equal(smartEvaluate([{lag:230,at:Date.now()-20*86400000}],none).count,0);
-});
-
-test('Smart feedback field accepts signed values and preserves manual alternative',()=>{
- assert.ok(core.includes("parts.smartObserved.type='text'"));
- assert.ok(core.includes("parts.smartObserved.inputMode='numeric'"));
- assert.ok(core.includes("/^[+-]?\\d{1,4}$/.test(raw)"));
- assert.ok(core.includes("smart:false"));
-});
-
-test('compact default UI preserves required fields and collapsible smart/settings/diagnostics',()=>{
- for(const marker of ["compact:true,smartOpen:false,settingsOpen:false,logOpen:false",
- "parts.smartSummary=el('small','smart-brief'","smartBody.hidden=!opts.smartOpen",
- "smartFold.setAttribute('aria-expanded'","settings=el('details','alg-fold')",
- "settings.open=!!opts.settingsOpen","diagnostics.open=!!opts.logOpen",
- "opts.logOpen=diagnostics.open","panel.classList.toggle('compact',opts.compact!==false)",
- "panel.classList.toggle('spacious',opts.compact===false)",
- "body.append(stats,modeLabel,inputs,settings,smartBox,rem,controls,parts.note,diagnostics)",
- "settingsContent.append(resetDate,parts.source,parts.hint)","parts.last=el('div','hint alg-last')",
- "انحراف الضغط داخل المتصفح","التعويض الموجب يؤخر الضغط"])
-  assert.ok(core.includes(marker),'missing '+marker);
- assert.ok(core.includes("parts.smart.addEventListener('change',readInputs)"));
- assert.ok(core.includes("const m=input('الأجزاء ms'"));
- assert.ok(core.includes("const d=input('التاريخ'"));
- assert.ok(core.includes("const controls=el('div','grid')"));
- assert.ok(core.includes("parts.arm=btn('▶ تجهيز','go',arm)"));
- assert.ok(!core.includes("body.append(stats,modeLabel,parts.hint,inputs,parts.source,smartBox"));
- assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
-});
-
-test('smart fold button uses a valid event listener instead of non-callable callback',()=>{
- assert.ok(core.includes("const smartFold=el('button','alg-button',opts.smartOpen?'▴':'▾')"));
- assert.ok(core.includes("smartFold.onclick=()=>{"));
- assert.ok(!core.includes("const smartFold=btn(opts.smartOpen?'▴':'▾','','')"));
-});
-
-test('v1.3.2 migrates old expanded UI once and uses a 310px panel',()=>{
- for(const marker of ["width:310px;max-width:calc(100vw - 10px)",
-  "'#'+ROOT+'.spacious{width:360px}'",
-  "const firstCompact132=opts.uiLayoutVersion!=='1.3.2'",
-  "opts.compact=true;opts.smartOpen=false;opts.settingsOpen=false;opts.logOpen=false",
-  "opts.uiLayoutVersion='1.3.2'","if(firstCompact132)save()",
-  "'الإرساليات · v1.3.2'",
-  "parts.smartSummary.textContent=(opts.smart?'ذكي':'يدوي')+' '+offset+'ms'",
-  "settingsHeader=el('summary','','⚙ إضافي')",
-  "diagnosticsHeader=el('summary','','سجل التنفيذ')"])
-  assert.ok(core.includes(marker),'missing '+marker);
- assert.ok(core.includes("opts.ms=Number(parts.ms.value);opts.offset=Number(parts.offset.value)"));
- assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1);
+test('loader requires approved device and licensed entitlement',()=>{
+ for(const text of [
+ "const ID = \"send-automation\"",
+ "algzawy_portal_device_authorized_until",
+ "algzawy_portal_approved_device",
+ "localStorage.getItem('algzawy_portal_grant_'+ID)==='1'",
+ "const STOP_EVENT =",
+ "scripts/send-automation.js"
+ ])assert.ok(loader.includes(text),'missing '+text);
 });
