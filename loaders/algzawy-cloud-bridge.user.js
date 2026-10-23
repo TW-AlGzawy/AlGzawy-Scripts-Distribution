@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.3.1
+// @version      2.3.2
 // @description  Auto License V2 + AlG Control Center; approved device and 22 licensed scripts
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -839,15 +839,20 @@
      if(el.style.zIndex!=='2147483001')el.style.zIndex='2147483001';
      if(!el.dataset.algzawyCopy){
        el.dataset.algzawyCopy='1';
-       const body=el.querySelector('.body,.alg-body,.alg-content,.tw-panel-content,[id$="-body"]')||
-         (extraPanels.includes(el.id)?el:null);
+       const body=el.querySelector('.body,.alg-body,.alg-content,.tw-panel-content,[id$="-body"]')||el;
        if(body&&!body.textContent.includes('جميع الحقوق محفوظة')){
          const foot=document.createElement('div');
          foot.textContent='BETA · © 2026 الغزااوي — جميع الحقوق محفوظة';
          foot.style.cssText='text-align:center;padding:5px 2px;margin-top:6px;color:#8bb9bd;font:9px/1.4 Tahoma,Arial;border-top:1px solid #2b6669';
+         foot.setAttribute('data-algzawy-copyright','1');
+         foot.style.pointerEvents='none';
          body.append(foot);
        }
      }
+     // A legacy panel may have no inner content element. Keep its small
+     // title bar compact when the bot itself minimizes the panel.
+     const ownFoot=el.querySelector(':scope > [data-algzawy-copyright]');
+     if(ownFoot)ownFoot.style.display=el.offsetHeight<65?'none':'block';
    }
    return list;
  }
