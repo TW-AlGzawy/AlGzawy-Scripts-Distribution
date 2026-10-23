@@ -12,7 +12,7 @@ const group={
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
  military:{title:'الهجمات والإرسال',symbol:'➤'},tools:{title:'أدوات إضافية',symbol:'✧'}
 };
-const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك'};
+const names={dashboard:'لوحة التحكم',scripts:'السكربتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'الأجهزة والربط',account:'حسابي والاشتراك'};
 function el(tag,className,text){
   const node=document.createElement(tag);
   if(className)node.className=className;
@@ -150,7 +150,7 @@ function updateCloud(){
 async function refreshCloud(){
   try{const d=await api('status');state.global=d.global||null;}catch(_){state.global=null;}
   updateCloud();
-  if(state.user){renderMetrics();renderStatus();}
+  if(state.user){renderMetrics();renderStatus();renderAccount();}
 }
 function renderMetrics(){
   const total=allowed().length,on=enabled().length;
@@ -193,16 +193,16 @@ function switchFor(item){
 }
 function renderQuick(){
   const root=$('quickScripts');root.replaceChildren();
-  const items=allowed().slice().sort((a,b)=>Number(!!state.prefs[b.id]?.enabled)-Number(!!state.prefs[a.id]?.enabled)).slice(0,5);
-  if(!items.length){root.append(el('div','empty','لا توجد سكربتات مرخصة. يمكن للإدارة تحديد صلاحيات هذا الاشتراك.'));return;}
+  const items=allowed().slice().sort((a,b)=>Number(!!state.prefs[b.id]?.enabled)-Number(!!state.prefs[a.id]?.enabled)).slice(0,6);
+  if(!items.length){root.append(el('div','empty','لا توجد سكربتات مرخصة لهذا الحساب.'));return;}
   for(const item of items){
     const row=el('div','quick-row');
-    const icon=el('span','bot-icon',group[item.category]?.symbol||'✧');icon.style.width='32px';icon.style.height='32px';
-    const name=el('div','quick-name',item.name);
-    const stateLabel=el('small','',state.prefs[item.id]?.enabled?'مفعّل':'متوقف');
-    const button=el('button','btn outline','تفاصيل');
-    button.addEventListener('click',()=>openScript(item.id));
-    row.append(icon,name,stateLabel,button);root.append(row);
+    const icon=el('span','bot-icon',group[item.category]?.symbol||'✧');
+    const info=el('div','quick-name');
+    info.append(el('strong','',item.name),el('small','',status(item).label+' · '+(group[item.category]?.title||'أداة')));
+    const detail=el('button','btn outline','⚙ الإعدادات');
+    detail.addEventListener('click',()=>openScript(item.id));
+    row.append(icon,info,switchFor(item),detail);root.append(row);
   }
 }
 function renderFilters(){
@@ -227,14 +227,18 @@ function renderScripts(){
     const pref=state.prefs[item.id]||{};
     const card=el('article','bot-card');
     const top=el('div','bot-top');
-    top.append(el('span','bot-icon',group[item.category]?.symbol||'✧'),switchFor(item));
-    const title=el('h3','',item.name),description=el('p','',item.description||group[item.category]?.title||'');
-    const lower=el('div','bot-bottom');
+    const icon=el('span','bot-icon',group[item.category]?.symbol||'✧');
+    const info=el('div','bot-title-info');
+    info.append(el('h3','',item.name),el('p','',item.description||group[item.category]?.title||''));
+    top.append(icon,info);
     const detail=status(item),pill=el('span','bot-status'+(pref.enabled?' on':''),detail.label);
+    const lower=el('div','bot-bottom');
     const actions=el('div','bot-actions');
-    const info=el('button','btn outline','التفاصيل');info.addEventListener('click',()=>openScript(item.id));
-    const install=el('a','btn subtle','تثبيت ↗');install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';
-    actions.append(info,install);lower.append(pill,actions);card.append(top,title,description,lower);root.append(card);
+    const details=el('button','btn outline','⚙ التفاصيل');details.addEventListener('click',()=>openScript(item.id));
+    const install=el('a','btn subtle','تثبيت المحرك ↗');
+    install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';
+    actions.append(details,install);lower.append(pill,actions);
+    card.append(top,switchFor(item),lower);root.append(card);
   }
 }
 function renderActivity(){
@@ -247,8 +251,16 @@ function renderActivity(){
   }
 }
 function renderAccount(){
-  $('accountLabel').textContent=state.user?.label||'—';
-  $('sessionExpiry').textContent=state.expiresAt?new Date(state.expiresAt*1000).toLocaleString('ar-BE'):'—';
+  const label=state.user?.label||'—';
+  const expires=state.expiresAt?new Date(state.expiresAt*1000).toLocaleString('ar-BE'):'—';
+  $('accountLabel').textContent=label;
+  $('sessionExpiry').textContent=expires;
+  // First-party authenticated values only; no synthetic paid plan/device count.
+  $('dashboardAccountName').textContent=label;
+  $('dashboardEntitlements').textContent=String(allowed().length)+' سكربت';
+  $('dashboardSession').textContent=expires;
+  $('dashboardSyncStatus').textContent=state.global===null?'تعذر الاتصال — التحقق مطلوب':
+    state.global.enabled?'التحكم المركزي متاح — تحقق اللعبة مستقل':'المنظومة موقوفة من الإدارة';
 }
 function render(){
   renderMetrics();renderStatus();renderQuick();renderFilters();renderScripts();renderActivity();renderAccount();
