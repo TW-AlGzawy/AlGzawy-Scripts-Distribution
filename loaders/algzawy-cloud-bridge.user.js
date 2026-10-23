@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - جسر السحابة
+// @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.2.0
+// @version      2.3.0
 // @description  Auto License V2 + AlG Control Center; approved device and 22 licensed scripts
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -29,7 +29,7 @@
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي","algzawy-builder-v1":"البناء التقليدي المتطور"};
+  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","professional-training-v2":"الغزااوي | بوت التدريب المحسّن","send-automation":"الغزااوي | الإرساليات الدقيقة","attack-renamer":"الغزااوي | تسمية الهجمات","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","polish-all-in-one":"الغزااوي | الصقل المتكامل","alg-coins":"الغزااوي | الصقل المتطور","market-bot-v7":"الغزااوي | بوت السوق","training-edition":"الغزااوي | التدريب البديل","professional-training":"الغزااوي | التدريب الاحترافي","light":"الغزااوي | التدريب الخفيف","train-master-b":"الغزااوي | مدرب الجنود","reserve-smart-v5":"الغزااوي | الحجز الذكي الخامس","reserve-smart-v4":"الغزااوي | الحجز الذكي الرابع","reserve-correct-v2":"الغزااوي | الحجز المصحح","auto-reserve-barbarians":"الغزااوي | حجز القرى البربرية","holy-grail":"الغزااوي | المساعد المتكامل","tribal-wars-helper":"الغزااوي | جامع الجوائز التلقائي","algzawy-builder-v1":"الغزااوي | البناء التقليدي"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
@@ -477,7 +477,7 @@
  ['mass-scavenge-v1','الإغارات الجماعية','♜'],
  ['bot-farm-2','بوت النهب','⚔'],
  ['alg-balance','موازنة الموارد','◈'],
- ['algzawy-builder-v1','البناء التقليدي المتطور','▦'],
+ ['algzawy-builder-v1','البناء التقليدي','▦'],
  ['professional-training-v2','بوت التدريب','♟'],
  ['send-automation','الإرساليات الدقيقة','⇢'],
  ['attack-renamer','تسمية الهجمات','⌁'],
@@ -497,7 +497,7 @@
  ['holy-grail','المساعد المتكامل','✧'],
  ['tribal-wars-helper','جامع الجوائز','✦']
  ];
- const oldBridgeLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي","algzawy-builder-v1":"البناء التقليدي المتطور"};
+ const oldBridgeLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","professional-training-v2":"الغزااوي | بوت التدريب المحسّن","send-automation":"الغزااوي | الإرساليات الدقيقة","attack-renamer":"الغزااوي | تسمية الهجمات","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","polish-all-in-one":"الغزااوي | الصقل المتكامل","alg-coins":"الغزااوي | الصقل المتطور","market-bot-v7":"الغزااوي | بوت السوق","training-edition":"الغزااوي | التدريب البديل","professional-training":"الغزااوي | التدريب الاحترافي","light":"الغزااوي | التدريب الخفيف","train-master-b":"الغزااوي | مدرب الجنود","reserve-smart-v5":"الغزااوي | الحجز الذكي الخامس","reserve-smart-v4":"الغزااوي | الحجز الذكي الرابع","reserve-correct-v2":"الغزااوي | الحجز المصحح","auto-reserve-barbarians":"الغزااوي | حجز القرى البربرية","holy-grail":"الغزااوي | المساعد المتكامل","tribal-wars-helper":"الغزااوي | جامع الجوائز التلقائي","algzawy-builder-v1":"الغزااوي | البناء التقليدي"};
  const css=[
  '#algzawy-smart-launcher-qa{position:fixed;right:15px;bottom:15px;z-index:2147482100;width:354px;max-width:calc(100vw - 12px);max-height:86vh;display:flex;flex-direction:column;background:#091e2c;color:#e0f9f2;border:1px solid #2c9388;border-radius:12px;box-shadow:0 15px 38px #000c;overflow:hidden;font:12px/1.6 Tahoma,Arial;direction:rtl}',
  '#algzawy-smart-launcher-qa *{box-sizing:border-box}',
@@ -535,6 +535,28 @@
  ].join('\n');
  const make=(tag,cls,content)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(content!==undefined)e.textContent=content;return e;};
  const positionKey='algzawy_launcher_geometry_v1';
+  const RELEASES='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/catalog.json';
+  let availableVersions=new Map(),lastVersionCheck=0;
+  const installedVersion=id=>localStorage.getItem('algzawy_installed_loader_version_'+id);
+  function newer(a,b){
+    const x=String(a||'').split('.').map(Number),y=String(b||'').split('.').map(Number);
+    for(let i=0;i<Math.max(x.length,y.length);i++)if((x[i]||0)!==(y[i]||0))return (x[i]||0)>(y[i]||0);
+    return false;
+  }
+  function fetchVersions(force=false){
+    if(!force&&Date.now()-lastVersionCheck<300000)return;
+    lastVersionCheck=Date.now();
+    GM_xmlhttpRequest({method:'GET',url:RELEASES,timeout:8000,
+      onload:r=>{
+        try{
+          if(r.status!==200)return;
+          const entries=JSON.parse(r.responseText).published_candidates;
+          if(!Array.isArray(entries))return;
+          availableVersions=new Map(entries.filter(x=>ids.some(([id])=>id===x.id)).map(x=>[x.id,x]));
+          render();
+        }catch(_){}
+      },onerror:()=>{},ontimeout:()=>{}});
+  }
  let panel,body,list,stats=[],statusText,diagnostic,syncButton,linkButton,mini,collapsed=false,nativeObserver=null;
  let syncState={phase:'idle',message:'لا توجد نتيجة مزامنة مؤكدة لهذه الصفحة بعد.',at:0};
  try{collapsed=JSON.parse(localStorage.getItem(positionKey)||'{}').collapsed===true;}catch(_){}
@@ -661,7 +683,21 @@
        if(!native||!ready()||!authorized()){render();return;}
        native.click();render();
      });
-     row.append(make('span','symbol',symbol),meta,button);list.append(row);
+     const latest=availableVersions.get(id),installed=installedVersion(id);
+      if(installed&&latest?.version){
+        meta.append(make('small','', 'المثبت v'+installed+' · الأحدث v'+latest.version));
+      }
+      if(latest&&(!installed||newer(latest.version,installed))){
+        const pending=!installed;
+        const update=make('button','btn',pending?'فحص / تثبيت':'↻ تحديث');
+        update.type='button';
+        update.title=pending?'لا توجد قراءة مؤكدة للإصدار المثبت؛ يمكن تثبيت المحمّل الرسمي أولًا':'يتطلب تأكيد التحديث في Tampermonkey، ولا يختفي حتى يبلّغ الإصدار الجديد';
+        update.addEventListener('click',()=>{
+          if(/^https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/main\/loaders\/[a-z0-9-]+\.user\.js$/.test(latest.installer))window.open(latest.installer,'_blank','noopener,noreferrer');
+        });
+        row.append(update);
+      }
+      row.append(make('span','symbol',symbol),meta,button);list.append(row);
    }
  }
  function savePosition(){
@@ -764,7 +800,95 @@
    document.addEventListener('algzawy-local-control-changed',render);
    window.addEventListener('online',render);
    window.addEventListener('focus',render);
-   setInterval(render,4000);render();
+   setInterval(render,4000);setInterval(()=>fetchVersions(true),300000);fetchVersions(true);render();
  }
  if(document.body)setup();else document.addEventListener('DOMContentLoaded',setup,{once:true});
+})();
+
+/* Floating Workspace: shared z-plane, F1 visual hide, magnetic dock. Only presentation changes. */
+(function(){
+ 'use strict';
+ if(window.__algzawyFloatWorkspace)return;window.__algzawyFloatWorkspace=true;
+ const CENTER='algzawy-smart-launcher-qa',KEY='algzawy_magnetic_dock_v1',CLASS='algzawy-dock-managed',CLOAK='algzawy-camouflage';
+ const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+ let links=[];
+ try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(v))links=v.filter(x=>typeof x==='string'&&/^alg(?:zawy)?[-_]/.test(x)).slice(0,15);}catch(_){}
+ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(links));}catch(_){}};
+ const master=()=>document.getElementById(CENTER);
+ const nodes=()=>[...document.querySelectorAll('[id^="alg"],[id^="AlG"]')].filter(el=>
+   el.id!==CENTER&&!/blocked|verification|notice|overlay|toast|modal|status/i.test(el.id)
+   &&!el.closest('#'+CENTER)&&!el.closest('#algzawy-cloud-pair-panel')
+   &&el.offsetWidth>=110&&el.offsetHeight>=23
+   &&getComputedStyle(el).position==='fixed'
+   &&!!el.querySelector('header,.head,.alg-head,[id*="hdr"],[id*="header"],.alg-title'));
+ function collect(){
+   const list=nodes();
+   for(const el of list){
+     el.classList.add(CLASS);
+     if(el.style.zIndex!=='2147483001')el.style.zIndex='2147483001';
+     if(!el.dataset.algzawyCopy){
+       el.dataset.algzawyCopy='1';
+       const body=el.querySelector('.body,.alg-body,.alg-content,[id$="-body"]');
+       if(body){
+         const foot=document.createElement('div');
+         foot.textContent='BETA · © 2026 الغزااوي — جميع الحقوق محفوظة';
+         foot.style.cssText='text-align:center;padding:5px 2px;margin-top:6px;color:#8bb9bd;font:9px/1.4 Tahoma,Arial;border-top:1px solid #2b6669';
+         body.append(foot);
+       }
+     }
+   }
+   return list;
+ }
+ function moveLinked(){
+   const c=master();if(!c)return;
+   const r=c.getBoundingClientRect(),items=collect();
+   let top=r.top;
+   for(const id of links){
+     const el=items.find(x=>x.id===id);if(!el)continue;
+     const w=el.offsetWidth,h=el.offsetHeight;
+     const left=r.left>w+8?r.left-w-8:r.right+w+8<innerWidth?r.right+8:clamp(r.left,0,innerWidth-w);
+     el.style.left=Math.round(clamp(left,0,Math.max(0,innerWidth-w)))+'px';
+     el.style.top=Math.round(clamp(top,0,Math.max(0,innerHeight-40)))+'px';
+     el.style.right='auto';el.style.bottom='auto';
+     top+=Math.min(h,180)+8;
+   }
+ }
+ function gap(a,b){
+   const x=Math.max(0,a.left-b.right,b.left-a.right),y=Math.max(0,a.top-b.bottom,b.top-a.bottom);
+   return Math.hypot(x,y);
+ }
+ function dock(el){
+   const c=master();if(!c||!el)return;
+   if(gap(el.getBoundingClientRect(),c.getBoundingClientRect())<=72){
+     if(!links.includes(el.id))links.push(el.id);
+   }else links=links.filter(x=>x!==el.id);
+   save();moveLinked();
+ }
+ let gesture=null;
+ document.addEventListener('pointerdown',e=>{
+   const p=e.target.closest?.('.'+CLASS);
+   if(!p||!e.target.closest('header,.head,.alg-head,[id*="hdr"],[id*="header"]')||e.target.closest('button,input,textarea,select'))return;
+   gesture={id:e.pointerId,el:p};
+ },true);
+ document.addEventListener('pointerup',e=>{
+   if(!gesture||gesture.id!==e.pointerId)return;
+   const el=gesture.el;gesture=null;setTimeout(()=>dock(el),0);
+ });
+ document.addEventListener('pointercancel',()=>{gesture=null;});
+ document.addEventListener('keydown',e=>{
+   if(e.key!=='F1'||e.repeat||e.altKey||e.ctrlKey||e.metaKey||e.target.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+   if(!document.body)return;
+   e.preventDefault();e.stopPropagation();document.body.classList.toggle(CLOAK);
+ },true);
+ const css=document.createElement('style');
+ css.textContent='body.'+CLOAK+' .'+CLASS+',body.'+CLOAK+' #'+CENTER+',body.'+CLOAK+' #algzawy-cloud-pair-panel{visibility:hidden!important;pointer-events:none!important}';
+ (document.head||document.documentElement).append(css);
+ function init(){
+   collect();moveLinked();
+   const c=master(),h=c?.querySelector('.h');
+   if(h){h.addEventListener('pointermove',moveLinked);h.addEventListener('pointerup',()=>setTimeout(moveLinked,0));}
+   new MutationObserver(()=>collect()).observe(document.body,{childList:true,subtree:true});
+   setInterval(()=>{if(document.visibilityState==='visible')moveLinked();},2000);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
