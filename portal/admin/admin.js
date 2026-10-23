@@ -13,6 +13,7 @@ const errorArabic=err=>({
  portal_not_configured:'إعدادات Cloudflare غير مكتملة.',
  service_unavailable:'خدمة الإدارة غير متاحة حاليًا.',
  invalid_name:'اسم المشترك غير صالح.',
+ account_not_eligible:'تعذر تغيير حالة الحساب؛ حدّث القائمة، واستعد الحساب من الأرشيف أولًا إن كان مؤرشفًا.',
  invalid_subscription:'حالة الاشتراك أو التاريخ غير صالح.',
  invalid_entitlements:'قائمة السكربتات غير صالحة.',
  key_not_recoverable:'المفتاح القديم محفوظ كـHash فقط؛ يمكنك إصدار مفتاح جديد.',
@@ -134,6 +135,17 @@ async function loadUsers(){
            }catch(err){toast(errorArabic(err),true);disable.disabled=false;}
          });row.append(disable);
        }else{
+         const enable=h('button','button button-primary button-sm','إعادة تفعيل الحساب');
+         enable.type='button';enable.addEventListener('click',async()=>{
+           if(!confirm('إعادة تفعيل حساب '+user.label+'؟ تبقى حالة الاشتراك وتاريخ انتهائه والتراخيص واعتمادات الأجهزة دون تغيير.'))return;
+           enable.disabled=true;
+           try{
+             await api('admin/users/'+encodeURIComponent(user.id)+'/enable',{method:'POST',body:{}});
+             toast('أُعيد تفعيل الحساب؛ راجع حالة الاشتراك من الصلاحيات والأجهزة.');
+             await loadUsers();
+           }catch(err){toast(errorArabic(err),true);enable.disabled=false;}
+         });
+         row.append(enable);
          const archiveAction=h('button','button button-outline button-sm','أرشفة');
          archiveAction.type='button';archiveAction.addEventListener('click',async()=>{
            if(!confirm('أرشفة حساب '+user.label+'؟ سيبقى معطّلًا ولن يفقد بياناته.'))return;
