@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('scripts/send-automation.js'),loader=read('loaders/send-automation.user.js');
-test('Arabic floating send scheduler v1.1 metadata and code compile',()=>{
+test('Arabic floating send scheduler v1.1.1 metadata and code compile',()=>{
  new vm.Script(core);new vm.Script(loader);
- assert.match(core,/@version\s+1\.1\.0/);
- assert.match(loader,/@version\s+1\.1\.0/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.1.0');
+ assert.match(core,/@version\s+1\.1\.1/);
+ assert.match(loader,/@version\s+1\.1\.1/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='send-automation').version,'1.1.1');
  assert.ok(read('loaders/algzawy-cloud-bridge.user.js').includes("'send-automation'"));
 });
 test('time modes, milliseconds, offset, cancel and safety stop remain available',()=>{
@@ -26,4 +26,18 @@ test('only game native confirmation is used; remove unneeded outbound tracking',
   assert.doesNotMatch(core,expression);
  assert.ok(!core.includes('GM_xmlhttpRequest'));
  assert.ok(core.includes('BUTTON.click()'));
+});
+
+test('server-time entry always uses locale-independent 24h HH:mm:ss rather than AM/PM',()=>{
+ assert.ok(core.includes("t=input('الوقت بنظام 24 ساعة HH:mm:ss','text',opts.time)"));
+ assert.ok(core.includes("i.placeholder='HH:mm:ss'"));
+ assert.ok(core.includes("i.dir='ltr'"));
+ assert.ok(core.includes("t.i.classList.add('alg-clock24')"));
+ assert.ok(core.includes('function time24(s)'));
+ assert.ok(core.includes('t=time24(opts.time)'));
+ assert.ok(!core.includes("t=input('الوقت (ساعة:دقيقة:ثانية)','time',opts.time)"));
+ const time24=Function('s',`const clock=s=>{const m=String(s||'').match(/(\\d{1,2}):(\\d{2}):(\\d{2})/);if(!m)return null;const a=m.slice(1).map(Number);return a[0]<24&&a[1]<60&&a[2]<60?a:null;};${core.match(/function time24\\(s\\)\\{[\\s\\S]*?\\n\\}/)?.[0]||''}; return time24(s);`);
+ assert.deepEqual(time24('23:59:59'),[23,59,59]);
+ assert.deepEqual(time24('00:00:00'),[0,0,0]);
+ for(const wrong of ['24:00:00','12:60:00','7:03:04','11:12 PM','13:30'])assert.equal(time24(wrong),null);
 });

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AlGzawy | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.1.0
+// @version      1.1.1
 // @description  توقيت الإرسال والوصول بأجزاء الثانية من لوحة عربية عائمة
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -62,8 +62,12 @@ function predictedArrival(){
   arrival={key,stamp:value,at:performance.now(),dated:!!d};
  return {time:arrival.stamp+Math.max(0,performance.now()-arrival.at),dated:arrival.dated};
 }
+function time24(s){
+ if(!/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(String(s||'')))return null;
+ return clock(s);
+}
 function target(){
- const d=date(opts.date),t=clock(opts.time),ms=Number(opts.ms),off=Number(opts.offset);
+ const d=date(opts.date),t=time24(opts.time),ms=Number(opts.ms),off=Number(opts.offset);
  if(!d||!t||!Number.isInteger(ms)||ms<0||ms>999||!Number.isInteger(off)||off< -5000||off>5000)return null;
  return epoch(d,t,ms)+off;
 }
@@ -119,7 +123,7 @@ function arm(){
  if(armed||sent)return;
  if(!licensed()){message('فعّل الإرساليات من الموقع والجسر واعتمد الجهاز أولًا.','error');return;}
  readInputs();const r=difference();
- if(r.error){message(r.error,'error');return;}
+ if(r.error){message(r.error==='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
  if(r.remaining<=500){message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
  if(r.remaining>7*DAY){message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
  armed=true;parts.arm.textContent='● الموعد مجهّز';parts.arm.disabled=true;
@@ -144,7 +148,11 @@ function btn(txt,cl,fn){const x=el('button','alg-button '+cl,txt);x.type='button
 function input(label,type,value,min,max){
  const wrap=el('label','alg-field'),cap=el('span','',label),i=el('input','alg-input');i.type=type;
  i.value=String(value??'');if(min!==undefined)i.min=String(min);if(max!==undefined)i.max=String(max);
- if(type==='time')i.step='1';i.addEventListener('change',readInputs);i.addEventListener('input',readInputs);
+ if(type==='text'){
+  i.maxLength=8;i.placeholder='HH:mm:ss';i.dir='ltr';i.autocomplete='off';i.spellcheck=false;
+  i.setAttribute('aria-label','الوقت بنظام 24 ساعة HH:mm:ss');
+ }
+ i.addEventListener('change',readInputs);i.addEventListener('input',readInputs);
  wrap.append(cap,i);return{wrap,i};
 }
 function show(){
@@ -161,6 +169,7 @@ function show(){
  '#'+ROOT+' .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}',
  '#'+ROOT+' .alg-field{display:grid;gap:3px;color:#b2d2d4;font-size:10px}',
  '#'+ROOT+' .alg-input{width:100%;min-width:0;background:#061824;color:#eefefa;border:1px solid #2e6370;border-radius:7px;padding:7px;color-scheme:dark}',
+ '#'+ROOT+' .alg-clock24{direction:ltr;text-align:center;font-variant-numeric:tabular-nums}',
  '#'+ROOT+' .alg-button{background:#194b45;color:#d8fff0;border:1px solid #2c8177;border-radius:7px;padding:8px}',
  '#'+ROOT+' .alg-button.go{background:#47e6b7;color:#08312b;font-weight:900}',
  '#'+ROOT+' .alg-button.stop{background:#432a35;color:#ffe2e7;border-color:#84515f}',
@@ -197,7 +206,8 @@ function show(){
   if(!opts.date)opts.date=soon.getUTCFullYear()+'-'+pad(soon.getUTCMonth()+1)+'-'+pad(soon.getUTCDate());
   if(!opts.time)opts.time=pad(soon.getUTCHours())+':'+pad(soon.getUTCMinutes())+':'+pad(soon.getUTCSeconds());
  }
- const d=input('التاريخ بتوقيت الخادم','date',opts.date),t=input('الوقت (ساعة:دقيقة:ثانية)','time',opts.time);
+ const d=input('التاريخ بتوقيت الخادم','date',opts.date),t=input('الوقت بنظام 24 ساعة HH:mm:ss','text',opts.time);
+ t.i.classList.add('alg-clock24');
  const m=input('أجزاء الثانية ms','number',opts.ms,0,999),o=input('تعويض التأخير ms','number',opts.offset,-5000,5000);
  parts.date=d.i;parts.time=t.i;parts.ms=m.i;parts.offset=o.i;
  parts.inputs=[parts.mode,d.i,t.i,m.i,o.i];
