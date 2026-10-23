@@ -107,8 +107,8 @@
                 </div>
               </div>
               <div class="alg-sync-box"><span class="alg-sync-icon">☁</span><div><strong>المزامنة السحابية</strong><p>التشغيل والصلاحيات محفوظة على الخادم، ويقرأها Cloud Bridge بعد التحقق من جهازك.</p><span id="dashboardSyncStatus">لم يبدأ التحقق بعد</span></div></div>
-              <button class="btn primary block alg-launcher-cta" type="button" data-go="connect" id="launcherCta">⇩ تثبيت AlG Smart Launcher <small>افتح خطوات تثبيت مركز التحكم التجريبي</small></button>
-              <div class="alg-setup-warning">السكربتات التشغيلية تحتاج ملفاتها المرخصة حاليًا. لا يعوض مركز التحكم وحده تثبيت محرك كل بوت.</div>
+              <button class="btn primary block alg-launcher-cta" type="button" data-go="connect" id="launcherCta">⇩ تثبيت مركز التحكم العائم <small>يعمل مع جسر Cloud Bridge المرتبط مسبقًا</small></button>
+              <div class="alg-setup-warning">السكربتات التشغيلية تحتاج ملفاتها المرخصة. للمشترك المرتبط سابقًا: احتفظ بـ Cloud Bridge الأصلي، وثبّت واجهة التحكم المرافقة فقط.</div>
               <div id="systemStatus" class="system-steps"></div>
               <div class="panel-divider"></div>
               <p class="small-muted">حالة «مفعّل» تعني اختيار التشغيل في البوابة، ولا تؤكد تنفيذ المحرك داخل اللعبة. ستتوفر Telemetry منفصلة في مرحلة الربط التالية.</p>
@@ -136,7 +136,7 @@
         </section>
         <section class="view" data-panel="connect">
           <div class="page-head"><div><span class="kicker">AUTO LICENSE V2</span><h2>التفعيل التلقائي للجهاز</h2><p>لا حاجة لإنشاء أو إدخال رمز ربط. بعد تثبيت Cloud Bridge، اضغط ربط تلقائي من نافذته داخل اللعبة، ثم وافق هنا بحساب المشترك.</p></div></div>
-          <div class="alg-launcher-guide" id="launcher-guide"><span class="kicker">ONE CONTROL CENTER · QA</span><h3>مركز التحكم AlG Smart Launcher</h3><p>النسخة التجريبية تجمع واجهة الإدارة داخل اللعبة. لتشغيل محركات البوتات تحتاج إلى Cloud Bridge V2 وملفات Loader المرخصة الحالية؛ سنوحّد حزم التنفيذ لاحقًا بعد اجتياز اختبارات الأمان.</p><a class="btn primary" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/alg-cloud-ecosystem-ui-v1-2026-10-23/pilots/algzawy-smart-launcher-v1.user.js" target="_blank" rel="noopener noreferrer">⇩ تثبيت مركز التحكم التجريبي</a></div>
+          <div class="alg-launcher-guide" id="launcher-guide"><span class="kicker">EXISTING LINKED DEVICE · QA3</span><h3>مركز التحكم العائم AlG — متوافق مع الجسر القديم</h3><p>للمشترك الذي اعتمد جهازه سابقًا: أبقِ Cloud Bridge V2 الأصلي مثبتًا ومفعّلًا، وثبّت مركز التحكم المرافق فقط. لا تستخدم نسخة الجسر المدمج الجديدة مع حساب مرتبط؛ فهي لا تمتلك هوية Tampermonkey الخاصة بالجسر الأصلي. لتشغيل محركات البوتات تحتاج إلى Cloud Bridge V2 وملفات Loader المرخصة الحالية؛ سنوحّد حزم التنفيذ لاحقًا بعد اجتياز اختبارات الأمان.</p><a class="btn primary" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/alg-cloud-ecosystem-ui-v1-2026-10-23/pilots/algzawy-control-center-companion-v1.user.js" target="_blank" rel="noopener noreferrer">⇩ تثبيت واجهة التحكم الآمنة QA3</a></div>
           <div class="connect-grid">
             <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge V2</h3><p>سكربت واحد للتحقق من صلاحياتك ومزامنة البوتات. عند تشغيله على جهاز جديد تظهر عملية ربط بنقرة واحدة.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge V2 ↗</a></article>
             <article class="step-panel"><span class="step-index">02</span><h3>وافق على الجهاز</h3><p>من داخل اللعبة اضغط «ربط تلقائي». ستظهر صفحة آمنة على نطاق AlGzawy الرسمي للموافقة بحسابك المسجل. لا رموز تُنسخ يدويًا.</p><span class="pill positive">موافقة أول جهاز تلقائية</span></article>
