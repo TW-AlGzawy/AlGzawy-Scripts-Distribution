@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - جسر السحابة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.1.2-qa1
-// @description  Auto License V2: existing device identity with integrated AlG Control Center QA
+// @version      2.2.0
+// @description  Auto License V2 + AlG Control Center; approved device and 22 licensed scripts
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
 // @grant        GM_xmlhttpRequest
@@ -11,8 +11,8 @@
 // @grant        unsafeWindow
 // @connect      algzawy-cloud-control.pages.dev
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
-// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/alg-cloud-ecosystem-ui-v1-2026-10-23/loaders/algzawy-cloud-bridge.user.js
-// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/alg-cloud-ecosystem-ui-v1-2026-10-23/loaders/algzawy-cloud-bridge.user.js
+// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
+// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // ==/UserScript==
 (function () {
   'use strict';
@@ -21,12 +21,7 @@
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
   const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
   const known=[
-    'mass-scavenge-v1','bot-farm-2','alg-balance','auto-builder-pro-algzawy-v3-3-fixed-queue','auto-builder-ar-v061',
-    'professional-training-v2','send-automation','attack-renamer','alg-attacks','warehouse-alert-safe',
-    'polish-all-in-one','alg-coins','market-bot-v7','auto-builder-ar-v054',
-    'auto-builder-pro-algzawy-v3-0-free-finish','training-edition','professional-training','light',
-    'train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians',
-    'holy-grail','tribal-wars-helper'
+    'mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1','professional-training-v2','send-automation','attack-renamer','alg-attacks','warehouse-alert-safe','polish-all-in-one','alg-coins','market-bot-v7','training-edition','professional-training','light','train-master-b','reserve-smart-v5','reserve-smart-v4','reserve-correct-v2','auto-reserve-barbarians','holy-grail','tribal-wars-helper'
   ];
   // Pin state is TAB-local convenience, never an authentication or licensing proof.
   // A duplicated tab may inherit sessionStorage, so a live-tab handshake clears
@@ -34,7 +29,7 @@
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","auto-builder-pro-algzawy-v3-3-fixed-queue":"تجريبي - الغزااوي - البناء الاحترافي","auto-builder-ar-v061":"تجريبي - الغزااوي - البناء التقليدي","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","auto-builder-ar-v054":"تجريبي - الغزااوي - البناء العربي القديم","auto-builder-pro-algzawy-v3-0-free-finish":"تجريبي - الغزااوي - البناء الاحترافي القديم","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي"};
+  const scriptLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي","algzawy-builder-v1":"البناء التقليدي المتطور"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
@@ -83,9 +78,10 @@
     if(!licensedPins.size){holder.textContent='لا تظهر السكربتات إلا بعد اعتماد الجهاز ومزامنة صلاحيات اشتراكك.';return;}
     for(const id of known.filter(id=>licensedPins.has(id))){
       const row=document.createElement('div');
+      row.dataset.algScriptId=id;
       row.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin:3px 0;padding:5px 2px;border-bottom:1px solid #31565a;flex-wrap:wrap';
       const text=document.createElement('span');text.textContent=scriptLabels[id]||id;
-      const toggle=document.createElement('button');toggle.type='button';toggle.dataset.algScriptId=id;
+      const toggle=document.createElement('button');toggle.type='button';
       toggle.textContent=pinned(id)?'إلغاء التثبيت':'📌 تثبيت بهذا التاب';
       toggle.setAttribute('aria-pressed',String(pinned(id)));
       toggle.setAttribute('aria-label',(pinned(id)?'إلغاء تثبيت ':'تثبيت ')+(scriptLabels[id]||id));
@@ -342,6 +338,15 @@
   // Never reuse an authorization left in page storage at browser startup.
   // Every new game page must get a fresh signed server decision first.
   stopAll();
+  // Revoke all retired builders, including installations predating this version.
+  // Preserve saved queues so customers do not lose village data.
+  for(const id of ["auto-builder-ar-v054","auto-builder-ar-v061","auto-builder-pro-algzawy-v3-0-free-finish","auto-builder-pro-algzawy-v3-3-fixed-queue","builder-v33-one-build-pilot"]){
+    localStorage.setItem(GRANT_PREFIX+id,'0');
+    setLocal(id,false);
+    sessionStorage.removeItem(TAB_PIN_PREFIX+id);
+    document.dispatchEvent(new Event('__algzawy_stop_'+id));
+  }
+  document.dispatchEvent(new Event('algzawy-local-control-changed'));
   async function synchronize(force=false){
     if(pending||!connection.device)return;
     if(!force&&Date.now()-lastRequest<20000)return;
@@ -469,21 +474,30 @@
  if(window.__AlGSmartLauncherQA||document.getElementById(ID))return;
  window.__AlGSmartLauncherQA=true;
  const ids=[
- ['mass-scavenge-v1','الإغارات الجماعية','♜'],['bot-farm-2','بوت النهب','⚔'],
- ['alg-balance','موازنة الموارد','◈'],['auto-builder-pro-algzawy-v3-3-fixed-queue','البناء الاحترافي','▤'],
- ['auto-builder-ar-v061','البناء التقليدي','▦'],['professional-training-v2','بوت التدريب','♟'],
- ['send-automation','الإرساليات الدقيقة','⇢'],['attack-renamer','تسمية الهجمات','⌁'],
- ['alg-attacks','تنبيه الهجمات','⚑'],['warehouse-alert-safe','تنبيه المخازن','▣'],
- ['polish-all-in-one','الصقل المتكامل','◇'],['alg-coins','الصقل المتطور','◉'],
- ['market-bot-v7','بوت السوق','▥'],['auto-builder-ar-v054','البناء العربي القديم','▦'],
- ['auto-builder-pro-algzawy-v3-0-free-finish','البناء الاحترافي القديم','▤'],
- ['training-edition','التدريب البديل','♟'],['professional-training','التدريب الاحترافي','♟'],
- ['light','التدريب الخفيف','♟'],['train-master-b','مدرب الجنود','♟'],
- ['reserve-smart-v5','الحجز الذكي الخامس','⛨'],['reserve-smart-v4','الحجز الذكي الرابع','⛨'],
- ['reserve-correct-v2','الحجز المصحح','⛨'],['auto-reserve-barbarians','حجز البربرية','⛨'],
- ['holy-grail','المساعد المتكامل','✧'],['tribal-wars-helper','جامع الجوائز','✦']
+ ['mass-scavenge-v1','الإغارات الجماعية','♜'],
+ ['bot-farm-2','بوت النهب','⚔'],
+ ['alg-balance','موازنة الموارد','◈'],
+ ['algzawy-builder-v1','البناء التقليدي المتطور','▦'],
+ ['professional-training-v2','بوت التدريب','♟'],
+ ['send-automation','الإرساليات الدقيقة','⇢'],
+ ['attack-renamer','تسمية الهجمات','⌁'],
+ ['alg-attacks','تنبيه الهجمات','⚑'],
+ ['warehouse-alert-safe','تنبيه المخازن','▣'],
+ ['polish-all-in-one','الصقل المتكامل','◇'],
+ ['alg-coins','الصقل المتطور','◉'],
+ ['market-bot-v7','بوت السوق','▥'],
+ ['training-edition','التدريب البديل','♟'],
+ ['professional-training','التدريب الاحترافي','♟'],
+ ['light','التدريب الخفيف','♟'],
+ ['train-master-b','مدرب الجنود','♟'],
+ ['reserve-smart-v5','الحجز الذكي الخامس','⛨'],
+ ['reserve-smart-v4','الحجز الذكي الرابع','⛨'],
+ ['reserve-correct-v2','الحجز المصحح','⛨'],
+ ['auto-reserve-barbarians','حجز البربرية','⛨'],
+ ['holy-grail','المساعد المتكامل','✧'],
+ ['tribal-wars-helper','جامع الجوائز','✦']
  ];
- const oldBridgeLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","auto-builder-pro-algzawy-v3-3-fixed-queue":"تجريبي - الغزااوي - البناء الاحترافي","auto-builder-ar-v061":"تجريبي - الغزااوي - البناء التقليدي","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","auto-builder-ar-v054":"تجريبي - الغزااوي - البناء العربي القديم","auto-builder-pro-algzawy-v3-0-free-finish":"تجريبي - الغزااوي - البناء الاحترافي القديم","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي"};
+ const oldBridgeLabels={"mass-scavenge-v1":"تجريبي - الغزااوي - الإغارات الجماعية","bot-farm-2":"تجريبي - الغزااوي - بوت النهب","alg-balance":"تجريبي - الغزااوي - موازنة الموارد","professional-training-v2":"تجريبي - الغزااوي - بوت التدريب المحسّن","send-automation":"تجريبي - الغزااوي - الإرساليات الدقيقة","attack-renamer":"تجريبي - الغزااوي - تسمية الهجمات","alg-attacks":"تجريبي - الغزااوي - تنبيه الهجمات","warehouse-alert-safe":"تجريبي - الغزااوي - تنبيه المخازن","polish-all-in-one":"تجريبي - الغزااوي - الصقل المتكامل","alg-coins":"تجريبي - الغزااوي - الصقل المتطور","market-bot-v7":"تجريبي - الغزااوي - بوت السوق","training-edition":"تجريبي - الغزااوي - التدريب البديل","professional-training":"تجريبي - الغزااوي - التدريب الاحترافي","light":"تجريبي - الغزااوي - التدريب الخفيف","train-master-b":"تجريبي - الغزااوي - مدرب الجنود","reserve-smart-v5":"تجريبي - الغزااوي - الحجز الذكي الخامس","reserve-smart-v4":"تجريبي - الغزااوي - الحجز الذكي الرابع","reserve-correct-v2":"تجريبي - الغزااوي - الحجز المصحح","auto-reserve-barbarians":"تجريبي - الغزااوي - حجز القرى البربرية","holy-grail":"تجريبي - الغزااوي - المساعد المتكامل","tribal-wars-helper":"تجريبي - الغزااوي - جامع الجوائز التلقائي","algzawy-builder-v1":"البناء التقليدي المتطور"};
  const css=[
  '#algzawy-smart-launcher-qa{position:fixed;right:15px;bottom:15px;z-index:2147482100;width:354px;max-width:calc(100vw - 12px);max-height:86vh;display:flex;flex-direction:column;background:#091e2c;color:#e0f9f2;border:1px solid #2c9388;border-radius:12px;box-shadow:0 15px 38px #000c;overflow:hidden;font:12px/1.6 Tahoma,Arial;direction:rtl}',
  '#algzawy-smart-launcher-qa *{box-sizing:border-box}',
