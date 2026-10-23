@@ -86,6 +86,20 @@ $('ownerLogout').addEventListener('click',async()=>{
    toast('تم إنهاء جلسة الإدارة');
  }catch(err){toast(errorArabic(err),true);}
 });
+function filterUsers(){
+ const query=$('adminUserSearch').value.trim().toLocaleLowerCase();
+ let total=0,visible=0;
+ for(const root of [$('adminUsers'),$('adminArchivedUsers')]){
+   for(const row of root.querySelectorAll('[data-user-label]')){
+     const match=!query||row.dataset.userLabel.includes(query);
+     row.hidden=!match;
+     row.style.display=match?'':'none';
+     total++;if(match)visible++;
+   }
+ }
+ $('adminUserResults').textContent='عرض '+visible+' من '+total+' حساب (يشمل الأرشيف)';
+}
+$('adminUserSearch').addEventListener('input',filterUsers);
 async function loadUsers(){
  try{
    const data=await api('admin/users',{});
@@ -94,6 +108,7 @@ async function loadUsers(){
    const records=Array.isArray(data.users)?data.users:[];
    const makeRow=(user,archived)=>{
      const row=h('div','user-row');
+     row.dataset.userLabel=String(user.label||'').toLocaleLowerCase();
      const details=h('div');details.append(h('strong','',user.label),h('small','',archived?'الحالة: مؤرشف (معطّل)':'الحالة: '+(user.active?'نشط':'معطّل')));
      row.append(details);
      if(archived){
@@ -148,6 +163,7 @@ async function loadUsers(){
    for(const user of active)current.append(makeRow(user,false));
    if(!archived.length)archive.append(h('p','','لا توجد حسابات مؤرشفة.'));
    for(const user of archived)archive.append(makeRow(user,true));
+   filterUsers();
  }catch(err){toast(errorArabic(err),true);}
 }
 async function editSubscription(user){
