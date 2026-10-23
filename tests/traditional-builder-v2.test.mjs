@@ -219,7 +219,7 @@ test('Template expansion generates every target increment in EXACT original orde
   'const status=()=>{},saveAck=()=>{},saveTemplate=()=>{},saveTasks=()=>{},',
   'reconcileTasks=()=>{},renderQueue=()=>{},renderStatus=()=>{};',
   'const saveStatus=()=>{},endLoop=()=>{};',
-  'const confirm=()=>true;'
+  'const confirm=()=>true,canEditPlan=()=>true;'
  ].join('\n');
  const result=vm.runInNewContext(sourcePrefix+source+
   '\nexpandTemplateToTasks();({templateTasks,templateMode});');
