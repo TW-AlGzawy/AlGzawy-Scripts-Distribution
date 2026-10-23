@@ -127,6 +127,7 @@ test('Cloud Bridge reports only completed signed sync outcomes, errors and pendi
    "let licensedPins=new Set();",
    "const known=['test-id'];",
    "const LICENSE_UNTIL='license-until',LICENSE_ID='license-id';",
+   "const keys={last:'algzawy_cloud_last_success'};",
    "const GRANT_PREFIX='grant-';",
    "const storageKey=id=>'algzawy_local_enabled_'+id;"
   ].join('\n');
