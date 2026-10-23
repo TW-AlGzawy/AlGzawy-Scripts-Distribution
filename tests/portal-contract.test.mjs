@@ -96,7 +96,7 @@ if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE device_id=')){
       if(sql.startsWith('UPDATE portal_device_keys SET last_ip=')){const k=db.keys.find(v=>v.device_id===a[1]);if(k)k.last_ip=a[0];return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_devices SET active=1')){const d=db.devices.find(v=>v.id===a[0]);if(d)d.active=1;return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_users SET active=0')){const u=db.users.find(v=>v.id===a[0]);if(u)u.active=0;return {meta:{changes:u?1:0}};}
-      if(sql.startsWith('INSERT INTO portal_subscriptions')){db.subs.push({user_id:a[0],active:a[1],expires_at:a[2]});return {meta:{changes:1}};}
+      if(sql.startsWith('INSERT INTO portal_subscriptions')){const old=db.subs.find(x=>x.user_id===a[0]);if(old){old.active=a[1];old.expires_at=a[2];}else db.subs.push({user_id:a[0],active:a[1],expires_at:a[2]});return {meta:{changes:1}};}
       throw Error('Unexpected RUN: '+sql);
     }
   };}
@@ -550,30 +550,91 @@ test('Cloudflare shared device signer keeps the same P-256 key across trusted ga
  assert.equal(untrustedReply,false,'untrusted origin cannot request a key or signature');
 });
 
-test('Auto License V2 accepts only signed-in first device, rejects another and requires owner revoke',async()=>{
- const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Auto License User'}})).json;
- const uid=created.user.id,token=created.accessKey;
- await api(db,'admin/users/'+uid+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
- const login=await api(db,'session',{method:'POST',body:{accessKey:token}});
+test('Every new browser key waits for owner approval and replacement revokes the old key',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Manual approval'}})).json;
+ const uid=created.user.id;
+ const login=await api(db,'session',{method:'POST',body:{accessKey:created.accessKey}});
  const cookie=login.setCookie.split(';')[0],headers={'X-ALG-USER-CSRF':login.json.csrfToken};
  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
  const pub=await crypto.subtle.exportKey('jwk',pair.publicKey),nonce=crypto.randomUUID();
  const enroll=p=>api(db,'device/auto-enroll',{method:'POST',cookie,headers,body:{nonce,publicKey:p}});
  assert.equal((await api(db,'device/auto-enroll',{method:'POST',body:{nonce,publicKey:pub}})).status,401);
  assert.equal((await api(db,'device/auto-enroll',{method:'POST',cookie,body:{nonce,publicKey:pub}})).status,403);
- const first=await enroll(pub);assert.equal(first.status,201);assert.equal(first.json.status,'approved');assert.equal(first.json.nonce,nonce);
+ const first=await enroll(pub);
+ assert.equal(first.status,202);assert.equal(first.json.status,'pending_approval');assert.equal(first.json.nonce,nonce);
  const id=first.json.deviceId;
  assert.equal((await enroll(pub)).json.deviceId,id);
+ assert.equal(db.keys.length,1);assert.equal(db.keys[0].approved,0);
+ assert.equal(db.events.filter(x=>x.event_type==='device_pair_requested').length,1);
+ let counter=0;
+ const signed=async(deviceId,key)=>{
+   const ts=Date.now(),n=++counter;
+   const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,new TextEncoder().encode(deviceId+'|'+ts+'|'+n+'|/api/device/state'));
+   return api(db,'device/state',{headers:{'X-ALG-DEVICE-ID':deviceId,'X-ALG-TIMESTAMP':String(ts),'X-ALG-COUNTER':String(n),'X-ALG-SIGNATURE':base64url(new Uint8Array(sig))}});
+ };
+ assert.equal((await signed(id,pair.privateKey)).json.error,'device_pending_approval');
+ const approve=id=>api(db,'admin/users/'+uid+'/devices/'+id+'/approve',{method:'POST',token:admin,body:{}});
+ assert.equal((await approve(id)).status,200);
+ assert.equal((await enroll(pub)).json.status,'approved','existing approved key recovers normally');
+ assert.equal((await signed(id,pair.privateKey)).status,200);
  const other=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
  const pub2=await crypto.subtle.exportKey('jwk',other.publicKey);
- const denied=await enroll(pub2);assert.equal(denied.status,409);assert.equal(denied.json.error,'device_already_linked');
- const ts=Date.now(),counter=ts*1024;
- const signature=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(id+'|'+ts+'|'+counter+'|/api/device/state'));
- const signed={'X-ALG-DEVICE-ID':id,'X-ALG-TIMESTAMP':String(ts),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':base64url(new Uint8Array(signature))};
- assert.equal((await api(db,'device/state',{headers:signed})).status,200);
- assert.equal((await api(db,'device/state',{headers:signed})).status,401);
- await api(db,'admin/users/'+uid+'/devices/'+id+'/revoke',{method:'POST',token:admin,body:{}});
  const replacement=await enroll(pub2);
- assert.equal(replacement.status,201);assert.notEqual(replacement.json.deviceId,id);
+ assert.equal(replacement.status,202);
+ assert.equal((await signed(replacement.json.deviceId,other.privateKey)).json.error,'device_pending_approval');
+ assert.equal((await signed(id,pair.privateKey)).status,200,'pending replacement must not stop existing approved device');
+ assert.equal((await approve(replacement.json.deviceId)).status,200);
+ assert.equal((await signed(id,pair.privateKey)).json.error,'device_pending_approval');
+ assert.equal((await signed(replacement.json.deviceId,other.privateKey)).status,200);
  assert.equal(db.keys.filter(x=>x.approved===1&&x.user_id===uid).length,1);
+ assert.equal(db.global.revision,4);
+});
+
+test('Explicit subscription is required and newly created users receive no script grants',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Subscription test'}})).json;
+ assert.deepEqual(db.subs.map(x=>[x.user_id,x.active,x.expires_at]),[[created.user.id,1,null]]);
+ assert.equal(db.grants.length,0);
+ const token=created.accessKey,uid=created.user.id;
+ assert.equal((await api(db,'me',{token})).status,200);
+ db.subs=[];
+ assert.equal((await api(db,'me',{token})).status,403);
+ assert.equal((await api(db,'catalog',{token})).status,403);
+ assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,403);
+ const details=await api(db,'admin/users/'+uid+'/entitlements',{token:admin});
+ assert.equal(details.json.subscription.active,0);
+ db.subs.push({user_id:uid,active:1,expires_at:Math.floor(Date.now()/1000)-1});
+ assert.equal((await api(db,'me',{token})).status,403);
+ db.subs[0].expires_at=null;
+ assert.equal((await api(db,'me',{token})).status,200);
+});
+
+test('Zero granted scripts is a successful no-op without an empty D1 batch',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'No grants'}})).json;
+ const prior=db.batch.bind(db);
+ db.batch=async stmts=>{assert.ok(stmts.length>0,'D1 must never receive an empty batch');return prior(stmts);};
+ for(const enabled of [true,false]){
+   const result=await api(db,'scripts/bulk',{token:created.accessKey,method:'POST',body:{enabled}});
+   assert.equal(result.status,200);assert.equal(result.json.count,0);
+ }
+});
+
+test('Saving warehouse options preserves license metadata and keeps the card visible',async()=>{
+ const original={allowed:true,globallyEnabled:true,enabled:true,settings:{percent:90}};
+ const nodes=[];
+ const make=()=>({children:[],listeners:{},append(...items){this.children.push(...items);},setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn;},remove(){}});
+ const state={user:{id:'user'},prefs:{'warehouse-alert-safe':original}};
+ let renderCount=0;
+ const ctx={state,document:{getElementById:()=>null,body:make()},
+   h(tag,className,text){const node=make();node.textContent=text;nodes.push(node);return node;},
+   field(){return {lab:make(),input:{value:'85'}};},
+   api:async()=>({enabled:true,settings:{percent:85}}),toast(){},render(){renderCount++;},openLogin(){}};
+ const begin=ui.indexOf('function showSettings(item){'),end=ui.indexOf("$('makePair').addEventListener",begin);
+ assert.ok(begin>=0&&end>begin);
+ vm.runInNewContext(ui.slice(begin,end)+"\nshowSettings({id:'warehouse-alert-safe',name:'Warehouse'});",ctx);
+ const save=nodes.find(x=>x.textContent==='حفظ الإعدادات');
+ assert.ok(save);await save.listeners.click();
+ assert.equal(state.prefs['warehouse-alert-safe'].allowed,true);
+ assert.equal(state.prefs['warehouse-alert-safe'].globallyEnabled,true);
+ assert.equal(state.prefs['warehouse-alert-safe'].settings.percent,85);
+ assert.equal(renderCount,1);
 });
