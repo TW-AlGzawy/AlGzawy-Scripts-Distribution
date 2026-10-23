@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         تجريبي - الغزااوي - الإرساليات الدقيقة
+// @name         الغزااوي | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.5.0
-// @description  نواة v1.5 نظيفة بلا معايرة تلقائية — 24h وتاريخ السيرفر وواجهة 310px
+// @version      1.5.1
+// @description  AlGzawy BETA — توقيت وصول وإرسال 24 ساعة وتعويض يدوي مرخص
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
@@ -18,6 +18,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/send-automation.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "send-automation";
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.5.1');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
