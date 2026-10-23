@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         AlGzawy | الإرساليات الدقيقة
+// @name         الغزااوي | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.5.0
+// @version      1.5.1
 // @description  نواة v1.5 آمنة للإرسال والوصول؛ تاريخ السيرفر و24h وأجزاء الثانية وجسر AlG
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -166,7 +166,7 @@ function arm(){
  if(armed||sent)return;
  if(!licensed()){message('فعّل الإرساليات من الموقع والجسر واعتمد الجهاز أولًا.','error');return;}
  readInputs();const r=difference();
- if(r.error){message(r.error='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
+ if(r.error){message(r.error==='تحقق من التاريخ والساعة وأجزاء الثانية والتعويض.'?'اكتب الوقت بتنسيق 24 ساعة HH:mm:ss مثل 18:30:00 وتحقق من باقي الحقول.':r.error,'error');return;}
  if(r.remaining<=500){message('اختر موعدًا أبعد من نصف ثانية.','error');return;}
  if(r.remaining>7*DAY){message('لا يمكن ترك جدولة لأكثر من 7 أيام.','error');return;}
  armed=true;parts.arm.textContent='● مجهّز';parts.arm.disabled=true;
@@ -269,7 +269,7 @@ function show(){
  compact.title=opts.compact===false?'عرض مضغوط':'توسيع العرض';
  compact.setAttribute('aria-label','تبديل حجم واجهة الإرساليات');
  mini.setAttribute('aria-label','طي نافذة الإرساليات');
- head.append(el('span','logo','AlG'),el('strong','','الإرساليات · v1.5.0'),compact,mini);
+ head.append(el('span','logo','AlG'),el('strong','','الغزااوي | الإرساليات الدقيقة'),mini);
  const body=el('div','body'),stats=el('div','grid');
  function stat(name){const card=el('div','stat');card.append(el('small','',name));
  const val=el('strong','','—');card.append(val);stats.append(card);return val;}
@@ -311,7 +311,7 @@ function show(){
  settingsContent.append(resetDate,parts.source,parts.hint);
  settings.append(settingsHeader,settingsContent);
  settings.addEventListener('toggle',()=>{opts.settingsOpen=settings.open;save();});
- body.append(stats,modeLabel,inputs,settings,rem,controls,parts.note);
+ body.append(stats,modeLabel,inputs,settings,rem,controls,parts.note,el('small','hint','BETA · © 2026 الغزااوي — جميع الحقوق محفوظة'));
  panel.append(head,body);document.body.append(panel);
  panel.classList.toggle('collapsed',!!opts.collapsed);
  panel.classList.toggle('compact',opts.compact!==false);
