@@ -381,14 +381,13 @@ test('Tab pinning must gate all 22 loaders before source execution',()=>{
    assert.match(src,/if\(!hasTabPin\(\)\)\{stopCore\('local'\);return;\}/);
    assert.match(src,/document\.addEventListener\('algzawy-tab-pin-changed'/);
    assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
-   assert.match(src,/\/\/ @version\s+1\.0/);
-   if(id==='algzawy-builder-v1')assert.match(src,/\/\/ @name\s+البناء التقليدي المتطور/);
-   else assert.match(src,/\/\/ @name\s+تجريبي - الغزااوي -/);
    const engine=read('scripts/'+id+'.js'),item=catalog.find(x=>x.id===id);
-   if(id==='algzawy-builder-v1')assert.match(engine,/^\/\/ @name\s+البناء التقليدي المتطور/m);
-   else assert.match(engine,/^\/\/ @name\s+تجريبي - الغزااوي -/m,id+' engine name');
-   assert.match(engine,/^\/\/ @version\s+1\.0/m,id+' engine version');
-   assert.equal(item.version,'1.0',id+' public catalog version');
+   assert.match(src,/^\/\/ @version\s+(?:1\.0\.1|1\.5\.1)/m);
+   assert.match(src,/^\/\/ @name\s+الغزااوي \| /m);
+   assert.match(engine,/^\/\/ @name\s+الغزااوي \| /m,id+' engine name');
+   assert.equal(item.version,src.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/loader version');
+   assert.equal(item.version,engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/engine version');
+   assert.match(src,/algzawy_installed_loader_version_/);
    assert.equal(item.name,src.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/loader names match');
    assert.equal(item.name,engine.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/engine names match');
  }

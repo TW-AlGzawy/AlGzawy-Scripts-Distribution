@@ -8,7 +8,7 @@ test('v1.5 clean engine/loader compile, version and catalog match',()=>{
  new vm.Script(core);new vm.Script(loader);
  assert.match(core,/@version\s+1\.5\.0/);
  assert.match(loader,/@version\s+1\.5\.0/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(s=>s.id==='send-automation').version,'1.5.0');
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(s=>s.id==='send-automation').version,'1.5.1');
 });
 test('adaptive model and all diagnostics removed; no hidden token POST',()=>{
  assert.doesNotMatch(core,/SMART_MODEL|Smart Timing|smartEvaluate|smartRender|storeOutcome|collectNetwork|currentOffset|recordClick|parts\.smart|parts\.last|netEntries|netSeen|smartBox/);
