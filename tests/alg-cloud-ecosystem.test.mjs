@@ -94,10 +94,10 @@ test('MV3 extension is local companion only, with least-privilege permissions',(
 
 test('One-install claim is limited to Bridge + Control Center, with real engine installation disclosed',()=>{
  assert.match(html,/السكربتات التشغيلية تحتاج ملفاتها المرخصة/);
- assert.match(html,/احتفظ بـ Cloud Bridge الأصلي/);
- assert.match(html,/algzawy-control-center-companion-v1\.user\.js/);
+ assert.match(html,/حدّث Cloud Bridge الأصلي في مكانه/);
+ assert.match(html,/feature\/alg-cloud-ecosystem-ui-v1-2026-10-23\/loaders\/algzawy-cloud-bridge\.user\.js/);
  assert.doesNotMatch(html,/href="[^"]*\/pilots\/algzawy-smart-launcher-v1\.user\.js"/);
- assert.match(html,/محركات البوتات تحتاج إلى Cloud Bridge V2 وملفات Loader المرخصة الحالية/);
+ assert.match(html,/لتشغيل محركات البوتات تحتاج إلى ملفات Loader المرخصة الحالية/);
  assert.match(pilot,/separately installed authorized game engines still required/);
  assert.doesNotMatch(popup,/localStorage\.setItem/);
 });
@@ -306,4 +306,66 @@ test('Existing Bridge V2 actually opens signed approval link with alg_auto paylo
  assert.match(originalBridge,/event\.origin!==PORTAL_ORIGIN/);
  assert.match(originalBridge,/data\.nonce!==nonce/);
  assert.match(originalBridge,/document\.getElementById\('algzawy-cloud-connect'\)|q\('connect'\)\.addEventListener\('click',\(\)=>void openAutoLicense\(\)\)/);
+});
+
+
+test('In-place QA Bridge retains original Tampermonkey identity, grants, and signed protocol',()=>{
+  new vm.Script(originalBridge,{filename:'loaders/algzawy-cloud-bridge.user.js'});
+  const metadata=originalBridge.split('// ==/UserScript==')[0];
+  assert.match(metadata,/\/\/ @name\s+تجريبي - الغزااوي - جسر السحابة/);
+  assert.match(metadata,/\/\/ @namespace\s+https:\/\/github\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution/);
+  assert.match(metadata,/\/\/ @version\s+2\.1\.0-qa1/);
+  assert.match(metadata,/\/\/ @run-at\s+document-start/);
+  for(const perm of ['GM_xmlhttpRequest','GM_setValue','GM_getValue','unsafeWindow'])
+   assert.match(metadata,new RegExp('// @grant\\s+'+perm));
+  assert.match(metadata,/\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/feature\/alg-cloud-ecosystem-ui-v1-2026-10-23\/loaders\/algzawy-cloud-bridge\.user\.js/);
+  assert.match(metadata,/\/\/ @downloadURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/feature\/alg-cloud-ecosystem-ui-v1-2026-10-23\/loaders\/algzawy-cloud-bridge\.user\.js/);
+  assert.match(originalBridge,/const keys=\{device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode'/);
+  assert.match(originalBridge,/device:String\(GM_getValue\(keys\.device,''\)\|\|''\)/);
+  assert.match(originalBridge,/async function deviceProof\(\)/);
+  assert.match(originalBridge,/async function synchronize\(force=false\)/);
+  assert.match(originalBridge,/request\('device\/state',\{headers:await deviceProof\(\)\}\)/);
+  assert.match(originalBridge,/function stopAll\(\)/);
+  assert.match(originalBridge,/const payload=\{nonce,origin,publicKey:identity\.publicKey\}/);
+  assert.match(originalBridge,/data\.nonce!==nonce/);
+  assert.doesNotMatch(originalBridge,/document\.cookie|GM_cookie|GM_listValues\(\)/);
+});
+
+test('Integrated center loads in same original Bridge installer with no second userscript header',()=>{
+ const metadataCount=(originalBridge.match(/\/\/ ==UserScript==/g)||[]).length;
+ assert.equal(metadataCount,1);
+ assert.match(originalBridge,/\/\* QA companion — existing linked Bridge owns permissions and per-tab pin changes/);
+ assert.match(originalBridge,/if\(window\.__algzawyCloudBridge\) return/);
+ assert.match(originalBridge,/if\(window\.__AlGSmartLauncherQA\|\|document\.getElementById\(ID\)\)return/);
+ assert.match(originalBridge,/body\.algzawy-integrated-ui-ready #algzawy-cloud-pair-panel/);
+ assert.match(originalBridge,/document\.body\.append\(panel\);\s*document\.body\.classList\.add\('algzawy-integrated-ui-ready'\)/);
+ assert.match(originalBridge,/function bridgePairingState\(\)/);
+ assert.match(originalBridge,/function toggleButton\(id\)/);
+ assert.match(originalBridge,/toggle\.dataset\.algScriptId=id/);
+ assert.match(originalBridge,/native\.click\(\)/);
+ assert.doesNotMatch(originalBridge,/else window\.open\(URL,'_blank'/);
+ assert.doesNotMatch(originalBridge,/localStorage\.setItem\('algzawy_portal_grant_'\+id,'1'\)/);
+});
+
+test('In-place update launches original Bridge before its floating manager and keeps license owner unchanged',()=>{
+ const bridgeStart=originalBridge.indexOf('const keys={device:');
+ const bridgeStop=originalBridge.indexOf('})();');
+ const companionStart=originalBridge.indexOf('/* QA companion');
+ assert.ok(bridgeStart>0&&bridgeStop>bridgeStart&&companionStart>bridgeStop);
+ assert.match(originalBridge,/if\(connection\.device\)\{void synchronize\(true\);checkPublisher\(\);\}/);
+ assert.match(originalBridge,/if\(document\.readyState==='loading'\)document\.addEventListener\('DOMContentLoaded',start,\{once:true\}\)/);
+ assert.match(originalBridge,/const permitted=ids\.filter\(\(\[id\]\)=>allowedIds\.has\(id\)\)/);
+ assert.match(originalBridge,/const allowedIds=new Set\(ids\.filter\(\(\[id\]\)=>!!toggleButton\(id\)\)/);
+ assert.match(originalBridge,/statusText\.setAttribute\('aria-live','polite'\)/);
+ assert.match(originalBridge,/nativeObserver\.observe\(native,\{subtree:true,childList:true,characterData:true\}\)/);
+ assert.match(originalBridge,/linkButton\.disabled=pairingState==='missing'\|\|pairingState==='not-ready'/);
+});
+
+test('QA onboarding replaces an existing installation rather than inviting a second device',()=>{
+ assert.match(html,/احتفظ ب|حدّث تثبيت الجسر الأصلي الموجود لديك فقط/);
+ assert.match(html,/لا تنشئ نسخة ثانية ولا تحذف الجسر السابق/);
+ assert.match(html,/إذا حُذف الجسر الأصلي وفُقدت هويته/);
+ assert.match(html,/الحفاظ على الاسم التقني وNamespace ومفاتيح GM القديمة/);
+ assert.doesNotMatch(html,/href="[^"]*\/pilots\/algzawy-smart-launcher-v1\.user\.js"/);
+ assert.doesNotMatch(html,/href="[^"]*\/pilots\/algzawy-control-center-companion-v1\.user\.js"/);
 });
