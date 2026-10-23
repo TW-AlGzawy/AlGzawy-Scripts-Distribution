@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#08121e">
+  <meta name="theme-color" content="#071923">
   <meta name="description" content="AlGzawy Cloud Control V2 — إدارة السكربتات والاشتراكات والربط من لوحة واحدة.">
-  <title>AlGzawy V2 | مركز التحكم</title>
+  <title>الغزااوي | مركز التحكم السحابي AlG</title>
   <link rel="stylesheet" href="/v2/app.css">
+  <link rel="stylesheet" href="/v2/alg-cloud-theme.css">
   <script defer src="/v2/app.js"></script>
 </head>
 <body>
@@ -35,23 +36,23 @@
       <p class="security-note">ليس هناك تسجيل عام. حسابات المشتركين يصدرها المالك فقط.</p>
     </form>
   </section>
-  <div id="shell" class="shell" hidden>
+  <div id="shell" class="shell alg-v1" hidden>
     <aside id="sidebar" class="sidebar">
-      <div class="brand-row"><span class="brand-icon">AlG</span><div><strong>AlGzawy</strong><small>CLOUD CONTROL <b>V2</b></small></div></div>
+      <div class="brand-row"><span class="brand-icon">AlG</span><div><strong>الغزااوي</strong><small>ALG CLOUD <b>V1.0</b></small></div></div>
       <div class="side-label">مساحة العمل</div>
       <nav id="sideNav" class="side-nav" aria-label="أقسام مركز التحكم">
-        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◫</span><span>لوحة القيادة</span></button>
-        <button class="nav-item" data-view="scripts"><span class="nav-icon">⚙</span><span>مركز البوتات</span><strong id="navScriptCount">—</strong></button>
+        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">▦</span><span>لوحة التحكم</span></button>
+        <button class="nav-item" data-view="scripts"><span class="nav-icon">✣</span><span>السكربتات</span><strong id="navScriptCount">—</strong></button>
         <button class="nav-item" data-view="tasks"><span class="nav-icon">▤</span><span>مركز المهام</span></button>
         <button class="nav-item" data-view="villages"><span class="nav-icon">▦</span><span>القرى والمزامنة</span></button>
         <button class="nav-item" data-view="activity"><span class="nav-icon">◷</span><span>سجل هذه الجلسة</span></button>
         <div class="side-label side-label-secondary">الحساب والأمان</div>
-        <button class="nav-item" data-view="connect"><span class="nav-icon">⌁</span><span>ربط اللعبة</span></button>
+        <button class="nav-item" data-view="connect"><span class="nav-icon">⌁</span><span>الأجهزة والربط</span></button>
         <button class="nav-item" data-view="account"><span class="nav-icon">♙</span><span>حسابي والاشتراك</span></button>
       </nav>
       <div class="sidebar-bottom">
         <div class="side-notice"><span>✧</span><strong>تحكمك محمي</strong><p>التشغيل يعتمد على ترخيص الحساب والجهاز وإذن كل سكربت.</p></div>
-        <div class="side-version">AlGzawy Cloud Control · V2 Preview</div>
+        <div class="side-version">AlG Cloud Ecosystem · QA Preview</div>
       </div>
     </aside>
     <div id="mobileBackdrop" class="mobile-backdrop" hidden></div>
@@ -69,28 +70,45 @@
       </header>
       <main id="main" tabindex="-1">
         <section class="view active" data-panel="dashboard">
+          <div class="alg-ecosystem-head">
+            <div><span class="kicker">ALG CLOUD CONTROL · CONTROL ECOSYSTEM</span>
+            <h2>الغزااوي | مركز التحكم السحابي</h2>
+            <p>تثبيت واحد لمركز التحكم، إدارة سحابية، ونافذة متوافقة داخل اللعبة.</p></div>
+            <div class="alg-cloud-points"><span>☁ استضافة سحابية</span><span>↻ مزامنة مركزية</span><span>♢ إدارة التراخيص</span></div>
+          </div>
           <div class="welcome">
             <div class="welcome-content">
               <span class="welcome-tag">✦ ALGZAWY CONTROL CENTER</span>
-              <h2>كل سكربتاتك.<br><em>قرارك في مكان واحد.</em></h2>
+              <h2>كل سكربتاتك.<br><em>في لوحة واحدة.</em></h2>
               <p>راقب الصلاحيات، تحكم بالتشغيل، واربط جهازك بأمان. البيانات المعروضة هنا مستمدة من حسابك الفعلي.</p>
               <div class="welcome-actions"><button class="btn primary" data-go="scripts">إدارة البوتات ←</button><button class="btn outline" data-go="connect">ربط المتصفح</button></div>
             </div>
             <div class="welcome-orbit" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span>AlG</span><small>LIVE CONTROL</small></div>
           </div>
           <div class="metrics">
-            <article class="metric"><span class="metric-icon">▦</span><div><small>سكربتات ضمن اشتراكك</small><strong id="dashboardLicensed">—</strong><span>من أصل 25 متاحة حسب الترخيص</span></div></article>
-            <article class="metric"><span class="metric-icon accent">✓</span><div><small>مفعّلة من حسابك</small><strong id="dashboardEnabled">—</strong><span>التشغيل الفعلي يحتاج متصفح اللعبة</span></div></article>
+            <article class="metric"><span class="metric-icon">▦</span><div><small>سكربتات ضمن اشتراكك</small><strong id="dashboardLicensed">—</strong><span>حسب صلاحيات اشتراكك الحالية</span></div></article>
+            <article class="metric"><span class="metric-icon accent">✓</span><div><small>مفعّلة من حسابك</small><strong id="dashboardEnabled">—</strong><span>تم اختيار تشغيلها من موقعك</span></div></article>
             <article class="metric"><span class="metric-icon gold">⊘</span><div><small>موقوفة</small><strong id="dashboardDisabled">—</strong><span>يمكن تشغيل المسموح منها</span></div></article>
-            <article class="metric"><span class="metric-icon blue">⌁</span><div><small>الاتصال المركزي</small><strong id="dashboardCloud" class="metric-word">جارٍ الفحص</strong><span>حالة مفتاح المنظومة العام</span></div></article>
+            <article class="metric"><span class="metric-icon blue">⌁</span><div><small>الاتصال المركزي</small><strong id="dashboardCloud" class="metric-word">جارٍ الفحص</strong><span>حالة المفتاح المركزي</span></div></article>
           </div>
           <div class="dashboard-grid">
             <section class="panel">
-              <div class="panel-head"><div><span class="kicker">السكربتات</span><h3>التحكم السريع</h3></div><button class="text-link" data-go="scripts">عرض الكل ←</button></div>
+              <div class="panel-head"><div><span class="kicker">السكربتات المرخصة</span><h3>سكربتاتك المتوفرة</h3></div><button class="text-link" data-go="scripts">عرض الكل ←</button></div>
               <div id="quickScripts" class="quick-scripts"><div class="empty">جارٍ تحميل الصلاحيات...</div></div>
             </section>
             <section class="panel panel-aside">
               <div class="panel-head"><div><span class="kicker">حالة النظام</span><h3>جاهزية حسابك</h3></div></div>
+              <div class="alg-account-summary">
+                <div class="alg-account-name"><span class="alg-account-avatar">AlG</span><div><small>المشترك الحالي</small><strong id="dashboardAccountName">—</strong></div></div>
+                <div class="alg-account-facts">
+                  <div><span>التراخيص المسموحة</span><strong id="dashboardEntitlements">—</strong></div>
+                  <div><span>جلسة الموقع حتى</span><strong id="dashboardSession">—</strong></div>
+                  <div><span>الجهاز المعتمد</span><strong>يُتحقق منه داخل اللعبة</strong></div>
+                </div>
+              </div>
+              <div class="alg-sync-box"><span class="alg-sync-icon">☁</span><div><strong>المزامنة السحابية</strong><p>التشغيل والصلاحيات محفوظة على الخادم، ويقرأها Cloud Bridge بعد التحقق من جهازك.</p><span id="dashboardSyncStatus">لم يبدأ التحقق بعد</span></div></div>
+              <button class="btn primary block alg-launcher-cta" type="button" data-go="connect" id="launcherCta">⇩ تحديث Cloud Bridge ومركز التحكم <small>تحديث نفس السكربت للحفاظ على هوية الجهاز</small></button>
+              <div class="alg-setup-warning">السكربتات التشغيلية تحتاج ملفاتها المرخصة. حدّث Cloud Bridge الأصلي في مكانه دون إنشاء نسخة مستقلة؛ للحفاظ على اعتماد الجهاز.</div>
               <div id="systemStatus" class="system-steps"></div>
               <div class="panel-divider"></div>
               <p class="small-muted">حالة «مفعّل» تعني اختيار التشغيل في البوابة، ولا تؤكد تنفيذ المحرك داخل اللعبة. ستتوفر Telemetry منفصلة في مرحلة الربط التالية.</p>
@@ -101,7 +119,7 @@
         <section class="view" data-panel="scripts">
           <div class="page-head"><div><span class="kicker">SCRIPT MANAGEMENT</span><h2>مركز البوتات</h2><p>إدارة جميع السكربتات المسموح بها لهذا الاشتراك. لا يظهر للمشترك ما لم تمنحه الإدارة.</p></div><div class="toolbar-actions"><button id="enableAll" class="btn outline">تشغيل المسموح</button><button id="disableAll" class="btn danger">إيقاف الكل</button></div></div>
           <div class="filter-bar"><label class="search-field">⌕ <input id="scriptSearch" type="search" placeholder="ابحث عن سكربت..." autocomplete="off"></label><div id="categoryFilters" class="chips" aria-label="التصفية حسب الفئة"></div></div>
-          <div class="scripts-summary"><span id="resultsCount">—</span><span>يمكنك فتح التفاصيل لكل سكربت أو تثبيته في Tampermonkey.</span></div>
+          <div class="scripts-summary"><span id="resultsCount">—</span><span>يمكنك تشغيل المسموح وإيقافه من هنا، ويظل تنفيذ المحركات داخل اللعبة خاضعًا للترخيص.</span></div>
           <div id="scriptsGrid" class="scripts-grid"></div>
         </section>
         <section class="view" data-panel="tasks">
@@ -118,6 +136,7 @@
         </section>
         <section class="view" data-panel="connect">
           <div class="page-head"><div><span class="kicker">AUTO LICENSE V2</span><h2>التفعيل التلقائي للجهاز</h2><p>لا حاجة لإنشاء أو إدخال رمز ربط. بعد تثبيت Cloud Bridge، اضغط ربط تلقائي من نافذته داخل اللعبة، ثم وافق هنا بحساب المشترك.</p></div></div>
+          <div class="alg-launcher-guide" id="launcher-guide"><span class="kicker">ONE BRIDGE · KEEP DEVICE IDENTITY · QA</span><h3>مركز التحكم AlG ضمن الجسر الأصلي</h3><p>الإصدار التجريبي الجديد يدمج الواجهة داخل نفس سكربت Cloud Bridge الأصلي، مع الحفاظ على الاسم التقني وNamespace ومفاتيح GM القديمة. <strong>حدّث تثبيت الجسر الأصلي الموجود لديك فقط؛ لا تنشئ نسخة ثانية ولا تحذف الجسر السابق.</strong> عند ظهور خيار الاستبدال في Tampermonkey اختر تحديث التثبيت القائم. إذا حُذف الجسر الأصلي وفُقدت هويته فلا تنسخ الرموز أو Cookies؛ التواصل مع الإدارة لتحرير الجهاز هو المسار الآمن. لتشغيل محركات البوتات تحتاج إلى ملفات Loader المرخصة الحالية.</p><a class="btn primary" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/alg-cloud-ecosystem-ui-v1-2026-10-23/loaders/algzawy-cloud-bridge.user.js" target="_blank" rel="noopener noreferrer">⇩ تحديث الجسر الأصلي ومركز التحكم — QA</a></div>
           <div class="connect-grid">
             <article class="step-panel"><span class="step-index">01</span><h3>ثبّت Cloud Bridge V2</h3><p>سكربت واحد للتحقق من صلاحياتك ومزامنة البوتات. عند تشغيله على جهاز جديد تظهر عملية ربط بنقرة واحدة.</p><a class="btn outline block" href="https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js" rel="noopener noreferrer" target="_blank">تثبيت Cloud Bridge V2 ↗</a></article>
             <article class="step-panel"><span class="step-index">02</span><h3>وافق على الجهاز</h3><p>من داخل اللعبة اضغط «ربط تلقائي». ستظهر صفحة آمنة على نطاق AlGzawy الرسمي للموافقة بحسابك المسجل. لا رموز تُنسخ يدويًا.</p><span class="pill positive">موافقة أول جهاز تلقائية</span></article>
@@ -131,7 +150,7 @@
           <div class="info-note">يتم التحقق من الصلاحيات والاشتراك والجهاز على الخادم. لا يملك المشترك إمكانية إنشاء حساب بنفسه أو الحصول على سكربت غير مشمول بترخيصه.</div>
         </section>
       </main>
-      <footer class="footer">© AlGzawy Cloud Control V2 · نسخة معاينة محمية · <a href="/">الواجهة الحالية</a></footer>
+      <footer class="footer">© AlGzawy Cloud Ecosystem · QA Preview · نسخة معاينة محمية · <a href="/">الواجهة الحالية</a></footer>
     </div>
   </div>
   <div id="autoApproval" class="dialog-backdrop" hidden>

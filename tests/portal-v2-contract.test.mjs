@@ -12,7 +12,7 @@ test('V2 subscriber portal is separately addressable, RTL and parses without bui
   assert.match(html,/<html lang="ar" dir="rtl">/);
   assert.match(html,/<link rel="stylesheet" href="\/v2\/app.css">/);
   assert.match(html,/<script defer src="\/v2\/app.js"><\/script>/);
-  assert.match(html,/<div id="shell" class="shell" hidden>/);
+  assert.match(html,/<div id="shell" class="shell(?: [a-z0-9-]+)*" hidden>/);
   assert.match(html,/<section id="login" class="auth-wrap" hidden/);
   assert.match(html,/id="boot"/);
   assert.doesNotMatch(html,/href="\/admin\/"/);
@@ -53,7 +53,7 @@ test('All V2 operations are tied to existing authenticated first-party endpoints
 test('V2 never pretends to execute cloud tasks or fetch unauthorized village secrets',()=>{
   assert.match(html,/بانتظار ربط المحركات بالمهام/);
   assert.match(html,/مزامنة القرى قيد التطوير/);
-  assert.match(html,/لا نطلب كلمة مرور اللعبة أو ملفات Cookies/);
+  assert.match(html,/(?:لا نطلب|لن نطلب) كلمة مرور اللعبة أو ملفات Cookies/);
   assert.match(html,/هذه الجلسة/);
   assert.doesNotMatch(js,/api\('tasks|api\('villages|unsafeWindow|GM_getValue|GM_setValue/);
   assert.match(js,/script_not_licensed/);

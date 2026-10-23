@@ -1,0 +1,30 @@
+*{box-sizing:border-box}
+:root{color-scheme:dark;font:12px/1.65 Tahoma,Arial,sans-serif;background:#071b28;color:#e6faf7}
+body{margin:0;width:370px;min-width:320px;background:linear-gradient(155deg,#0a2935,#081925)}
+header{padding:12px;display:flex;align-items:center;gap:9px;background:#10413e;border-bottom:1px solid #24796f}
+.logo{background:#51f0bf;color:#05362f;border-radius:9px;padding:9px 6px;font:900 12px Arial}
+header div{flex:1;min-width:0}header strong{display:block;font-size:12px}header small{font-size:9px;color:#9bd0c9}
+.signal{color:#4aebba;font-size:15px}
+main{padding:12px}
+.identity{background:#10303b;border:1px solid #286665;padding:9px;border-radius:9px}
+.identity strong,.identity span{display:block;line-height:1.65}
+.identity span{color:#9adbc9;font-size:10px}
+.overview{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0 14px}
+.overview span{border:1px solid #285b64;border-radius:9px;text-align:center;padding:7px;background:#102c39;color:#afc9ce;font-size:9px}
+.overview b{display:block;font-size:18px;color:#59f6cd}
+.list-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+button{font:inherit;cursor:pointer;border:1px solid #39887e;border-radius:7px;padding:7px;background:#194e47;color:#d9fbed}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:2px solid #70ffdf;outline-offset:2px}
+.list-top button{font-size:10px;padding:4px 10px}
+.scripts{max-height:320px;overflow-y:auto;display:grid;gap:6px}
+.row{border:1px solid #275965;background:#102e3c;padding:8px;display:flex;align-items:center;gap:8px;border-radius:8px}
+.ico{width:29px;height:29px;border-radius:8px;background:#10483f;display:grid;place-items:center;color:#4cf2c9;flex-shrink:0}
+.meta{flex:1;min-width:0}
+.meta strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.meta small{display:block;color:#9cb7c0;font-size:9px}
+.row button{font-size:10px;white-space:nowrap;padding:5px 9px}
+.row button.on{background:#50efc0;color:#063429;font-weight:bold}
+.actions button{display:block;width:100%;margin-top:12px;background:linear-gradient(120deg,#31dcb4,#67fdd0);color:#03332f;font-weight:900;min-height:39px}
+.foot{border-top:1px solid #25535b;margin:13px 0 0;padding-top:8px;color:#9fbfc6;font-size:9px;line-height:1.8}
+.empty{font-size:11px;color:#9cbec4;padding:12px}

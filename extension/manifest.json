@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "AlG Browser Control (QA)",
+  "short_name": "AlG Control",
+  "version": "1.0.0",
+  "description": "Companion to AlG Smart Launcher. Reads approved script states in the active game tab; does not handle game cookies or execute remotely hosted code.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_title": "AlG Browser Control",
+    "default_popup": "popup.html"
+  }
+}

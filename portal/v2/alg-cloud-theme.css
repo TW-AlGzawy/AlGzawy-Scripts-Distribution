@@ -1,0 +1,121 @@
+/* AlG Cloud Ecosystem QA theme — screenshot-inspired palette and composition.
+   Scoped to the existing V2 subscriber shell; no API or account data changes. */
+:root{--alg-bg:#061822;--alg-surface:#0c2430;--alg-raised:#102c37;--alg-line:#245764;--alg-mint:#4af0c5;--alg-aqua:#1cccca;--alg-ink:#dcf9f5}
+body{background:radial-gradient(ellipse at 55% -32%,#0d4e50 0,transparent 61%),#051620}
+.alg-v1{direction:ltr;max-width:1700px;grid-template-columns:236px minmax(0,1fr);background:linear-gradient(165deg,#071d2b,#051520 68%);box-shadow:0 0 110px #041012}
+.alg-v1 .sidebar,.alg-v1 .workspace{direction:rtl}
+.alg-v1 .sidebar{border-left:0;border-right:1px solid #1f5257;background:linear-gradient(180deg,#072532 0%,#081724 80%);padding:24px 13px}
+.alg-v1 .brand-row{direction:ltr;justify-content:flex-start;margin-bottom:28px;border-bottom:1px solid #24525d;padding:0 0 22px}
+.alg-v1 .brand-row div{direction:rtl;text-align:right}
+.alg-v1 .brand-icon,.alg-v1 .logo-small{background:linear-gradient(135deg,#32e9ba,#73ffe0);color:#03362f;box-shadow:0 0 18px #2cf6c528;font-weight:900}
+.alg-v1 .brand-row strong{font-size:21px}
+.alg-v1 .brand-row small{font-weight:700;letter-spacing:1px}
+.alg-v1 .side-nav{gap:5px}
+.alg-v1 .nav-item{border-radius:7px;min-height:41px;font-weight:700}
+.alg-v1 .nav-item.active{background:linear-gradient(90deg,#0d6e67,#2be0b5);color:#041c21;border:1px solid #34e9bd;box-shadow:0 4px 15px #1af8be20}
+.alg-v1 .nav-item:hover:not(.active){background:#113d47;border-color:#2c716f}
+.alg-v1 .side-notice{background:#102f35;border-color:#256663}
+.alg-v1 .topbar{background:#071b27f0;border-bottom:1px solid #1e6066;min-height:76px;padding:12px clamp(15px,2.2vw,32px)}
+.alg-v1 .heading-line h1{font-size:19px}
+.alg-v1 .icon-btn{background:#092634;border-color:#21626a}
+.alg-v1 .header-controls{gap:9px}
+.alg-v1 .user-chip{background:#42ecbb;color:#042b2d;border:0}
+.alg-v1 main{max-width:none;padding:20px clamp(14px,2vw,30px) 55px}
+.alg-v1 .alg-ecosystem-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:5px 0 20px}
+.alg-v1 .alg-ecosystem-head h2{font-size:clamp(20px,2.3vw,31px);font-weight:900;line-height:1.35;color:#5cfbe1;margin:7px 0}
+.alg-v1 .alg-ecosystem-head p{margin:0;color:#9ebcc6;font-size:11px}
+.alg-v1 .alg-cloud-points{display:flex;flex-wrap:wrap;gap:8px}
+.alg-v1 .alg-cloud-points span{padding:7px 10px;background:#0c3138;border:1px solid #27686b;border-radius:8px;color:#a9ebd9;font-size:10px;font-weight:700}
+.alg-v1 .welcome{min-height:190px;grid-template-columns:1fr 180px;background:radial-gradient(ellipse at 80% 10%,#116066 0,transparent 52%),linear-gradient(115deg,#092e3a,#092330);border:1px solid #27897f;border-radius:14px}
+.alg-v1 .welcome-content{padding:19px 26px}
+.alg-v1 .welcome h2{font-size:clamp(20px,2.6vw,35px);line-height:1.35;margin:12px 0 6px}
+.alg-v1 .welcome p{font-size:11px;line-height:1.8;margin:0}
+.alg-v1 .welcome-actions{margin-top:12px}
+.alg-v1 .welcome-orbit{height:185px}
+.alg-v1 .welcome-orbit span{font-size:41px}
+.alg-v1 .orbit{inset:12px}
+.alg-v1 .orbit-two{inset:35px}
+.alg-v1 .btn{border-radius:7px;min-height:36px;font-size:11px}
+.alg-v1 .btn.primary{background:linear-gradient(110deg,#27d4ba,#64fcd0);box-shadow:0 5px 25px #2cfdc723;color:#042e2d}
+.alg-v1 .btn.outline{border-color:#2d6b76;background:#0c313e;color:#d2f7f1}
+.alg-v1 .btn.subtle{border-color:#256a63;background:#104138;color:#c5ffe7}
+.alg-v1 .metrics{gap:10px;margin:14px 0 16px}
+.alg-v1 .metric{min-height:83px;border:1px solid #265864;border-radius:10px;background:linear-gradient(135deg,#0d2c38,#0b2230);padding:12px;gap:9px}
+.alg-v1 .metric-icon{height:39px;width:39px;border:1px solid #2d8175;background:#0c4e4e;border-radius:9px;font-size:22px}
+.alg-v1 .metric small{font-size:10px;color:#b4d6d8}
+.alg-v1 .metric strong{font-size:22px;color:#59f6d8}
+.alg-v1 .metric .metric-word{font-size:13px}
+.alg-v1 .metric div>span{font-size:9px;line-height:1.4}
+.alg-v1 .dashboard-grid{direction:rtl;grid-template-columns:minmax(0,1.7fr) minmax(270px,.95fr);gap:12px}
+.alg-v1 .panel{background:#0b2431;border:1px solid #275a66;border-radius:10px;padding:17px}
+.alg-v1 .panel-head h3{color:#e6fbf6;font-size:15px}
+.alg-v1 .panel-head{margin-bottom:10px}
+.alg-v1 .quick-scripts{gap:7px}
+.alg-v1 .quick-row{display:grid;grid-template-columns:39px minmax(0,1fr) auto auto;gap:10px;min-height:57px;border-radius:8px;border:1px solid #275763;background:#0d303c;padding:9px}
+.alg-v1 .quick-row .quick-name{white-space:normal;overflow:visible;font-size:11px;font-weight:800}
+.alg-v1 .quick-row small{color:#70e9bd}
+.alg-v1 .quick-row .switch{margin-inline-start:4px}
+.alg-v1 .bot-icon{border:1px solid #207e74;background:#0c4a4a;color:#67f6d9;border-radius:8px}
+.alg-v1 .alg-account-summary{border:1px solid #2b5d69;background:#0c2b39;padding:12px;border-radius:9px;margin-bottom:12px}
+.alg-v1 .alg-account-name{display:flex;gap:10px;align-items:center;border-bottom:1px solid #295e68;padding-bottom:10px;margin-bottom:8px}
+.alg-v1 .alg-account-name strong{font-size:13px;color:#f0faf8;display:block}
+.alg-v1 .alg-account-name small{font-size:10px;color:#80afb8}
+.alg-v1 .alg-account-avatar{width:37px;height:37px;display:grid;place-items:center;border-radius:9px;background:#47eabe;color:#06372e;font-weight:900}
+.alg-v1 .alg-account-facts{display:grid;gap:6px}
+.alg-v1 .alg-account-facts>div{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:#a9c7d0}
+.alg-v1 .alg-account-facts strong{color:#5ef1c7;font-size:10px;text-align:left}
+.alg-v1 .alg-sync-box{display:flex;gap:9px;align-items:start;border-radius:9px;border:1px solid #215a54;background:#0b362f;padding:11px;margin-bottom:12px}
+.alg-v1 .alg-sync-box strong{color:#6dfacb;font-size:12px}
+.alg-v1 .alg-sync-box p{font-size:10px;color:#bedbd6;margin:3px 0}
+.alg-v1 .alg-sync-box span#dashboardSyncStatus{color:#87ddb9;font-size:9px}
+.alg-v1 .alg-sync-icon{font-size:26px;color:#36eac0}
+.alg-v1 .alg-launcher-cta{flex-direction:column;line-height:1.15;min-height:52px;font-size:14px}
+.alg-v1 .alg-launcher-cta small{font-size:9px;font-weight:600}
+.alg-v1 .alg-setup-warning{padding:8px 4px 12px;color:#adc3c7;font-size:9px;line-height:1.7}
+.alg-v1 .system-steps{border-top:1px solid #27616a;padding-top:12px}
+.alg-v1 .system-step{gap:8px}
+.alg-v1 .system-step small{line-height:1.5}
+.alg-v1 .page-head h2{color:#57ebd0;font-size:24px}
+.alg-v1 .scripts-grid{display:flex;flex-direction:column;gap:9px}
+.alg-v1 .bot-card{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) auto;gap:14px;align-items:center;border:1px solid #29616b;background:linear-gradient(110deg,#0d2e3c,#102736);border-radius:9px;min-height:86px;padding:14px}
+.alg-v1 .bot-top{display:flex;align-items:center;gap:9px;margin:0}
+.alg-v1 .bot-card h3{font-size:12px;margin:0;line-height:1.55;word-break:break-word}
+.alg-v1 .bot-card p{font-size:10px;color:#9dc2c9;line-height:1.6;margin:0}
+.alg-v1 .bot-bottom{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0;border:0;padding:0}
+.alg-v1 .bot-actions{display:flex;gap:5px;flex-wrap:wrap}
+.alg-v1 .bot-actions .btn{min-height:30px;padding:5px 9px;font-size:10px}
+.alg-v1 .bot-status{white-space:nowrap}
+.alg-v1 .bot-card .bot-title-info{display:flex;flex-direction:column;gap:4px;min-width:0}
+.alg-v1 .bot-card .bot-top .switch{margin-inline-start:auto}
+.alg-v1 .filter-bar{border:1px solid #265865;background:#0b2633;border-radius:10px;padding:11px}
+.alg-v1 .search-field{border:1px solid #2a696a;background:#0a1f2c;border-radius:8px}
+.alg-v1 .chip.active{background:#48eec4;color:#073733}
+.alg-v1 .alg-launcher-guide{border:1px solid #2a8f80;border-radius:12px;background:linear-gradient(135deg,#0a3539,#0c2638);padding:19px 22px;margin:0 0 17px}
+.alg-v1 .alg-launcher-guide h3{font-size:17px;color:#72f8d9;margin:6px 0}
+.alg-v1 .alg-launcher-guide p{font-size:11px;color:#bed5d5;line-height:1.85}
+.alg-v1 .pill.positive{color:#64eac0}
+.alg-v1 button:focus-visible,.alg-v1 a:focus-visible,.alg-v1 input:focus-visible{outline:2px solid #72ffdc;outline-offset:3px}
+@media(max-width:1100px){
+ .alg-v1{display:block}
+ .alg-v1 .sidebar{position:fixed;right:auto;left:0;transform:translateX(-110%);width:min(300px,85vw);border-left:0;border-right:1px solid #2d756c;z-index:30}
+ .alg-v1 .sidebar.open{transform:translateX(0)}
+ .alg-v1 .dashboard-grid{grid-template-columns:1fr}
+ .alg-v1 .alg-cloud-points{display:none}
+}
+@media(max-width:780px){
+ .alg-v1 .welcome{grid-template-columns:minmax(0,1fr);min-height:0}
+ .alg-v1 .welcome-orbit{display:none}
+ .alg-v1 .welcome-content{padding:19px}
+ .alg-v1 .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .alg-v1 .metric{min-height:87px;padding:9px}
+ .alg-v1 .metric-icon{width:32px;height:32px;font-size:18px}
+ .alg-v1 .metric strong{font-size:20px}
+ .alg-v1 .bot-card{grid-template-columns:1fr;gap:8px}
+ .alg-v1 .bot-bottom{justify-content:space-between}
+ .alg-v1 .alg-ecosystem-head{padding:8px 0 13px}
+ .alg-v1 .alg-ecosystem-head h2{font-size:21px}
+ .alg-v1 .quick-row{grid-template-columns:36px minmax(0,1fr) auto}
+ .alg-v1 .quick-row .btn{display:none}
+ .alg-v1 .topbar{padding:12px}
+}
+@media(prefers-reduced-motion:reduce){.alg-v1 *{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
