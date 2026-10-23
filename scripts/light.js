@@ -81,7 +81,7 @@
     }
     #tw-light-widget header {
       padding: 6px 8px;
-      background: #374151;
+      background: #123e3d;
       font-weight: 600;
       display: flex;
       align-items: center;
@@ -91,9 +91,9 @@
     #tw-light-widget .stats div { margin: 2px 0; }
     #tw-light-widget .body { padding: 6px 8px; max-height: 200px; overflow: auto; }
     #tw-light-widget .entry { margin-bottom: 4px; }
-    #tw-light-widget .entry.info { color: #d1d5db; }
-    #tw-light-widget .entry.ok { color: #34d399; }
-    #tw-light-widget .entry.err { color: #f87171; }
+    #tw-light-widget .entry.info { color: #95acbc; }
+    #tw-light-widget .entry.ok { color: #40e1bf; }
+    #tw-light-widget .entry.err { color: #fc8595; }
   `);
 
   const panel = document.createElement('div');
@@ -281,4 +281,14 @@
     addLog('Starting first cycle', 'info');
     cycle();
   }
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-light';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#tw-light-widget){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#tw-light-widget) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#tw-light-widget) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#tw-light-widget) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#tw-light-widget) :is(th,td){border-color:#263c4f}\n:is(#tw-light-widget) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

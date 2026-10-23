@@ -78,7 +78,7 @@
       max-height: 520px;
       z-index: 999999;
       background: rgba(20,23,26,0.92);
-      color: #e6eef8;
+      color: #eaf3f8;
       font: 13px/1.3 "Segoe UI", Roboto, Arial, sans-serif;
       border-radius: 10px;
       box-shadow: 0 8px 30px rgba(2,6,23,0.6);
@@ -88,21 +88,21 @@
     }
     #tw-train-panel header {
       display:flex; align-items:center; justify-content:space-between;
-      padding:8px 10px; background:#111827; font-weight:700;
+      padding:8px 10px; background:#123e3d; font-weight:700;
       border-bottom:1px solid rgba(255,255,255,0.04);
     }
     #tw-train-panel .controls { padding:10px; display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-    #tw-train-panel label { font-size:12px; color:#cbd5e1; display:block; margin-bottom:4px; }
+    #tw-train-panel label { font-size:12px; color:#eaf3f8; display:block; margin-bottom:4px; }
     #tw-train-panel input[type="number"] { width:100%; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:inherit; }
     #tw-train-panel .row { display:flex; gap:8px; align-items:center; }
     #tw-train-panel .buttons { padding:10px; border-top:1px solid rgba(255,255,255,0.03); display:flex; gap:8px; justify-content:space-between; }
-    #tw-train-panel button { padding:6px 10px; border-radius:8px; border: none; cursor:pointer; font-weight:600; background:#0ea5a1; color:#042022; }
-    #tw-train-panel button.stop { background:#ef4444; color:white; }
+    #tw-train-panel button { padding:6px 10px; border-radius:8px; border: none; cursor:pointer; font-weight:600; background:#247a68; color:#eaf3f8; }
+    #tw-train-panel button.stop { background:#965160; color:#eaf3f8; }
     #tw-train-panel .stats { padding:10px; border-top:1px solid rgba(255,255,255,0.03); display:flex; gap:14px; font-size:13px; }
-    #tw-train-panel .log { padding:8px; background:rgba(0,0,0,0.18); margin:8px; border-radius:6px; max-height:160px; overflow:auto; font-size:12px; color:#dbeafe; }
+    #tw-train-panel .log { padding:8px; background:rgba(0,0,0,0.18); margin:8px; border-radius:6px; max-height:160px; overflow:auto; font-size:12px; color:#eaf3f8; }
     #tw-train-panel .log .entry { margin-bottom:6px; }
-    #tw-train-panel .small { font-size:11px; color:#94a3b8; }
-    #tw-train-toggle-pin { position:absolute; left:8px; top:8px; cursor:pointer; font-size:12px; color:#94a3b8; }
+    #tw-train-panel .small { font-size:11px; color:#95acbc; }
+    #tw-train-toggle-pin { position:absolute; left:8px; top:8px; cursor:pointer; font-size:12px; color:#95acbc; }
     #tw-train-panel .countdown { font-weight:700; }
   `);
 
@@ -462,4 +462,15 @@
   // helpful log on load - السكربت محفوظ للمبرمج غزااوي
   pushLog('Panel loaded — اضبط الأوقات واضغط تشغيل (▶)');
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-train-master-b';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#tw-train-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#tw-train-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#tw-train-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#tw-train-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#tw-train-panel) :is(th,td){border-color:#263c4f}\n:is(#tw-train-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

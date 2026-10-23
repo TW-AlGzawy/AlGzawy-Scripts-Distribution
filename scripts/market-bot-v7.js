@@ -75,29 +75,29 @@
     function createControlPanel(){
         var panel = document.createElement("div");
         panel.id = "tribal-bot-panel";
-        panel.style.cssText = "position:fixed;top:10px;right:10px;width:300px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:2px solid #4a5568;border-radius:10px;padding:15px;z-index:9999;font-family:Arial,sans-serif;color:white;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
+        panel.style.cssText = "position:fixed;top:10px;right:10px;width:300px;background:linear-gradient(135deg,#13283a 0%,#102031 100%);border:2px solid #263c4f;border-radius:10px;padding:15px;z-index:9999;font-family:Arial,sans-serif;color:#eaf3f8;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
         panel.innerHTML = `
             <div style="text-align:center;margin-bottom:10px;">
-                <h3 style="margin:0;color:#ffd700;">🤖 تجريبي - الغزااوي - بوت السوق (v1.0)</h3>
+                <h3 style="margin:0;color:#40e1bf;">🤖 تجريبي - الغزااوي - بوت السوق (v1.0)</h3>
             </div>
             <div><strong>الحالة:</strong> <span id="bot-status">${botStatus}</span></div>
             <div><strong>آخر فحص:</strong> <span id="last-check">${lastCheck.toLocaleTimeString("ar-SA")}</span></div>
             <div><strong>عدد المشتريات:</strong> <span id="purchase-count">${purchaseCount}</span></div>
             <div style="margin-top:10px;">
                 <label>الكمية الدنيا: </label>
-                <input type="number" id="min-quantity" value="${CONFIG.minQuantity}" style="width:60px;padding:2px;color:black;">
+                <input type="number" id="min-quantity" value="${CONFIG.minQuantity}" style="width:60px;padding:2px;color:#eaf3f8;">
             </div>
             <div>
                 <label>خصم الكمية: </label>
-                <input type="number" id="deduct-quantity" value="${CONFIG.deductQuantity}" style="width:60px;padding:2px;color:black;">
+                <input type="number" id="deduct-quantity" value="${CONFIG.deductQuantity}" style="width:60px;padding:2px;color:#eaf3f8;">
             </div>
             <div>
                 <label>حد الخصم: </label>
-                <input type="number" id="deduct-threshold" value="${CONFIG.deductThreshold}" style="width:60px;padding:2px;color:black;">
+                <input type="number" id="deduct-threshold" value="${CONFIG.deductThreshold}" style="width:60px;padding:2px;color:#eaf3f8;">
             </div>
             <div>
                 <label>فحص كل (ثانية): </label>
-                <input type="number" id="check-interval" value="${CONFIG.checkInterval/1000}" style="width:60px;padding:2px;color:black;">
+                <input type="number" id="check-interval" value="${CONFIG.checkInterval/1000}" style="width:60px;padding:2px;color:#eaf3f8;">
             </div>
             <div style="text-align:center;margin-top:15px;">
                 <button id="start-bot">▶️ تشغيل</button>
@@ -113,9 +113,9 @@
     function addPanelStyles(){
         var style = document.createElement('style');
         style.innerHTML = `
-            #tribal-bot-panel button { background:#48bb78;color:white;border:none;padding:8px 15px;border-radius:5px;margin:2px;cursor:pointer;}
-            #tribal-bot-panel #stop-bot { background:#f56565;}
-            #tribal-bot-panel #test-bot { background:#ed8936;}
+            #tribal-bot-panel button { background:#247a68;color:#eaf3f8;border:none;padding:8px 15px;border-radius:5px;margin:2px;cursor:pointer;}
+            #tribal-bot-panel #stop-bot { background:#965160;}
+            #tribal-bot-panel #test-bot { background:#75623c;}
         `;
         document.head.appendChild(style);
     }
@@ -249,4 +249,15 @@
     // ---------------- INIT ----------------
     createControlPanel();
     updatePanel();
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-market-bot-v7';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#tribal-bot-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#tribal-bot-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#tribal-bot-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#tribal-bot-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#tribal-bot-panel) :is(th,td){border-color:#263c4f}\n:is(#tribal-bot-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

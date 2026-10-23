@@ -59,14 +59,14 @@
     function createUI() {
         const settings = loadSettings();
         let ui = `
-            <div id="smart_reserve_v5" style="position: fixed; top: 150px; right: 10px; width: 320px; background: #f4e4bc; border: 2px solid #804000; z-index: 10001; padding: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.6); border-radius: 5px;">
-                <h3 style="margin: 0 0 10px 0; color: #542e0f; text-align: center; border-bottom: 2px solid #804000; padding-bottom: 5px;">🎯 ${SCRIPT_NAME}</h3>
+            <div id="smart_reserve_v5" style="position: fixed; top: 150px; right: 10px; width: 320px; background: #102031; border: 2px solid #263c4f; z-index: 10001; padding: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.6); border-radius: 5px;">
+                <h3 style="margin: 0 0 10px 0; color: #eaf3f8; text-align: center; border-bottom: 2px solid #263c4f; padding-bottom: 5px;">🎯 ${SCRIPT_NAME}</h3>
                 <div id="status_indicator_v5" style="padding: 8px; margin-bottom: 10px; text-align: center; font-weight: bold; border-radius: 3px;"></div>
                 <div style="display: flex; justify-content: space-around; margin-bottom: 15px;">
                     <button id="start_btn_v5" class="btn">🚀 بدء</button>
                     <button id="stop_btn_v5" class="btn">⏹️ إيقاف</button>
                 </div>
-                <div style="border: 1px solid #c1a264; padding: 10px; margin-bottom: 10px; border-radius: 3px;">
+                <div style="border: 1px solid #123e3d; padding: 10px; margin-bottom: 10px; border-radius: 3px;">
                     ${createInput('minPoints_v5', 'أدنى نقاط', settings.minPoints, 'number')}
                     ${createInput('maxPoints_v5', 'أقصى نقاط', settings.maxPoints, 'number')}
                     ${createInput('updateInterval_v5', 'تحديث (ثواني)', settings.updateInterval, 'number')}
@@ -74,7 +74,7 @@
                 <div style="text-align: center; margin-bottom: 10px;">
                     <button id="save_btn_v5" class="btn-confirm-yes">💾 حفظ الإعدادات</button>
                 </div>
-                <div id="log_container_v5" style="height: 150px; overflow-y: auto; border: 1px solid #c1a264; padding: 5px; background: #fff; border-radius: 3px; font-size: 11px;"></div>
+                <div id="log_container_v5" style="height: 150px; overflow-y: auto; border: 1px solid #123e3d; padding: 5px; background: #07111c; border-radius: 3px; font-size: 11px;"></div>
             </div>
         `;
         $('body').append(ui);
@@ -83,12 +83,12 @@
     }
 
     function createInput(id, label, value, type) {
-        return `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><label for="${id}">${label}:</label><input type="${type}" id="${id}" value="${value}" style="width: 100px; padding: 4px; border: 1px solid #ccc; border-radius: 2px;"></div>`;
+        return `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><label for="${id}">${label}:</label><input type="${type}" id="${id}" value="${value}" style="width: 100px; padding: 4px; border: 1px solid #263c4f; border-radius: 2px;"></div>`;
     }
 
     function log(message, isError = false) {
         const logContainer = $('#log_container_v5');
-        const color = isError ? 'red' : 'green';
+        const color = isError ? '#fc8595' : '#55edc2';
         logContainer.prepend(`<div style="color: ${color};">[${new Date().toLocaleTimeString()}] ${message}</div>`);
     }
 
@@ -96,9 +96,9 @@
         const settings = loadSettings();
         const statusIndicator = $('#status_indicator_v5');
         if (settings.enabled) {
-            statusIndicator.text('الحالة: يعمل').css({ 'background-color': '#5cb85c', 'color': 'white' });
+            statusIndicator.text('الحالة: يعمل').css({ 'background-color': '#247a68', 'color': 'white' });
         } else {
-            statusIndicator.text('الحالة: متوقف').css({ 'background-color': '#d9534f', 'color': 'white' });
+            statusIndicator.text('الحالة: متوقف').css({ 'background-color': '#965160', 'color': 'white' });
         }
     }
 
@@ -255,4 +255,15 @@
         }
     });
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-reserve-smart-v5';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#smart_reserve_v5){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#smart_reserve_v5) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#smart_reserve_v5) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#smart_reserve_v5) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#smart_reserve_v5) :is(th,td){border-color:#263c4f}\n:is(#smart_reserve_v5) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

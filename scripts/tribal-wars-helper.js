@@ -91,7 +91,7 @@
                     border-radius: 8px;
                     font-family: 'Verdana', 'Arial', sans-serif;
                     font-size: 13px;
-                    border-left: 5px solid #7d510f;
+                    border-left: 5px solid #95acbc;
                     text-shadow: 1px 1px 3px black;
                     box-shadow: 0 4px 10px rgba(0,0,0,0.5);
                     direction: rtl;
@@ -108,13 +108,13 @@
                 }
                 .algzawy-rights {
                     font-size: 11px;
-                    color: #cccccc;
+                    color: #95acbc;
                     opacity: 0.9;
                 }
                 .algzawy-lock-btn {
                     background: rgba(0, 0, 0, 0.8);
                     color: #fff;
-                    border: 1px solid #7d510f;
+                    border: 1px solid #95acbc;
                     border-radius: 50%;
                     width: 35px;
                     height: 35px;
@@ -128,9 +128,9 @@
                     font-size: 18px;
                 }
                 .algzawy-lock-btn.locked {
-                    background: #7d510f;
-                    border-color: #ffcc00;
-                    color: #ffcc00;
+                    background: #123e3d;
+                    border-color: #dfb677;
+                    color: #dfb677;
                 }
                 .algzawy-lock-btn:hover {
                     transform: scale(1.1);
@@ -294,4 +294,15 @@
     };
 
     TW_Helper.init();
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-tribal-wars-helper';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(.algzawy-container){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(.algzawy-container) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(.algzawy-container) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(.algzawy-container) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(.algzawy-container) :is(th,td){border-color:#263c4f}\n:is(.algzawy-container) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

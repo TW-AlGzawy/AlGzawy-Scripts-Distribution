@@ -269,3 +269,14 @@ function eventListeners() {
         scriptStatus ? startScript() : stopScript();
     };
 }
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-auto-builder-ar-v061';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#autoBuilderTable){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#autoBuilderTable) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#autoBuilderTable) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#autoBuilderTable) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#autoBuilderTable) :is(th,td){border-color:#263c4f}\n:is(#autoBuilderTable) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
+})();

@@ -10,14 +10,14 @@
 'use strict';
 
 // ===== THEME =====
-var BG       = '#1e1200';
-var BG2      = '#2e1c00';
-var HDR      = '#3d2500';
-var BORDER   = '#8b6914';
-var GOLD     = '#d4a017';
-var CREAM    = '#f0e6c8';
-var DIM      = '#a08060';
-var ROW_A    = 'rgba(139,105,20,0.12)';
+var BG       = '#102031';
+var BG2      = '#13283a';
+var HDR      = '#123e3d';
+var BORDER   = '#263c4f';
+var GOLD     = '#40e1bf';
+var CREAM    = '#eaf3f8';
+var DIM      = '#95acbc';
+var ROW_A    = 'rgba(64,225,191,0.08)';
 var ROW_B    = 'rgba(0,0,0,0.18)';
 
 // ===== K-MEANS =====
@@ -442,13 +442,13 @@ function injectCSS(){
         '.alg-T tr:nth-child(even){background:'+ROW_A+';}',
         '.alg-T tr:nth-child(odd){background:'+ROW_B+';}',
         '.alg-TH{background:linear-gradient(to bottom,'+HDR+','+BG2+');color:'+GOLD+';font-weight:bold;text-align:center;}',
-        '.alg-IN{background:#0a0600;color:'+CREAM+';border:1px solid '+BORDER+';padding:4px 6px;border-radius:3px;width:80px;text-align:center;}',
-        '.alg-BTN{background:linear-gradient(to bottom,#5a3c00,#3d2500);color:'+GOLD+';border:1px solid '+BORDER+';padding:5px 14px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;}',
-        '.alg-BTN:hover{background:linear-gradient(to bottom,#7a5200,#5a3c00);}',
-        '.alg-BIG-BTN{background:linear-gradient(to bottom,#1a6b2e,#0f4a1e);color:#e8ffe8;border:1px solid #2d8a45;padding:9px 30px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:15px;}',
-        '.alg-BIG-BTN:hover{background:linear-gradient(to bottom,#219639,#1a6b2e);}',
-        '.alg-SEND-BTN{background:linear-gradient(to bottom,#c87c0a,#8b5500);color:#fff;border:1px solid #d4a017;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:12px;}',
-        '.alg-SEND-BTN:hover{background:linear-gradient(to bottom,#e09a0c,#c87c0a);}',
+        '.alg-IN{background:#07111c;color:'+CREAM+';border:1px solid '+BORDER+';padding:4px 6px;border-radius:3px;width:80px;text-align:center;}',
+        '.alg-BTN{background:linear-gradient(to bottom,#143e3a,#123e3d);color:'+GOLD+';border:1px solid '+BORDER+';padding:5px 14px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;}',
+        '.alg-BTN:hover{background:linear-gradient(to bottom,#1c5b4c,#143e3a);}',
+        '.alg-BIG-BTN{background:linear-gradient(to bottom,#247a68,#143e3a);color:#eaf3f8;border:1px solid #286459;padding:9px 30px;border-radius:5px;cursor:pointer;font-weight:bold;font-size:15px;}',
+        '.alg-BIG-BTN:hover{background:linear-gradient(to bottom,#2d9074,#247a68);}',
+        '.alg-SEND-BTN{background:linear-gradient(to bottom,#31556a,#183345);color:#fff;border:1px solid #40e1bf;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:12px;}',
+        '.alg-SEND-BTN:hover{background:linear-gradient(to bottom,#469d8d,#31556a);}',
         '.alg-SEND-BTN:disabled{opacity:0.5;cursor:default;}',
         '#alg-scroll{max-height:350px;overflow-y:auto;}',
         '#alg-scroll::-webkit-scrollbar{width:6px;}',
@@ -472,7 +472,7 @@ function createMainInterface(){
             '<span style="color:'+GOLD+';font-weight:bold;font-size:15px;">&#9878; AlGzawy &mdash; موازنة الموارد</span>'+
             '<span>'+
                 '<button id="alg-min-btn" style="background:none;border:none;color:'+CREAM+';cursor:pointer;font-size:18px;padding:0 6px;" title="تصغير">&#8722;</button>'+
-                '<button id="alg-close-btn" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:18px;padding:0 6px;" title="إغلاق">&#10005;</button>'+
+                '<button id="alg-close-btn" style="background:none;border:none;color:#965160;cursor:pointer;font-size:18px;padding:0 6px;" title="إغلاق">&#10005;</button>'+
             '</span>'+
         '</div>'+
         // BODY
@@ -627,9 +627,9 @@ function buildResultsDialog(list_production,obj_stats){
         '<td class="alg-TH" colspan="2"><img src="https://dsen.innogamescdn.com/asset/c2e59f13/graphic/buildings/iron.png"/></td></tr>';
     for(var i=0;i<list_production.length;i++){
         var p=list_production[i];
-        var gC=p.result_wood>=0?'#013e27':'#5f0000';
-        var sC=p.result_stone>=0?'#013e27':'#5f0000';
-        var iC=p.result_iron>=0?'#013e27':'#5f0000';
+        var gC=p.result_wood>=0?'#013e27':'#372330';
+        var sC=p.result_stone>=0?'#013e27':'#372330';
+        var iC=p.result_iron>=0?'#013e27':'#372330';
         html+='<tr><td><a href="'+game_data.link_base_pure+'info_village&id='+p.id+'" style="color:'+GOLD+';">'+p.coord+'</a></td>'+
             '<td style="text-align:center;">'+fmtN(p.points||0)+'</td>'+
             '<td style="text-align:center;">'+(p.merchantAvailable||0)+'/'+p.merchants_total+'</td>'+
@@ -669,7 +669,7 @@ function buildMiniPanel(){
     p.style.cssText='position:fixed;top:'+top+';left:'+left+';z-index:99999;background:'+BG+';border:2px solid '+BORDER+';border-radius:8px;font-family:Trebuchet MS,sans-serif;font-size:13px;color:'+CREAM+';direction:rtl;min-width:190px;box-shadow:3px 3px 10px rgba(0,0,0,0.6);user-select:none;';
 
     var bodyStyle='padding:10px;display:'+(minimized?'none':'block')+';';
-    var inpS='background:#0a0600;color:'+CREAM+';border:1px solid '+BORDER+';padding:3px 6px;border-radius:3px;width:100%;box-sizing:border-box;';
+    var inpS='background:#07111c;color:'+CREAM+';border:1px solid '+BORDER+';padding:3px 6px;border-radius:3px;width:100%;box-sizing:border-box;';
 
     p.innerHTML=
         '<div id="alg-mini-hdr" style="background:linear-gradient(to bottom,'+HDR+','+BG2+');color:'+GOLD+';padding:7px 10px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">'+
@@ -681,9 +681,9 @@ function buildMiniPanel(){
                 '<label style="display:block;margin-bottom:2px;font-size:11px;color:'+DIM+';">الفترة (ثانية)</label>'+
                 '<input id="alg-mini-interval" type="number" min="60" value="'+interval+'" style="'+inpS+'">'+
             '</div>'+
-            '<button id="alg-mini-run" style="width:100%;padding:7px;border-radius:4px;border:1px solid '+BORDER+';cursor:pointer;font-weight:bold;font-size:13px;margin-bottom:6px;background:'+(autoEnabled?'linear-gradient(to bottom,#7a0000,#4a0000)':'linear-gradient(to bottom,#1a6b2e,#0f4a1e)')+';color:'+(autoEnabled?'#ffaaaa':'#e8ffe8')+';">'+(autoEnabled?'&#9632; إيقاف':'&#9654; تشغيل تلقائي')+'</button>'+
+            '<button id="alg-mini-run" style="width:100%;padding:7px;border-radius:4px;border:1px solid '+BORDER+';cursor:pointer;font-weight:bold;font-size:13px;margin-bottom:6px;background:'+(autoEnabled?'linear-gradient(to bottom,#392532,#372330)':'linear-gradient(to bottom,#247a68,#143e3a)')+';color:'+(autoEnabled?'#f2abb1':'#eaf3f8')+';">'+(autoEnabled?'&#9632; إيقاف':'&#9654; تشغيل تلقائي')+'</button>'+
             '<div id="alg-mini-status" style="text-align:center;font-size:11px;color:'+GOLD+';min-height:16px;margin-bottom:6px;">'+(autoEnabled?'جاري...':'متوقف')+'</div>'+
-            '<button id="alg-mini-open" style="width:100%;padding:5px;border-radius:4px;border:1px solid '+BORDER+';cursor:pointer;font-size:12px;background:linear-gradient(to bottom,#3d2500,#2e1c00);color:'+CREAM+';">&#9881; فتح الإعدادات</button>'+
+            '<button id="alg-mini-open" style="width:100%;padding:5px;border-radius:4px;border:1px solid '+BORDER+';cursor:pointer;font-size:12px;background:linear-gradient(to bottom,#123e3d,#13283a);color:'+CREAM+';">&#9881; فتح الإعدادات</button>'+
             '<div style="text-align:center;margin-top:8px;font-size:10px;color:'+DIM+';border-top:1px solid '+BORDER+';padding-top:6px;">AlGzawy &bull; موازنة v1.0</div>'+
         '</div>';
 
@@ -731,13 +731,13 @@ function buildMiniPanel(){
         autoEnabled=!autoEnabled;
         GM_setValue('alg_bal_autoEnabled',autoEnabled);
         if(autoEnabled){
-            this.style.background='linear-gradient(to bottom,#7a0000,#4a0000)';
-            this.style.color='#ffaaaa';
+            this.style.background='linear-gradient(to bottom,#392532,#372330)';
+            this.style.color='#f2abb1';
             this.innerHTML='&#9632; إيقاف';
             startAutoRun(iv);
         } else {
-            this.style.background='linear-gradient(to bottom,#1a6b2e,#0f4a1e)';
-            this.style.color='#e8ffe8';
+            this.style.background='linear-gradient(to bottom,#247a68,#143e3a)';
+            this.style.color='#eaf3f8';
             this.innerHTML='&#9654; تشغيل تلقائي';
             stopAutoRun();
             setMiniStatus('متوقف');
@@ -848,4 +848,15 @@ function startAutoRun(intervalSec){
 // ===== INIT =====
 buildMiniPanel();
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-alg-balance';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#alg-window,#alg-mini-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#alg-window,#alg-mini-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#alg-window,#alg-mini-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#alg-window,#alg-mini-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#alg-window,#alg-mini-panel) :is(th,td){border-color:#263c4f}\n:is(#alg-window,#alg-mini-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

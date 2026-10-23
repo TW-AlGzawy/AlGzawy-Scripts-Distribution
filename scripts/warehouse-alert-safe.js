@@ -31,8 +31,8 @@
   const panel=document.createElement('section');
   panel.id='algzawy-warehouse-alert-panel';
   panel.setAttribute('dir','rtl');
-  panel.style.cssText='position:fixed;bottom:12px;right:12px;background:#f8fafc;color:#142331;border:1px solid #9bb0bf;border-radius:10px;box-shadow:0 4px 20px #0004;font:12px/1.6 Tahoma,Arial;z-index:999990;width:224px;overflow:hidden';
-  panel.innerHTML='<div id="algzawy-warehouse-header" style="background:#163c57;color:white;padding:8px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between;align-items:center"><span>📦 تجريبي - الغزااوي - تنبيه المخازن</span><button id="algzawy-warehouse-collapse" type="button" aria-label="طي نافذة المخازن" style="color:white;border:0;background:none;cursor:pointer;font-size:18px">−</button></div>'+
+  panel.style.cssText='position:fixed;bottom:12px;right:12px;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:10px;box-shadow:0 4px 20px #0004;font:12px/1.6 Tahoma,Arial;z-index:999990;width:224px;overflow:hidden';
+  panel.innerHTML='<div id="algzawy-warehouse-header" style="background:#123e3d;color:#eaf3f8;padding:8px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between;align-items:center"><span>📦 تجريبي - الغزااوي - تنبيه المخازن</span><button id="algzawy-warehouse-collapse" type="button" aria-label="طي نافذة المخازن" style="color:#eaf3f8;border:0;background:none;cursor:pointer;font-size:18px">−</button></div>'+
     '<div id="algzawy-warehouse-body" style="padding:9px">'+
     '<label><input id="algzawy-warehouse-enable" type="checkbox"> تفعيل التنبيه</label>'+
     '<label style="display:block;margin:6px 0">نسبة التنبيه <input id="algzawy-warehouse-pct" type="number" min="50" max="100" step="1" style="width:48px">%</label>'+
@@ -108,14 +108,14 @@
     const most=resource.find(r=>r.amount/c*100===peak);
     q('status').textContent='أعلى امتلاء: '+Math.round(peak)+'% ('+({'wood':'خشب','stone':'طين','iron':'حديد'}[most.id])+')';
     if(!settings.enabled || peak<settings.percent)return;
-    q('status').style.color='#b91c1c';
+    q('status').style.color='#fc8595';
     const village=(typeof game_data !== 'undefined' && game_data.village && game_data.village.id)||'unknown';
     const lastKey='algzawy_wh_alert_last_'+village;
     const previous=Number(localStorage.getItem(lastKey)||0);
     if(Date.now()-previous<30*60*1000)return;
     localStorage.setItem(lastKey,String(Date.now()));
     const notice=document.createElement('div');
-    notice.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:2147483001;direction:rtl;background:#fff4e0;color:#763600;border:2px solid #eab308;padding:12px;border-radius:10px;box-shadow:0 3px 15px #0004;font:14px Tahoma';
+    notice.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:2147483001;direction:rtl;background:#363025;color:#e7c889;border:2px solid #dfb677;padding:12px;border-radius:10px;box-shadow:0 3px 15px #0004;font:14px Tahoma';
     notice.textContent='📦 مخازن الغزاوي: نسبة '+Math.round(peak)+'% تجاوزت حد التنبيه ('+settings.percent+'%). انقر لإغلاق التنبيه.';
     notice.addEventListener('click',()=>notice.remove());
     notices.add(notice);
@@ -139,4 +139,14 @@
   h.addEventListener('pointerup',endDrag);
   h.addEventListener('pointercancel',endDrag);
   check();setInterval(check,30000);
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-warehouse-alert-safe';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#algzawy-warehouse-alert-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#algzawy-warehouse-alert-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#algzawy-warehouse-alert-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#algzawy-warehouse-alert-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#algzawy-warehouse-alert-panel) :is(th,td){border-color:#263c4f}\n:is(#algzawy-warehouse-alert-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

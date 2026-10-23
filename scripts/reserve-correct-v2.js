@@ -41,11 +41,11 @@
     function createUI() {
         const state = loadState();
         let ui = `
-            <div id="correct_reserve_v2" style="position: fixed; top: 100px; right: 10px; width: 250px; background: #f0e6d2; border: 1px solid #804000; z-index: 10000; padding: 10px; font-family: sans-serif;">
+            <div id="correct_reserve_v2" style="position: fixed; top: 100px; right: 10px; width: 250px; background: #102031; border: 1px solid #263c4f; z-index: 10000; padding: 10px; font-family: sans-serif;">
                 <h4 style="margin: 0 0 10px 0; text-align: center;">🎯 ${SCRIPT_NAME}</h4>
                 <button id="toggle_btn_v2_correct" class="btn" style="width: 100%; margin-bottom: 10px;">${state.enabled ? '⏹️ إيقاف' : '🚀 بدء'}</button>
-                <div id="status_v2_correct" style="text-align: center; font-weight: bold; color: #333;"></div>
-                <div id="log_v2_correct" style="margin-top: 10px; font-size: 11px; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; background: white;"></div>
+                <div id="status_v2_correct" style="text-align: center; font-weight: bold; color: #eaf3f8;"></div>
+                <div id="log_v2_correct" style="margin-top: 10px; font-size: 11px; max-height: 150px; overflow-y: auto; border: 1px solid #263c4f; padding: 5px; background: #07111c;"></div>
             </div>
         `;
         $('body').append(ui);
@@ -203,4 +203,15 @@
         }
     });
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-reserve-correct-v2';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#correct_reserve_v2){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#correct_reserve_v2) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#correct_reserve_v2) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#correct_reserve_v2) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#correct_reserve_v2) :is(th,td){border-color:#263c4f}\n:is(#correct_reserve_v2) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

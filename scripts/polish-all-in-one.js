@@ -79,7 +79,7 @@
                     <strong>BOT PROTECTION DETECTED!</strong>
                     <div style="font-size: 11px;">Script paused - manual action required</div>
                 </div>
-                <button onclick="this.parentElement.parentElement.remove()" style="margin-left: auto; background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">✕</button>
+                <button onclick="this.parentElement.parentElement.remove()" style="margin-left: auto; background: #965160; color: #eaf3f8; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">✕</button>
             </div>
         `;
         alert.style.cssText = `
@@ -87,8 +87,8 @@
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            background: #e74c3c !important;
-            color: white !important;
+            background: #965160 !important;
+            color: #eaf3f8 !important;
             padding: 20px !important;
             border-radius: 8px !important;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
@@ -242,8 +242,8 @@
             const msg = document.createElement('div');
             msg.className = 'tw-message';
             msg.textContent = message;
-            const bgColor = type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db';
-            msg.style.cssText = `position: fixed !important; top: 50px !important; right: 10px !important; z-index: 10002 !important; padding: 10px 15px !important; border-radius: 4px !important; color: white !important; background: ${bgColor} !important; font: 12px Arial !important;`;
+            const bgColor = type === 'success' ? '#247a68' : type === 'error' ? '#965160' : '#31556a';
+            msg.style.cssText = `position: fixed !important; top: 50px !important; right: 10px !important; z-index: 10002 !important; padding: 10px 15px !important; border-radius: 4px !important; color: #eaf3f8 !important; background: ${bgColor} !important; font: 12px Arial !important;`;
             document.body.appendChild(msg);
             setTimeout(() => { if(msg.parentNode) msg.remove(); }, 3000);
         }
@@ -253,61 +253,61 @@
             const panel = document.createElement('div');
             panel.id = 'tw-control-panel';
             panel.innerHTML = `
-                <div class="tw-panel-header" onclick="window.TW_CONTROL.toggle(); return false;" style="cursor: pointer; padding: 12px 15px; background: #34495e; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; user-select: none;">
+                <div class="tw-panel-header" onclick="window.TW_CONTROL.toggle(); return false;" style="cursor: pointer; padding: 12px 15px; background: #123e3d; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; user-select: none;">
                     <span>TW Helper (Tab-Only)</span>
-                    <button id="tw-toggle-panel" type="button" onclick="window.TW_CONTROL.toggle(); return false;" style="background: none; border: none; color: white; font-size: 14px; cursor: pointer; padding: 5px 8px;">▼</button>
+                    <button id="tw-toggle-panel" type="button" onclick="window.TW_CONTROL.toggle(); return false;" style="background: none; border: none; color: #eaf3f8; font-size: 14px; cursor: pointer; padding: 5px 8px;">▼</button>
                 </div>
                 <div class="tw-panel-content" id="tw-panel-content" style="display: none; padding: 15px; max-height: 80vh; overflow-y: auto;">
-                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #34495e;">
+                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #123e3d;">
                         <label style="display: flex; align-items: center; cursor: pointer;">
                             <input type="checkbox" id="tw-global-enable" onchange="window.TW_CONTROL.toggleGlobal(this);" style="display: none;">
-                            <span style="width: 40px; height: 20px; background: #7f8c8d; border-radius: 20px; position: relative; transition: background 0.3s; margin-right: 10px;"></span>
+                            <span style="width: 40px; height: 20px; background: #345368; border-radius: 20px; position: relative; transition: background 0.3s; margin-right: 10px;"></span>
                             <span>Enable Script (This Tab Only)</span>
                         </label>
-                        <div style="font-size: 10px; color: #bdc3c7; margin-top: 5px;">
+                        <div style="font-size: 10px; color: #95acbc; margin-top: 5px;">
                             All settings isolated to this tab (${TAB_ID.slice(-5)})<br>
                             🔊 Bot detection sound enabled - click anywhere first to activate audio
                         </div>
                     </div>
-                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #34495e;">
-                        <h4 style="margin: 0 0 10px 0; color: #3498db; font-size: 13px;">Steps (Drag to Reorder)</h4>
+                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #123e3d;">
+                        <h4 style="margin: 0 0 10px 0; color: #31556a; font-size: 13px;">Steps (Drag to Reorder)</h4>
                         <div id="tw-steps-container"></div>
                     </div>
-                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #34495e;">
-                        <h4 style="margin: 0 0 10px 0; color: #3498db; font-size: 13px;">Delay Settings (ms)</h4>
+                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #123e3d;">
+                        <h4 style="margin: 0 0 10px 0; color: #31556a; font-size: 13px;">Delay Settings (ms)</h4>
                         <div style="margin: 8px 0; display: flex; align-items: center; gap: 5px;">
                             <label style="min-width: 100px; font-size: 11px;">Initial:</label>
-                            <input type="number" id="tw-delay-initial-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;"> -
-                            <input type="number" id="tw-delay-initial-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;">
+                            <input type="number" id="tw-delay-initial-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;"> -
+                            <input type="number" id="tw-delay-initial-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;">
                         </div>
                         <div style="margin: 8px 0; display: flex; align-items: center; gap: 5px;">
                             <label style="min-width: 100px; font-size: 11px;">Before Submit:</label>
-                            <input type="number" id="tw-delay-submit-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;"> -
-                            <input type="number" id="tw-delay-submit-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;">
+                            <input type="number" id="tw-delay-submit-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;"> -
+                            <input type="number" id="tw-delay-submit-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;">
                         </div>
                         <div style="margin: 8px 0; display: flex; align-items: center; gap: 5px;">
                             <label style="min-width: 100px; font-size: 11px;">Between Steps:</label>
-                            <input type="number" id="tw-delay-between-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;"> -
-                            <input type="number" id="tw-delay-between-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;">
+                            <input type="number" id="tw-delay-between-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;"> -
+                            <input type="number" id="tw-delay-between-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;">
                         </div>
                         <div style="margin: 8px 0; display: flex; align-items: center; gap: 5px;">
                             <label style="min-width: 100px; font-size: 11px;">Retry:</label>
-                            <input type="number" id="tw-delay-retry-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;"> -
-                            <input type="number" id="tw-delay-retry-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;">
+                            <input type="number" id="tw-delay-retry-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;"> -
+                            <input type="number" id="tw-delay-retry-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;">
                         </div>
                         <div style="margin: 8px 0; display: flex; align-items: center; gap: 5px;">
                             <label style="min-width: 100px; font-size: 11px;">Error Retry:</label>
-                            <input type="number" id="tw-delay-error-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;"> -
-                            <input type="number" id="tw-delay-error-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #7f8c8d; border-radius: 3px; background: #ecf0f1; color: #2c3e50;">
+                            <input type="number" id="tw-delay-error-min" placeholder="Min" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;"> -
+                            <input type="number" id="tw-delay-error-max" placeholder="Max" style="width: 60px; padding: 3px; border: 1px solid #345368; border-radius: 3px; background: #eaf3f8; color: #102031;">
                         </div>
                     </div>
                     <div>
-                        <button onclick="window.TW_CONTROL.saveSettings(); return false;" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; background: #3498db; color: white;">Save Tab Settings</button>
-                        <button onclick="window.TW_CONTROL.resetSettings(); return false;" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; background: #95a5a6; color: white;">Reset This Tab</button>
+                        <button onclick="window.TW_CONTROL.saveSettings(); return false;" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; background: #31556a; color: #eaf3f8;">Save Tab Settings</button>
+                        <button onclick="window.TW_CONTROL.resetSettings(); return false;" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; background: #123e3d; color: #eaf3f8;">Reset This Tab</button>
                     </div>
                 </div>
             `;
-            panel.style.cssText = 'position: fixed !important; top: 10px !important; right: 10px !important; background: #2c3e50 !important; color: white !important; border-radius: 8px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; z-index: 10000 !important; min-width: 320px !important; font-family: Arial, sans-serif !important; font-size: 12px !important; pointer-events: auto !important;';
+            panel.style.cssText = 'position: fixed !important; top: 10px !important; right: 10px !important; background: #102031 !important; color: #eaf3f8 !important; border-radius: 8px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; z-index: 10000 !important; min-width: 320px !important; font-family: Arial, sans-serif !important; font-size: 12px !important; pointer-events: auto !important;';
             document.body.appendChild(panel);
             ControlPanel.loadSettings();
             ControlPanel.bindDragDrop();
@@ -321,7 +321,7 @@
                 // Style the toggle slider
                 const slider = enableToggle.nextElementSibling;
                 if (slider && settings.enabled) {
-                    slider.style.background = '#27ae60';
+                    slider.style.background = '#247a68';
                     slider.style.setProperty('--translate', '20px');
                 }
             }
@@ -355,11 +355,11 @@
                 div.setAttribute('draggable', 'true');
                 div.dataset.stepId = step.id;
                 div.dataset.index = i;
-                div.style.cssText = 'background: #34495e; padding: 10px; margin: 5px 0; border-radius: 5px; display: flex; align-items: center; cursor: grab; user-select: none;';
+                div.style.cssText = 'background: #123e3d; padding: 10px; margin: 5px 0; border-radius: 5px; display: flex; align-items: center; cursor: grab; user-select: none;';
                 div.innerHTML = `
                     <input type="checkbox" ${step.enabled ? 'checked' : ''} onchange="window.TW_CONTROL.toggleStep(this, '${step.id}');" style="margin-right: 10px;">
                     <span style="flex-grow: 1; font-weight: bold;">${step.name}</span>
-                    <span style="color: #95a5a6; margin-left: 10px; cursor: grab;">⋮⋮</span>
+                    <span style="color: #95acbc; margin-left: 10px; cursor: grab;">⋮⋮</span>
                 `;
                 container.appendChild(div);
             });
@@ -369,20 +369,20 @@
             if (!statusEl) {
                 statusEl = document.createElement('div');
                 statusEl.className = 'tw-status';
-                statusEl.style.cssText = 'position: fixed !important; top: 10px !important; left: 10px !important; color: white !important; padding: 5px 10px !important; border-radius: 4px !important; font-size: 11px !important; z-index: 9999 !important; font-family: Arial !important;';
+                statusEl.style.cssText = 'position: fixed !important; top: 10px !important; left: 10px !important; color: #eaf3f8 !important; padding: 5px 10px !important; border-radius: 4px !important; font-size: 11px !important; z-index: 9999 !important; font-family: Arial !important;';
                 document.body.appendChild(statusEl);
             }
             const settings = Settings.get();
             const enabled = settings.enabled;
             const audioStatus = audioEnabled ? '🔊' : '🔇';
             statusEl.textContent = `TW Helper: ${enabled ? 'ENABLED' : 'DISABLED'} ${audioStatus} (${TAB_ID.slice(-5)})`;
-            statusEl.style.background = enabled ? '#27ae60' : '#e74c3c';
+            statusEl.style.background = enabled ? '#247a68' : '#965160';
         },
         bindDragDrop: function() {
             const container = document.getElementById('tw-steps-container');
             if (!container) return;
             let placeholder = document.createElement('div');
-            placeholder.style.cssText = 'height: 38px; margin: 5px 0; border: 2px dashed #3498db; border-radius: 5px; background: rgba(52, 152, 219, 0.1);';
+            placeholder.style.cssText = 'height: 38px; margin: 5px 0; border: 2px dashed #31556a; border-radius: 5px; background: rgba(52, 152, 219, 0.1);';
             container.addEventListener('dragstart', e => {
                 const target = e.target.closest('.tw-step-item');
                 if (!target) return;
@@ -658,4 +658,14 @@
     } else {
         init();
     }
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-polish-all-in-one';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#tw-control-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#tw-control-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#tw-control-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#tw-control-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#tw-control-panel) :is(th,td){border-color:#263c4f}\n:is(#tw-control-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

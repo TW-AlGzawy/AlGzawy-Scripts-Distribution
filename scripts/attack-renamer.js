@@ -18,13 +18,13 @@
   const panel = document.createElement('section');
   panel.id = panelId;
   panel.dir = 'rtl';
-  panel.style.cssText='position:fixed;top:210px;right:12px;z-index:999991;width:253px;background:#f8fafc;color:#152538;border:1px solid #b8c7d3;border-radius:12px;box-shadow:0 6px 20px #0004;font:12px/1.7 Tahoma,Arial;overflow:hidden';
-  panel.innerHTML='<header id="algzawy-renamer-drag" style="background:#153b53;color:#fff;padding:8px;cursor:move;touch-action:none;user-select:none">🏷️ AlGzawy — تسمية الهجمات القادمة</header>'+
+  panel.style.cssText='position:fixed;top:210px;right:12px;z-index:999991;width:253px;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:12px;box-shadow:0 6px 20px #0004;font:12px/1.7 Tahoma,Arial;overflow:hidden';
+  panel.innerHTML='<header id="algzawy-renamer-drag" style="background:#123e3d;color:#fff;padding:8px;cursor:move;touch-action:none;user-select:none">🏷️ AlGzawy — تسمية الهجمات القادمة</header>'+
     '<div id="algzawy-renamer-body" style="padding:10px">'+
     '<label><input id="algzawy-renamer-enabled" type="checkbox"> تفعيل التسمية تلقائيًا</label>'+
     '<label style="display:block;margin:8px 0">البادئة <input id="algzawy-renamer-prefix" type="text" maxlength="24" style="width:115px"></label>'+
     '<label><input id="algzawy-renamer-skip" type="checkbox"> عدم تغيير الأسماء المخصصة</label>'+
-    '<div id="algzawy-renamer-status" aria-live="polite" style="font-size:11px;color:#475569;margin-top:8px">متوقف</div></div>';
+    '<div id="algzawy-renamer-status" aria-live="polite" style="font-size:11px;color:#95acbc;margin-top:8px">متوقف</div></div>';
   document.body.appendChild(panel);
   const el = name => document.getElementById('algzawy-renamer-'+name);
   el('enabled').checked = !!settings.enabled;
@@ -110,4 +110,14 @@
   handle.addEventListener('pointerup',()=>{drag=null;});
   setInterval(scan,15000);
   if(settings.enabled)setTimeout(scan,1000);
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-attack-renamer';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#algzawy-incoming-renamer-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#algzawy-incoming-renamer-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#algzawy-incoming-renamer-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#algzawy-incoming-renamer-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#algzawy-incoming-renamer-panel) :is(th,td){border-color:#263c4f}\n:is(#algzawy-incoming-renamer-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

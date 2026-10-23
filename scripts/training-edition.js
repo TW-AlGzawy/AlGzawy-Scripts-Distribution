@@ -38,8 +38,8 @@ function createUI() {
     const ui = document.createElement('div');
     ui.id = 'ghzaawi-trainer';
     ui.innerHTML = `
-    <div style="position:fixed;top:10px;right:10px;background:#1a202c;color:white;padding:10px;border-radius:8px;z-index:99999;font-size:12px;direction:rtl;">
-        <div style="font-weight:bold;color:#4fd1c7;margin-bottom:5px;">AlGzawy</div>
+    <div style="position:fixed;top:10px;right:10px;background:#102031;color:#eaf3f8;padding:10px;border-radius:8px;z-index:99999;font-size:12px;direction:rtl;">
+        <div style="font-weight:bold;color:#40e1bf;margin-bottom:5px;">AlGzawy</div>
         <div>الحالة: <span id="status"></span></div>
         <div style="margin:5px 0;">
             <button id="toggle" style="width:100%;padding:5px;border:none;border-radius:4px;cursor:pointer;"></button>
@@ -57,14 +57,14 @@ function updateUI() {
 
     if (isRunning) {
         status.textContent = 'يعمل';
-        status.style.color = '#48bb78';
+        status.style.color = '#247a68';
         btn.textContent = 'إيقاف';
-        btn.style.background = '#f56565';
+        btn.style.background = '#965160';
     } else {
         status.textContent = 'متوقف';
-        status.style.color = '#f56565';
+        status.style.color = '#965160';
         btn.textContent = 'تشغيل';
-        btn.style.background = '#48bb78';
+        btn.style.background = '#247a68';
     }
 }
 
@@ -147,4 +147,14 @@ window.addEventListener('beforeunload', () => {
     if (refreshTimer) clearTimeout(refreshTimer);
 });
 
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-training-edition';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#ghzaawi-trainer){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#ghzaawi-trainer) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#ghzaawi-trainer) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#ghzaawi-trainer) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#ghzaawi-trainer) :is(th,td){border-color:#263c4f}\n:is(#ghzaawi-trainer) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

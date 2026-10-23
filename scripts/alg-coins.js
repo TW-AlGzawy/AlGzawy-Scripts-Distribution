@@ -91,23 +91,23 @@
         var tgChatId  = get('tgChatId');
         var isRunning = get('isRunning');
 
-        var inp = 'border:1px solid #c1a264;background:#fff;text-align:center;padding:2px 3px;border-radius:3px;';
+        var inp = 'border:1px solid #123e3d;background:#07111c;text-align:center;padding:2px 3px;border-radius:3px;';
 
         var panel = document.createElement('div');
         panel.id = 'algzawy-refine-panel';
-        panel.style.cssText = 'position:fixed;top:' + get('panelTop') + ';left:' + get('panelLeft') + ';z-index:9999;background:#f4e4bc;border:2px solid #804000;border-radius:5px;font-family:\'Trebuchet MS\',sans-serif;width:295px;direction:rtl;box-shadow:0 4px 12px rgba(0,0,0,0.35);';
+        panel.style.cssText = 'position:fixed;top:' + get('panelTop') + ';left:' + get('panelLeft') + ';z-index:9999;background:#102031;border:2px solid #263c4f;border-radius:5px;font-family:\'Trebuchet MS\',sans-serif;width:295px;direction:rtl;box-shadow:0 4px 12px rgba(0,0,0,0.35);';
 
         panel.innerHTML =
             // ── رأس اللوحة ──
-            '<div id="alg-refine-header" style="background:#c1a264;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;cursor:move;border-radius:3px 3px 0 0;">' +
-                '<h4 style="margin:0;color:#542e0a;font-size:13px;white-space:nowrap;">بوت الصقل - AlGzawy (تاب: ' + TAB_LABEL + ')</h4>' +
-                '<span id="alg-refine-min-btn" style="cursor:pointer;font-weight:bold;font-size:18px;color:#542e0a;line-height:1;padding:0 4px;">—</span>' +
+            '<div id="alg-refine-header" style="background:#123e3d;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;cursor:move;border-radius:3px 3px 0 0;">' +
+                '<h4 style="margin:0;color:#eaf3f8;font-size:13px;white-space:nowrap;">بوت الصقل - AlGzawy (تاب: ' + TAB_LABEL + ')</h4>' +
+                '<span id="alg-refine-min-btn" style="cursor:pointer;font-weight:bold;font-size:18px;color:#eaf3f8;line-height:1;padding:0 4px;">—</span>' +
             '</div>' +
 
-            '<div id="alg-refine-body" style="padding:10px 12px;font-size:12px;color:#3a2000;">' +
+            '<div id="alg-refine-body" style="padding:10px 12px;font-size:12px;color:#eaf3f8;">' +
 
                 // ── الخطوات ──
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #c1a264;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #123e3d;">' +
                     '<span style="font-weight:bold;">الخطوات:</span>' +
                     '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;">' +
                         '<span>الأكاديمية</span>' +
@@ -140,14 +140,14 @@
                 '</div>' +
 
                 // ── فاصل + فاصل السوق ──
-                '<hr style="border:none;border-top:1px solid #c1a264;margin:4px 0 10px 0;">' +
+                '<hr style="border:none;border-top:1px solid #123e3d;margin:4px 0 10px 0;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
                     '<span>فاصل السوق (min):</span>' +
                     '<input type="number" id="alg-market-interval" value="' + get('marketInterval') + '" style="width:90px;' + inp + 'padding:3px 5px;font-size:13px;">' +
                 '</div>' +
 
                 // ── تفعيل الجدولة ──
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #c1a264;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #123e3d;">' +
                     '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">' +
                         '<span>تفعيل الجدولة للسوق فقط</span>' +
                         '<input type="checkbox" id="alg-schedule-market" ' + (get('scheduleMarket') ? 'checked' : '') + '>' +
@@ -155,10 +155,10 @@
                 '</div>' +
 
                 // ── قسم تيليغرام ──
-                '<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #c1a264;">' +
+                '<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #123e3d;">' +
                     // رأس القسم: اسم + مفتاح تشغيل
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-                        '<span style="font-weight:bold;color:#0055aa;">📨 Telegram</span>' +
+                        '<span style="font-weight:bold;color:#82afe9;">📨 Telegram</span>' +
                         '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;">' +
                             '<span style="font-size:11px;">' + (tgEnabled ? 'مفعّل' : 'معطّل') + '</span>' +
                             '<input type="checkbox" id="alg-tg-toggle" ' + (tgEnabled ? 'checked' : '') + '>' +
@@ -171,8 +171,8 @@
                         '<div id="alg-tg-token-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
                             '<span style="min-width:50px;">Token:</span>' +
                             (tgToken
-                                ? '<div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:#27ae60;">محفوظ ✓</span><button id="alg-tg-token-del" style="background:#e74c3c;color:white;border:none;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;">✕</button></div>'
-                                : '<input type="password" id="alg-tg-token-inp" placeholder="Bot Token" style="flex:1;margin-right:5px;' + inp + 'text-align:right;"><button id="alg-tg-token-save" style="background:#3498db;color:white;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">حفظ</button>'
+                                ? '<div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:#247a68;">محفوظ ✓</span><button id="alg-tg-token-del" style="background:#965160;color:#eaf3f8;border:none;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;">✕</button></div>'
+                                : '<input type="password" id="alg-tg-token-inp" placeholder="Bot Token" style="flex:1;margin-right:5px;' + inp + 'text-align:right;"><button id="alg-tg-token-save" style="background:#31556a;color:#eaf3f8;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">حفظ</button>'
                             ) +
                         '</div>' +
 
@@ -180,8 +180,8 @@
                         '<div id="alg-tg-chatid-row" style="display:flex;justify-content:space-between;align-items:center;">' +
                             '<span style="min-width:50px;">Chat ID:</span>' +
                             (tgChatId
-                                ? '<div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:#27ae60;">محفوظ ✓</span><button id="alg-tg-chatid-del" style="background:#e74c3c;color:white;border:none;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;">✕</button></div>'
-                                : '<input type="text" id="alg-tg-chatid-inp" placeholder="Chat ID" style="flex:1;margin-right:5px;' + inp + 'text-align:right;"><button id="alg-tg-chatid-save" style="background:#3498db;color:white;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">حفظ</button>'
+                                ? '<div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:#247a68;">محفوظ ✓</span><button id="alg-tg-chatid-del" style="background:#965160;color:#eaf3f8;border:none;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;">✕</button></div>'
+                                : '<input type="text" id="alg-tg-chatid-inp" placeholder="Chat ID" style="flex:1;margin-right:5px;' + inp + 'text-align:right;"><button id="alg-tg-chatid-save" style="background:#31556a;color:#eaf3f8;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">حفظ</button>'
                             ) +
                         '</div>' +
 
@@ -190,15 +190,15 @@
 
                 // ── أزرار رئيسية ──
                 '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-                    '<button id="alg-save-btn" style="flex:1;background:#3498db;color:white;border:none;padding:7px 0;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">حفظ</button>' +
-                    '<button id="alg-start-btn" style="flex:2;background:' + (isRunning ? '#dc3545' : '#28a745') + ';color:white;border:none;padding:7px 0;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">' + (isRunning ? 'إيقاف (هذا التاب)' : 'بدء (هذا التاب)') + '</button>' +
+                    '<button id="alg-save-btn" style="flex:1;background:#31556a;color:#eaf3f8;border:none;padding:7px 0;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">حفظ</button>' +
+                    '<button id="alg-start-btn" style="flex:2;background:' + (isRunning ? '#965160' : '#247a68') + ';color:#eaf3f8;border:none;padding:7px 0;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">' + (isRunning ? 'إيقاف (هذا التاب)' : 'بدء (هذا التاب)') + '</button>' +
                 '</div>' +
 
                 // ── تذييل ──
-                '<div style="text-align:center;padding-top:8px;border-top:1px solid #c1a264;">' +
-                    '<button id="alg-update-btn" style="background:none;border:none;color:#0055cc;cursor:pointer;text-decoration:underline;font-size:11px;padding:0;">تحقق من التحديثات</button>' +
-                    '<div style="color:#542e0a;font-size:11px;margin-top:3px;">الإصدار: 1.0</div>' +
-                    '<div style="color:#7d510f;font-size:10px;margin-top:3px;">&copy; جميع الحقوق محفوظة - AlGzawy</div>' +
+                '<div style="text-align:center;padding-top:8px;border-top:1px solid #123e3d;">' +
+                    '<button id="alg-update-btn" style="background:none;border:none;color:#82afe9;cursor:pointer;text-decoration:underline;font-size:11px;padding:0;">تحقق من التحديثات</button>' +
+                    '<div style="color:#eaf3f8;font-size:11px;margin-top:3px;">الإصدار: 1.0</div>' +
+                    '<div style="color:#95acbc;font-size:10px;margin-top:3px;">&copy; جميع الحقوق محفوظة - AlGzawy</div>' +
                 '</div>' +
 
             '</div>';
@@ -282,8 +282,8 @@
 
             var btn = document.getElementById('alg-save-btn');
             btn.textContent = 'تم الحفظ ✓';
-            btn.style.background = '#27ae60';
-            setTimeout(function () { btn.textContent = 'حفظ'; btn.style.background = '#3498db'; }, 2000);
+            btn.style.background = '#247a68';
+            setTimeout(function () { btn.textContent = 'حفظ'; btn.style.background = '#31556a'; }, 2000);
         });
 
         // ── بدء / إيقاف ──
@@ -292,11 +292,11 @@
             if (running) {
                 set('isRunning', false);
                 this.textContent      = 'بدء (هذا التاب)';
-                this.style.background = '#28a745';
+                this.style.background = '#247a68';
             } else {
                 set('isRunning', true);
                 this.textContent      = 'إيقاف (هذا التاب)';
-                this.style.background = '#dc3545';
+                this.style.background = '#965160';
                 main();
             }
         });
@@ -332,14 +332,14 @@
     // مساعد: ربط حقل Token أو Chat ID (حفظ / حذف / تبديل)
     // ========================================================================
     function bindTokenField(saveBtnId, inputId, delBtnId, rowId, settingKey) {
-        var inp = 'border:1px solid #c1a264;background:#fff;text-align:right;padding:2px 3px;border-radius:3px;';
+        var inp = 'border:1px solid #123e3d;background:#07111c;text-align:right;padding:2px 3px;border-radius:3px;';
 
         function showSaved(row) {
             row.innerHTML =
                 '<span style="min-width:50px;">' + (settingKey === 'tgToken' ? 'Token:' : 'Chat ID:') + '</span>' +
                 '<div style="display:flex;align-items:center;gap:5px;">' +
-                    '<span style="font-size:11px;color:#27ae60;">محفوظ ✓</span>' +
-                    '<button id="' + delBtnId + '" style="background:#e74c3c;color:white;border:none;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;">✕</button>' +
+                    '<span style="font-size:11px;color:#247a68;">محفوظ ✓</span>' +
+                    '<button id="' + delBtnId + '" style="background:#965160;color:#eaf3f8;border:none;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;">✕</button>' +
                 '</div>';
             document.getElementById(delBtnId).addEventListener('click', function () { showInput(row); });
         }
@@ -351,7 +351,7 @@
             row.innerHTML =
                 '<span style="min-width:50px;">' + (settingKey === 'tgToken' ? 'Token:' : 'Chat ID:') + '</span>' +
                 '<input type="' + type + '" id="' + inputId + '" placeholder="' + ph + '" style="flex:1;margin-right:5px;' + inp + '">' +
-                '<button id="' + saveBtnId + '" style="background:#3498db;color:white;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">حفظ</button>';
+                '<button id="' + saveBtnId + '" style="background:#31556a;color:#eaf3f8;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:11px;">حفظ</button>';
             document.getElementById(saveBtnId).addEventListener('click', function () {
                 var val = (document.getElementById(inputId) || {}).value || '';
                 if (!val.trim()) return;
@@ -388,7 +388,7 @@
         console.warn('[AlGzawy] 🚨 BOT PROTECTION DETECTED!');
         set('isRunning', false);
         var btn = document.getElementById('alg-start-btn');
-        if (btn) { btn.textContent = 'بدء (هذا التاب)'; btn.style.background = '#28a745'; }
+        if (btn) { btn.textContent = 'بدء (هذا التاب)'; btn.style.background = '#247a68'; }
         playAlertSound();
         showBotAlert();
         var time = new Date().toLocaleTimeString('ar-SA');
@@ -424,11 +424,11 @@
         if (document.getElementById('alg-bot-alert')) return;
         var div = document.createElement('div');
         div.id = 'alg-bot-alert';
-        div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#e74c3c;color:white;padding:20px 30px;border-radius:8px;z-index:99999;font-size:15px;font-weight:bold;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);direction:rtl;';
+        div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#965160;color:#eaf3f8;padding:20px 30px;border-radius:8px;z-index:99999;font-size:15px;font-weight:bold;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);direction:rtl;';
         div.innerHTML =
             '🚨 تم اكتشاف حماية البوت!<br>' +
             '<span style="font-size:11px;font-weight:normal;">تم إيقاف السكربت تلقائياً</span><br>' +
-            '<button onclick="document.getElementById(\'alg-bot-alert\').remove()" style="margin-top:10px;background:white;color:#e74c3c;border:none;padding:5px 15px;border-radius:4px;cursor:pointer;">إغلاق</button>';
+            '<button onclick="document.getElementById(\'alg-bot-alert\').remove()" style="margin-top:10px;background:#07111c;color:#965160;border:none;padding:5px 15px;border-radius:4px;cursor:pointer;">إغلاق</button>';
         document.body.appendChild(div);
         setTimeout(function () { if (div.parentNode) div.remove(); }, 15000);
     }
@@ -580,4 +580,15 @@
         init();
     }
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-alg-coins';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#algzawy-refine-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#algzawy-refine-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#algzawy-refine-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#algzawy-refine-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#algzawy-refine-panel) :is(th,td){border-color:#263c4f}\n:is(#algzawy-refine-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

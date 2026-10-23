@@ -142,14 +142,14 @@
         const style = document.createElement('style');
         style.innerHTML = `
             @keyframes custom_rainbow {
-                0% { color: #000000; }
+                0% { color: #eaf3f8; }
                 14% { color: #ffffff; }
                 28% { color: #ffff00; }
                 42% { color: #0000ff; }
                 56% { color: #00ff00; }
                 70% { color: #800080; }
                 84% { color: #ff0000; }
-                100% { color: #000000; }
+                100% { color: #eaf3f8; }
             }
             .algzawy-rainbow-fixed {
                 animation: custom_rainbow 5s linear infinite;
@@ -162,9 +162,9 @@
                 font-size: 12px;
                 padding: 10px 5px;
                 border-top: 1px solid rgba(125, 81, 15, 0.3);
-                color: #000;
+                color: #eaf3f8;
                 font-weight: bold;
-                background: rgba(125, 81, 15, 0.05);
+                background: rgba(64,225,191,0.05);
                 border-bottom-left-radius: 6px;
                 border-bottom-right-radius: 6px;
             }
@@ -192,8 +192,8 @@
         const savedDim = JSON.parse(localStorage.getItem(DIM_KEY) || '{"width":"220px","height":"auto"}');
 
         const panelHtml = `
-            <div id="pro_builder_panel" style="position: fixed; top: ${savedPos.top}; left: ${savedPos.left || 'auto'}; right: ${savedPos.right || '10px'}; width: ${savedDim.width}; height: ${savedDim.height}; z-index: 10000; background: #f4e4bc; border: 2px solid #7d510f; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
-                <div id="panel_header" style="display: flex; justify-content: space-between; align-items: center; background: #7d510f; color: white; padding: 5px 10px; border-top-left-radius: 6px; border-top-right-radius: 6px; cursor: move; height: 25px;">
+            <div id="pro_builder_panel" style="position: fixed; top: ${savedPos.top}; left: ${savedPos.left || 'auto'}; right: ${savedPos.right || '10px'}; width: ${savedDim.width}; height: ${savedDim.height}; z-index: 10000; background: #102031; border: 2px solid #95acbc; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); direction: rtl; font-family: Tahoma, sans-serif; font-size: 11px;">
+                <div id="panel_header" style="display: flex; justify-content: space-between; align-items: center; background: #123e3d; color: #eaf3f8; padding: 5px 10px; border-top-left-radius: 6px; border-top-right-radius: 6px; cursor: move; height: 25px;">
                     <strong style="font-size: 12px;">تجريبي - الغزااوي - البناء الاحترافي القديم v1.0</strong>
                     <div style="display: flex; gap: 5px;">
                         <span id="min_btn" style="cursor: pointer; font-weight: bold; padding: 0 5px;">${isMinimized ? '□' : '_'}</span>
@@ -207,34 +207,34 @@
 
                     <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.05); padding: 4px; border-radius: 4px; flex-shrink: 0;">
                         <span>الحد الأقصى:</span>
-                        <input type="number" id="max_q_len" value="${maxQueueLength}" min="1" max="10" style="width: 30px; text-align: center; border: 1px solid #7d510f; border-radius: 3px;">
+                        <input type="number" id="max_q_len" value="${maxQueueLength}" min="1" max="10" style="width: 30px; text-align: center; border: 1px solid #95acbc; border-radius: 3px;">
                     </div>
 
                     <div style="margin-bottom: 10px; flex-shrink: 0;">
-                        <button id="import_template" class="btn" style="width: 100%; background: #8c5e1a; color: white; border: 1px solid #5e3f11; padding: 4px;">استيراد كود القالب</button>
-                        ${activeTemplate ? '<div id="template_status" style="color: #1e7e34; text-align: center; font-weight: bold; margin-top: 4px;">القالب نشط ✓</div>' : ''}
+                        <button id="import_template" class="btn" style="width: 100%; background: #143e3a; color: #eaf3f8; border: 1px solid #263c4f; padding: 4px;">استيراد كود القالب</button>
+                        ${activeTemplate ? '<div id="template_status" style="color: #55edc2; text-align: center; font-weight: bold; margin-top: 4px;">القالب نشط ✓</div>' : ''}
                     </div>
 
                     <div id="building_controls">
                         ${buildingConfig.map(b => `
-                            <div style="display: flex; align-items: center; background: #8c5e1a; border: 1px solid #5e3f11; border-radius: 4px; overflow: hidden; height: 22px; flex-shrink: 0; margin-bottom: 3px;">
-                                <button class="sub-btn" data-id="${b.id}" style="width: 25px; height: 100%; background: #d9534f; color: white; border: none; cursor: pointer; font-weight: bold;">-</button>
-                                <div class="add-btn-main" data-id="${b.id}" style="flex-grow: 1; height: 100%; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; font-size: 10px; white-space: nowrap; padding: 0 4px;">
+                            <div style="display: flex; align-items: center; background: #143e3a; border: 1px solid #263c4f; border-radius: 4px; overflow: hidden; height: 22px; flex-shrink: 0; margin-bottom: 3px;">
+                                <button class="sub-btn" data-id="${b.id}" style="width: 25px; height: 100%; background: #965160; color: #eaf3f8; border: none; cursor: pointer; font-weight: bold;">-</button>
+                                <div class="add-btn-main" data-id="${b.id}" style="flex-grow: 1; height: 100%; display: flex; align-items: center; justify-content: center; color: #eaf3f8; cursor: pointer; font-size: 10px; white-space: nowrap; padding: 0 4px;">
                                     <span class="b-name">${b.name}</span>
-                                    <span class="b-count" id="count_${b.id}" style="margin-right: 4px; font-weight: bold; color: #ffeb3b; display: none;"></span>
+                                    <span class="b-count" id="count_${b.id}" style="margin-right: 4px; font-weight: bold; color: #dfb677; display: none;"></span>
                                 </div>
-                                <button class="plus-btn" data-id="${b.id}" style="width: 25px; height: 100%; background: #5cb85c; color: white; border: none; cursor: pointer; font-weight: bold;">+</button>
+                                <button class="plus-btn" data-id="${b.id}" style="width: 25px; height: 100%; background: #247a68; color: #eaf3f8; border: none; cursor: pointer; font-weight: bold;">+</button>
                             </div>
                         `).join('')}
                     </div>
 
-                    <div style="border-top: 1px solid #7d510f; padding-top: 8px; margin-top: 5px; flex-shrink: 0;">
-                        <strong style="color: #7d510f; display: block; margin-bottom: 5px;">قائمة الترتيب:</strong>
-                        <div id="q_display" style="max-height: 80px; overflow-y: auto; background: rgba(255,255,255,0.7); border: 1px inset #7d510f; border-radius: 4px; padding: 5px; display: flex; flex-wrap: wrap; gap: 4px;">
+                    <div style="border-top: 1px solid #95acbc; padding-top: 8px; margin-top: 5px; flex-shrink: 0;">
+                        <strong style="color: #95acbc; display: block; margin-bottom: 5px;">قائمة الترتيب:</strong>
+                        <div id="q_display" style="max-height: 80px; overflow-y: auto; background: rgba(7,17,28,0.9); border: 1px inset #95acbc; border-radius: 4px; padding: 5px; display: flex; flex-wrap: wrap; gap: 4px;">
                         </div>
                     </div>
 
-                    <button id="clear_q" class="btn" style="width: 100%; margin-top: 10px; background: #d9534f; color: white; padding: 4px; font-size: 11px; flex-shrink: 0;">مسح الكل</button>
+                    <button id="clear_q" class="btn" style="width: 100%; margin-top: 10px; background: #965160; color: #eaf3f8; padding: 4px; font-size: 11px; flex-shrink: 0;">مسح الكل</button>
 
                     <div class="signature-box-final">
                         <span class="algzawy-rainbow-fixed">AlGzawy</span> | جميع الحقوق محفوظة
@@ -351,9 +351,9 @@
     function updateUI() {
         const btn = $("#toggle_builder");
         if (isRunning) {
-            btn.text("إيقاف").css("background", "#d9534f").css("color", "white");
+            btn.text("إيقاف").css("background", "#965160").css("color", "white");
         } else {
-            btn.text("تشغيل").css("background", "#5cb85c").css("color", "white");
+            btn.text("تشغيل").css("background", "#247a68").css("color", "white");
         }
 
         buildingConfig.forEach(b => {
@@ -362,21 +362,21 @@
             const parent = countSpan.closest('.add-btn-main').parent();
             if (count > 0) {
                 countSpan.text(`+${count}`).show();
-                parent.css("background", "#28a745");
+                parent.css("background", "#247a68");
             } else {
                 countSpan.hide();
-                parent.css("background", "#8c5e1a");
+                parent.css("background", "#143e3a");
             }
         });
 
         const qDiv = $("#q_display");
         if (buildingQueue.length === 0) {
-            qDiv.html("<i style='color: #888; font-size: 10px;'>القائمة فارغة...</i>");
+            qDiv.html("<i style='color: #95acbc; font-size: 10px;'>القائمة فارغة...</i>");
         } else {
             qDiv.html(buildingQueue.map((id, idx) => `
-                <div style="display: flex; align-items: center; background: #7d510f; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px; white-space: nowrap;">
+                <div style="display: flex; align-items: center; background: #123e3d; color: #eaf3f8; padding: 2px 6px; border-radius: 3px; font-size: 9px; white-space: nowrap;">
                     <span>${nameMap[id] || id}</span>
-                    <span class="remove-single" data-idx="${idx}" style="margin-right: 5px; cursor: pointer; font-weight: bold; color: #ffbbbb;">×</span>
+                    <span class="remove-single" data-idx="${idx}" style="margin-right: 5px; cursor: pointer; font-weight: bold; color: #f2abb1;">×</span>
                 </div>
             `).join(''));
 
@@ -401,4 +401,15 @@
         if (isRunning) setTimeout(processBuilding, 2000);
     });
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-auto-builder-pro-algzawy-v3-0-free-finish';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#pro_builder_panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#pro_builder_panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#pro_builder_panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#pro_builder_panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#pro_builder_panel) :is(th,td){border-color:#263c4f}\n:is(#pro_builder_panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

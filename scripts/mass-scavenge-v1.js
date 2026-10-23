@@ -38,20 +38,20 @@
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" style="position: fixed; top: 100px; left: 10px; z-index: 9999; background: #f4e4bc; border: 2px solid #804000; border-radius: 5px; font-family: 'Trebuchet MS', sans-serif; width: 250px;">
-                <div id="algzawy-header" style="background: #c1a264; padding: 8px; display: flex; justify-content: space-between; align-items: center; cursor: move;">
+            <div id="algzawy-panel" style="position: fixed; top: 100px; left: 10px; z-index: 9999; background: #102031; border: 2px solid #263c4f; border-radius: 5px; font-family: 'Trebuchet MS', sans-serif; width: 250px;">
+                <div id="algzawy-header" style="background: #123e3d; padding: 8px; display: flex; justify-content: space-between; align-items: center; cursor: move;">
                     <div id="panel-controls" style="cursor: pointer; order: 1;">
                         <span id="minimize-btn" title="تصغير" style="font-weight: bold; font-size: 16px;">—</span>
                         <span id="maximize-btn" title="تكبير" style="display: none; font-weight: bold; font-size: 16px;">+</span>
                     </div>
-                    <h4 style="margin:0; color: #542e0a; order: 2; font-size: 14px;">تجريبي - الغزااوي - الإغارات الجماعية</h4>
+                    <h4 style="margin:0; color: #eaf3f8; order: 2; font-size: 14px;">تجريبي - الغزااوي - الإغارات الجماعية</h4>
                 </div>
                 <div id="algzawy-body" style="padding: 10px; text-align: center;">
                     <button id="toggle-bot-btn" class="btn" style="width: 100%; margin-bottom: 10px;"></button>
 
                     <!-- قسم الإعدادات الجديد -->
-                    <div id="settings-section" style="border-top: 1px solid #c1a264; padding-top: 10px; margin-top: 5px; text-align: left; font-size: 12px;">
-                        <h5 style="text-align: center; margin: 0 0 10px 0; color: #542e0a;">الإعدادات</h5>
+                    <div id="settings-section" style="border-top: 1px solid #123e3d; padding-top: 10px; margin-top: 5px; text-align: left; font-size: 12px;">
+                        <h5 style="text-align: center; margin: 0 0 10px 0; color: #eaf3f8;">الإعدادات</h5>
                         <div class="setting-row">
                             <label>إعادة التحميل (دقائق):</label>
                             <input type="number" id="minReload" class="settings-input" value="${settings.minReload}" title="أقل مدة"> -
@@ -71,17 +71,17 @@
                         </div>
                     </div>
 
-                    <div id="update-section" style="border-top: 1px solid #c1a264; padding-top: 10px; margin-top: 10px;">
-                         <button id="check-update-btn" class="btn" style="background: none; border: none; color: #007bff; cursor: pointer; text-decoration: underline; padding: 0;">التحقق من التحديثات</button>
-                         <span style="font-size: 11px; color: #542e0a; display: block; margin-top: 5px;">الإصدار: ${GM_info.script.version}</span>
+                    <div id="update-section" style="border-top: 1px solid #123e3d; padding-top: 10px; margin-top: 10px;">
+                         <button id="check-update-btn" class="btn" style="background: none; border: none; color: #40e1bf; cursor: pointer; text-decoration: underline; padding: 0;">التحقق من التحديثات</button>
+                         <span style="font-size: 11px; color: #eaf3f8; display: block; margin-top: 5px;">الإصدار: ${GM_info.script.version}</span>
                     </div>
-                    <p style="font-size: 10px; color: #7d510f; margin: 10px 0 0 0;">&copy; الحقوق محفوظة / AlGzawy</p>
+                    <p style="font-size: 10px; color: #95acbc; margin: 10px 0 0 0;">&copy; الحقوق محفوظة / AlGzawy</p>
                 </div>
             </div>
             <style>
                 .setting-row { margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
                 .setting-row label { flex-basis: 50%; }
-                .settings-input { width: 55px; padding: 2px; border: 1px solid #c1a264; background: #fff; text-align: center; }
+                .settings-input { width: 55px; padding: 2px; border: 1px solid #123e3d; background: #07111c; text-align: center; }
                 .settings-input.full-width { width: 115px; }
             </style>
         `;
@@ -97,9 +97,9 @@
 
         function updateButtonState() {
             if (GM_getValue('isBotEnabled', true)) {
-                $toggleBtn.text('إيقاف البوت').css({ 'background-color': '#dc3545', 'color': 'white' });
+                $toggleBtn.text('إيقاف البوت').css({ 'background-color': '#965160', 'color': 'white' });
             } else {
-                $toggleBtn.text('تشغيل البوت').css({ 'background-color': '#28a745', 'color': 'white' });
+                $toggleBtn.text('تشغيل البوت').css({ 'background-color': '#247a68', 'color': 'white' });
             }
         }
         $toggleBtn.on('click', function() {
@@ -141,7 +141,7 @@
                             const newVersion = newVersionMatch[1];
                             if (newVersion > GM_info.script.version) {
                                 alert(`تحديث جديد متوفر!\n\nالإصدار الحالي: ${GM_info.script.version}\nالإصدار الجديد: ${newVersion}\n\nيرجى تحديث السكربت.`);
-                                $('#check-update-btn').text('يوجد تحديث!').css('color', 'red');
+                                $('#check-update-btn').text('يوجد تحديث!').css('color', '#fc8595');
                             } else {
                                 alert('أنت تستخدم أحدث إصدار بالفعل.');
                                 $('#check-update-btn').text('التحقق من التحديثات');
@@ -314,3 +314,13 @@
     });
 
 })(jQuery);
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-mass-scavenge-v1';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#algzawy-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#algzawy-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#algzawy-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#algzawy-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#algzawy-panel) :is(th,td){border-color:#263c4f}\n:is(#algzawy-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
+})();

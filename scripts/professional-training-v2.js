@@ -175,8 +175,8 @@
             position: fixed;
             top: 10px;
             left: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #13283a 0%, #102031 100%);
+            color: #eaf3f8;
             padding: 15px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -224,7 +224,7 @@
             <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
                     <h3 style="margin:0;font-size:14px">🤖 تجريبي - الغزااوي - بوت التدريب المحسّن</h3>
-                    <button id="algzawy-training-collapse" type="button" aria-label="تصغير أو تكبير نافذة التدريب" style="border:1px solid #ddd8;background:#273c79;color:white;border-radius:5px;cursor:pointer">${panel.dataset.collapsed==='1'?'＋':'−'}</button>
+                    <button id="algzawy-training-collapse" type="button" aria-label="تصغير أو تكبير نافذة التدريب" style="border:1px solid #263c4f;background:#123e3d;color:#eaf3f8;border-radius:5px;cursor:pointer">${panel.dataset.collapsed==='1'?'＋':'−'}</button>
                 </div>
                 <div data-training-body style="display:${panel.dataset.collapsed==='1'?'none':'block'}">
                 <label style="display:block;margin-top:6px"><input id="algzawy-training-enabled" type="checkbox" ${CONFIG.AUTO_TRAIN ? 'checked':''}> تشغيل التدريب التلقائي</label>
@@ -240,14 +240,14 @@
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span>🔄 الحالة:</span>
-                    <span id="bot-status" style="font-weight: bold; color: #4ade80;">نشط</span>
+                    <span id="bot-status" style="font-weight: bold; color: #40e1bf;">نشط</span>
                 </div>
             </div>
 
             <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px; opacity: 0.9;">
                 📋 إعدادات الوحدات (تُحفظ تلقائيًا):
             </div>
-            <div style="max-height:200px;overflow:auto;background:#ffffff20;padding:5px">
+            <div style="max-height:200px;overflow:auto;background:#13283a;padding:5px">
             <div style="display:grid;grid-template-columns:1fr 55px 40px 55px;gap:3px;align-items:center;font-size:10px;font-weight:bold">
                <span>الوحدة</span><span>الهدف</span><span>الأولوية</span><span>الحد الأقصى</span>
             </div>
@@ -295,7 +295,7 @@
                         </div>
                         ${config.targetCount > 0 ? `
                             <div style="background: rgba(0,0,0,0.2); height: 4px; border-radius: 2px; margin-top: 4px; overflow: hidden;">
-                                <div style="background: #4ade80; height: 100%; width: ${progress}%;"></div>
+                                <div style="background: #40e1bf; height: 100%; width: ${progress}%;"></div>
                             </div>
                         ` : ''}
                     </div>
@@ -380,11 +380,11 @@
                     const statusEl = document.getElementById('bot-status');
                     if (statusEl) {
                         statusEl.textContent = `تدريب ${config.name}`;
-                        statusEl.style.color = '#fbbf24';
+                        statusEl.style.color = '#dfb677';
                         setTimeout(() => {
                             if (statusEl) {
                                 statusEl.textContent = 'نشط';
-                                statusEl.style.color = '#4ade80';
+                                statusEl.style.color = '#40e1bf';
                             }
                         }, 2000);
                     }
@@ -524,4 +524,14 @@
         init();
     }
 
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-professional-training-v2';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#training-bot-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#training-bot-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#training-bot-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#training-bot-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#training-bot-panel) :is(th,td){border-color:#263c4f}\n:is(#training-bot-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

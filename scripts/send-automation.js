@@ -28,12 +28,12 @@ let offsetHtml =
             .tooltip .tooltiptext { 
                 visibility: hidden; 
                 width: 200px; 
-                background: linear-gradient(to bottom, #e3c485 0%,#ecd09a 100%); 
-                color: black; 
+                background: linear-gradient(to bottom, #13283a 0%,#102031 100%); 
+                color: #eaf3f8; 
                 text-align: center; 
                 padding: 5px 10px; 
                 border-radius: 6px; 
-                border: 1px solid #804000; 
+                border: 1px solid #263c4f; 
                 /* Position the tooltip text - see examples below! */ 
                 position: absolute; 
                 z-index: 1; 
@@ -249,3 +249,14 @@ function rotate_tw_token(url) {
     return rotated ;
 }
 // هذا السكربت تم تصميمه من قبل الغزااوي ولا يحق لاحد نشره - ادري انك تقدر تنشره  بس احترم المطور يا اخي - حياكم الله
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-send-automation';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#delayInput,#delayButton,#arrTime,#sendTime){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) :is(th,td){border-color:#263c4f}\n:is(#delayInput,#delayButton,#arrTime,#sendTime) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
+})();

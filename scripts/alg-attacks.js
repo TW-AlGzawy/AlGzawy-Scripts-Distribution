@@ -30,7 +30,7 @@
         if (statusEl) statusEl.textContent = msg;
     }
 
-    var inputStyle = 'padding:3px;border:1px solid #8b6914;background:#fff8e8;border-radius:4px;box-sizing:border-box;';
+    var inputStyle = 'padding:3px;border:1px solid #263c4f;background:#07111c;border-radius:4px;box-sizing:border-box;';
     var btnStyle = 'width:100%;padding:6px;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;display:block;';
 
     function row(label, inputHtml) {
@@ -75,12 +75,12 @@
             'top:' + top,
             'left:' + left,
             'z-index:99999',
-            'background:linear-gradient(to bottom,#f4e4bc,#e8c97a)',
-            'border:2px solid #8b6914',
+            'background:linear-gradient(to bottom,#102031,#13283a)',
+            'border:2px solid #263c4f',
             'border-radius:8px',
             'font-family:Trebuchet MS,sans-serif',
             'font-size:13px',
-            'color:#3b1f00',
+            'color:#eaf3f8',
             'direction:rtl',
             'min-width:240px',
             'box-shadow:3px 3px 10px rgba(0,0,0,0.5)',
@@ -88,9 +88,9 @@
         ].join(';');
 
         panel.innerHTML =
-            '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#8b1a1a,#5c0a0a);color:#f4e4bc;padding:7px 10px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
+            '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#123e3d,#102031);color:#102031;padding:7px 10px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
                 '<b>AlGzawy - تنبيه الهجمات</b>' +
-                '<button id="alg-atk-min" style="background:none;border:none;color:#f4e4bc;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;">' + (minimized ? '+' : '−') + '</button>' +
+                '<button id="alg-atk-min" style="background:none;border:none;color:#102031;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;">' + (minimized ? '+' : '−') + '</button>' +
             '</div>' +
             '<div id="alg-atk-body" style="padding:10px;display:' + (minimized ? 'none' : 'block') + ';">' +
                 row('Telegram Bot Token', '<input id="alg-atk-token" type="text" value="' + botToken + '" placeholder="123456:ABC-..." style="' + inputStyle + 'width:100%;">') +
@@ -99,13 +99,13 @@
                 row('تذكير إذا بقيت الهجمة (دقيقة)', '<input id="alg-atk-reminder" type="number" min="1" value="' + reminderMins + '" style="' + inputStyle + 'width:100%;">') +
                 '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="alg-atk-sound" ' + (alertSound ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">صوت تنبيه</span></label></div>' +
                 '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="alg-atk-village" ' + (showVillage ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">أرسل تفاصيل القرية</span></label></div>' +
-                '<button id="alg-atk-test" style="' + btnStyle + 'background:#2980b9;margin-bottom:6px;">اختبار التليجرام</button>' +
-                '<button id="alg-atk-fakeatk" style="' + btnStyle + 'background:#8e44ad;margin-bottom:6px;">اختبار هجوم وهمي</button>' +
-                '<button id="alg-atk-save" style="' + btnStyle + 'background:#7a5c2a;margin-bottom:6px;">حفظ</button>' +
-                '<button id="alg-atk-run" style="' + btnStyle + 'background:' + (isRunning ? '#c0392b' : '#27ae60') + ';font-size:14px;margin-bottom:4px;">' + (isRunning ? 'إيقاف' : 'تشغيل') + '</button>' +
-                '<div id="alg-atk-status" style="margin-top:6px;font-size:11px;color:#542e0a;text-align:center;min-height:16px;">' + (isRunning ? 'يراقب...' : 'متوقف') + '</div>' +
-                '<div id="alg-atk-lastcheck" style="margin-top:4px;font-size:10px;color:#7a5c2a;text-align:center;min-height:14px;"></div>' +
-                '<div style="text-align:center;margin-top:8px;font-size:10px;color:#7a5c2a;border-top:1px solid #c1a264;padding-top:6px;">AlGzawy • تنبيه الهجمات ' + (S.version || '?') + '</div>' +
+                '<button id="alg-atk-test" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">اختبار التليجرام</button>' +
+                '<button id="alg-atk-fakeatk" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">اختبار هجوم وهمي</button>' +
+                '<button id="alg-atk-save" style="' + btnStyle + 'background:#143e3a;margin-bottom:6px;">حفظ</button>' +
+                '<button id="alg-atk-run" style="' + btnStyle + 'background:' + (isRunning ? '#965160' : '#247a68') + ';font-size:14px;margin-bottom:4px;">' + (isRunning ? 'إيقاف' : 'تشغيل') + '</button>' +
+                '<div id="alg-atk-status" style="margin-top:6px;font-size:11px;color:#eaf3f8;text-align:center;min-height:16px;">' + (isRunning ? 'يراقب...' : 'متوقف') + '</div>' +
+                '<div id="alg-atk-lastcheck" style="margin-top:4px;font-size:10px;color:#143e3a;text-align:center;min-height:14px;"></div>' +
+                '<div style="text-align:center;margin-top:8px;font-size:10px;color:#143e3a;border-top:1px solid #123e3d;padding-top:6px;">AlGzawy • تنبيه الهجمات ' + (S.version || '?') + '</div>' +
             '</div>';
 
         document.body.appendChild(panel);
@@ -153,7 +153,7 @@
         isRunning = true;
         saveS('isRunning', true);
         var btn = document.getElementById('alg-atk-run');
-        if (btn) { btn.textContent = 'إيقاف'; btn.style.background = '#c0392b'; }
+        if (btn) { btn.textContent = 'إيقاف'; btn.style.background = '#965160'; }
         setStatus('يراقب...');
         checkAttacks();
     }
@@ -163,7 +163,7 @@
         saveS('isRunning', false);
         if (checkTimer) { clearTimeout(checkTimer); checkTimer = null; }
         var btn = document.getElementById('alg-atk-run');
-        if (btn) { btn.textContent = 'تشغيل'; btn.style.background = '#27ae60'; }
+        if (btn) { btn.textContent = 'تشغيل'; btn.style.background = '#247a68'; }
         setStatus('متوقف');
     }
 
@@ -634,4 +634,15 @@
 
     buildPanel();
 
+})();
+
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-alg-attacks';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#alg-atk-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#alg-atk-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#alg-atk-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#alg-atk-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#alg-atk-panel) :is(th,td){border-color:#263c4f}\n:is(#alg-atk-panel) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();

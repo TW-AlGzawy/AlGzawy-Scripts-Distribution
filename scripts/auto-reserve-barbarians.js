@@ -591,16 +591,16 @@
 
     function createUI() {
         const html = `
-        <div id="${SCRIPT_TAG}_container" style="display:none; position:fixed; top:50px; right:20px; z-index:14000; width:420px; background:#f4e4bc; border:2px solid #7d510f; border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.5);">
-            <div style="background:#7d510f; color:#fff; padding:10px; border-radius:3px 3px 0 0; cursor:move;" id="${SCRIPT_TAG}_header">
+        <div id="${SCRIPT_TAG}_container" style="display:none; position:fixed; top:50px; right:20px; z-index:14000; width:420px; background:#102031; border:2px solid #95acbc; border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.5);">
+            <div style="background:#123e3d; color:#fff; padding:10px; border-radius:3px 3px 0 0; cursor:move;" id="${SCRIPT_TAG}_header">
                 <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029215752/GYTOxdyXXZqmFprq.jpg" style="width:20px; height:20px; vertical-align:middle; margin-left:5px;">
                 <span style="font-weight:bold; font-size:14px;">🤖 ${SCRIPT_NAME}</span>
                 <a href="javascript:void(0)" id="${SCRIPT_TAG}_close" style="float:right; color:#fff; text-decoration:none; font-size:18px; line-height:1;">×</a>
             </div>
             <div style="padding:15px; max-height:600px; overflow-y:auto;">
 
-                <div style="background:#fff; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:3px;">
-                    <h4 style="margin:0 0 10px 0; color:#7d510f;">⚙️ الإعدادات الأساسية</h4>
+                <div style="background:#07111c; padding:10px; margin-bottom:10px; border:1px solid #263c4f; border-radius:3px;">
+                    <h4 style="margin:0 0 10px 0; color:#95acbc;">⚙️ الإعدادات الأساسية</h4>
 
                     <label style="display:block; margin-bottom:8px; cursor:pointer;">
                         <input type="checkbox" id="${SCRIPT_TAG}_enabled"> <strong>تفعيل الحجز التلقائي</strong>
@@ -609,29 +609,29 @@
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
                         <div>
                             <label style="display:block; font-size:12px; margin-bottom:3px;">الحد الأدنى للنقاط:</label>
-                            <input type="number" id="${SCRIPT_TAG}_minPoints" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:3px;" value="1000">
+                            <input type="number" id="${SCRIPT_TAG}_minPoints" style="width:100%; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="1000">
                         </div>
                         <div>
                             <label style="display:block; font-size:12px; margin-bottom:3px;">الحد الأعلى للنقاط:</label>
-                            <input type="number" id="${SCRIPT_TAG}_maxPoints" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:3px;" value="3000">
+                            <input type="number" id="${SCRIPT_TAG}_maxPoints" style="width:100%; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="3000">
                         </div>
                     </div>
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
                         <div>
                             <label style="display:block; font-size:12px; margin-bottom:3px;">رفع الحجز أقل من:</label>
-                            <input type="number" id="${SCRIPT_TAG}_removeUnder" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:3px;" value="50">
+                            <input type="number" id="${SCRIPT_TAG}_removeUnder" style="width:100%; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="50">
                         </div>
                         <div>
                             <label style="display:block; font-size:12px; margin-bottom:3px;">المسافة القصوى (0=بلا حد):</label>
-                            <input type="number" id="${SCRIPT_TAG}_maxDistance" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:3px;" value="0">
+                            <input type="number" id="${SCRIPT_TAG}_maxDistance" style="width:100%; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="0">
                         </div>
                     </div>
 
-                    <div style="margin-bottom:8px; padding:10px; background:#e7f3ff; border:1px solid #2196F3; border-radius:3px;">
-                        <label style="display:block; font-size:12px; margin-bottom:3px; color:#1976D2; font-weight:bold;">📋 عدد الحجوزات الحالية:</label>
-                        <input type="number" id="${SCRIPT_TAG}_currentReservations" style="width:100%; padding:5px; border:1px solid #2196F3; border-radius:3px; font-size:14px; font-weight:bold;" value="0" min="0">
-                        <div style="font-size:10px; color:#666; margin-top:3px;">⚠️ أدخل عدد القرى المحجوزة حالياً يدوياً (يتحدث تلقائياً بعد كل حجز)</div>
+                    <div style="margin-bottom:8px; padding:10px; background:#13283a; border:1px solid #31556a; border-radius:3px;">
+                        <label style="display:block; font-size:12px; margin-bottom:3px; color:#82afe9; font-weight:bold;">📋 عدد الحجوزات الحالية:</label>
+                        <input type="number" id="${SCRIPT_TAG}_currentReservations" style="width:100%; padding:5px; border:1px solid #31556a; border-radius:3px; font-size:14px; font-weight:bold;" value="0" min="0">
+                        <div style="font-size:10px; color:#95acbc; margin-top:3px;">⚠️ أدخل عدد القرى المحجوزة حالياً يدوياً (يتحدث تلقائياً بعد كل حجز)</div>
                     </div>
 
                     <label style="display:block; margin-bottom:8px; cursor:pointer;">
@@ -641,13 +641,13 @@
                     <div style="margin-bottom:8px;">
                         <label style="display:block; font-size:12px; margin-bottom:3px;">
                             <input type="checkbox" id="${SCRIPT_TAG}_autoRefresh"> تحديث تلقائي كل
-                            <input type="number" id="${SCRIPT_TAG}_refreshInterval" style="width:50px; padding:3px; border:1px solid #ccc; border-radius:3px;" value="60"> ثانية
+                            <input type="number" id="${SCRIPT_TAG}_refreshInterval" style="width:50px; padding:3px; border:1px solid #263c4f; border-radius:3px;" value="60"> ثانية
                         </label>
                     </div>
                 </div>
 
-                <div style="background:#fff; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:3px;">
-                    <h4 style="margin:0 0 10px 0; color:#7d510f;">🧠 الإدارة الذكية</h4>
+                <div style="background:#07111c; padding:10px; margin-bottom:10px; border:1px solid #263c4f; border-radius:3px;">
+                    <h4 style="margin:0 0 10px 0; color:#95acbc;">🧠 الإدارة الذكية</h4>
 
                     <label style="display:block; margin-bottom:8px; cursor:pointer;">
                         <input type="checkbox" id="${SCRIPT_TAG}_smartReservation"> <strong>تفعيل الإدارة الذكية</strong>
@@ -659,20 +659,20 @@
 
                     <div style="margin-bottom:8px;">
                         <label style="display:block; font-size:12px; margin-bottom:3px;">الفرق الأدنى للاستبدال:</label>
-                        <input type="number" id="${SCRIPT_TAG}_minPointsDiff" style="width:100px; padding:5px; border:1px solid #ccc; border-radius:3px;" value="500"> نقطة
+                        <input type="number" id="${SCRIPT_TAG}_minPointsDiff" style="width:100px; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="500"> نقطة
                     </div>
 
-                    <div style="padding:8px; background:#fff3cd; border:1px solid #ffc107; border-radius:3px; font-size:11px; color:#856404;">
+                    <div style="padding:8px; background:#363025; border:1px solid #dfb677; border-radius:3px; font-size:11px; color:#e7c889;">
                         💡 عند الوصول للحد الأقصى، يستبدل القرى الأضعف بقرى أقوى
                     </div>
                 </div>
 
-                <div style="background:#fff; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:3px;">
-                    <h4 style="margin:0 0 10px 0; color:#7d510f;">🔔 إعدادات التنبيهات</h4>
+                <div style="background:#07111c; padding:10px; margin-bottom:10px; border:1px solid #263c4f; border-radius:3px;">
+                    <h4 style="margin:0 0 10px 0; color:#95acbc;">🔔 إعدادات التنبيهات</h4>
 
                     <div style="margin-bottom:8px;">
                         <label style="display:block; font-size:12px; margin-bottom:3px;">إرسال تنبيه بعد حجز:</label>
-                        <input type="number" id="${SCRIPT_TAG}_notifyAfter" style="width:60px; padding:5px; border:1px solid #ccc; border-radius:3px;" value="2"> قرية
+                        <input type="number" id="${SCRIPT_TAG}_notifyAfter" style="width:60px; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="2"> قرية
                     </div>
 
                     <label style="display:block; margin-bottom:8px; cursor:pointer;">
@@ -686,7 +686,7 @@
                         </div>
                         <div>
                             <label style="display:block; font-size:12px; margin-bottom:3px;">عدد التكرارات:</label>
-                            <input type="number" id="${SCRIPT_TAG}_soundRepeat" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:3px;" value="3" min="1" max="10">
+                            <input type="number" id="${SCRIPT_TAG}_soundRepeat" style="width:100%; padding:5px; border:1px solid #263c4f; border-radius:3px;" value="3" min="1" max="10">
                         </div>
                     </div>
 
@@ -695,51 +695,51 @@
                     </label>
 
                     <details style="margin-top:10px;">
-                        <summary style="cursor:pointer; color:#7d510f; font-weight:bold;">تلجرام / ديسكورد</summary>
-                        <div style="margin-top:10px; padding:10px; background:#f9f9f9; border-radius:3px;">
+                        <summary style="cursor:pointer; color:#95acbc; font-weight:bold;">تلجرام / ديسكورد</summary>
+                        <div style="margin-top:10px; padding:10px; background:#13283a; border-radius:3px;">
                             <label style="display:block; margin-bottom:5px; cursor:pointer;">
                                 <input type="checkbox" id="${SCRIPT_TAG}_telegramEnabled"> تفعيل تلجرام
                             </label>
-                            <input type="text" id="${SCRIPT_TAG}_telegramToken" placeholder="Bot Token" style="width:100%; padding:5px; margin-bottom:5px; border:1px solid #ccc; border-radius:3px; font-size:11px;">
-                            <input type="text" id="${SCRIPT_TAG}_telegramChat" placeholder="Chat ID" style="width:100%; padding:5px; margin-bottom:10px; border:1px solid #ccc; border-radius:3px; font-size:11px;">
+                            <input type="text" id="${SCRIPT_TAG}_telegramToken" placeholder="Bot Token" style="width:100%; padding:5px; margin-bottom:5px; border:1px solid #263c4f; border-radius:3px; font-size:11px;">
+                            <input type="text" id="${SCRIPT_TAG}_telegramChat" placeholder="Chat ID" style="width:100%; padding:5px; margin-bottom:10px; border:1px solid #263c4f; border-radius:3px; font-size:11px;">
 
                             <label style="display:block; margin-bottom:5px; cursor:pointer;">
                                 <input type="checkbox" id="${SCRIPT_TAG}_discordEnabled"> تفعيل ديسكورد
                             </label>
-                            <input type="text" id="${SCRIPT_TAG}_discordWebhook" placeholder="Webhook URL" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:3px; font-size:11px;">
+                            <input type="text" id="${SCRIPT_TAG}_discordWebhook" placeholder="Webhook URL" style="width:100%; padding:5px; border:1px solid #263c4f; border-radius:3px; font-size:11px;">
                         </div>
                     </details>
                 </div>
 
-                <div style="background:#fff; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:3px;">
-                    <h4 style="margin:0 0 10px 0; color:#7d510f;">📊 الإحصائيات</h4>
+                <div style="background:#07111c; padding:10px; margin-bottom:10px; border:1px solid #263c4f; border-radius:3px;">
+                    <h4 style="margin:0 0 10px 0; color:#95acbc;">📊 الإحصائيات</h4>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; font-size:13px;">
                         <div>✅ تم الحجز: <strong id="${SCRIPT_TAG}_reserved">0</strong></div>
                         <div>❌ غير محجوزة: <strong id="${SCRIPT_TAG}_unreserved">0</strong></div>
                         <div>🗑️ تم الإلغاء: <strong id="${SCRIPT_TAG}_removed">0</strong></div>
                         <div>⚠️ أخطاء: <strong id="${SCRIPT_TAG}_errors">0</strong></div>
                     </div>
-                    <div style="margin-top:5px; padding-top:5px; border-top:1px solid #eee; font-size:12px; color:#666;">
+                    <div style="margin-top:5px; padding-top:5px; border-top:1px solid #13283a; font-size:12px; color:#95acbc;">
                         الجلسة الحالية: <strong id="${SCRIPT_TAG}_session">0</strong> قرية
                     </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin-bottom:10px;">
-                    <button id="${SCRIPT_TAG}_start" style="padding:8px; background:#28a745; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">▶️ تشغيل</button>
-                    <button id="${SCRIPT_TAG}_stop" style="padding:8px; background:#dc3545; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold;" disabled>⏹️ إيقاف</button>
-                    <button id="${SCRIPT_TAG}_reset" style="padding:8px; background:#ffc107; color:#000; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">🔄 إعادة</button>
+                    <button id="${SCRIPT_TAG}_start" style="padding:8px; background:#247a68; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">▶️ تشغيل</button>
+                    <button id="${SCRIPT_TAG}_stop" style="padding:8px; background:#965160; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold;" disabled>⏹️ إيقاف</button>
+                    <button id="${SCRIPT_TAG}_reset" style="padding:8px; background:#dfb677; color:#eaf3f8; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">🔄 إعادة</button>
                 </div>
 
-                <button id="${SCRIPT_TAG}_saveSettings" style="width:100%; padding:10px; background:#7d510f; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 حفظ الإعدادات</button>
+                <button id="${SCRIPT_TAG}_saveSettings" style="width:100%; padding:10px; background:#123e3d; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 حفظ الإعدادات</button>
 
-                <div style="background:#fff; padding:10px; border:1px solid #ccc; border-radius:3px;">
-                    <h4 style="margin:0 0 10px 0; color:#7d510f;">📝 السجل</h4>
-                    <div id="${SCRIPT_TAG}_log" style="max-height:150px; overflow-y:auto; font-size:11px; background:#f9f9f9; padding:8px; border-radius:3px;">
-                        <div style="color:#666;">جاهز للبدء...</div>
+                <div style="background:#07111c; padding:10px; border:1px solid #263c4f; border-radius:3px;">
+                    <h4 style="margin:0 0 10px 0; color:#95acbc;">📝 السجل</h4>
+                    <div id="${SCRIPT_TAG}_log" style="max-height:150px; overflow-y:auto; font-size:11px; background:#13283a; padding:8px; border-radius:3px;">
+                        <div style="color:#95acbc;">جاهز للبدء...</div>
                     </div>
                 </div>
 
-                <div style="text-align:center; margin-top:10px; font-size:10px; color:#999;">
+                <div style="text-align:center; margin-top:10px; font-size:10px; color:#95acbc;">
                     v${VERSION} | © 2024 غزااوي
                 </div>
             </div>
@@ -750,12 +750,12 @@
                 margin-bottom: 3px;
                 padding: 3px 5px;
                 border-radius: 2px;
-                background: #fff;
+                background: #07111c;
             }
-            .log-info { border-left: 3px solid #17a2b8; }
-            .log-success { border-left: 3px solid #28a745; }
-            .log-warning { border-left: 3px solid #ffc107; }
-            .log-error { border-left: 3px solid #dc3545; }
+            .log-info { border-left: 3px solid #31556a; }
+            .log-success { border-left: 3px solid #247a68; }
+            .log-warning { border-left: 3px solid #dfb677; }
+            .log-error { border-left: 3px solid #965160; }
             #${SCRIPT_TAG}_container button:hover {
                 opacity: 0.9;
             }
@@ -827,7 +827,7 @@
             statsData = {reserved: 0, unreserved: 0, removed: 0, errors: 0, sessionReserved: 0, lastNotificationCount: 0};
             knownVillages.clear();
             updateStatsDisplay();
-            $(`#${SCRIPT_TAG}_log`).html('<div style="color:#666;">تم إعادة التعيين...</div>');
+            $(`#${SCRIPT_TAG}_log`).html('<div style="color:#95acbc;">تم إعادة التعيين...</div>');
             addLog("🔄 تم إعادة تعيين الإحصائيات", "info");
         });
     }
@@ -909,7 +909,7 @@
 
     function addMenuButton() {
         const button = `
-            <a id="${SCRIPT_TAG}_menuButton" href="javascript:void(0);" style="display:inline-block; padding:8px 15px; margin:5px; background:#7d510f; color:#fff; border-radius:3px; text-decoration:none; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.3);">
+            <a id="${SCRIPT_TAG}_menuButton" href="javascript:void(0);" style="display:inline-block; padding:8px 15px; margin:5px; background:#123e3d; color:#fff; border-radius:3px; text-decoration:none; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.3);">
                 <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663029215752/GYTOxdyXXZqmFprq.jpg" style="width:16px; height:16px; vertical-align:middle; margin-left:5px;">
                 🤖 حجز تلقائي
             </a>
@@ -973,4 +973,14 @@
         setTimeout(init, 1500);
     });
 
+})();
+
+// Portal palette: scoped presentation only; no engine settings or scheduling changes.
+(function () {
+  const id='alg-portal-colors-auto-reserve-barbarians';
+  if(document.getElementById(id))return;
+  const style=document.createElement('style');
+  style.id=id;
+  style.textContent=":is(#autoReserveBarbarians_container){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#autoReserveBarbarians_container) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#autoReserveBarbarians_container) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#autoReserveBarbarians_container) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#autoReserveBarbarians_container) :is(th,td){border-color:#263c4f}\n:is(#autoReserveBarbarians_container) option{background-color:#07111c;color:#eaf3f8}";
+  (document.head||document.documentElement).appendChild(style);
 })();
