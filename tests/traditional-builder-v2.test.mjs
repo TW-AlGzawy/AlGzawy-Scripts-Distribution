@@ -385,7 +385,7 @@ test('Acknowledged AJAX build persists checkpoint before native reload, without 
       LABELS:{market:'السوق'},JSON,encodeURIComponent
     };
     const prefix=[
-      "let processing=true,isRunning=true;",
+      "let processing=true,isRunning=true,stoppedByPolicy=false;",
       "let buildingQueue=['market'];",
       "let templateTasks=[{id:'market',target:2,state:'pending'}];"
     ].join('\n');
@@ -433,4 +433,33 @@ test('Unknown manual building level cannot lead to an invented +1 construction',
   assert.doesNotMatch(pilot,/currentLevel\(buildingQueue\[0\]\)===null\?1/);
   assert.match(pilot,/if\(level===null\)return null;\s*return \{id:buildingQueue\[0\],mode:'manual'/);
   assert.match(pilot,/plan\.level!==null&&buildingQueue\[0\]===plan\.id/);
+});
+
+
+test('Active/ambiguous builds block template import, expansion, queue editing and clearing',()=>{
+  assert.match(pilot,/function canEditPlan\(\)\{\s*if\(processing\|\|pendingAck\)/);
+  assert.match(pilot,/if\(!templateSteps\.length\|\|stoppedByPolicy\|\|!canEditPlan\(\)\)return false/);
+  assert.match(pilot,/function importTemplate\(raw\)\{\s*if\(stoppedByPolicy\|\|!canEditPlan\(\)\)return false/);
+  assert.match(pilot,/function modifyQueue\(fn\)\{\s*if\(stoppedByPolicy\|\|!canEditPlan\(\)\)return/);
+  assert.match(pilot,/if\(!templateSteps\.length\|\|!canEditPlan\(\)\)return/);
+  assert.match(pilot,/if\(!canEditPlan\(\)\)return;\s*if\(templateMode==='tasks'\)/);
+  const a=pilot.indexOf('function canEditPlan(){');
+  const b=pilot.indexOf('  function expandTemplateToTasks(){',a);
+  assert.ok(a>0&&b>a);
+  const prelude=[
+    "let processing=false,pendingAck={phase:'sending'},reason='';",
+    "const status=(msg)=>{reason=msg;};"
+  ].join('\n');
+  const out=vm.runInNewContext(prelude+'\n'+pilot.slice(a,b)+
+    '\nconst blocked=canEditPlan();pendingAck=null;const ready=canEditPlan();({blocked,ready,reason})');
+  assert.equal(out.blocked,false);
+  assert.equal(out.ready,true);
+  assert.match(out.reason,/غير مؤكد/);
+});
+
+test('Late AJAX success after license revocation cannot mutate tasks or initiate a reload',()=>{
+  const from=pilot.indexOf('function doBuild(plan){');
+  const to=pilot.indexOf('  function beginLoop(){',from);
+  assert.ok(from>0&&to>from);
+  assert.match(pilot.slice(from,to),/\.done\(response=>\{\s*\/\/[^]*?if\(stoppedByPolicy\)return;/);
 });
