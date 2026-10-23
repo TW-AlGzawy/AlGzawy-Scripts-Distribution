@@ -215,7 +215,7 @@
   const style=document.createElement('style');
   style.id='algzawy-traditional-style-v2';
   style.textContent=[
-    '#'+ROOT_ID+'{position:fixed;z-index:2147481000;direction:rtl;box-sizing:border-box;display:flex;flex-direction:column;min-width:280px;min-height:50px;max-width:calc(100vw - 12px);max-height:calc(100vh - 8px);border-radius:15px;background:#0b1724;border:1px solid #2a8677;box-shadow:0 14px 40px #000a;color:#edfdfc;font:12px/1.65 Tahoma,Arial,sans-serif;resize:both;overflow:hidden}',
+    '#'+ROOT_ID+'{position:fixed;z-index:2147481000;direction:rtl;box-sizing:border-box;display:flex;flex-direction:column;min-width:280px;min-height:49px;max-width:calc(100vw - 12px);max-height:calc(100vh - 8px);border-radius:15px;background:#0b1724;border:1px solid #2a8677;box-shadow:0 14px 40px #000a;color:#edfdfc;font:12px/1.65 Tahoma,Arial,sans-serif;resize:none;overflow:hidden}',
     '#'+ROOT_ID+' *{box-sizing:border-box}',
     '#'+ROOT_ID+' button,#'+ROOT_ID+' select,#'+ROOT_ID+' input{font:inherit}',
     '#'+ROOT_ID+' button{cursor:pointer}',
@@ -242,7 +242,15 @@
     '#'+ROOT_ID+' .alg-input.number{width:75px;text-align:center}',
     '#'+ROOT_ID+' .alg-queue{list-style:none;margin:0;padding:0;display:grid;gap:5px}',
     '#'+ROOT_ID+' .alg-queue li{display:flex;gap:6px;align-items:center;background:#122d39;border:1px solid #2b5361;border-radius:8px;padding:6px}',
-    '#'+ROOT_ID+' .alg-queue li.alg-complete{border-color:#347b61;background:#102e2a}',
+    '#'+ROOT_ID+' .alg-queue li.alg-complete{border-color:#347b61;background:#102e2a;color:#b7fddd}',
+    '#'+ROOT_ID+' .alg-queue li.alg-queued{border-color:#4ab69b;background:#123e37;color:#d3fff1}',
+    '#'+ROOT_ID+' .alg-queue li.alg-current{border-color:#caa855;background:#393222}',
+    '#'+ROOT_ID+' .alg-queue-scroll{max-height:240px;overflow-y:auto;overscroll-behavior:contain;margin-top:6px}',
+    '#'+ROOT_ID+' .alg-template-fold{border-top:1px solid #335c5e;padding-top:8px;margin-top:8px}',
+    '#'+ROOT_ID+' .alg-template-fold summary{cursor:pointer;color:#7ae7ca;font-weight:bold;padding:7px;user-select:none}',
+    '#'+ROOT_ID+' .alg-template-fold .alg-queue{max-height:230px;overflow-y:auto;margin-top:8px}',
+    '#'+ROOT_ID+' .alg-resize-grip{position:absolute;left:0;bottom:0;width:30px;height:30px;z-index:2;cursor:nesw-resize;touch-action:none;display:grid;place-items:center;color:#65ebc7;background:#123d3a;border-radius:0 8px 0 12px;font-weight:bold}',
+    '#'+ROOT_ID+'.alg-collapsed .alg-resize-grip{display:none}',
     '#'+ROOT_ID+' .alg-template-code{width:100%;min-height:58px;resize:vertical;background:#071b27;color:#f2ffff;border:1px solid #2d5b6b;border-radius:8px;padding:8px;direction:ltr;text-align:left;font:10px/1.7 monospace}',
     '#'+ROOT_ID+' .alg-template-progress{color:#8fe4c7;font-size:10px;margin:8px 0}',
     '#'+ROOT_ID+' .alg-queue .alg-index{background:#1b5250;border-radius:6px;padding:2px 7px;color:#aaf8d8;font-weight:bold}',
@@ -253,7 +261,7 @@
     '#'+ROOT_ID+' .alg-note[data-kind="error"]{background:#402633;color:#ffd6de;border-color:#8f4c63}',
     '#'+ROOT_ID+' .alg-note[data-kind="warn"]{background:#393123;color:#f1d69a;border-color:#7b6b44}',
     '#'+ROOT_ID+' .alg-footer{color:#779ba6;font-size:9px;text-align:center}',
-    '#'+ROOT_ID+'.alg-collapsed{resize:none!important;height:49px!important;min-height:49px!important}',
+    '#'+ROOT_ID+'.alg-collapsed{resize:none!important;height:49px!important;min-height:49px!important;width:min(250px,calc(100vw - 12px))!important}',
     '#'+ROOT_ID+'.alg-collapsed .alg-body{display:none!important}',
     '@media(max-width:480px){#'+ROOT_ID+'{max-width:calc(100vw - 8px)}#'+ROOT_ID+' .alg-body{padding:8px;gap:7px}}'
   ].join('\n');
@@ -350,10 +358,11 @@
     elements.templateQueue.replaceChildren();
     const progress=templateProgress();
     elements.templateCounter.textContent=progress.ready+' / '+progress.total+' خطوات بناء مكتملة';
-    elements.templateMode.textContent=templateMode==='template'?'✓ وضع القالب مفعل':'○ وضع القائمة اليدوية';
-    elements.templateMode.setAttribute('aria-pressed',String(templateMode==='template'));
+    if(elements.foldSummary)elements.foldSummary.textContent='▸ عرض / طي خطوات القالب ('+templateSteps.length+')';
+    elements.templateMode.textContent=templateMode==='template'?'✓ وضع القالب مفعل':templateMode==='tasks'?'✓ مهام القالب مفعلّة':'○ وضع القائمة اليدوية';
+    elements.templateMode.setAttribute('aria-pressed',String(templateMode==='template'||templateMode==='tasks'));
     elements.templateMode.disabled=!templateSteps.length||stoppedByPolicy;
-    elements.add.disabled=templateMode==='template';
+    elements.add.disabled=templateMode==='template'||templateMode==='tasks';
     const current=nextTemplateStep();
     for(let i=0;i<templateSteps.length;i++){
       const step=templateSteps[i],level=currentLevel(step.id);
@@ -384,22 +393,48 @@
     const list=elements.queue;
     if(!list)return;
     list.replaceChildren();
-    buildingQueue.forEach((id,index)=>{
-      const row=node('li');
-      row.append(node('span','alg-index',index+1),node('span','alg-building',LABELS[id]||id));
-      row.append(button('↑','',()=>moveItem(index,-1),'تقديم المهمة'));
-      row.append(button('↓','',()=>moveItem(index,1),'تأخير المهمة'));
-      row.append(button('×','alg-remove',()=>removeItem(index),'حذف هذه المهمة فقط'));
-      list.append(row);
-    });
-    if(!buildingQueue.length)list.append(node('li','', 'القائمة فارغة — أضف مبنى للبدء.'));
-    elements.pending.textContent=String(buildingQueue.length);
+    const tasksMode=templateMode==='tasks';
+    if(tasksMode)reconcileTasksSnapshot();
+    const current=tasksMode?pendingTask():-1;
+    if(tasksMode){
+      templateTasks.forEach((item,index)=>{
+        const level=currentLevel(item.id);
+        const done=level!==null&&level>=item.target;
+        const queued=!done&&(item.state==='queued'
+          ||(pendingAck?.mode==='tasks'&&pendingAck.index===index&&pendingAck.phase==='queued'));
+        const className=done?'alg-complete':queued?'alg-queued':index===current?'alg-current':'';
+        const row=node('li',className);
+        row.append(node('span','alg-index',index+1),
+          node('span','alg-building', (LABELS[item.id]||item.id)+' +1 → مستوى '+item.target
+            +(done?' ✓ مكتمل':queued?' ✓ أُضيف للبناء':index===current?' ⏳ التالي':'')));
+        list.append(row);
+      });
+    }else{
+      buildingQueue.forEach((id,index)=>{
+        const row=node('li');
+        row.append(node('span','alg-index',index+1),node('span','alg-building',LABELS[id]||id));
+        row.append(button('↑','',()=>moveItem(index,-1),'تقديم المهمة'));
+        row.append(button('↓','',()=>moveItem(index,1),'تأخير المهمة'));
+        row.append(button('×','alg-remove',()=>removeItem(index),'حذف هذه المهمة فقط'));
+        list.append(row);
+      });
+    }
+    if(!list.childElementCount)list.append(node('li','', 'القائمة فارغة — أضف مبنى أو استورد القالب.'));
+    const total=tasksMode?templateTasks.length:buildingQueue.length;
+    elements.pending.textContent=String(total);
     elements.max.value=String(queueLength);
     elements.start.textContent=isRunning?'■ إيقاف':'▶ تشغيل';
     elements.start.className='alg-btn '+(isRunning?'danger':'primary');
     elements.start.setAttribute('aria-pressed',String(isRunning));
     elements.start.disabled=stoppedByPolicy;
+    if(elements.taskLabel)elements.taskLabel.textContent=tasksMode?'مهام القالب — بنفس التتابع ('+total+')':'قائمة المهام اليدوية — بالترتيب';
+    if(elements.clearTasks)elements.clearTasks.textContent=tasksMode?'حذف مهام القالب':'مسح الكل';
     if(elements.templateQueue)renderTemplate();
+  }
+  function reconcileTasksSnapshot(){
+    // UI is read-only; persistence is performed by reconcileTasks during a
+    // confirmed refresh. State colors may nevertheless show a level already
+    // visible on the current game's page.
   }
   function modifyQueue(fn){
     if(stoppedByPolicy)return;
@@ -575,15 +610,27 @@
     settings.append(settingsRow);
     const queueCard=node('div','alg-card');
     const queueHeader=node('div','alg-entry');
-    const heading=node('strong','', 'قائمة المهام — بالترتيب');heading.style.flex='1';
-    queueHeader.append(heading,button('مسح الكل','alg-btn danger',()=>{
+    elements.taskLabel=node('strong','', 'قائمة المهام — بالترتيب');
+    const heading=elements.taskLabel;heading.style.flex='1';
+    elements.clearTasks=button('مسح الكل','alg-btn danger',()=>{
+      if(templateMode==='tasks'){
+        if(!templateTasks.length)return;
+        if(!confirm('حذف مهام القالب المضافة في هذا التبويب؟ يبقى القالب الأصلي محفوظًا.'))return;
+        if(isRunning){isRunning=false;saveStatus();endLoop();}
+        saveAck(null);templateTasks=[];templateMode=templateSteps.length?'template':'manual';
+        saveTasks();saveTemplate();renderQueue();renderStatus();
+        status('تم مسح المهام المضافة دون حذف القالب الأصلي.','normal');
+        return;
+      }
       if(!buildingQueue.length)return;
-      if(!confirm('حذف جميع مهام البناء التقليدي لهذه القرية فقط؟'))return;
+      if(!confirm('حذف جميع مهام البناء اليدوية لهذه القرية فقط؟'))return;
       modifyQueue(()=>{buildingQueue=[];});
       status('تم مسح قائمة البناء لهذه القرية.','normal');
-    }));
+    });
+    queueHeader.append(heading,elements.clearTasks);
     elements.queue=node('ol','alg-queue');
-    queueCard.append(queueHeader,elements.queue);
+    const queueScroll=node('div','alg-queue-scroll');queueScroll.append(elements.queue);
+    queueCard.append(queueHeader,queueScroll);
     elements.note=node('div','alg-note');
     body.append(stats,actions,instantCard,templateCard,addCard,settings,queueCard,elements.note,
       node('div','alg-footer','AlGzawy Scripts · نسخة تجريبية — لا تشغّل بناءين آليين للقرية نفسها'));
