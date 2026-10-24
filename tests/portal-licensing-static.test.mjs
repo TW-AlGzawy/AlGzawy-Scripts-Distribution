@@ -35,7 +35,7 @@ test('D1 migration makes device approvals unique and subscription grants explici
   assert.match(sql,/CREATE UNIQUE INDEX IF NOT EXISTS portal_one_approved_device_per_user/);
   assert.ok(api.includes('script_not_licensed'),'API must fail closed');
   assert.ok(api.includes("subscription_inactive"),'API must reject inactive subscriptions');
-  assert.ok(bridge.includes("script.allowed===true&&script.enabled===true"),'Bridge must check both entitlement and enabled');
+  assert.match(bridge,/script\?\.allowed===true&&script\?\.enabled===true/,'Bridge must check both entitlement and enabled');
   assert.match(bridge,/setInterval\(checkPublisher,15000\)/);
 });
 
