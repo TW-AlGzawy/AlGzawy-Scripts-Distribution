@@ -16,7 +16,7 @@ async function syncBridgeVersion(){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set()};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,releaseError:false};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
@@ -59,6 +59,77 @@ async function api(path,options={}){
   return data;
 }
 
+// Browsers do not expose Tampermonkey's installed-script list.
+// The nine official loaders run a minimal probe responder on this portal URL.
+function compareVersion(left,right){
+  const a=String(left||'').split('.').map(Number),b=String(right||'').split('.').map(Number);
+  if(!/^\d+(?:\.\d+){1,3}$/.test(left||'')||!/^\d+(?:\.\d+){1,3}$/.test(right||''))return 0;
+  for(let i=0;i<Math.max(a.length,b.length);i++){
+    if((a[i]||0)!==(b[i]||0))return (a[i]||0)<(b[i]||0)?-1:1;
+  }
+  return 0;
+}
+function installationState(item){
+  const installed=state.installed.get(item.id),latest=state.releases.get(item.id);
+  if(!installed){
+    return {kind:state.probing?'checking':'install',
+      label:state.probing?'جارٍ التحقق…':'تثبيت السكربت',
+      note:state.probing?'جارٍ البحث عن تأكيد Tampermonkey':
+        'لم يصل تأكيد التثبيت؛ قد يكون السكربت غير مثبت أو معطّلًا'};
+  }
+  const note='المثبّت v'+installed+(latest?' · المتاح v'+latest:' · تعذر فحص أحدث إصدار');
+  if(latest&&compareVersion(installed,latest)<0)
+    return {kind:'update',label:'تحديث السكربت',note};
+  return {kind:'installed',label:'✓ مثبّت',note};
+}
+function installationControl(item){
+  const result=installationState(item);
+  if(result.kind==='installed'){
+    const chip=el('span','btn installed-verified',result.label);
+    chip.setAttribute('role','status');chip.title=result.note;return chip;
+  }
+  if(result.kind==='checking'){
+    const checking=el('span','btn installation-checking','جارٍ التحقق…');
+    checking.title=result.note;return checking;
+  }
+  const link=el('a','btn '+(result.kind==='update'?'install-update':'subtle'),result.label+' ↗');
+  link.href=item.installer;link.rel='noopener noreferrer';link.target='_blank';
+  link.title=result.note;
+  link.addEventListener('click',()=>{setTimeout(()=>{if(state.user)probeInstalledScripts();},4500);});
+  return link;
+}
+async function fetchReleaseVersions(){
+  if(!state.user)return;
+  try{
+    const response=await api('installer-releases');
+    if(!Array.isArray(response.items))throw Error('invalid_releases');
+    const next=new Map();
+    for(const item of response.items)
+      if(typeof item.id==='string'&&/^\d+(?:\.\d+){1,3}$/.test(item.version))next.set(item.id,item.version);
+    state.releases=next;state.releaseError=false;
+  }catch(error){state.releaseError=true;/* Installed-script proof is independent of GitHub availability. */}
+  if(state.user)renderScripts();
+}
+function probeInstalledScripts(){
+  if(!state.user||document.visibilityState==='hidden')return;
+  state.probeNonce=crypto.randomUUID();
+  state.installed=new Map();state.probing=true;
+  const nonce=state.probeNonce;
+  window.postMessage({scope:'algzawy-installation-v1',type:'probe',nonce},location.origin);
+  renderScripts();
+  setTimeout(()=>{
+    if(state.probeNonce===nonce&&state.user){state.probing=false;renderScripts();}
+  },2200);
+}
+window.addEventListener('message',event=>{
+  if(event.source!==window||event.origin!==location.origin||!state.user)return;
+  const message=event.data;
+  if(message?.scope!=='algzawy-installation-v1'||message.type!=='report'||message.nonce!==state.probeNonce)return;
+  if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
+  if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
+  state.installed.set(message.id,message.version);
+  if(!state.probing)renderScripts();
+});
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
   const raw=new URLSearchParams(location.search).get('alg_auto');
@@ -148,7 +219,7 @@ async function loadMe(){
   state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;readSubscription(data);
   const catalog=await api('catalog');
   state.catalog=Array.isArray(catalog.items)?catalog.items.filter(x=>state.prefs[x.id]?.allowed===true):[];
-  showShell();render();showAutoApproval();
+  showShell();render();showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
 }
 async function init(){
   try{
@@ -273,8 +344,9 @@ function renderScripts(){
     const detail=status(item),pill=el('span','bot-status'+(pref.enabled?' on':''),detail.label);
     const actions=el('div','bot-actions');
     const info=el('button','btn outline','التفاصيل');info.addEventListener('click',()=>openScript(item.id));
-    const install=el('a','btn subtle','تثبيت السكربت ↗');install.href=item.installer;install.target='_blank';install.rel='noopener noreferrer';
-    actions.append(info,install);lower.append(pill,actions);card.append(top,title,description,lower);root.append(card);
+    const install=installationControl(item);
+    const ver=el('div','installation-note',installationState(item).note);
+    actions.append(info,install);lower.append(pill,actions);card.append(top,title,description,ver,lower);root.append(card);
   }
 }
 function renderActivity(){
@@ -339,7 +411,7 @@ function openScript(id){
   const toggle=el('button','btn '+(state.prefs[id]?.enabled?'danger':'primary'),state.prefs[id]?.enabled?'إيقاف السكربت':'تفعيل السكربت');
   toggle.disabled=info.locked;
   toggle.addEventListener('click',async()=>{await setEnabled(item,!state.prefs[id]?.enabled);closeDialog();});
-  const link=el('a','btn outline','تثبيت في Tampermonkey ↗');link.href=item.installer;link.target='_blank';link.rel='noopener noreferrer';
+  const link=installationControl(item);
   actions.append(toggle,link);root.append(actions);
   if(id==='warehouse-alert-safe'){
     const pref=state.prefs[id]||{},wrap=el('div','dialog-setting');
@@ -372,7 +444,7 @@ async function refresh(){
     state.csrf=session.csrfToken;state.expiresAt=session.expiresAt||state.expiresAt;
     const me=await api('me');state.user=me.user;state.prefs=me.scripts||{};state.global=me.global;readSubscription(me);
     const cat=await api('catalog');state.catalog=(cat.items||[]).filter(x=>state.prefs[x.id]?.allowed===true);
-    render();void refreshCloud();
+    render();probeInstalledScripts();void refreshCloud();
   }catch(err){
     if(['unauthorized','subscription_inactive'].includes(err.message)){
       showAuth();$('loginError').textContent='انتهت الجلسة أو تم تعطيل الاشتراك.';
@@ -407,7 +479,7 @@ $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActiv
 $('refreshButton').addEventListener('click',()=>void refresh());
 async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';
   state.prefs={};state.csrf='';state.expiresAt=0;
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
 }
@@ -417,10 +489,11 @@ setInterval(()=>{if(state.user)renderSubscriberHeader();},1000);
 $('closeDialog').addEventListener('click',closeDialog);
 $('scriptDialog').addEventListener('click',event=>{if(event.target===$('scriptDialog'))closeDialog();});
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('scriptDialog').hidden)closeDialog();});
-window.addEventListener('focus',()=>{if(state.user)void refresh();});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.user)void refresh();});
+window.addEventListener('focus',()=>{if(state.user){probeInstalledScripts();void refresh();}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.user){probeInstalledScripts();void refresh();}});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refresh();},5*60*1000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
+setInterval(()=>{if(state.user&&document.visibilityState==='visible'){probeInstalledScripts();void fetchReleaseVersions();}},5*60*1000);
 void syncBridgeVersion();
 setInterval(()=>{if(document.visibilityState==='visible')void syncBridgeVersion();},300000);
 void init();

@@ -50,3 +50,11 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 .header-controls .top-logout{min-height:35px;padding:7px 12px;font-size:10px;border-color:#4e6972}
 @media(max-width:1000px){.topbar{gap:12px;flex-wrap:wrap}.subscriber-header{max-width:235px}.header-controls{flex-wrap:wrap;gap:7px}}
 @media(max-width:520px){.topbar{min-height:70px;padding:10px 12px}.heading-line h1{font-size:16px}.header-controls{gap:5px}.subscriber-header .user-chip{display:none}.subscriber-identity strong{max-width:120px}.subscription-countdown{font-size:9px}.header-controls .top-logout{min-height:30px;padding:5px 8px;font-size:9px}}
+
+/* Reported installation state — never derived from the ON/OFF subscription toggle */
+.bot-card .installation-note{font-size:10px;line-height:1.7;color:#9bc4c8;min-height:31px;margin-top:6px}
+.bot-actions .btn{min-height:33px;font-size:10px;padding:6px 9px}
+.installed-verified{border-color:#207d69!important;background:#123e36!important;color:#67eac3!important;cursor:default!important}
+.install-update{border-color:#c48b51!important;background:#3a2d26!important;color:#ffd6a0!important}
+.installation-checking{border-color:#355769!important;background:#172d3c!important;color:#b8cddd!important}
+@media(max-width:750px){.bot-card .bot-bottom{flex-wrap:wrap}.bot-actions{flex-wrap:wrap}}
