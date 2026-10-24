@@ -46,3 +46,54 @@ test('Floating rewards panel contains compact header, saved position and one foo
  assert.ok(source.includes("body.style.display=cfg.collapsed?'none':'grid'"));
  assert.ok(source.includes("panel.style.left=Math.round"));
 });
+
+test('Licensed collector clicks claimable reward once even if obsolete standalone tab-lock is enabled',async()=>{
+ const keys=new Map([
+  ['algzawy_portal_grant_tribal-wars-helper','1'],
+  ['algzawy_local_enabled_tribal-wars-helper','true'],
+  ['algzawy_portal_approved_device','approved-device'],
+  ['algzawy_portal_device_authorized_until',String(Date.now()+120000)],
+  ['algzawy_lock_enabled','true']
+ ]);
+ const tabs=new Map([
+  ['algzawy_tab_instance_v1','active-tab'],
+  ['algzawy_tab_pins_ready_v1','active-tab'],
+  ['algzawy_tab_pin_v1_tribal-wars-helper','active-tab']
+ ]);
+ const storage=data=>({getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,String(value))});
+ let clicked=0,tabClicks=0,closed=0;
+ const button={
+  click(){clicked++;},
+  hasAttribute(name){return name==='disabled'&&clicked>0;},
+  classList:{contains:()=>false}
+ };
+ const row={querySelector:selector=>selector.includes('reward-system-claim-button')?button:null,
+  querySelectorAll:()=>[]};
+ const table={querySelectorAll:selector=>selector==='tr'?[row]:[]};
+ const dom={
+  querySelector(selector){
+   if(selector==='#reward-system-badge')return {textContent:'(1)'};
+   if(selector==='#new_quest')return {querySelector:()=>({}),click(){}};
+   if(selector==='#quest_dialog')return {};
+   if(selector==='a.tab-link[data-tab="reward-tab"]')return {click(){tabClicks++;}};
+   if(selector==='.popup_box_close')return {click(){closed++;}};
+   return null;
+  },
+  getElementById(id){return id==='reward-system-rewards'?table:null;}
+ };
+ const code=source.slice(0,source.indexOf('// Portal palette:'))
+   .replace('TW_Helper.init();','globalThis.__rewardTestCore=TW_Helper;');
+ assert.ok(code.includes('globalThis.__rewardTestCore=TW_Helper;'),'test must isolate live core without auto DOM start');
+ const context={document:dom,game_data:{village:{max_storage:100}},
+  localStorage:storage(keys),sessionStorage:storage(tabs),setTimeout,clearTimeout,console,Date};
+ vm.runInNewContext(code,context);
+ const core=context.__rewardTestCore;
+ core.getCurrentResources=()=>({wood:0,stone:0,iron:0,max:100});
+ core.sleep=async()=>{};
+ assert.equal(core.permitted(),true,'Bridge-approved tab remains usable despite stale old lock');
+ await core.checkAndClaimRewards();
+ assert.equal(clicked,1,'claim button clicked exactly once');
+ assert.equal(tabClicks,1,'correct reward tab opened');
+ assert.equal(closed,1,'rewards dialog closed after collection');
+ assert.equal(core.busy,false,'follow-up cycles can run');
+});
