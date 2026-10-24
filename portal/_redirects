@@ -1,0 +1,3 @@
+# The V2 subscriber portal is now the public production homepage.
+/ /v2/ 302
+/index.html /v2/ 302

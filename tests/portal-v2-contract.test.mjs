@@ -91,3 +91,13 @@ test('Device approval fetches current Cloud Bridge version without a hard-coded 
  assert.match(api,/path\[0\]==='bridge-version'/);
  assert.match(api,/main\/loaders\/algzawy-cloud-bridge\.user\.js/);
 });
+
+test('Public release presents one production portal and no preview/legacy navigation',()=>{
+ assert.doesNotMatch(html,/V2 Preview|نسخة معاينة محمية|الواجهة الحالية/);
+ assert.match(html,/AlGzawy Cloud \| مركز سكربتات الغزااوي/);
+ const redirects=read('portal/_redirects');
+ assert.match(redirects,/^\/\s+\/v2\/\s+302/m);
+ assert.match(redirects,/^\/index\.html\s+\/v2\/\s+302/m);
+ const owner=read('portal/admin/index.html');
+ assert.doesNotMatch(owner,/لوحة التحكم السابقة|فتح لوحة الإيقاف المركزي القديمة/);
+});
