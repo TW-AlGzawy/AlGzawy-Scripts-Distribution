@@ -382,7 +382,7 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
    assert.match(src,/document\.addEventListener\('algzawy-tab-pin-changed'/);
    assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
    const engine=read('scripts/'+id+'.js'),item=catalog.find(x=>x.id===id);
-   assert.match(src,/^\/\/ @version\s+(?:1\.0\.1|1\.0\.2|1\.1\.0|1\.5\.2)/m);
+   assert.match(src,/^\/\/ @version\s+(?:1\.0\.1|1\.0\.2|1\.2\.0|1\.5\.2)/m);
    assert.match(src,/^\/\/ @name\s+الغزااوي \| /m);
    assert.match(engine,/^\/\/ @name\s+الغزااوي \| /m,id+' engine name');
    assert.equal(item.version,src.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/loader version');

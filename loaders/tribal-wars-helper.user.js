@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.1.1
+// @version      1.2.0
 // @description  AlGzawy BETA — اشتراك وجهاز معتمد
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.tribalwars.ae/game.php*
@@ -20,7 +20,7 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/tribal-wars-helper.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "tribal-wars-helper";
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.1.1');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.2.0');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
