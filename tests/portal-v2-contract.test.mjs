@@ -82,3 +82,12 @@ test('V2 one-click activation only authorizes a reviewed, trusted Tribal Wars or
  assert.match(js,/event\.origin|autoLink\.origin/);
  assert.match(js,/result\.nonce!==autoLink\.nonce/);
 });
+
+test('Device approval fetches current Cloud Bridge version without a hard-coded V2 label',()=>{
+ assert.doesNotMatch(html,/ثبّت Cloud Bridge V2/);
+ assert.match(html,/data-bridge-version/);
+ assert.match(js,/fetch\('\/api\/bridge-version'/);
+ const api=read('portal/functions/api/[[path]].js');
+ assert.match(api,/path\[0\]==='bridge-version'/);
+ assert.match(api,/main\/loaders\/algzawy-cloud-bridge\.user\.js/);
+});

@@ -6,6 +6,16 @@
 const $=id=>document.getElementById(id);
 const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
+async function syncBridgeVersion(){
+  try{
+    const response=await fetch('/api/bridge-version',{credentials:'same-origin',cache:'no-store'});
+    const release=await response.json();
+    if(!response.ok||release.ok!==true||!/^\d+(?:\.\d+){1,3}$/.test(release.version))throw Error('version_unavailable');
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v'+release.version;});
+  }catch(_){
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
+  }
+}
 const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set()};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
@@ -378,5 +388,7 @@ window.addEventListener('focus',()=>{if(state.user)void refresh();});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.user)void refresh();});
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refresh();},5*60*1000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
+void syncBridgeVersion();
+setInterval(()=>{if(document.visibilityState==='visible')void syncBridgeVersion();},300000);
 void init();
 })();

@@ -209,6 +209,17 @@ async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
+  if(req.method==='GET'&&path[0]==='bridge-version'&&path.length===1){
+    try{
+      // Public version-only metadata: never return grants or credentials.
+      const response=await fetch('https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js');
+      if(!response.ok)return reply({ok:false,error:'bridge_release_unavailable'},503,{'Cache-Control':'no-store'});
+      const text=(await response.text()).slice(0,7000);
+      const matched=text.match(/^\/\/\s*@version\s+(\d+(?:\.\d+){1,3})\b/m);
+      if(!matched)return reply({ok:false,error:'bridge_release_invalid'},503,{'Cache-Control':'no-store'});
+      return reply({ok:true,version:matched[1]},200,{'Cache-Control':'public, max-age=120'});
+    }catch(e){console.warn('[bridge version]',e);return reply({ok:false,error:'bridge_release_unavailable'},503,{'Cache-Control':'no-store'});}
+  }
   if(req.method==='GET'&&path[0]==='catalog'&&path.length===1){
     // Never reveal catalog names to anonymous portal visitors via the public API.
     const hasAdmin=adminOK(req,env)||!!(await readAdminSession(req,env));
