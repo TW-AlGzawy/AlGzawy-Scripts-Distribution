@@ -61,75 +61,104 @@
         },wait);
       },
       timingPanel:function(){
-        const box=document.querySelector('.algzawy-watermark');if(!box)return;
-        const header=document.createElement('div');header.id='alg-reward-header';
-        header.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:7px';
-        const title=document.createElement('strong');title.textContent='الغزااوي | جامع الجوائز';
-        const fold=document.createElement('button');fold.type='button';fold.textContent=cfg.collapsed?'＋':'−';
-        fold.style.cssText='cursor:pointer;border:1px solid #3f9b89;background:#164d42;color:#ddfff5;border-radius:5px';
-        header.append(title,fold);
-        const body=document.createElement('div');body.id='alg-reward-settings';body.style.cssText='display:grid;gap:6px;min-width:215px';
-        const activeRow=document.createElement('label');activeRow.textContent=' تشغيل تلقائي ';
-        const active=document.createElement('input');active.type='checkbox';active.checked=cfg.enabled;activeRow.prepend(active);
-        body.append(activeRow);
-        const fields=[['cycle','كل دورة (ث)',10,3600],['openDelay','فتح المهمات (ms)',100,20000],
-          ['tabDelay','فتح الجوائز (ms)',100,20000],['clickDelay','بين الضغطات (ms)',100,20000],
-          ['jitter','تفاوت إضافي (ms)',0,5000]];
-        for(const [key,label,min,max] of fields){
-          const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:6px';
-          const cap=document.createElement('span');cap.textContent=label;
-          const input=document.createElement('input');input.type='number';input.min=String(min);input.max=String(max);
-          input.value=String(cfg[key]);input.style.cssText='width:78px;direction:ltr;color:#eafff8;background:#081d2a;border:1px solid #36766f;border-radius:5px;padding:4px';
+        const panel=document.getElementById('algzawy-reward-panel');
+        const box=panel?.querySelector('.algzawy-watermark');if(!box)return;
+        const create=(tag,className,text)=>{
+          const el=document.createElement(tag);if(className)el.className=className;
+          if(text!==undefined)el.textContent=text;return el;
+        };
+        box.replaceChildren();
+        const top=create('header','alg-reward-head');
+        const fold=create('button','alg-reward-fold',cfg.collapsed?'＋':'−');
+        fold.type='button';fold.setAttribute('aria-label','طي نافذة جامع الجوائز');
+        const title=create('strong','','الغزااوي | جامع الجوائز');
+        const badge=create('span','alg-reward-brand','AlG');
+        top.append(fold,title,badge);box.append(top);
+        const body=create('section','alg-reward-body');
+        const counters=create('div','alg-reward-counters');
+        const state=create('div','alg-reward-counter');
+        state.append(create('small','','الحالة'),create('strong','alg-reward-value','جاهز'));
+        state.querySelector('strong').id='alg-reward-status';
+        const next=create('div','alg-reward-counter');
+        next.append(create('small','','الدورة التالية'),create('strong','alg-reward-value','—'));
+        next.querySelector('strong').id='alg-reward-next';
+        counters.append(state,next);body.append(counters);
+        const enabled=create('label','alg-reward-enabled');
+        enabled.append(create('span','','الجمع التلقائي'));
+        const checkbox=create('input');checkbox.type='checkbox';checkbox.checked=cfg.enabled;
+        enabled.append(checkbox);body.append(enabled);
+        const details=create('details','alg-reward-details');
+        details.append(create('summary','','إعدادات التوقيت'));
+        const fields=create('div','alg-reward-fields');
+        for(const [key,label,min,max,unit] of [
+          ['cycle','الفاصل بين الدورات',10,3600,'ث'],
+          ['openDelay','انتظار فتح المهام',100,20000,'ms'],
+          ['tabDelay','انتظار تبويب الجوائز',100,20000,'ms'],
+          ['clickDelay','انتظار بين الضغطات',100,20000,'ms'],
+          ['jitter','تفاوت اختياري',0,5000,'ms']]){
+          const row=create('label','alg-reward-field'),caption=create('span','',label);
+          const control=create('span','alg-reward-control'),input=create('input');
+          input.type='number';input.inputMode='numeric';input.min=String(min);input.max=String(max);input.value=String(cfg[key]);
+          input.setAttribute('aria-label',label);
           input.addEventListener('change',()=>{
             cfg[key]=clamp(input.value,min,max,DEFAULT[key]);input.value=String(cfg[key]);
             this.saveConfig();if(!this.busy)this.schedule();
           });
-          row.append(cap,input);body.append(row);
+          control.append(input,create('small','',unit));row.append(caption,control);fields.append(row);
         }
-        active.addEventListener('change',()=>{
-          cfg.enabled=active.checked;this.saveConfig();if(!this.busy)this.schedule(cfg.enabled?1000:0);
+        details.append(fields);body.append(details);
+        checkbox.addEventListener('change',()=>{
+          cfg.enabled=checkbox.checked;this.saveConfig();
+          if(!this.busy)this.schedule(cfg.enabled?1000:0);
+          this.status(cfg.enabled?'جاهز':'متوقف');
         });
-        const run=document.createElement('button');run.type='button';run.textContent='جمع الآن';
-        run.style.cssText='background:#48e4b8;border:0;border-radius:5px;color:#0b302e;font-weight:bold;padding:6px;cursor:pointer';
-        run.addEventListener('click',()=>{if(this.permitted()&&!this.busy)void this.checkAndClaimRewards(true);});
-        const status=document.createElement('div');status.id='alg-reward-status';status.style.cssText='color:#9affd8;font-size:10px';
-        const footer=document.createElement('small');footer.textContent='BETA · v1.1.1 · © 2026 الغزااوي — جميع الحقوق محفوظة';
-        footer.style.cssText='color:#a2c4c9;font-size:9px;text-align:center';
-        body.append(run,status,footer);box.prepend(header);box.append(body);
-        const render=()=>{body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';fold.textContent=cfg.collapsed?'＋':'−'};
-        fold.addEventListener('click',()=>{cfg.collapsed=!cfg.collapsed;this.saveConfig();render();});render();
-        // Draggable via the title bar without capturing control clicks.
-        const container=box.closest('.algzawy-container'),positionKey='algzawy_rewards_position_v1';
-        if(container){
-          try{
-            const p=JSON.parse(localStorage.getItem(positionKey)||'null');
-            if(p&&Number.isFinite(p.left)&&Number.isFinite(p.top)){
-              container.style.left=Math.max(0,Math.min(innerWidth-container.offsetWidth,p.left))+'px';
-              container.style.top=Math.max(0,Math.min(innerHeight-45,p.top))+'px';
-            }
-          }catch(_){}
-          header.style.cursor='move';header.style.touchAction='none';
-          let gesture=null;
-          header.addEventListener('pointerdown',event=>{
-            if(event.button!==0||event.target.closest('button,input'))return;
-            const rect=container.getBoundingClientRect();
-            gesture={id:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};
-            header.setPointerCapture?.(event.pointerId);
-          });
-          header.addEventListener('pointermove',event=>{
-            if(!gesture||event.pointerId!==gesture.id)return;
-            container.style.left=Math.max(0,Math.min(innerWidth-container.offsetWidth,gesture.left+event.clientX-gesture.x))+'px';
-            container.style.top=Math.max(0,Math.min(innerHeight-45,gesture.top+event.clientY-gesture.y))+'px';
-          });
-          const stop=event=>{
-            if(!gesture||event.pointerId!==gesture.id)return;
-            gesture=null;
-            try{localStorage.setItem(positionKey,JSON.stringify({left:container.offsetLeft,top:container.offsetTop}));}catch(_){}
-            if(header.hasPointerCapture?.(event.pointerId))header.releasePointerCapture(event.pointerId);
-          };
-          header.addEventListener('pointerup',stop);
-          header.addEventListener('pointercancel',stop);
-        }
+        const run=create('button','alg-reward-action','▶ جمع الجوائز الآن');run.type='button';
+        run.addEventListener('click',()=>{
+          if(this.busy){this.status('جارٍ تنفيذ دورة سابقة');return;}
+          if(!this.permitted()){this.status(cfg.enabled?'فعّل السكربت على هذا التبويب من الجسر':'الجمع متوقف');return;}
+          void this.checkAndClaimRewards(true);
+        });
+        body.append(run,create('div','alg-reward-note','يعمل فقط داخل التبويب المعتمد في الجسر السحابي'));
+        body.append(create('footer','alg-reward-footer','BETA · v1.2.0 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+        box.append(body);
+        const draw=()=>{
+          body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';
+          fold.textContent=cfg.collapsed?'＋':'−';fold.setAttribute('aria-expanded',String(!cfg.collapsed));
+        };
+        fold.addEventListener('click',()=>{cfg.collapsed=!cfg.collapsed;this.saveConfig();draw();});draw();
+        const positionKey='algzawy_rewards_position_v1';
+        try{
+          const pos=JSON.parse(localStorage.getItem(positionKey)||'null');
+          if(pos&&Number.isFinite(pos.left)&&Number.isFinite(pos.top)){
+            panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,pos.left))+'px';
+            panel.style.top=Math.max(0,Math.min(innerHeight-40,pos.top))+'px';
+          }
+        }catch(_){}
+        let dragging=null;
+        top.addEventListener('pointerdown',event=>{
+          if(event.button!==0||event.target.closest('button,input'))return;
+          const rect=panel.getBoundingClientRect();
+          dragging={id:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};
+          top.setPointerCapture?.(event.pointerId);
+        });
+        top.addEventListener('pointermove',event=>{
+          if(!dragging||event.pointerId!==dragging.id)return;
+          panel.style.left=Math.round(Math.max(0,Math.min(innerWidth-panel.offsetWidth,dragging.left+event.clientX-dragging.x)))+'px';
+          panel.style.top=Math.round(Math.max(0,Math.min(innerHeight-40,dragging.top+event.clientY-dragging.y)))+'px';
+          panel.style.right='auto';panel.style.bottom='auto';
+        });
+        const finish=event=>{
+          if(!dragging||event.pointerId!==dragging.id)return;
+          dragging=null;
+          try{localStorage.setItem(positionKey,JSON.stringify({left:panel.offsetLeft,top:panel.offsetTop}));}catch(_){}
+          if(top.hasPointerCapture?.(event.pointerId))top.releasePointerCapture(event.pointerId);
+        };
+        top.addEventListener('pointerup',finish);top.addEventListener('pointercancel',finish);
+        setInterval(()=>{
+          const next=document.getElementById('alg-reward-next');
+          if(next)next.textContent=cfg.enabled&&this.nextCycleAt?
+            Math.max(0,Math.ceil((this.nextCycleAt-Date.now())/1000))+' ثانية':'—';
+        },1000);
       },
         // استخدام اسم النافذة كمعرف ثابت لا يتغير عند تحديث الصفحة
         getTabId: function() {
@@ -242,45 +271,14 @@
 
         // إضافة العلامة المائية وأيقونة القفل
         addWatermark: function() {
-            const container = document.createElement('div');
-            container.className = 'algzawy-container';
-
-            const watermark = document.createElement('div');
-            watermark.className = 'algzawy-watermark';
-            watermark.innerHTML = `
-                <span class="algzawy-name">AlGzawy</span>
-                <span class="algzawy-rights">AlGzawy | جميع الحقوق محفوظة</span>
-            `;
-
-            const lockBtn = document.createElement('div');
-            lockBtn.className = 'algzawy-lock-btn';
-            const isLocked = localStorage.getItem('algzawy_lock_enabled') === 'true' && localStorage.getItem('algzawy_locked_tab_id') === this.tabId;
-            if (isLocked) lockBtn.classList.add('locked');
-            lockBtn.innerHTML = isLocked ? '🔒' : '🔓';
-            lockBtn.title = "تثبيت السكربت على هذه النافذة فقط";
-
-            lockBtn.onclick = () => {
-                const currentlyLocked = lockBtn.classList.contains('locked');
-                if (currentlyLocked) {
-                    // إلغاء القفل
-                    localStorage.setItem('algzawy_lock_enabled', 'false');
-                    localStorage.removeItem('algzawy_locked_tab_id');
-                    lockBtn.classList.remove('locked');
-                    lockBtn.innerHTML = '🔓';
-                    console.log("[AlGzawy Helper] Lock disabled. Script works on all tabs.");
-                } else {
-                    // تفعيل القفل لهذه النافذة
-                    localStorage.setItem('algzawy_lock_enabled', 'true');
-                    localStorage.setItem('algzawy_locked_tab_id', this.tabId);
-                    lockBtn.classList.add('locked');
-                    lockBtn.innerHTML = '🔒';
-                    console.log("[AlGzawy Helper] Script locked to this tab only.");
-                }
-            };
-
-            container.appendChild(watermark);
-            container.appendChild(lockBtn);
-            document.body.appendChild(container);
+          document.getElementById('algzawy-reward-panel')?.remove();
+          const parent=document.createElement('div');parent.id='algzawy-reward-panel';
+          parent.className='algzawy-container';
+          const card=document.createElement('div');card.className='algzawy-watermark';
+          parent.append(card);document.body.append(parent);
+          const style=document.createElement('style');style.id='algzawy-reward-polish';
+          style.textContent="#algzawy-reward-panel{position:fixed;left:14px;top:55px;z-index:2147483001;width:308px;max-width:calc(100vw - 16px);box-sizing:border-box;display:block;pointer-events:auto}\n#algzawy-reward-panel *{box-sizing:border-box}\n#algzawy-reward-panel .algzawy-watermark{display:block;background:#0b202d!important;color:#e9fcfa!important;border:1px solid #2e7068!important;padding:0!important;box-shadow:0 14px 32px #0009!important;border-radius:12px!important;width:100%;font:12px/1.5 Tahoma,Arial!important;text-shadow:none!important;overflow:hidden;direction:rtl}\n#algzawy-reward-panel .alg-reward-head{display:flex;align-items:center;gap:8px;min-height:43px;background:#104c40;padding:8px 10px;cursor:move;touch-action:none;user-select:none}\n#algzawy-reward-panel .alg-reward-head strong{flex:1;text-align:center;white-space:nowrap;color:#f6fffa;font-size:12px}\n#algzawy-reward-panel .alg-reward-brand{background:#4ce7bd;color:#083d30;border-radius:7px;padding:5px 7px;font-weight:bold;font-size:12px}\n#algzawy-reward-panel .alg-reward-fold{width:26px;height:26px;border-radius:6px;border:1px solid #328a80!important;background:#155449!important;color:#caffea!important;padding:0;cursor:pointer}\n#algzawy-reward-panel .alg-reward-body{display:grid;gap:10px;padding:10px;max-height:73vh;overflow-y:auto;scrollbar-width:thin}\n#algzawy-reward-panel [hidden]{display:none!important}\n#algzawy-reward-panel .alg-reward-counters{display:grid;grid-template-columns:1fr 1fr;gap:7px}\n#algzawy-reward-panel .alg-reward-counter{background:#102f3c;border:1px solid #2b5864;border-radius:8px;text-align:center;padding:7px;display:grid;gap:3px}\n#algzawy-reward-panel .alg-reward-counter small{color:#abc9cd;font-size:10px}\n#algzawy-reward-panel .alg-reward-value{color:#58edc2;font-size:12px;overflow-wrap:anywhere}\n#algzawy-reward-panel .alg-reward-enabled{display:flex;align-items:center;justify-content:space-between;background:#123d33;border:1px solid #318676;border-radius:8px;padding:9px 11px;cursor:pointer}\n#algzawy-reward-panel .alg-reward-enabled input{width:18px;height:18px;accent-color:#45dfb4}\n#algzawy-reward-panel .alg-reward-details{border:1px solid #2c5663;border-radius:8px;background:#0b2835}\n#algzawy-reward-panel .alg-reward-details summary{padding:9px 11px;cursor:pointer;color:#baf2e5;font-weight:bold}\n#algzawy-reward-panel .alg-reward-fields{display:grid;gap:7px;padding:8px}\n#algzawy-reward-panel .alg-reward-field{display:flex;justify-content:space-between;align-items:center;gap:7px;font-size:11px}\n#algzawy-reward-panel .alg-reward-control{display:flex;align-items:center;gap:4px}\n#algzawy-reward-panel .alg-reward-control input{width:85px;height:27px;text-align:center;direction:ltr;font-size:12px;background:#061d29!important;color:#eafff8!important;border:1px solid #3a7380;border-radius:5px}\n#algzawy-reward-panel .alg-reward-control small{font-size:10px;color:#a9c9d1;width:25px}\n#algzawy-reward-panel .alg-reward-action{border:0!important;background:#44dfb0!important;color:#073e30!important;border-radius:7px;min-height:35px;cursor:pointer;font-weight:800}\n#algzawy-reward-panel .alg-reward-action:hover{background:#73f0cc!important}\n#algzawy-reward-panel .alg-reward-note{font-size:10px;color:#a6c7c9;text-align:center}\n#algzawy-reward-panel .alg-reward-footer{font-size:9px;color:#9cbfc5;border-top:1px solid #2c5360;text-align:center;padding-top:7px}\n";
+          (document.head||document.documentElement).append(style);
         },
 
         // مراقبة تغير النقاط
