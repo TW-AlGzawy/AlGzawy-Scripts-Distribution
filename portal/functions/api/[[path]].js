@@ -554,7 +554,10 @@ async function handler(req,env){
   if(!(await subscriptionOK(env,user.id)))return bad('subscription_inactive',403);
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
-    return reply({ok:true,user,global,scripts:await settingsFor(env,user.id)});
+    const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(user.id).first();
+    return reply({ok:true,user,global,scripts:await settingsFor(env,user.id),
+      subscription:{active:sub?.active===1,expiresAt:Number.isSafeInteger(sub?.expires_at)?sub.expires_at:null},
+      serverNow:Math.floor(Date.now()/1000)});
   }
   if(path[0]==='scripts'&&path[1]==='bulk'&&path.length===2&&req.method==='POST'){
     let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}

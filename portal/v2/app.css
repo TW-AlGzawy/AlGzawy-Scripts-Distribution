@@ -40,3 +40,13 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 @media(max-width:780px){.auth-wrap{grid-template-columns:1fr;max-width:520px;padding:20px}.login-visual{padding:15px 8px}.login-visual h1{font-size:29px}.login-mark{display:none}.login-visual p{font-size:12px}.login-points{display:none}.login-card{padding:25px}.topbar{min-height:73px}.heading-line h1{font-size:17px}.header-controls{gap:6px}.header-controls .user-chip{display:none}.welcome{grid-template-columns:1fr}.welcome-orbit{display:none}.welcome-content{padding:27px 22px}.metrics{gap:9px}.metric{padding:13px 10px;gap:8px;min-height:92px}.metric-icon{width:32px;height:32px;font-size:18px}.metric strong{font-size:22px}.metric .metric-word{font-size:13px}.metric div>span{font-size:8px}.page-head{align-items:flex-start;flex-direction:column}.toolbar-actions{flex-wrap:wrap}.scripts-grid{grid-template-columns:1fr}.connect-grid{grid-template-columns:1fr}.search-field{flex:1 1 100%}.account-fields{grid-template-columns:1fr}.pair-panel{flex-direction:column;align-items:stretch}}
 @media(max-width:400px){.metrics{grid-template-columns:1fr}.topbar{padding:12px}.header-controls .pill{padding:5px 7px;max-width:115px;white-space:nowrap;font-size:9px}.login-card{padding:19px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* Subscriber identity and server-authoritative subscription countdown */
+.subscriber-header{display:flex;align-items:center;gap:9px;min-width:0;max-width:260px}
+.subscriber-header .user-chip{flex:none}
+.subscriber-identity{display:grid;gap:3px;min-width:0;text-align:right}
+.subscriber-identity strong{font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ebfff9}
+.subscription-countdown{font-size:10px;color:#66e6be;white-space:nowrap;direction:rtl;font-variant-numeric:tabular-nums}
+.subscription-countdown.warning{color:#ffd285}.subscription-countdown.expired{color:#ff9ea5}
+.header-controls .top-logout{min-height:35px;padding:7px 12px;font-size:10px;border-color:#4e6972}
+@media(max-width:1000px){.topbar{gap:12px;flex-wrap:wrap}.subscriber-header{max-width:235px}.header-controls{flex-wrap:wrap;gap:7px}}
+@media(max-width:520px){.topbar{min-height:70px;padding:10px 12px}.heading-line h1{font-size:16px}.header-controls{gap:5px}.subscriber-header .user-chip{display:none}.subscriber-identity strong{max-width:120px}.subscription-countdown{font-size:9px}.header-controls .top-logout{min-height:30px;padding:5px 8px;font-size:9px}}

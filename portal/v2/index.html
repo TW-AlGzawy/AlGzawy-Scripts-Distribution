@@ -64,7 +64,14 @@
         <div class="header-controls">
           <span id="cloudIndicator" class="pill neutral" role="status">◌ جارٍ التحقق</span>
           <button id="refreshButton" class="icon-btn" title="مزامنة البيانات" aria-label="مزامنة البيانات">↻</button>
-          <span class="user-chip" id="userChip">AlG</span>
+          <div class="subscriber-header" aria-label="حالة الاشتراك">
+            <span class="user-chip" id="userChip">AlG</span>
+            <span class="subscriber-identity">
+              <strong id="subscriberName">المشترك</strong>
+              <small id="subscriptionCountdown" class="subscription-countdown" role="timer" aria-label="الوقت المتبقي للاشتراك">جارٍ التحقق من الاشتراك…</small>
+            </span>
+          </div>
+          <button id="topLogoutButton" class="btn outline top-logout" type="button">تسجيل الخروج</button>
         </div>
       </header>
       <main id="main" tabindex="-1">

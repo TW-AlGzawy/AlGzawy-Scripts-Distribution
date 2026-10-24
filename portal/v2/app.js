@@ -16,7 +16,7 @@ async function syncBridgeVersion(){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set()};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set()};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
@@ -114,9 +114,38 @@ function showShell(){
   $('boot').hidden=true;$('login').hidden=true;$('shell').hidden=false;
   $('userChip').textContent='AlG';
 }
+function readSubscription(data){
+  state.subscription=data.subscription||null;
+  if(Number.isSafeInteger(data.serverNow))state.clockDeltaMs=Date.now()-data.serverNow*1000;
+}
+function remainingTime(expiresAt,nowMs){
+  if(!Number.isSafeInteger(expiresAt))return null;
+  return Math.max(0,expiresAt*1000-nowMs);
+}
+function renderSubscriberHeader(){
+  const label=state.user?.label||'المشترك';
+  $('subscriberName').textContent=label;
+  $('userChip').title=label;
+  const el=$('subscriptionCountdown');
+  el.classList.remove('warning','expired');
+  if(!state.user){el.textContent='—';return;}
+  const sub=state.subscription;
+  if(!sub?.active){el.textContent='الاشتراك غير نشط';el.classList.add('expired');return;}
+  const expiresAt=sub.expiresAt;
+  if(expiresAt===null){el.textContent='الاشتراك: بلا تاريخ انتهاء';return;}
+  const remain=remainingTime(expiresAt,Date.now()-state.clockDeltaMs);
+  if(remain===null){el.textContent='مدة الاشتراك غير متاحة';return;}
+  if(remain<=0){el.textContent='انتهت مدة الاشتراك';el.classList.add('expired');return;}
+  if(remain<=7*86400000)el.classList.add('warning');
+  const total=Math.ceil(remain/1000),days=Math.floor(total/86400);
+  const hh=String(Math.floor(total%86400/3600)).padStart(2,'0');
+  const mm=String(Math.floor(total%3600/60)).padStart(2,'0');
+  const ss=String(total%60).padStart(2,'0');
+  el.textContent='المتبقي: '+days+' يوم · '+hh+':'+mm+':'+ss;
+}
 async function loadMe(){
   const data=await api('me');
-  state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;
+  state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;readSubscription(data);
   const catalog=await api('catalog');
   state.catalog=Array.isArray(catalog.items)?catalog.items.filter(x=>state.prefs[x.id]?.allowed===true):[];
   showShell();render();showAutoApproval();
@@ -262,7 +291,7 @@ function renderAccount(){
   $('sessionExpiry').textContent=state.expiresAt?new Date(state.expiresAt*1000).toLocaleString('ar-BE'):'—';
 }
 function render(){
-  renderMetrics();renderStatus();renderQuick();renderFilters();renderScripts();renderActivity();renderAccount();
+  renderMetrics();renderStatus();renderQuick();renderFilters();renderScripts();renderActivity();renderAccount();renderSubscriberHeader();
 }
 function safeSettings(item){
   if(item.id==='bot-farm-2')return {};
@@ -341,7 +370,7 @@ async function refresh(){
   try{
     const session=await api('session');
     state.csrf=session.csrfToken;state.expiresAt=session.expiresAt||state.expiresAt;
-    const me=await api('me');state.user=me.user;state.prefs=me.scripts||{};state.global=me.global;
+    const me=await api('me');state.user=me.user;state.prefs=me.scripts||{};state.global=me.global;readSubscription(me);
     const cat=await api('catalog');state.catalog=(cat.items||[]).filter(x=>state.prefs[x.id]?.allowed===true);
     render();void refreshCloud();
   }catch(err){
@@ -376,11 +405,15 @@ $('cancelAuto').addEventListener('click',clearAutoLink);
 $('declineAuto').addEventListener('click',clearAutoLink);
 $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActivity();});
 $('refreshButton').addEventListener('click',()=>void refresh());
-$('logoutButton').addEventListener('click',async()=>{
+async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];
-  showAuth();toast('تم تسجيل الخروج');
-});
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];
+  state.prefs={};state.csrf='';state.expiresAt=0;
+  showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
+}
+$('logoutButton').addEventListener('click',()=>void logoutSubscriber());
+$('topLogoutButton').addEventListener('click',()=>void logoutSubscriber());
+setInterval(()=>{if(state.user)renderSubscriberHeader();},1000);
 $('closeDialog').addEventListener('click',closeDialog);
 $('scriptDialog').addEventListener('click',event=>{if(event.target===$('scriptDialog'))closeDialog();});
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('scriptDialog').hidden)closeDialog();});
