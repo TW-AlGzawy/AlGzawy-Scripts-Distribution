@@ -101,3 +101,19 @@ test('Public release presents one production portal and no preview/legacy naviga
  const owner=read('portal/admin/index.html');
  assert.doesNotMatch(owner,/لوحة التحكم السابقة|فتح لوحة الإيقاف المركزي القديمة/);
 });
+
+test('Subscriber header, expiry and real Tampermonkey installation states',()=>{
+ const server=read('portal/functions/api/[[path]].js');
+ for(const id of ['subscriberName','subscriptionCountdown','topLogoutButton'])assert.match(html,new RegExp('id="'+id+'"'));
+ assert.match(js,/function renderSubscriberHeader\(/);
+ assert.match(js,/state\.subscription=data\.subscription/);
+ assert.match(js,/Date\.now\(\)-state\.clockDeltaMs/);
+ assert.match(js,/logoutSubscriber\(\)/);
+ assert.match(server,/subscription:\{active:sub\?\.active===1,expiresAt:/);
+ assert.match(server,/serverNow:Math\.floor\(Date\.now\(\)\/1000\)/);
+ assert.match(server,/path\[0\]==='installer-releases'/);
+ for(const label of ['تثبيت السكربت','تحديث السكربت','✓ مثبّت','جارٍ التحقق'])assert.ok(js.includes(label));
+ assert.match(js,/function probeInstalledScripts\(/);
+ assert.match(js,/message\.nonce!==state\.probeNonce/);
+ assert.match(js,/event\.source!==window\|\|event\.origin!==location\.origin/);
+});

@@ -7,9 +7,9 @@ const source=read('scripts/tribal-wars-helper.js');
 const loader=read('loaders/tribal-wars-helper.user.js');
 test('Collector 1.2.0 scripts compile and match catalog version',()=>{
  new vm.Script(source);new vm.Script(loader);
- assert.match(source,/@version\s+1\.2\.0/);
- assert.match(loader,/@version\s+1\.2\.0/);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='tribal-wars-helper').version,'1.2.0');
+ assert.match(source,/@version\s+1\.2\.1/);
+ assert.match(loader,/@version\s+1\.2\.1/);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='tribal-wars-helper').version,'1.2.1');
 });
 test('Owner controls, persisted intervals and serialized collections',()=>{
  for(const text of [
@@ -33,7 +33,7 @@ test('Owner controls, persisted intervals and serialized collections',()=>{
  assert.ok(source.includes("localStorage.getItem('algzawy_portal_grant_tribal-wars-helper')==='1'"));
 });
 
-test('Rewards v1.2.0 does not depend on obsolete local window lock and keeps Bridge license',()=>{
+test('Rewards v1.2.1 does not depend on obsolete local window lock and keeps Bridge license',()=>{
  assert.doesNotMatch(source,/this\.isLockedToThisTab\(\)/);
  assert.ok(source.includes("sessionStorage.getItem('algzawy_tab_pin_v1_tribal-wars-helper')===tab"));
  assert.match(source,/algzawy_portal_device_authorized_until/);

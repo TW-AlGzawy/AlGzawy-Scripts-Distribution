@@ -382,7 +382,7 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
    assert.match(src,/document\.addEventListener\('algzawy-tab-pin-changed'/);
    assert.match(src,/window\.setTimeout\(\(\)=>void checkPolicy\(\),650\)/);
    const engine=read('scripts/'+id+'.js'),item=catalog.find(x=>x.id===id);
-   assert.match(src,/^\/\/ @version\s+(?:1\.0\.1|1\.0\.2|1\.2\.0|1\.5\.2)/m);
+   assert.match(src,/^\/\/ @version\s+\d+\.\d+\.\d+/m);
    assert.match(src,/^\/\/ @name\s+الغزااوي \| /m);
    assert.match(engine,/^\/\/ @name\s+الغزااوي \| /m,id+' engine name');
    assert.equal(item.version,src.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/loader version');
@@ -426,7 +426,7 @@ test('22 loaders reject startup before tab pin but check cloud license once pinn
      location:{reload(){throw Error('unexpected page reload')}}
    };
    const context={
-     window:win,console:{warn(){},error(){}},Date,
+     window:win,location:{origin:'https://world.tribalwars.net',pathname:'/game.php'},console:{warn(){},error(){}},Date,
      localStorage:{getItem:key=>localValues.get(key)??null,setItem:(key,value)=>localValues.set(key,value)},
      sessionStorage:{getItem:key=>sessionValues.get(key)??null,setItem:(key,value)=>sessionValues.set(key,value),removeItem:key=>sessionValues.delete(key)},
      document:{getElementById:()=>null,dispatchEvent(){},addEventListener(){}},
