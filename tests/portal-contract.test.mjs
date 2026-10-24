@@ -393,7 +393,10 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
  }
  assert.match(bridge,/BroadcastChannel\('algzawy-tab-pins-bridge-v1'\)/);
  assert.match(bridge,/eraseClonedPins/);
- assert.match(bridge,/licensedPins=new Set\(known\.filter\(id=>r\.scripts\[id\]\?\.allowed===true\)\)/);
+  assert.match(bridge,/licensedPins=activeIds/);
+  assert.match(bridge,/item\?\.allowed===true&&item\?\.enabled===true/);
+  assert.match(bridge,/sessionStorage\.removeItem\(TAB_PIN_PREFIX\+id\)/);
+  assert.match(bridge,/new Event\('__algzawy_stop_'\+id\)/);
  assert.match(bridge,/known\.filter\(id=>licensedPins\.has\(id\)\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);

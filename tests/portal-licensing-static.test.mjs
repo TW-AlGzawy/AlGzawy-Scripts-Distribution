@@ -49,3 +49,26 @@ test('owner panel requires signed HttpOnly cookie and excludes browser token per
   assert.ok(api.includes("HttpOnly; SameSite=Strict"),'session cookie must be HttpOnly and SameSite');
   assert.ok(api.includes("csrf_invalid"),'server must reject unauthenticated writes');
 });
+
+
+test('The Cloud Bridge only lists scripts signed as ON, not merely subscribed/allowed',()=>{
+ const source=read('loaders/algzawy-cloud-bridge.user.js');
+ const start=source.indexOf('  function activeScriptIds(state){');
+ const end=source.indexOf('  // Fail closed if cached authorization',start);
+ assert.ok(start>0&&end>start,'policy extraction');
+ const check=new Function('known',source.slice(start,end)+'\nreturn activeScriptIds;');
+ const active=check(['mass-scavenge-v1','send-automation','alg-coins','bot-farm-2']);
+ const state={global:{enabled:true},scripts:{
+  'mass-scavenge-v1':{allowed:true,enabled:false,globallyEnabled:true},
+  'send-automation':{allowed:true,enabled:true,globallyEnabled:true},
+  'alg-coins':{allowed:true,enabled:true,globallyEnabled:false},
+  'bot-farm-2':{allowed:false,enabled:true,globallyEnabled:true}
+ }};
+ assert.deepEqual([...active(state)],['send-automation']);
+ assert.deepEqual([...active({...state,global:{enabled:false}})],[]);
+ assert.match(source,/licensedPins=activeIds/);
+ assert.match(source,/sessionStorage\.removeItem\(TAB_PIN_PREFIX\+id\)/);
+ assert.match(source,/document\.dispatchEvent\(new Event\('__algzawy_stop_'\+id\)\)/);
+ assert.match(source,/if\(pinsChanged\)document\.dispatchEvent\(new Event\('algzawy-tab-pin-changed'\)\)/);
+ assert.match(source,/setInterval\(\(\)=>\{if\(document\.visibilityState==='visible'\)void synchronize\(\);\},30000\)/);
+});

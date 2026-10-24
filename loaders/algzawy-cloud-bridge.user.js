@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.0
+// @version      2.4.1
 // @description  Auto License V2 + AlG Control Center; approved device and 9 approved scripts
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -335,6 +335,15 @@
     });
   }
 
+  // A subscriber entitlement only makes the script available on the website.
+  // The in-game launcher must display a script only if signed state says ON.
+  function activeScriptIds(state){
+    if(state?.global?.enabled!==true||!state.scripts||typeof state.scripts!=='object')return new Set();
+    return new Set(known.filter(id=>{
+      const item=state.scripts[id];
+      return item?.allowed===true&&item?.enabled===true&&item?.globallyEnabled!==false;
+    }));
+  }
   // Fail closed if cached authorization is stale. A live worker response is
   // always needed at least every 180s, while loaders independently enforce
   // the publisher's existing Cloudflare global switch.
@@ -361,16 +370,27 @@
       if(!r.global||typeof r.global.enabled!=='boolean'||!r.scripts||typeof r.scripts!=='object')throw Error('استجابة مزامنة غير مكتملة');
       localStorage.setItem(LICENSE_UNTIL,String(Date.now()+120000));
       localStorage.setItem(LICENSE_ID,connection.device);
-      licensedPins=new Set(known.filter(id=>r.scripts[id]?.allowed===true));
-      renderPinControls();
-      let changed=false;
+      const activeIds=activeScriptIds(r);
+      licensedPins=activeIds;
+      let changed=false,pinsChanged=false;
       for(const id of known){
-        const script=r.scripts[id];
-        const enabled=!!(r.global.enabled&&script&&script.allowed===true&&script.enabled===true);
+        const script=r.scripts[id],enabled=activeIds.has(id);
+        const previousGrant=localStorage.getItem(GRANT_PREFIX+id)==='1';
+        const previousPin=sessionStorage.getItem(TAB_PIN_PREFIX+id)!==null;
+        // Account/site OFF revokes tab activation; re-enabling on the site
+        // does not secretly resume jobs in this browser tab.
+        if(!enabled&&previousPin){
+          sessionStorage.removeItem(TAB_PIN_PREFIX+id);pinsChanged=true;
+        }
         localStorage.setItem(GRANT_PREFIX+id,enabled?'1':'0');
         changed=setLocal(id,enabled)||changed;
         applySettings(id,script?.settings||{},enabled);
+        if(!enabled&&(previousGrant||previousPin)){
+          document.dispatchEvent(new Event('__algzawy_stop_'+id));
+        }
       }
+      renderPinControls();
+      if(pinsChanged)document.dispatchEvent(new Event('algzawy-tab-pin-changed'));
       connection.last=Date.now();GM_setValue(keys.last,connection.last);
       if(changed)document.dispatchEvent(new Event('algzawy-local-control-changed'));
       showMessage((r.global.enabled?'متصل — ': 'الإدارة أوقفت جميع السكربتات — ')+(r.user?.label||'الحساب'),r.global.enabled);
@@ -460,7 +480,7 @@
   function start(){
     render();
     if(connection.device){void synchronize(true);checkPublisher();}
-    timer=setInterval(()=>{if(document.visibilityState==='visible')void synchronize();},90000);
+    timer=setInterval(()=>{if(document.visibilityState==='visible')void synchronize();},30000);
     setInterval(checkPublisher,15000);
     setInterval(()=>{if(connection.device&&Number(localStorage.getItem(LICENSE_UNTIL)||0)<Date.now())stopAll();},5000);
     window.addEventListener('focus',()=>void synchronize());
