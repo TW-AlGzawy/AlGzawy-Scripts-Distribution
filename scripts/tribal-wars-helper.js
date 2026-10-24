@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.1.1
+// @version      1.2.0
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -31,9 +31,14 @@
       }
     }catch(_){}
     const TW_Helper = {
-      cfg,busy:false,cycleTimer:null,lastRunAt:0,
+      cfg,busy:false,cycleTimer:null,lastRunAt:0,claimCount:0,nextCycleAt:0,
       permitted:function(){
-        return cfg.enabled&&this.isLockedToThisTab()&&
+        const tab=sessionStorage.getItem('algzawy_tab_instance_v1');
+        const pinned=!!tab&&sessionStorage.getItem('algzawy_tab_pins_ready_v1')===tab&&
+          sessionStorage.getItem('algzawy_tab_pin_v1_tribal-wars-helper')===tab;
+        const until=Number(localStorage.getItem('algzawy_portal_device_authorized_until')||0);
+        return cfg.enabled&&pinned&&!!localStorage.getItem('algzawy_portal_approved_device')&&
+          until>Date.now()&&until<=Date.now()+180000&&
           localStorage.getItem('algzawy_portal_grant_tribal-wars-helper')==='1'&&
           localStorage.getItem('algzawy_local_enabled_tribal-wars-helper')!=='false'&&
           localStorage.getItem('algzawy_human_verification_pause')!=='1';
@@ -47,7 +52,7 @@
       schedule:function(wait=cfg.cycle*1000){
         if(this.cycleTimer!==null)clearTimeout(this.cycleTimer);
         if(!cfg.enabled){this.status('متوقف');return;}
-        this.status('الدورة التالية خلال '+Math.ceil(wait/1000)+' ثانية');
+        this.nextCycleAt=Date.now()+wait;this.status('الدورة التالية خلال '+Math.ceil(wait/1000)+' ثانية');
         this.cycleTimer=setTimeout(async()=>{
           this.cycleTimer=null;
           try{if(this.permitted())await this.checkAndClaimRewards();}
@@ -287,7 +292,7 @@
                     mutations.forEach((mutation) => {
                         const currentPoints = pointsElement.textContent;
                         if (currentPoints !== lastPoints) {
-                            if (this.isLockedToThisTab()) {
+                            if (this.permitted()) {
                                 console.log("[AlGzawy Helper] Points changed! Checking for rewards.");
                                 lastPoints = currentPoints;
                                 void this.checkAndClaimRewards();
@@ -328,16 +333,18 @@
             if(this.busy||!this.permitted())return;
             if(!force&&Date.now()-this.lastRunAt<cfg.cycle*1000)return;
             this.busy=true;
-            this.lastRunAt=Date.now();
-            this.status('جارٍ الجمع…');
+            this.status('جارٍ فحص الجوائز…');
             try{
             const rewardBadge = document.querySelector('#reward-system-badge');
             const questIcon = document.querySelector('#new_quest');
 
-            const hasBadgeValue = rewardBadge && rewardBadge.textContent.trim().match(/\(\d+\)/);
-            const hasNewQuest = questIcon && questIcon.querySelector('.quest_new');
+            const hasBadgeValue=!!rewardBadge&&Number((rewardBadge.textContent||'').replace(/[^0-9]/g,''))>0;
+            const hasNewQuest=!!questIcon?.querySelector('.quest_new');
+            const openRewards=!!document.querySelector('#reward-system-rewards');
+            if(!hasBadgeValue&&!hasNewQuest&&!openRewards&&!force){this.status('بانتظار جوائز جديدة');return;}
+            this.lastRunAt=Date.now();
 
-            if (hasBadgeValue || hasNewQuest) {
+            if (hasBadgeValue || hasNewQuest || openRewards || force) {
                 console.log("[AlGzawy Helper] Rewards detected! Opening quest dialog...");
 
                 if (!document.querySelector('#quest_dialog')) {
@@ -393,7 +400,7 @@
                 const closeButton = document.querySelector('.popup_box_close');
                 if(closeButton&&this.permitted())closeButton.click();
             }
-            }finally{this.busy=false;this.status(cfg.enabled?'اكتملت الدورة':'متوقف');}
+            }finally{this.busy=false;this.status(cfg.enabled?'جاهز للدورة التالية':'متوقف');}
         }
     };
 
