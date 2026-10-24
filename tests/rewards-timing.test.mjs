@@ -27,7 +27,7 @@ test('Owner controls, persisted intervals and serialized collections',()=>{
   'body.style.display=cfg.collapsed',
   'algzawy_rewards_position_v1',
   'top.setPointerCapture',
-  'جمع الآن'
+  'جمع الجوائز الآن'
  ])assert.ok(source.includes(text),'missing '+text);
  assert.doesNotMatch(source,/setInterval\(\(\) => \{\s*if \(this\.isLockedToThisTab\(\)\)/);
  assert.ok(source.includes("localStorage.getItem('algzawy_portal_grant_tribal-wars-helper')==='1'"));
