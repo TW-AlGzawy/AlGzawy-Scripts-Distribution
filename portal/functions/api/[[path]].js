@@ -220,6 +220,22 @@ async function handler(req,env){
       return reply({ok:true,version:matched[1]},200,{'Cache-Control':'public, max-age=120'});
     }catch(e){console.warn('[bridge version]',e);return reply({ok:false,error:'bridge_release_unavailable'},503,{'Cache-Control':'no-store'});}
   }
+  if(req.method==='GET'&&path[0]==='installer-releases'&&path.length===1){
+    // Release versions are display-only, never authorization or proof of installation.
+    const session=await readSubscriberSession(req,env);
+    if(!session&&!adminOK(req,env)&&!(await readAdminSession(req,env)))return bad('unauthorized',401);
+    try{
+      const response=await fetch('https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/catalog.json');
+      if(!response.ok)return bad('release_manifest_unavailable',503);
+      const manifest=await response.json();
+      if(manifest?.schema!==1||!Array.isArray(manifest.published_candidates))return bad('release_manifest_invalid',503);
+      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&
+        typeof item.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(item.version))
+        .map(({id,version})=>({id,version}));
+      if(items.length!==GROUPS.length)return bad('release_manifest_incomplete',503);
+      return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
+    }catch(e){console.warn('[installer-releases]',e);return bad('release_manifest_unavailable',503);}
+  }
   if(req.method==='GET'&&path[0]==='catalog'&&path.length===1){
     // Never reveal catalog names to anonymous portal visitors via the public API.
     const hasAdmin=adminOK(req,env)||!!(await readAdminSession(req,env));

@@ -9,7 +9,7 @@
     {
       "id": "mass-scavenge-v1",
       "name": "الغزااوي | الإغارات الجماعية",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
@@ -18,7 +18,7 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
@@ -27,7 +27,7 @@
     {
       "id": "alg-balance",
       "name": "الغزااوي | موازنة الموارد",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
@@ -36,7 +36,7 @@
     {
       "id": "algzawy-builder-v1",
       "name": "الغزااوي | البناء المتطور",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-builder-v1.user.js",
       "approved_for_final": false,
@@ -45,7 +45,7 @@
     {
       "id": "professional-training-v2",
       "name": "الغزااوي | بوت التدريب",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
@@ -54,7 +54,7 @@
     {
       "id": "send-automation",
       "name": "الغزااوي | الإرساليات الدقيقة",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
@@ -64,7 +64,7 @@
     {
       "id": "alg-attacks",
       "name": "الغزااوي | تنبيه الهجمات",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js",
       "approved_for_final": true
@@ -72,7 +72,7 @@
     {
       "id": "alg-coins",
       "name": "الغزااوي | الصقل المتطور",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-coins.user.js",
       "approved_for_final": false
@@ -80,7 +80,7 @@
     {
       "id": "tribal-wars-helper",
       "name": "الغزااوي | جامع الجوائز",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js",
       "approved_for_final": true
