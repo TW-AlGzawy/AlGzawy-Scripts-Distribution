@@ -27,7 +27,7 @@ test('All nine installed Tampermonkey loaders respond with their actual versions
    assert.equal(reports[1].value.nonce,ask.nonce);
    handlers.message({source:win,origin:'https://evil.example',data:ask});
    assert.equal(reports.length,2,entry.id+' rejects cross-origin probe');
- });
+ }
 });
 test('Version comparison and installation states do not infer installation from subscription ON',()=>{
  const js=read('portal/v2/app.js');
