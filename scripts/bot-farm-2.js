@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.0.1
+// @version      1.0.2
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none

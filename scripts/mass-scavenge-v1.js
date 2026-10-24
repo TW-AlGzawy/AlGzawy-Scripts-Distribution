@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*

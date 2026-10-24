@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         الغزااوي | البناء المتطور
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.2
+// @version      1.0.3
 // @description  AlGzawy BETA — المرخص للمشترك والجهاز المعتمد
 // @match        https://*/game.php?village=*&screen=main*
 // @match        https://*/game.php?screen=main*&village=*
+// @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
@@ -19,7 +20,21 @@
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/algzawy-builder-v1.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "algzawy-builder-v1";
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.2');}catch(_){}
+  // Portal presence report is UI-only. Never run the game engine on the portal.
+  if(location.origin==='https://algzawy-cloud-control.pages.dev'&&location.pathname.startsWith('/v2/')){
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.3';
+    const report=nonce=>window.postMessage({scope:'algzawy-installation-v1',type:'report',
+      id:ID,version:String(version),nonce},location.origin);
+    window.addEventListener('message',event=>{
+      if(event.source!==window||event.origin!==location.origin)return;
+      const m=event.data;
+      if(m?.scope==='algzawy-installation-v1'&&m.type==='probe'&&typeof m.nonce==='string'&&m.nonce.length<=100)report(m.nonce);
+    });
+    report('');
+    return;
+  }
+
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.3');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | بوت التدريب
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.0.3
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
