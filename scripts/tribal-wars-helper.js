@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.2.1
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -119,7 +119,7 @@
           void this.checkAndClaimRewards(true);
         });
         body.append(run,create('div','alg-reward-note','يعمل فقط داخل التبويب المعتمد في الجسر السحابي'));
-        body.append(create('footer','alg-reward-footer','BETA · v1.2.0 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+        body.append(create('footer','alg-reward-footer','BETA · v1.2.1 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
         box.append(body);
         const draw=()=>{
           body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';

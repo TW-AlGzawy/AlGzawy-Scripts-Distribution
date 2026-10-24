@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.5.2
+// @version      1.5.3
 // @description  نواة v1.5 آمنة للإرسال والوصول؛ تاريخ السيرفر و24h وأجزاء الثانية وجسر AlG
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
