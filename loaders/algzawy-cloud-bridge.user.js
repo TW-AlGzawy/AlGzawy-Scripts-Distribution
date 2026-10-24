@@ -340,8 +340,8 @@
   function activeScriptIds(state){
     if(state?.global?.enabled!==true||!state.scripts||typeof state.scripts!=='object')return new Set();
     return new Set(known.filter(id=>{
-      const item=state.scripts[id];
-      return item?.allowed===true&&item?.enabled===true&&item?.globallyEnabled!==false;
+      const script=state.scripts[id];
+      return script?.allowed===true&&script?.enabled===true&&script?.globallyEnabled!==false;
     }));
   }
   // Fail closed if cached authorization is stale. A live worker response is
