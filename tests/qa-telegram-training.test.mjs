@@ -112,7 +112,7 @@ test('Telegram schema gate stays false without Preview D1 migration, and opens o
   let observed=false;
   env.DB.prepare=sql=>sql.includes('sqlite_master')?{async all(){return{results:[
     {name:'portal_telegram_links'},{name:'portal_telegram_pair_codes'},{name:'portal_telegram_alert_events'}]};}}
-    :{async first(){observed=true;return{chat_id:'99988',attack_alerts:1};}};
+    :{bind(){return this;},async first(){observed=true;return{chat_id:'99988',attack_alerts:1};}};
   const result2=await telegramSubscriber(request,env,{id:'qa1'},'status',helpers);
   const json=await result2.json();
   assert.equal(json.configured,true);
