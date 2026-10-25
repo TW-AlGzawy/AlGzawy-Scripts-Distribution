@@ -1,5 +1,5 @@
 // Cloudflare Pages Functions — AlGzawy Cloud Portal (Free / D1)
-import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost} from '../telegram-preview.js';
+import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost,telegramOwner} from '../telegram-preview.js';
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
@@ -311,6 +311,11 @@ async function handler(req,env){
     if(!legacyAdmin&&!session)return bad('unauthorized',401);
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+    }
+    if(path[1]==='telegram'&&path.length===3){
+      // Protected by existing owner session/Bearer and per-session CSRF,
+      // Preview host guard and encrypted Telegram API credentials.
+      return telegramOwner(req,env,path[2],{reply,bad});
     }
     // Existing audit table; owner-only read with no migration or IP in response.
     // These are recorded licensing events, NOT verified game-engine telemetry.
