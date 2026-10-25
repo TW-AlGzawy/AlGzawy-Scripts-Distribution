@@ -90,6 +90,79 @@ function installationState(item){
 // QA previews require a loader which explicitly matches the Cloudflare preview hostname.
  // The public API continues to provide production URLs and never authorizes game execution.
 const qaPreviewHost=/^[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.hostname);
+
+// QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
+// Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
+const qaInstallIds=new Set(['mass-scavenge-v1','alg-attacks']);
+const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent']);
+const qaInstallTrace=[];
+let qaInstallTraceList=null;
+function qaInstallLog(id,stage,channel='',note=''){
+  if(!qaPreviewHost||!qaInstallIds.has(id))return;
+  // All fields stored/exported are chosen locally from finite diagnostic categories.
+  const entry={time:new Date().toLocaleTimeString('ar-BE',{hour12:false}),id,stage,channel,note};
+  qaInstallTrace.unshift(entry);
+  if(qaInstallTrace.length>75)qaInstallTrace.length=75;
+  if(qaInstallTraceList){
+    qaInstallTraceList.replaceChildren();
+    for(const x of qaInstallTrace){
+      const node=el('li','qa-probe-item');
+      node.append(el('strong','',x.time+' · '+x.id),el('span','',x.stage+' · '+x.channel+(x.note?' · '+x.note:'')));
+      qaInstallTraceList.append(node);
+    }
+  }
+}
+function qaInstallReceiveDebug(payload,channel){
+  if(!qaPreviewHost)return;
+  const data=typeof payload==='string'?(()=>{try{return JSON.parse(payload);}catch(_){return null;}})():payload;
+  if(!data||data.scope!=='algzawy-installation-debug-v1'
+     ||!qaInstallIds.has(data.id)||!qaInstallStages.has(data.stage))return;
+  qaInstallLog(data.id,data.stage,channel,typeof data.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(data.version)?'v'+data.version:'');
+}
+function qaInstallDiagnosticsInit(){
+  if(!qaPreviewHost)return;
+  const grid=$('scriptsGrid');
+  if(!grid||!grid.parentNode)return;
+  const panel=el('section','panel qa-probe-panel');
+  panel.setAttribute('aria-labelledby','qaProbeTitle');
+  const h=el('h3','', 'تشخيص تأكيد التثبيت — Preview فقط');
+  h.id='qaProbeTitle';
+  const info=el('p','small-muted','فحص تجريبي لسكربتَي الإغارات وتنبيه الهجمات. لا يتم إرسال السجل إلى أي خادم، ولا يحتوي على رموز تحقق أو معلومات الاشتراك. يجب إعادة تثبيت نسختَي QA لتظهر إشارات Loader.');
+  const actions=el('div','qa-probe-actions');
+  const start=el('button','btn outline','فحص السكربتين الآن');
+  start.type='button';
+  start.addEventListener('click',()=>{
+    qaInstallLog('alg-attacks','manual-check','portal');
+    qaInstallLog('mass-scavenge-v1','manual-check','portal');
+    probeInstalledScripts();
+  });
+  const copy=el('button','btn subtle','نسخ سجل التشخيص');
+  copy.type='button';
+  copy.addEventListener('click',async()=>{
+    const header='AlGzawy QA installation trace (not proof of Tampermonkey execution). Entries: '+qaInstallTrace.length;
+    const text=[header,...[...qaInstallTrace].reverse().map(x=>[x.time,x.id,x.stage,x.channel,x.note].filter(Boolean).join(' | '))].join('\n');
+    try{await navigator.clipboard.writeText(text);toast('تم نسخ سجل التشخيص دون بيانات حساسة');}
+    catch(_){toast('لم يسمح المتصفح بالنسخ. صوّر سجل التشخيص الظاهر.',true);}
+  });
+  const clear=el('button','btn outline','مسح السجل');
+  clear.type='button';
+  clear.addEventListener('click',()=>{qaInstallTrace.length=0;qaInstallTraceList?.replaceChildren();});
+  actions.append(start,copy,clear);
+  qaInstallTraceList=el('ol','qa-probe-trace');
+  qaInstallTraceList.setAttribute('aria-label','سجل مراحل التحقق');
+  panel.append(h,info,actions,qaInstallTraceList);
+  grid.parentNode.insertBefore(panel,grid);
+}
+if(qaPreviewHost){
+  window.addEventListener('message',event=>{
+    if(event.data?.scope==='algzawy-installation-debug-v1'){
+      const channel=event.origin===location.origin?'window.message same-origin':'window.message other-origin';
+      if(event.origin===location.origin)qaInstallReceiveDebug(event.data,channel);
+    }
+  });
+  document.addEventListener('algzawy-installation-debug-v1',event=>qaInstallReceiveDebug(event.detail,'document.CustomEvent'));
+}
+
 if(qaPreviewHost){
   const help=document.querySelector('.scripts-summary span:last-child');
   if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
@@ -148,6 +221,7 @@ function probeInstalledScripts(targetId=null){
   state.probeNonce=crypto.randomUUID();
   state.probeResponders=new Set();
   const nonce=state.probeNonce;
+  for(const id of qaInstallIds)qaInstallLog(id,'probe-sent','portal','target='+(targetId||'all'));
   const ask={scope:'algzawy-installation-v1',type:'probe',nonce};
   // The document event works across injected content worlds without network calls.
   document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
@@ -156,6 +230,7 @@ function probeInstalledScripts(targetId=null){
   // Some Tampermonkey loaders wait for @require, so retry before declaring no proof.
   setTimeout(()=>{
     if(state.probeNonce!==nonce||!state.user)return;
+    for(const id of qaInstallIds)qaInstallLog(id,'probe-retry','portal');
     document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
     window.postMessage(ask,location.origin);
   },2600);
@@ -163,35 +238,54 @@ function probeInstalledScripts(targetId=null){
     if(state.probeNonce!==nonce||!state.user)return;
     for(const id of state.installed.keys())
       if(!state.probeResponders.has(id))state.installed.delete(id);
+    for(const id of qaInstallIds)qaInstallLog(id,state.probeResponders.has(id)?'probe-complete':'probe-timeout','portal');
     state.probing=false;state.probeTarget=null;
     renderScripts();
   },6500);
 }
-function receiveInstallationReport(message){
+function receiveInstallationReport(message,channel='unknown'){
+  if(qaInstallIds.has(message?.id)&&message?.scope==='algzawy-installation-v1'){
+    qaInstallLog(message.id,'report-received',channel);
+  }
   if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
   if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
   // A loader initialized AFTER the probe (for example due to @require) may send
   // an unsolicited hello. Never call that installation proof; challenge it afresh.
   if(message.nonce===''){
+    qaInstallLog(message.id,'hello-received',channel);
     if(!state.helloProbed.has(message.id)){
       state.helloProbed.add(message.id);
       probeInstalledScripts(message.id);
     }
     return;
   }
-  if(message.nonce!==state.probeNonce)return;
+  if(message.nonce!==state.probeNonce){
+    qaInstallLog(message.id,'report-rejected',channel,'nonce-mismatch');
+    return;
+  }
+  qaInstallLog(message.id,'report-accepted',channel,'v'+message.version);
   state.installed.set(message.id,message.version);
   state.probeResponders.add(message.id);
   if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
   renderScripts();
 }
 window.addEventListener('message',event=>{
+  if(event.data?.scope==='algzawy-installation-v1'&&event.data.type==='report'
+     &&qaInstallIds.has(event.data.id)){
+    const source=event.source===window?'source=window':event.source===null?'source=null':'source=other';
+    qaInstallLog(event.data.id,'postmessage-seen','window.message',
+      source+(event.origin===location.origin?' origin=ok':' origin=other'));
+  }
   if(event.source!==window||event.origin!==location.origin)return;
-  receiveInstallationReport(event.data);
+  receiveInstallationReport(event.data,'window.message');
 });
 document.addEventListener('algzawy-installation-report-v1',event=>{
-  receiveInstallationReport(event.detail);
+  if(event.detail===null||event.detail===undefined){
+    // Cannot attribute an empty payload to a particular loader.
+    for(const id of qaInstallIds)qaInstallLog(id,'empty-event-detail','document.CustomEvent');
+  }
+  receiveInstallationReport(event.detail,'document.CustomEvent');
 });
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
@@ -611,6 +705,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refresh();},5*60*1000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible'){probeInstalledScripts();void fetchReleaseVersions();}},5*60*1000);
+qaInstallDiagnosticsInit();
 void syncBridgeVersion();
 setInterval(()=>{if(document.visibilityState==='visible')void syncBridgeVersion();},300000);
 void init();
