@@ -28,7 +28,58 @@ const now=()=>Math.floor(Date.now()/1000);
 async function dbLink(env,userId){
   return await env.DB.prepare('SELECT chat_id,attack_alerts,warehouse_alerts FROM portal_telegram_links WHERE user_id=?').bind(userId).first();
 }
-async function send(env,chatId,text){
+async function warehouseTableReady(env){
+  try{
+    const row=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='portal_telegram_warehouse_preferences'").first();
+    return row?.name==='portal_telegram_warehouse_preferences';
+  }catch(_){return false;}
+}
+async function warehousePreference(env,userId){
+  return env.DB.prepare('SELECT enabled,threshold FROM portal_telegram_warehouse_preferences WHERE user_id=?').bind(userId).first();
+}
+function cleanText(input,limit=120){
+  return typeof input==='string'?input.replace(/[\u0000-\u001F\u007F]/g,' ').trim().slice(0,limit):'';
+}
+function htmlText(input){
+  return String(input).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function niceText(input){return htmlText(cleanText(input)||'غير متاح');}
+export function formatTelegramAlert(event){
+  const world=niceText(event.details?.world||event.world);
+  const account=niceText(event.details?.account||event.account);
+  const bar='━━━━━━━━━━━━━━━━━━';
+  if(event.type==='attack'){
+    const d=event.details||{};
+    let lines=['⚔️ <b>هجوم وارد على Tribal Wars!</b>','',
+      '🌍 <b>العالم:</b> '+world,'👤 <b>الحساب:</b> '+account,bar,
+      '🎯 <b>الهدف:</b> '+niceText(d.target),
+      '🏰 <b>المهاجم:</b> '+niceText(d.attacker),
+      '🗺️ <b>من قرية:</b> '+niceText(d.origin),bar,
+      '📏 <b>المسافة:</b> '+niceText(d.distance),
+      '⏳ <b>يصل في:</b> '+niceText(d.remaining),
+      '📅 <b>توقيت الوصول:</b> '+niceText(d.arrival)];
+    if(!Object.values(d).some(x=>x&& !['world','account'].includes(x)))lines.push('🚨 <b>الهجمات الواردة:</b> '+event.count);
+    lines.push('','🚀 <b>AlGzawy Edition</b>');
+    return lines.join('\n');
+  }
+  if(event.type==='warehouse'){
+    const n=x=>Number(x).toLocaleString('en-US');
+    const percent=x=>Math.min(100,Math.floor(x*100/event.capacity));
+    return ['📦 <b>تنبيه امتلاء المخزن!</b>','',
+      '🌍 <b>العالم:</b> '+world,'👤 <b>الحساب:</b> '+account,
+      '🏘️ <b>القرية:</b> '+niceText(event.villageName),
+      '🗺️ <b>الإحداثيات:</b> '+niceText(event.coords),bar,
+      '🪵 <b>الخشب:</b> '+n(event.wood)+' / '+n(event.capacity)+' ('+percent(event.wood)+'%)',
+      '🧱 <b>الطين:</b> '+n(event.stone)+' / '+n(event.capacity)+' ('+percent(event.stone)+'%)',
+      '⛓️ <b>الحديد:</b> '+n(event.iron)+' / '+n(event.capacity)+' ('+percent(event.iron)+'%)',
+      bar,'⚠️ <b>أعلى امتلاء:</b> '+event.percent+'%',
+      '📦 <b>سعة المخزن:</b> '+n(event.capacity),
+      '💡 راجع القرية لتجنب هدر الموارد.',
+      '','🚀 <b>AlGzawy Edition</b>'].join('\n');
+  }
+  throw Error('unknown_notification');
+}
+async function send(env,chatId,text,{html=false}={}){
   if(!telegramReady(env))return false;
   const controller=new AbortController();
   // Abort in bounded time; failed delivery is reported but never blocks game.
@@ -38,7 +89,7 @@ async function send(env,chatId,text){
     const response=await fetch('https://api.telegram.org/bot'+env.ALG_TELEGRAM_BOT_TOKEN+'/sendMessage',{
       method:'POST',signal:controller.signal,
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({chat_id:chatId,text,disable_web_page_preview:true})
+      body:JSON.stringify({chat_id:chatId,text,disable_web_page_preview:true,...(html?{parse_mode:'HTML'}:{})})
     });
     if(!response.ok)return false;
     const payload=await response.json();
@@ -58,7 +109,7 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
   if(!telegramPreviewHost(req))return bad('not_found',404);
   const configured=telegramReady(env);
   if(action==='status'&&req.method==='GET'){
-    let link=null,schemaReady=false;
+    let link=null,schemaReady=false,warehouseAvailable=false,warehouse=null;
     try{
       // All three tables must exist, not merely the link table.
       const tableSet=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('portal_telegram_links','portal_telegram_pair_codes','portal_telegram_alert_events')").all();
@@ -66,11 +117,15 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
       if(schemaReady)link=await dbLink(env,user.id);
     }catch(_){schemaReady=false;link=null;}
     // Authenticated Preview-only setup health; never expose a secret value.
+    if(schemaReady){
+      warehouseAvailable=await warehouseTableReady(env);
+      if(warehouseAvailable&&link)try{warehouse=await warehousePreference(env,user.id);}catch(_){}
+    }
     return reply({ok:true,configured:configured&&schemaReady,linked:configured&&schemaReady&&!!link,
       checks:{...telegramConfigChecks(env),database:schemaReady},
       botUsername:configured&&schemaReady?env.ALG_TELEGRAM_BOT_USERNAME:null,
-      preferences:{attacks:configured&&schemaReady&&link?.attack_alerts===1,warehouse:false},
-      warehouseAvailable:false,attacksAvailable:configured&&schemaReady});
+      preferences:{attacks:configured&&schemaReady&&link?.attack_alerts===1,warehouse:warehouse?.enabled===1},
+      warehouseAvailable,warehouseThreshold:warehouse?.threshold??90,attacksAvailable:configured&&schemaReady});
   }
   if(!configured)return bad('telegram_not_configured',503);
   if(action==='link'&&req.method==='POST'){
@@ -99,13 +154,21 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
   }
   if(action==='preferences'&&req.method==='POST'){
     let input;try{input=await req.json();}catch(_){return bad('invalid_json');}
-    if(typeof input?.attacks!=='boolean'||Object.keys(input).some(k=>k!=='attacks'))return bad('invalid_preferences');
+    const fields=Object.keys(input||{});
+    if(fields.length!==1||!['attacks','warehouse'].includes(fields[0])||typeof input[fields[0]]!=='boolean')
+      return bad('invalid_preferences');
     try{
       const existing=await dbLink(env,user.id);
       if(!existing)return bad('telegram_not_linked',409);
-      await env.DB.prepare('UPDATE portal_telegram_links SET attack_alerts=? WHERE user_id=?').bind(input.attacks?1:0,user.id).run();
+      if(fields[0]==='attacks'){
+        await env.DB.prepare('UPDATE portal_telegram_links SET attack_alerts=? WHERE user_id=?').bind(input.attacks?1:0,user.id).run();
+      }else{
+        if(!(await warehouseTableReady(env)))return bad('warehouse_storage_not_ready',503);
+        await env.DB.prepare('INSERT INTO portal_telegram_warehouse_preferences(user_id,enabled,threshold) VALUES(?,?,90) ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled')
+          .bind(user.id,input.warehouse?1:0).run();
+      }
     }catch(_){return bad('telegram_storage_not_ready',503);}
-    return reply({ok:true,attacks:input.attacks});
+    return reply({ok:true,...input});
   }
   return bad('method_not_allowed',405);
 }
@@ -311,25 +374,57 @@ export async function telegramOwner(req,env,action,{reply,bad}){
 export async function telegramNotify(req,env,device,{reply,bad,allowedSet,globallyDisabledScripts,subscriptionOK,globalState}){
   if(!telegramPreviewHost(req)||req.method!=='POST')return bad('not_found',404);
   if(!telegramReady(env))return bad('telegram_not_configured',503);
-  let event;try{event=await req.json();}catch(_){return bad('invalid_json');}
-  if(event?.type!=='attack'||!safeInt(event.count,1,500)||!safeInt(event.villageId,1,9999999999))
-    return bad('invalid_telegram_event',400);
+  const length=Number(req.headers.get('Content-Length')||0);
+  if(length>6000)return bad('payload_too_large',413);
+  let event;try{
+    const raw=await req.text();
+    if(raw.length>6000)return bad('payload_too_large',413);
+    event=JSON.parse(raw);
+  }catch(_){return bad('invalid_json');}
+  if(!event||!['attack','warehouse'].includes(event.type)
+    ||!safeInt(event.villageId,1,9999999999))return bad('invalid_telegram_event',400);
+  if(event.type==='attack'){
+    if(!safeInt(event.count,1,500))return bad('invalid_telegram_event',400);
+    if(event.attackId!==undefined&&!/^\d{1,18}$/.test(String(event.attackId)))return bad('invalid_attack_id',400);
+    if(event.details!==undefined&&(
+       !event.details||typeof event.details!=='object'||Array.isArray(event.details)
+       ||Object.keys(event.details).some(k=>!['world','account','target','origin','attacker','distance','arrival','remaining'].includes(k)
+         ||typeof event.details[k]!=='string'||event.details[k].length>120)
+    ))return bad('invalid_attack_details',400);
+  }else{
+    if(![event.wood,event.stone,event.iron].every(x=>safeInt(x,0,99999999999))
+       ||!safeInt(event.capacity,1,99999999999))return bad('invalid_warehouse_values',400);
+    const computed=Math.min(100,Math.floor(Math.max(event.wood,event.stone,event.iron)*100/event.capacity));
+    if(computed<90||event.percent!==computed||event.threshold!==90)return bad('warehouse_not_full',400);
+    if(['world','account','villageName','coords'].some(k=>event[k]!==undefined&&
+      (typeof event[k]!=='string'||event[k].length>120)))return bad('invalid_warehouse_details',400);
+  }
   if(!(await subscriptionOK(env,device.user_id)))return bad('subscription_inactive',403);
   const global=await globalState(env);
   if(global.enabled!==true)return bad('global_disabled',403);
   const allowed=await allowedSet(env,device.user_id);
   const disabled=await globallyDisabledScripts(env);
+  // Warehouse observations are scoped to the licensed, active QA attack monitor;
+  // this does not revive the retired stand-alone warehouse script.
   if(!allowed.has('alg-attacks')||disabled.has('alg-attacks'))return bad('script_not_licensed',403);
   const pref=await env.DB.prepare('SELECT enabled FROM portal_preferences WHERE user_id=? AND script_id=?')
     .bind(device.user_id,'alg-attacks').first();
   if(pref?.enabled!==1)return bad('script_disabled',403);
   let link;
   try{link=await dbLink(env,device.user_id);}catch(_){return bad('telegram_storage_not_ready',503);}
-  if(!link||link.attack_alerts!==1)return bad('telegram_not_linked',409);
-  const eventKey='attack:'+event.villageId+':'+event.count;
-  if(!(await limitedEvent(env,device.user_id,eventKey,300)))return reply({ok:true,sent:false,rateLimited:true});
-  const msg='🚨 تنبيه هجوم — AlGzawy\nالقرية: '+event.villageId+
-    '\nالهجمات الواردة: '+event.count+'\nتحقق من اللعبة لاتخاذ الإجراء المناسب.';
-  if(!(await send(env,link.chat_id,msg)))return bad('telegram_delivery_failed',502);
+  if(!link)return bad('telegram_not_linked',409);
+  if(event.type==='attack'&&link.attack_alerts!==1)return bad('telegram_not_enabled',409);
+  if(event.type==='warehouse'){
+    if(!(await warehouseTableReady(env)))return bad('warehouse_storage_not_ready',503);
+    const setting=await warehousePreference(env,device.user_id);
+    if(setting?.enabled!==1)return bad('warehouse_not_enabled',409);
+  }
+  const key=event.type==='attack'
+    ?'attack:'+event.villageId+':'+(event.attackId||event.count)
+    :'warehouse:'+event.villageId;
+  const period=event.type==='attack'?21600:21600;
+  if(!(await limitedEvent(env,device.user_id,key,period)))return reply({ok:true,sent:false,rateLimited:true});
+  const message=formatTelegramAlert(event);
+  if(!(await send(env,link.chat_id,message,{html:true})))return bad('telegram_delivery_failed',502);
   return reply({ok:true,sent:true});
 }
