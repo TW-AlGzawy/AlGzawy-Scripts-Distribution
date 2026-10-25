@@ -9,6 +9,9 @@ const ids=[
 ];
 const preview='https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
 const pin='38557d2926dce18a40171e972a911a0c39d04726';
+const qaPin='f0dcc819b662e34b087c887786bea968e1d9c570';
+const special=new Set(['professional-training-v2','alg-attacks']);
+const enginePath=id=>special.has(id)?'/pilots/engines/'+id+'-qa.js':'/scripts/'+id+'.js';
 const read=id=>readFileSync(new URL('../pilots/algzawy-'+id+'-preview-rc1.user.js',import.meta.url),'utf8');
 const official=id=>readFileSync(new URL('../loaders/'+id+'.user.js',import.meta.url),'utf8');
 function harness(id,{grant=true,pinTab=true,globalOn=false}={}){
@@ -50,7 +53,7 @@ function harness(id,{grant=true,pinTab=true,globalOn=false}={}){
       network.push(req.url);
       let responseText;
       if(req.url.startsWith(preview+'/api/status'))responseText=JSON.stringify({ok:true,global:{enabled,revision:42}});
-      else if(req.url.includes('/scripts/'+id+'.js'))
+      else if(req.url.includes(enginePath(id)))
         responseText='document.dispatchEvent(new Event("qa-engine-started"));';
       else throw Error('Unexpected network call to '+req.url);
       req.onload({status:200,responseText});
@@ -78,8 +81,8 @@ for(const id of ids){
     assert.doesNotMatch(s,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev|\/main\/scripts\/|https:\/\/algzawy-cloud-control\.pages\.dev\/api\/status/);
     assert.doesNotMatch(s,/^\/\/ @match\s+https:\/\/.*algzawy-cloud-control\.pages\.dev/m);
     assert.match(s,/^\/\/ @(?:include|match)\s+https:\/\/.*tribalwars\./m);
-    assert.match(s,new RegExp(pin));
-    assert.match(s,new RegExp('SOURCE_URL = ROOT_URL \\+ "/scripts/'+id+'\\.js"'));
+    assert.match(s,new RegExp(special.has(id)?qaPin:pin));
+    assert.ok(s.includes('SOURCE_URL = ROOT_URL + "'+enginePath(id)+'"'),id+' must pin expected engine source');
     for(const key of ['algzawy_preview_portal_grant_','algzawy_preview_portal_device_authorized_until',
       'algzawy_preview_tab_pin_v1_','algzawy-preview-tab-pins-ready','__algzawy_preview_stop_'])
       assert.ok(s.includes(key),id+' missing preview isolation '+key);
@@ -100,18 +103,18 @@ for(const id of ids){
   test(id+' stays stopped while Preview global switch is OFF',async()=>{
     const h=harness(id,{grant:true,pinTab:true,globalOn:false});h.start();await flush();
     assert.equal(h.network.filter(x=>x.startsWith(preview+'/api/status')).length,1);
-    assert.ok(!h.network.some(x=>x.includes('/scripts/'+id+'.js')));
+    assert.ok(!h.network.some(x=>x.includes(enginePath(id))));
     assert.equal(h.added.length,0);
   });
   test(id+' requires double Preview ON check and observes OFF revocation',async()=>{
     const h=harness(id,{grant:true,pinTab:true,globalOn:true});h.start();await flush();
     assert.equal(h.network.filter(x=>x.startsWith(preview+'/api/status')).length,2);
-    assert.equal(h.network.filter(x=>x.includes('/scripts/'+id+'.js')).length,1);
+    assert.equal(h.network.filter(x=>x.includes(enginePath(id))).length,1);
     assert.ok(h.events.includes('qa-engine-started')||h.added.some(x=>x.includes('qa-engine-started')),
       'test engine must reach either GM runner or page-context runner');
     h.setGlobal(false);h.focus();await flush();
     assert.ok(h.events.includes('__algzawy_preview_stop_'+id),'Preview OFF must signal halt');
-    assert.equal(h.network.filter(x=>x.includes('/scripts/'+id+'.js')).length,1,'no extra source load after stop');
+    assert.equal(h.network.filter(x=>x.includes(enginePath(id))).length,1,'no extra source load after stop');
   });
 }
 
