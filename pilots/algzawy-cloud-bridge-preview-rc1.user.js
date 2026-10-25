@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي — PREVIEW RC1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/preview-rc1
-// @version      2.4.1.1
+// @version      2.4.1.2
 // @description  TEST ONLY: signed pairing to isolated Cloudflare Preview. Does not authorize production game engines.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -429,7 +429,7 @@
     card=document.createElement('section');
     card.id='algzawy-cloud-pair-panel';card.dir='rtl';
     card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:245px;max-width:93vw;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial;overflow:hidden';
-    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong>☁ AlG PREVIEW — ربط تجريبي فقط</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
+    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong>☁ AlG PREVIEW — جسر الاختبار</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
       '<div id="algzawy-cloud-body" style="padding:10px"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
       '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">التحقق من الموقع والترخيص يتم تلقائيًا بعد الربط الأول.</p>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button></div>'+
@@ -438,7 +438,7 @@
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
       '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
-      '<p style="font-size:10px;color:#86a8b9">⚠ نسخة Preview فقط: الاختبار للربط والمزامنة. لا تمنح صلاحية تشغيل محركات اللعبة.</p></div>';
+      '<p style="font-size:10px;color:#86a8b9">⚠ نسخة اختبار فقط: تسمح بمشغّلات QA المنفصلة عند الترخيص والتثبيت في هذا التبويب والتحكم ON. لا تشغّل محركات Production.</p></div>';
     document.body.appendChild(card);
     const q=id=>document.getElementById('algzawy-cloud-'+id);
     q('script-refresh').addEventListener('click',async()=>{
