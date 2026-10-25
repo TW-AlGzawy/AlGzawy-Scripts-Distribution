@@ -33,7 +33,7 @@ async function warehouseSiteThreshold(env,userId){
     .bind(userId,'warehouse-alert-safe').first();
   let parsed={};try{parsed=JSON.parse(pref?.settings_json||'{}');}catch(_){}
   const percent=parsed?.percent;
-  return Number.isInteger(percent)&&percent>=50&&percent<=100?percent:90;
+  return Number.isInteger(percent)&&percent>=1&&percent<=100?percent:90;
 }
 async function warehouseTableReady(env){
   try{
@@ -83,6 +83,26 @@ export function formatTelegramAlert(event){
       '📦 <b>سعة المخزن:</b> '+n(event.capacity),
       '💡 راجع القرية لتجنب هدر الموارد.',
       '','🚀 <b>AlGzawy Edition</b>'].join('\n');
+  }
+
+  if(event.type==='warehouse-batch'){
+    const villages=event.villages||[];
+    const num=n=>Number(n).toLocaleString('en-US');
+    const lines=['📦 <b>تنبيه مخازن — الإنتاج</b>',
+      '🌍 <b>العالم:</b> '+niceText(villages[0]?.world),
+      '👤 <b>الحساب:</b> '+niceText(villages[0]?.account),
+      '⚠️ <b>القرى فوق '+event.threshold+'%:</b> '+(event.totalOverLimit||villages.length),
+      ...(event.parts>1?['📨 <b>الدفعة:</b> '+event.part+' / '+event.parts]:[]),'━━━━━━━━━━━━━━━━━━'];
+    villages.forEach((v,i)=>{
+      const short=htmlText(cleanText(v.villageName,75)||'قرية '+v.villageId);
+      const coord=htmlText(cleanText(v.coords,20));
+      lines.push('🏰 <b>'+(i+1)+'. '+short+'</b>'+(coord?' ('+coord+')':'')
+       +' — <b>'+v.percent+'%</b>');
+      lines.push('🪵 '+num(v.wood)+' | 🧱 '+num(v.stone)+' | ⛓️ '+num(v.iron)
+       +' | 📦 '+num(v.capacity));
+    });
+    lines.push('━━━━━━━━━━━━━━━━━━','🚀 <b>AlGzawy Edition</b>');
+    return lines.join('\n');
   }
   throw Error('unknown_notification');
 }
@@ -200,12 +220,12 @@ const HELP_TEXT='🤖 AlGzawy | TW Scripts Bot\n'
   +'/status — حالة ربط Telegram والتنبيهات\n'
   +'/on — تشغيل تنبيهات الهجمات\n'
   +'/off — إيقاف تنبيهات الهجمات\n'
-  +'/warehouse_on — تفعيل تنبيهات المخازن (90%)\n'
+  +'/warehouse_on — تفعيل تنبيهات المخازن (النسبة من السكربت)\n'
   +'/warehouse_off — إيقاف تنبيهات المخازن\n'
   +'/unlink — إلغاء ربط محادثتك\n\n'
   +'🔗 افتح موقع المشترك لتوليد رابط الربط الخاص بك:\n'+PREVIEW_PORTAL+'\n\n'
   +'⚠️ تنبيهات الهجمات تحتاج تشغيل سكربت التنبيه والجسر داخل اللعبة. '
-  +'تنبيهات المخازن تُرسل عند وصول أي مورد إلى 90% من السعة بعد تفعيلها. لا ترسل كلمة مرور اللعبة أو مفاتيح البوت.';
+  +'تنبيهات المخازن تُرسل عند وصول أي مورد للنسبة التي حددتها في نافذة السكربت (1–100%). لا ترسل كلمة مرور اللعبة أو مفاتيح البوت.';
 async function boundChat(env,chatId){
   return env.DB.prepare('SELECT user_id,attack_alerts FROM portal_telegram_links WHERE chat_id=?')
     .bind(chatId).first();
@@ -266,7 +286,7 @@ async function handleBotCommand(env,chatId,text,helpers){
     await send(env,chatId,'📊 حالة Telegram في AlGzawy Preview\n'
       +'✅ محادثتك مرتبطة بحساب مشترك.\n'
       +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')+'\n'
-      +(available?(pref?.enabled===1?'🟢 تنبيهات المخازن: مفعّلة عند 90%':'🔴 تنبيهات المخازن: متوقفة')
+      +(available?(pref?.enabled===1?'🟢 تنبيهات المخازن: مفعّلة حسب نسبة السكربت':'🔴 تنبيهات المخازن: متوقفة')
         :'ℹ️ تنبيهات المخازن تحتاج إعداد قاعدة Preview')
       +'\n⚠️ تحتاج الإشعارات تشغيل اللعبة والجسر وسكربت التنبيه. المخازن للقرية المفتوحة فقط.');
     return true;
@@ -288,7 +308,7 @@ async function handleBotCommand(env,chatId,text,helpers){
     await env.DB.prepare('INSERT INTO portal_telegram_warehouse_preferences(user_id,enabled,threshold) VALUES(?,?,90) ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled')
       .bind(chat.user_id,enabled).run();
     await send(env,chatId,enabled
-      ?'✅ تم تفعيل تنبيهات امتلاء المخازن عند 90% للقرية المفتوحة.'
+      ?'✅ تم تفعيل تنبيهات المخازن. اضبط النسبة من نافذة السكربت داخل اللعبة.'
       :'🔕 تم إيقاف تنبيهات امتلاء المخازن.');
     return true;
   }
@@ -407,8 +427,19 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
     if(raw.length>6000)return bad('payload_too_large',413);
     event=JSON.parse(raw);
   }catch(_){return bad('invalid_json');}
-  if(!event||!['attack','warehouse'].includes(event.type)
-    ||!safeInt(event.villageId,1,9999999999))return bad('invalid_telegram_event',400);
+  if(!event||!['attack','warehouse','warehouse-batch'].includes(event.type))
+    return bad('invalid_telegram_event',400);
+  if(event.type!=='warehouse-batch'&&!safeInt(event.villageId,1,9999999999))
+    return bad('invalid_telegram_event',400);
+  const validateWarehouse=v=>{
+    if(!v||!safeInt(v.villageId,1,9999999999)||
+       ![v.wood,v.stone,v.iron].every(x=>safeInt(x,0,99999999999))||
+       !safeInt(v.capacity,1,99999999999))return false;
+    const percent=Math.min(100,Math.floor(Math.max(v.wood,v.stone,v.iron)*100/v.capacity));
+    return percent===v.percent&&
+      ['world','account','villageName','coords'].every(k=>v[k]===undefined||
+         (typeof v[k]==='string'&&v[k].length<=120));
+  };
   if(event.type==='attack'){
     if(!safeInt(event.count,1,500))return bad('invalid_telegram_event',400);
     if(event.attackId!==undefined&&!/^\d{1,18}$/.test(String(event.attackId)))return bad('invalid_attack_id',400);
@@ -417,44 +448,57 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
        ||Object.keys(event.details).some(k=>!['world','account','target','origin','attacker','distance','arrival','remaining'].includes(k)
          ||typeof event.details[k]!=='string'||event.details[k].length>120)
     ))return bad('invalid_attack_details',400);
+  }else if(event.type==='warehouse'){
+    if(!validateWarehouse(event)||!safeInt(event.threshold,1,100)||
+      event.percent<event.threshold)return bad('warehouse_not_full',400);
   }else{
-    if(![event.wood,event.stone,event.iron].every(x=>safeInt(x,0,99999999999))
-       ||!safeInt(event.capacity,1,99999999999))return bad('invalid_warehouse_values',400);
-    const computed=Math.min(100,Math.floor(Math.max(event.wood,event.stone,event.iron)*100/event.capacity));
-    if(event.percent!==computed||!safeInt(event.threshold,50,100)||computed<event.threshold)return bad('warehouse_not_full',400);
-    if(['world','account','villageName','coords'].some(k=>event[k]!==undefined&&
-      (typeof event[k]!=='string'||event[k].length>120)))return bad('invalid_warehouse_details',400);
+    if(!safeInt(event.threshold,1,100)||!Array.isArray(event.villages)||
+      event.villages.length<1||event.villages.length>12||
+      !safeInt(event.totalOverLimit,1,9999)||!safeInt(event.part,1,9999)||
+      !safeInt(event.parts,1,9999)||event.part>event.parts||
+      !event.villages.every(v=>validateWarehouse(v)&&v.percent>=event.threshold)||
+      new Set(event.villages.map(v=>v.villageId)).size!==event.villages.length)
+      return bad('invalid_warehouse_batch',400);
   }
   if(!(await subscriptionOK(env,device.user_id)))return bad('subscription_inactive',403);
   const global=await globalState(env);
   if(global.enabled!==true)return bad('global_disabled',403);
   const allowed=await allowedSet(env,device.user_id);
   const disabled=await globallyDisabledScripts(env);
-  const requiredId=event.type==='warehouse'?'warehouse-alert-safe':'alg-attacks';
+  const requiredId=event.type==='attack'?'alg-attacks':'warehouse-alert-safe';
   // Independent Preview entitlement: disabling attacks does not disable
   // the warehouse observer, and vice versa.
   if(!allowed.has(requiredId)||disabled.has(requiredId))return bad('script_not_licensed',403);
   const pref=await env.DB.prepare('SELECT enabled FROM portal_preferences WHERE user_id=? AND script_id=?')
     .bind(device.user_id,requiredId).first();
   if(pref?.enabled!==1)return bad('script_disabled',403);
-  if(event.type==='warehouse'){
-    const configuredPercent=await warehouseSiteThreshold(env,device.user_id);
-    if(event.threshold!==configuredPercent)return bad('warehouse_threshold_mismatch',403);
-  }
+  // A signed, licensed warehouse runner can set a local threshold in 1–100%.
+  // Independently re-check observed resource values against that threshold,
+  // rather than silently forcing a stale website-level setting.
   let link;
   try{link=await dbLink(env,device.user_id);}catch(_){return bad('telegram_storage_not_ready',503);}
   if(!link)return bad('telegram_not_linked',409);
   if(event.type==='attack'&&link.attack_alerts!==1)return bad('telegram_not_enabled',409);
-  if(event.type==='warehouse'){
+  if(event.type!=='attack'){
     if(!(await warehouseTableReady(env)))return bad('warehouse_storage_not_ready',503);
     const setting=await warehousePreference(env,device.user_id);
     if(setting?.enabled!==1)return bad('warehouse_not_enabled',409);
   }
+  if(event.type==='warehouse-batch'){
+    const eligible=[];
+    for(const village of event.villages){
+      if(await limitedEvent(env,device.user_id,'warehouse:'+village.villageId,21600))
+        eligible.push(village);
+    }
+    if(!eligible.length)return reply({ok:true,sent:false,rateLimited:true});
+    const message=formatTelegramAlert({...event,villages:eligible});
+    if(!(await send(env,link.chat_id,message,{html:true})))return bad('telegram_delivery_failed',502);
+    return reply({ok:true,sent:true,deliveredVillages:eligible.length});
+  }
   const key=event.type==='attack'
     ?'attack:'+event.villageId+':'+(event.attackId||event.count)
     :'warehouse:'+event.villageId;
-  const period=event.type==='attack'?21600:21600;
-  if(!(await limitedEvent(env,device.user_id,key,period)))return reply({ok:true,sent:false,rateLimited:true});
+  if(!(await limitedEvent(env,device.user_id,key,21600)))return reply({ok:true,sent:false,rateLimited:true});
   const message=formatTelegramAlert(event);
   if(!(await send(env,link.chat_id,message,{html:true})))return bad('telegram_delivery_failed',502);
   return reply({ok:true,sent:true});
