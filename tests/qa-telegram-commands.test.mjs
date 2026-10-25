@@ -20,7 +20,7 @@ const stableWebhook=host+'/api/telegram/webhook';
 
 test('published commands exactly match Preview customer actions',()=>{
  assert.deepEqual(telegramBotCommands.map(x=>x.command),
-   ['start','help','status','on','off','unlink']);
+   ['start','help','status','on','off','warehouse_on','warehouse_off','unlink']);
  for(const item of telegramBotCommands){
    assert.match(item.command,/^[a-z_]{1,32}$/);
    assert.ok(item.description.length>5&&item.description.length<=256);
