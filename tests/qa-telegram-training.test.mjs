@@ -137,3 +137,35 @@ test('Telegram webhook requires secret and hard-stops oversized bodies without C
   const prod=new Request('https://algzawy-cloud-control.pages.dev/api/telegram/webhook',{method:'POST',body:'{}'});
   assert.equal((await telegramWebhook(prod,env,helpers)).status,404);
 });
+
+test('authenticated Preview Telegram status diagnoses only safe booleans, never token content',async()=>{
+  const module=await import('data:text/javascript;base64,'+Buffer.from(telegram).toString('base64'));
+  const {telegramSubscriber,telegramConfigChecks}=module;
+  const env={
+    ALG_TELEGRAM_QA_MODE:'disabled',
+    ALG_TELEGRAM_BOT_TOKEN:'123456789:'+('T'.repeat(38)),
+    ALG_TELEGRAM_BOT_USERNAME:'AlG_Reserve_bot',
+    ALG_TELEGRAM_WEBHOOK_SECRET:'S'.repeat(40),
+    DB:{prepare(sql){
+      assert.match(sql,/sqlite_master/);
+      return{async all(){return{results:[
+        {name:'portal_telegram_links'},{name:'portal_telegram_pair_codes'},{name:'portal_telegram_alert_events'}
+      ]};}};
+    }}
+  };
+  assert.deepEqual(telegramConfigChecks(env),{
+    mode:false,botToken:true,botUsername:true,webhookSecret:true
+  });
+  const req=new Request('https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/api/telegram/status');
+  const helpers={reply:(o,status=200)=>new Response(JSON.stringify(o),{status}),
+    bad:(code,status=400)=>new Response(JSON.stringify({ok:false,error:code}),{status})};
+  const result=await telegramSubscriber(req,env,{id:'qa1'},'status',helpers);
+  const info=await result.json();
+  assert.equal(info.configured,false);
+  assert.deepEqual(info.checks,{mode:false,botToken:true,botUsername:true,webhookSecret:true,database:true});
+  assert.ok(!JSON.stringify(info).includes(env.ALG_TELEGRAM_BOT_TOKEN));
+  assert.ok(!JSON.stringify(info).includes(env.ALG_TELEGRAM_WEBHOOK_SECRET));
+  assert.equal(info.botUsername,null);
+  assert.match(ui,/السبب الذي يمنع الربط في Preview/);
+  assert.match(ui,/checks\[key\]!==true/);
+});
