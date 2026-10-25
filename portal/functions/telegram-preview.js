@@ -5,11 +5,18 @@
 const USERNAME=/^[A-Za-z][A-Za-z0-9_]{4,31}$/;
 const QA_HOST='feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
 export const telegramPreviewHost=request=>new URL(request.url).hostname===QA_HOST;
+// QA exposes strictly boolean readiness for authenticated subscribers.
+// Never report values, lengths, prefixes, suffixes, or the Bot API token.
+export function telegramConfigChecks(env){
+  return {
+    mode:env.ALG_TELEGRAM_QA_MODE==='enabled',
+    botToken:typeof env.ALG_TELEGRAM_BOT_TOKEN==='string'&&/^\d{6,15}:[A-Za-z0-9_-]{20,}$/.test(env.ALG_TELEGRAM_BOT_TOKEN),
+    botUsername:typeof env.ALG_TELEGRAM_BOT_USERNAME==='string'&&USERNAME.test(env.ALG_TELEGRAM_BOT_USERNAME),
+    webhookSecret:typeof env.ALG_TELEGRAM_WEBHOOK_SECRET==='string'&&/^[A-Za-z0-9_-]{32,128}$/.test(env.ALG_TELEGRAM_WEBHOOK_SECRET)
+  };
+}
 export function telegramReady(env){
-  return env.ALG_TELEGRAM_QA_MODE==='enabled' &&
-    typeof env.ALG_TELEGRAM_BOT_TOKEN==='string'&&/^\d{6,15}:[A-Za-z0-9_-]{20,}$/.test(env.ALG_TELEGRAM_BOT_TOKEN) &&
-    typeof env.ALG_TELEGRAM_WEBHOOK_SECRET==='string'&&/^[A-Za-z0-9_-]{32,128}$/.test(env.ALG_TELEGRAM_WEBHOOK_SECRET) &&
-    typeof env.ALG_TELEGRAM_BOT_USERNAME==='string'&&USERNAME.test(env.ALG_TELEGRAM_BOT_USERNAME);
+  return Object.values(telegramConfigChecks(env)).every(Boolean);
 }
 function safeInt(n,min,max){return Number.isSafeInteger(n)&&n>=min&&n<=max;}
 function equal(a,b){
@@ -58,7 +65,9 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
       schemaReady=new Set((tableSet.results||[]).map(row=>row.name)).size===3;
       if(schemaReady)link=await dbLink(env,user.id);
     }catch(_){schemaReady=false;link=null;}
+    // Authenticated Preview-only setup health; never expose a secret value.
     return reply({ok:true,configured:configured&&schemaReady,linked:configured&&schemaReady&&!!link,
+      checks:{...telegramConfigChecks(env),database:schemaReady},
       botUsername:configured&&schemaReady?env.ALG_TELEGRAM_BOT_USERNAME:null,
       preferences:{attacks:configured&&schemaReady&&link?.attack_alerts===1,warehouse:false},
       warehouseAvailable:false,attacksAvailable:configured&&schemaReady});
