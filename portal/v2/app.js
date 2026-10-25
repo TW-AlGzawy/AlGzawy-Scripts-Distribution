@@ -23,6 +23,10 @@ const group={
  military:{title:'الهجمات والإرسال',symbol:'➤'},tools:{title:'أدوات إضافية',symbol:'✧'}
 };
 const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك'};
+const routeFromHash=()=>{
+  const route=location.hash.slice(1);
+  return Object.prototype.hasOwnProperty.call(names,route)?route:'dashboard';
+};
 function el(tag,className,text){
   const node=document.createElement(tag);
   if(className)node.className=className;
@@ -279,7 +283,7 @@ async function loadMe(){
   state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;readSubscription(data);
   const catalog=await api('catalog');
   state.catalog=Array.isArray(catalog.items)?catalog.items.filter(x=>state.prefs[x.id]?.allowed===true):[];
-  showShell();render();showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
+  showShell();render();view(routeFromHash(),false);showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
 }
 async function init(){
   try{
@@ -294,8 +298,8 @@ async function init(){
   }
   void refreshCloud();
 }
-function view(name){
-  if(!names[name]||!state.user)return;
+function view(name,updateUrl=true){
+  if(!Object.prototype.hasOwnProperty.call(names,name)||!state.user)return;
   state.view=name;
   qa('.view').forEach(item=>item.classList.toggle('active',item.dataset.panel===name));
   qa('.nav-item').forEach(item=>item.classList.toggle('active',item.dataset.view===name));
@@ -303,6 +307,10 @@ function view(name){
   $('breadcrumb').textContent='الرئيسية / '+names[name];
   $('sidebar').classList.remove('open');
   $('mobileBackdrop').hidden=true;
+  // A URL fragment survives Ctrl+R and carries no account data or secret.
+  // Preserve the query string, which is needed by device auto-enrollment.
+  if(updateUrl&&location.hash!=='#'+name)
+    history.replaceState(null,'',location.pathname+location.search+'#'+name);
   window.scrollTo({top:0,behavior:'instant'});
 }
 function logAction(label){
@@ -571,6 +579,8 @@ $('loginForm').addEventListener('submit',async event=>{
   }catch(err){state.csrf='';$('loginError').textContent=errText(err);}
   finally{button.disabled=false;}
 });
+// Support direct links and manual fragment navigation as well as normal sidebar clicks.
+window.addEventListener('hashchange',()=>{if(state.user)view(routeFromHash(),false);});
 qa('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
 qa('[data-go]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.go)));
 $('menuToggle').addEventListener('click',()=>{$('sidebar').classList.toggle('open');$('mobileBackdrop').hidden=!$('sidebar').classList.contains('open');});
@@ -587,6 +597,7 @@ async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
   state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
   state.prefs={};state.csrf='';state.expiresAt=0;
+  history.replaceState(null,'',location.pathname+location.search);
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
 }
 $('logoutButton').addEventListener('click',()=>void logoutSubscriber());
