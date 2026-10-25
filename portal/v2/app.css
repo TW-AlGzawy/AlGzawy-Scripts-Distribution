@@ -58,3 +58,12 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 .install-update{border-color:#c48b51!important;background:#3a2d26!important;color:#ffd6a0!important}
 .installation-checking{border-color:#355769!important;background:#172d3c!important;color:#b8cddd!important}
 @media(max-width:750px){.bot-card .bot-bottom{flex-wrap:wrap}.bot-actions{flex-wrap:wrap}}
+
+/* Subscriber diagnostics: accessible, non-interactive status report. */
+.subscriber-diagnostics{margin-top:18px;padding:22px}
+.subscriber-diagnostics h3{margin:0 0 10px}
+.subscriber-diagnostics p{line-height:1.65}
+.diagnostics-result{margin-top:16px;display:grid;gap:8px;overflow-wrap:anywhere}
+.diagnostic-row{display:flex;gap:6px;flex-wrap:wrap;margin:0;padding:10px 12px;background:var(--panel2,#13283a);border:1px solid var(--border,#263c4f);border-radius:10px}
+.diagnostic-caveat{color:var(--muted,#95acbc);margin:6px 0 0}
+@media(max-width:520px){.subscriber-diagnostics{padding:14px}.diagnostic-row{padding:10px}}
