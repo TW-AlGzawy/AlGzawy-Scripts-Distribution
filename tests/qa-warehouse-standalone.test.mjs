@@ -36,7 +36,7 @@ test('standalone installer reports Preview installation and only authorizes game
  assert.match(engine,/__algzawy_preview_stop_warehouse-alert-safe/);
  assert.match(engine,/function allowed\(\)/);
  assert.match(engine,/function stop\(\)/);
- assert.match(engine,/30{3}0\);/); // 30-second monitoring cadence
+ assert.match(engine,/intervalSeconds\*1000/); // 10–300 seconds
 });
 test('resource counter parser reads real game header values and handles Arabic numerals without inflating values',()=>{
  const start=engine.indexOf('function digits(');
@@ -73,17 +73,19 @@ test('unavailable or malformed resource totals do not produce fake alerts',()=>{
  values.wood='3 400';values.storage='pending';
  assert.equal(readVillage(),null);
 });
-test('independent portal threshold defaults to 90 and accepts only validated 50..100 settings',()=>{
+test('in-panel threshold accepts 1..100 and configurable scan intervals',()=>{
  const start=engine.indexOf('function config('),end=engine.indexOf('function digits(',start);
  assert.ok(start>0&&end>start);
  let data='{}';
  const config=new Function('localStorage','PREF',engine.slice(start,end)+';return config;')(
   {getItem(){return data;}},'preview-qa-test');
- assert.deepEqual(config(),{enabled:true,threshold:90});
+ assert.deepEqual(config(),{enabled:true,threshold:90,intervalSeconds:10});
  data=JSON.stringify({enabled:false,percent:95});
- assert.deepEqual(config(),{enabled:false,threshold:95});
+ assert.deepEqual(config(),{enabled:false,threshold:95,intervalSeconds:10});
+ data=JSON.stringify({enabled:true,percent:1,intervalSeconds:45});
+ assert.deepEqual(config(),{enabled:true,threshold:1,intervalSeconds:45});
  data=JSON.stringify({enabled:true,percent:0});
- assert.deepEqual(config(),{enabled:true,threshold:90});
+ assert.deepEqual(config(),{enabled:true,threshold:90,intervalSeconds:10});
 });
 test('warehouse event is rejected when only attacks is licensed or globally enabled',async()=>{
  const t='warehouse-alert-safe';
