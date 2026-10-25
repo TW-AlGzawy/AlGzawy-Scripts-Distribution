@@ -288,7 +288,7 @@ async function handleBotCommand(env,chatId,text,helpers){
       +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')+'\n'
       +(available?(pref?.enabled===1?'🟢 تنبيهات المخازن: مفعّلة حسب نسبة السكربت':'🔴 تنبيهات المخازن: متوقفة')
         :'ℹ️ تنبيهات المخازن تحتاج إعداد قاعدة Preview')
-      +'\n⚠️ تحتاج الإشعارات تشغيل اللعبة والجسر وسكربت التنبيه. المخازن للقرية المفتوحة فقط.');
+      +'\n⚠️ تحتاج الإشعارات تشغيل اللعبة والجسر وسكربت التنبيه. المخازن للقرية المفتوحة أو القرى المعروضة في الإنتاج.');
     return true;
   }
   if(action==='on'||action==='off'){
@@ -487,7 +487,7 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
   if(event.type==='warehouse-batch'){
     const eligible=[];
     for(const village of event.villages){
-      if(await limitedEvent(env,device.user_id,'warehouse:'+village.villageId,21600))
+      if(await limitedEvent(env,device.user_id,'warehouse:'+village.villageId+':level:'+Math.floor(village.percent/5)+':threshold:'+event.threshold,21600))
         eligible.push(village);
     }
     if(!eligible.length)return reply({ok:true,sent:false,rateLimited:true});
@@ -497,7 +497,7 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
   }
   const key=event.type==='attack'
     ?'attack:'+event.villageId+':'+(event.attackId||event.count)
-    :'warehouse:'+event.villageId;
+    :'warehouse:'+event.villageId+':level:'+Math.floor(event.percent/5)+':threshold:'+event.threshold;
   if(!(await limitedEvent(env,device.user_id,key,21600)))return reply({ok:true,sent:false,rateLimited:true});
   const message=formatTelegramAlert(event);
   if(!(await send(env,link.chat_id,message,{html:true})))return bad('telegram_delivery_failed',502);
