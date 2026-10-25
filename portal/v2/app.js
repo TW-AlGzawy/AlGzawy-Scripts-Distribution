@@ -180,6 +180,7 @@ function showAuth(){
   state.user=null;state.csrf='';state.prefs={};state.catalog=[];
   $('boot').hidden=true;$('shell').hidden=true;$('login').hidden=false;
   $('accessKey').value='';
+  $('diagnosticsResult').textContent='لم يتم إجراء فحص بعد.';
 }
 function showShell(){
   $('boot').hidden=true;$('login').hidden=true;$('shell').hidden=false;
@@ -451,6 +452,35 @@ async function refresh(){
     }else toast(errText(err),true);
   }finally{state.loading=false;$('refreshButton').disabled=false;}
 }
+async function runDiagnostics(){
+  if(!state.user)return;
+  const button=$('runDiagnostics'),root=$('diagnosticsResult');
+  if(button.disabled)return;
+  button.disabled=true;
+  root.replaceChildren(el('p','','جارٍ فحص الخدمات المسموح بها…'));
+  const checks=[
+    {label:'الجلسة الآمنة',path:'session',check:data=>data.expiresAt>Math.floor(Date.now()/1000)?'جلسة صالحة':'تحتاج إعادة تسجيل الدخول'},
+    {label:'الاشتراك والصلاحيات',path:'me',check:data=>data.subscription?.active===true?'نشط · '+Object.values(data.scripts||{}).filter(x=>x?.allowed===true).length+' سكربت مرخص':'الاشتراك غير نشط'},
+    {label:'التحكم المركزي',path:'status',check:data=>data.global?.enabled===true?'متاح (ON)':'متوقف من الإدارة (OFF)'},
+    {label:'إصدار Cloud Bridge',path:'bridge-version',check:data=>/^\\d+(?:\\.\\d+){1,3}$/.test(data.version||'')?'الإصدار المتاح v'+data.version:'الإصدار غير متاح'},
+    {label:'فهرس تحديثات السكربتات',path:'installer-releases',check:data=>Array.isArray(data.items)?'متاح · '+data.items.length+' إصدارات':'لا يمكن قراءة الفهرس'}
+  ];
+  try{
+    const results=await Promise.allSettled(checks.map(x=>api(x.path)));
+    root.replaceChildren(el('strong','','نتائج الفحص — '+new Date().toLocaleString('ar-BE')));
+    for(let i=0;i<checks.length;i++){
+      const result=results[i];
+      const description=result.status==='fulfilled'
+        ?checks[i].check(result.value)
+        :'تعذر التحقق: '+errText(result.reason);
+      const row=el('p','diagnostic-row');
+      row.append(el('strong','',checks[i].label+' — '),el('span','',description));
+      root.append(row);
+    }
+    root.append(el('p','diagnostic-caveat','الجهاز المعتمد وتشغيل المحركات داخل اللعبة لا يمكن إثباتهما من هذه الصفحة. افحص المزامنة الموقّعة في Cloud Bridge.'));
+  }finally{button.disabled=false;}
+}
+$('runDiagnostics').addEventListener('click',()=>void runDiagnostics());
 $('loginForm').addEventListener('submit',async event=>{
   event.preventDefault();
   const key=$('accessKey').value.trim();
