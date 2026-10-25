@@ -61,7 +61,8 @@ test('diagnostics UI is bounded and honest about the lack of game telemetry',()=
   assert.match(portalHTML,/id="diagnosticsResult"[^>]*role="status"/);
   assert.match(portal,/async function runDiagnostics\(\)/);
   assert.match(portal,/Promise\.allSettled\(checks\.map/);
-  assert.match(portal,/لا يمكن إثباتهما من هذه الصفحة/);
+  assert.match(portal,/لا يثبت تنفيذ أي محرك داخل اللعبة/);
+  assert.match(api,/deviceHealth:\{approved:!!approvedDevice,lastSeen:approvedDevice\?\.last_seen\|\|null\}/);
   assert.match(ownerHTML,/id="adminAuditReload"/);
   assert.match(ownerHTML,/id="adminAuditEvents"[^>]*role="status"/);
   assert.match(owner,/await api\('admin\/audit'\)/);
