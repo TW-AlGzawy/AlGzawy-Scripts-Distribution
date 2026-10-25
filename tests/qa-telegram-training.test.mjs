@@ -147,10 +147,11 @@ test('authenticated Preview Telegram status diagnoses only safe booleans, never 
     ALG_TELEGRAM_BOT_USERNAME:'AlG_Reserve_bot',
     ALG_TELEGRAM_WEBHOOK_SECRET:'S'.repeat(40),
     DB:{prepare(sql){
-      assert.match(sql,/sqlite_master/);
-      return{async all(){return{results:[
+      if(sql.includes('FROM sqlite_master'))return{async all(){return{results:[
         {name:'portal_telegram_links'},{name:'portal_telegram_pair_codes'},{name:'portal_telegram_alert_events'}
       ]};}};
+      assert.match(sql,/FROM portal_telegram_links/);
+      return{bind(){return this;},async first(){return null;}};
     }}
   };
   assert.deepEqual(telegramConfigChecks(env),{
