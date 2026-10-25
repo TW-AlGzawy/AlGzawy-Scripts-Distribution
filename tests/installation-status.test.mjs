@@ -9,13 +9,18 @@ test('All nine installed Tampermonkey loaders respond with their actual versions
  for(const entry of catalog){
    const file=read('loaders/'+entry.id+'.user.js');
    assert.match(file,/^\/\/ @match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
-   const handlers={},reports=[];
+   const handlers={},domHandlers={},reports=[],domReports=[];
    const win={
      addEventListener(type,fn){handlers[type]=fn;},
      postMessage(value,origin){reports.push({value,origin});}
    };
+   const doc={
+     addEventListener(type,fn){domHandlers[type]=fn;},
+     dispatchEvent(event){domReports.push(event); }
+   };
+   class CustomEvent{constructor(type,options){this.type=type;this.detail=options.detail;}}
    const location={origin:'https://algzawy-cloud-control.pages.dev',pathname:'/v2/'};
-   vm.runInNewContext(file,{window:win,location,console},{filename:entry.id+'.user.js'});
+   vm.runInNewContext(file,{window:win,document:doc,CustomEvent,location,console},{filename:entry.id+'.user.js'});
    assert.equal(reports.length,1,entry.id+' initial availability report');
    assert.equal(reports[0].value.id,entry.id);
    assert.equal(reports[0].value.version,entry.version);
@@ -25,8 +30,13 @@ test('All nine installed Tampermonkey loaders respond with their actual versions
    handlers.message({source:win,origin:location.origin,data:ask});
    assert.equal(reports.length,2,entry.id+' acknowledges nonce');
    assert.equal(reports[1].value.nonce,ask.nonce);
+   assert.equal(domReports[1].detail.nonce,ask.nonce,'DOM relay acknowledges nonce');
+   domHandlers['algzawy-installation-probe-v1']({detail:{...ask,nonce:'dom-request'}});
+   assert.equal(reports[2].value.nonce,'dom-request','DOM probe receives response');
+   assert.equal(domReports[2].detail.id,entry.id);
+   assert.equal(domReports[2].type,'algzawy-installation-report-v1');
    handlers.message({source:win,origin:'https://evil.example',data:ask});
-   assert.equal(reports.length,2,entry.id+' rejects cross-origin probe');
+   assert.equal(reports.length,3,entry.id+' rejects cross-origin probe');
  }
 });
 test('Version comparison and installation states do not infer installation from subscription ON',()=>{
