@@ -1,6 +1,6 @@
 // AlGzawy Cloud Preview RC1 — independent, non-destructive warehouse observer.
 // Executed only by the signed, per-tab-pinned warehouse-alert-safe QA runner.
-// Reads ONLY currently open village resource counters; never trains/sends troops.
+// Reads open village counters or production overview rows; never trains/sends troops.
 (function(){
 'use strict';
 const ID='warehouse-alert-safe';
@@ -80,6 +80,12 @@ function readProductionVillages(){
  const table=document.getElementById('production_table');
  if(!table||!productionMode())return [];
  const data=gameData(),rows=[...table.querySelectorAll('tbody tr')];
+ const head=table.querySelector('thead tr');
+ const headers=head?[...head.querySelectorAll('th,td')]:[];
+ // Prefer a labeled capacity column; do not confuse farm/merchants/points.
+ const capacityIndex=headers.findIndex(cell=>/مخزن|المخازن|warehouse|storage|lager|magazyn/i.test(
+  [cell.textContent,cell.getAttribute?.('title'),
+   cell.querySelector?.('[title]')?.getAttribute?.('title')].filter(Boolean).join(' ')));
  const found=new Map();
  for(const row of rows){
   // Production overview has three separate resource spans. Never read
@@ -89,17 +95,19 @@ function readProductionVillages(){
   if(!woodEl||!stoneEl||!ironEl)continue;
   const resourceCell=woodEl.closest('td');
   if(!resourceCell||resourceCell!==stoneEl.closest('td')||resourceCell!==ironEl.closest('td'))continue;
-  const capacityCell=resourceCell.nextElementSibling;
+  const capacityCell=capacityIndex>=0?row.children?.[capacityIndex]:resourceCell.nextElementSibling;
   const wood=digits(woodEl.textContent),stone=digits(stoneEl.textContent),
    iron=digits(ironEl.textContent),capacity=digits(capacityCell?.textContent);
   if(!capacity||[wood,stone,iron].some(x=>x===null))continue;
-  const villageCell=row.querySelector('td'),a=villageCell?.querySelector('a[href*="village="]');
+  const villageCell=row.querySelector('td');
+  const a=row.querySelector('a[href*="village="]')||villageCell?.querySelector('a[href*="village="]');
+  const nameCell=a?.closest?.('td')||villageCell;
   const idText=a?.getAttribute('href')?.match(/[?&]village=(\d+)/)?.[1]
     ||row.getAttribute('data-id')||row.id?.match(/(?:village_|village-)(\d+)/)?.[1];
   const villageId=Number(idText);
   if(!Number.isSafeInteger(villageId)||villageId<=0)continue;
-  const rawName=(villageCell?.querySelector('.quickedit-label')?.textContent||
-    a?.textContent||villageCell?.textContent||'').trim().slice(0,100);
+  const rawName=(nameCell?.querySelector('.quickedit-label')?.textContent||
+    a?.textContent||nameCell?.textContent||'').trim().slice(0,100);
   const coords=rawName.match(/\((\d{1,3})\s*[|｜]\s*(\d{1,3})\)/);
   const percent=Math.min(100,Math.floor(Math.max(wood,stone,iron)*100/capacity));
   found.set(villageId,{villageId,villageName:rawName||'قرية '+villageId,
@@ -115,35 +123,36 @@ function emitWarehouse(info,threshold){
   detail:{...info,type:'warehouse',threshold}
  }));
 }
-function sendOverviewAlerts(rows,threshold){
- const timestamp=Date.now(),fresh=[];
- // Sending a batch once per page scan avoids one notification per village.
- for(const village of rows){
-  const key='algzawy_preview_wh_last_'+village.villageId;
-  const previous=Number(sessionStorage.getItem(key)||0);
-  if(village.percent<threshold){
-   if(village.percent<Math.max(0,threshold-5)&&previous)sessionStorage.removeItem(key);
-   continue;
-  }
-  if(previous&&timestamp-previous<300000)continue;
-  fresh.push(village);
+function shouldSendWarehouse(village,threshold){
+ const key='algzawy_preview_wh_last_'+village.villageId;
+ let previous=null;try{previous=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
+ if(village.percent<threshold){
+  if(village.percent<=Math.max(0,threshold-5))sessionStorage.removeItem(key);
+  return false;
  }
+ if(typeof previous==='number'&&previous>0)previous={percent:village.percent,threshold};
+ return !previous||previous.threshold!==threshold||
+  !Number.isInteger(previous.percent)||village.percent>=previous.percent+5;
+}
+function rememberWarehouse(village,threshold){
+ sessionStorage.setItem('algzawy_preview_wh_last_'+village.villageId,
+  JSON.stringify({percent:village.percent,threshold}));
+}
+function sendOverviewAlerts(rows,threshold){
+ const fresh=rows.filter(v=>shouldSendWarehouse(v,threshold));
  if(!fresh.length)return 0;
- // Chunk the eligible villages into readable Telegram messages, no more
- // than 24 villages per scan; remaining ones are processed next cycle.
- // The server performs a second deduplication by subscriber + village.
- const selected=fresh.slice(0,24),parts=Math.ceil(fresh.length/12);
+ const selected=fresh.slice(0,24),parts=Math.ceil(selected.length/12);
  for(let i=0;i<selected.length;i+=12){
   const batch=selected.slice(i,i+12);
   document.dispatchEvent(new CustomEvent('algzawy-preview-telegram-event',{
-   detail:{type:'warehouse-batch',villages:batch,threshold,totalOverLimit:rows.filter(v=>v.percent>=threshold).length,
+   detail:{type:'warehouse-batch',villages:batch,threshold,
+    totalOverLimit:rows.filter(v=>v.percent>=threshold).length,
     part:Math.floor(i/12)+1,parts}
   }));
-  for(const village of batch)sessionStorage.setItem('algzawy_preview_wh_last_'+village.villageId,String(timestamp));
+  for(const village of batch)rememberWarehouse(village,threshold);
  }
  return selected.length;
 }
-
 function draw(panel,items,opts,invalid=false){
  if(!panel)return;
  if(!allowed()){stop();return;}
@@ -172,13 +181,11 @@ function watch(){
  if(opts.enabled&&items.length){
   if(productionMode())sendOverviewAlerts(items,opts.threshold);
   else{
-   const info=items[0],now=Date.now(),key='algzawy_preview_wh_last_'+info.villageId;
-   const last=Number(sessionStorage.getItem(key)||0);
-   if(info.percent<Math.max(0,opts.threshold-5)){if(last)sessionStorage.removeItem(key);}
-   else if(info.percent>=opts.threshold&&(!last||now-last>=300000)){
-    emitWarehouse(info,opts.threshold);
-    sessionStorage.setItem(key,String(now));
-   }
+   const info=items[0];
+    if(shouldSendWarehouse(info,opts.threshold)){
+     emitWarehouse(info,opts.threshold);
+     rememberWarehouse(info,opts.threshold);
+    }
   }
  }
  draw(panel,items,opts,items.length===0);
