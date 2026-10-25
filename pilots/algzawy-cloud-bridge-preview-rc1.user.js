@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي — PREVIEW RC1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/preview-rc1
-// @version      2.4.1.4
+// @version      2.4.1.5
 // @description  TEST ONLY: signed pairing to isolated Cloudflare Preview. Does not authorize production game engines.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -20,8 +20,8 @@
   window.__algzawyPreviewCloudBridge=true;
   const PORTAL_ORIGIN='https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
   const keys={device:'algzawy_preview_cloud_device_token',last:'algzawy_preview_cloud_last_success',mode:'algzawy_preview_cloud_identity_mode',portable:'algzawy_preview_cloud_portable_private_jwk_v2'};
-  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","alg-coins","tribal-wars-helper"];
-  const retiredIds=["training-edition","light","train-master-b","holy-grail","market-bot-v7","polish-all-in-one","professional-training","reserve-correct-v2","reserve-smart-v4","reserve-smart-v5","auto-reserve-barbarians","warehouse-alert-safe","attack-renamer"];
+  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper"];
+  const retiredIds=["training-edition","light","train-master-b","holy-grail","market-bot-v7","polish-all-in-one","professional-training","reserve-correct-v2","reserve-smart-v4","reserve-smart-v5","auto-reserve-barbarians","attack-renamer"];
   // Fail closed for licenses cached by previously installed scripts.
   for(const oldId of retiredIds){
     try{localStorage.setItem('algzawy_preview_portal_grant_'+oldId,'0');localStorage.setItem('algzawy_preview_local_enabled_'+oldId,'false');}catch(_){}
@@ -33,7 +33,7 @@
   const TAB_ID_KEY='algzawy_preview_tab_instance_v1';
   const TAB_READY_KEY='algzawy_preview_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_preview_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
+  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
@@ -227,8 +227,9 @@
     const info=event.detail;
     if(!info||!['attack','warehouse'].includes(info.type)
       ||!Number.isSafeInteger(info.villageId)||info.villageId<1||info.villageId>9999999999
-      ||!connection.device||publisherPreviouslyOn!==true||!pinned('alg-attacks')
-      ||localStorage.getItem('algzawy_preview_portal_grant_alg-attacks')!=='1')return;
+      ||!connection.device||publisherPreviouslyOn!==true)return;
+    const requiredId=info.type==='warehouse'?'warehouse-alert-safe':'alg-attacks';
+    if(!pinned(requiredId)||localStorage.getItem('algzawy_preview_portal_grant_'+requiredId)!=='1')return;
     const body={type:info.type,villageId:info.villageId};
     if(info.type==='attack'){
       if(!Number.isSafeInteger(info.count)||info.count<1||info.count>500)return;
@@ -245,9 +246,10 @@
     }else{
       if(!Number.isSafeInteger(info.capacity)||info.capacity<1||info.capacity>99999999999
         ||![info.wood,info.stone,info.iron].every(x=>Number.isSafeInteger(x)&&x>=0&&x<=99999999999)
-        ||!Number.isSafeInteger(info.percent)||info.percent<90||info.percent>100)return;
+        ||!Number.isSafeInteger(info.threshold)||info.threshold<50||info.threshold>100
+        ||!Number.isSafeInteger(info.percent)||info.percent<info.threshold||info.percent>100)return;
       for(const key of ['capacity','wood','stone','iron','percent'])body[key]=info[key];
-      body.threshold=90;
+      body.threshold=info.threshold;
       for(const key of ['world','account','villageName','coords']){
         const value=qaTextField(info[key]);if(value)body[key]=value;
       }
@@ -259,8 +261,8 @@
     qaTelegramRecent.set(key,now);
     for(const [k,when] of qaTelegramRecent)if(now-when>21600000)qaTelegramRecent.delete(k);
     qaTelegramQueue=qaTelegramQueue.catch(()=>{}).then(async()=>{
-      if(publisherPreviouslyOn!==true||!pinned('alg-attacks')
-        ||localStorage.getItem('algzawy_preview_portal_grant_alg-attacks')!=='1')return;
+      if(publisherPreviouslyOn!==true||!pinned(requiredId)
+        ||localStorage.getItem('algzawy_preview_portal_grant_'+requiredId)!=='1')return;
       try{
         const headers=await deviceProof('/api/telegram/notify');
         await request('telegram/notify',{method:'POST',headers,data:body});
