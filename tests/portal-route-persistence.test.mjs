@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const js=readFileSync(new URL('../portal/v2/app.js',import.meta.url),'utf8');
-const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك'};
+const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك',telegram:'تنبيهات Telegram'};
 
 function route(location){
   const from=js.indexOf('const routeFromHash=()=>{');
@@ -20,7 +20,7 @@ function fakeView(){
   const location={pathname:'/v2/',search:'?alg_auto=nonsecret-test',hash:'#dashboard'};
   const updated=[],scrolls=[];
   const classList={toggle(){},remove(){}};
-  const nav=Array.from({length:7},(_,i)=>({dataset:{view:Object.keys(names)[i],panel:Object.keys(names)[i]},classList}));
+  const nav=Array.from({length:Object.keys(names).length},(_,i)=>({dataset:{view:Object.keys(names)[i],panel:Object.keys(names)[i]},classList}));
   const elements=new Map();
   const $=id=>{
     if(!elements.has(id))elements.set(id,{textContent:'',classList});
@@ -65,7 +65,7 @@ test('Invalid route is ignored; session restore selects the fragment and logout 
   assert.equal(state.view,'dashboard');
   assert.equal(updated.length,0);
   assert.match(js,/showShell\(\);render\(\);view\(routeFromHash\(\),false\);/);
-  assert.match(js,/addEventListener\('hashchange',\(\)=>\{if\(state\.user\)view\(routeFromHash\(\),false\);\}\)/);
+  assert.match(js,/addEventListener\('hashchange',\(\)=>\{if\(state\.user\)\{view\(routeFromHash\(\),false\);if\(routeFromHash\(\)==='telegram'\)void refreshTelegram\(\);\}\}\)/);
   assert.match(js,/history\.replaceState\(null,'',location\.pathname\+location\.search\);\s*showAuth\(\)/);
   assert.match(js,/await loadMe\(\);view\('dashboard'\)/,'new login deliberately opens the dashboard');
 });
