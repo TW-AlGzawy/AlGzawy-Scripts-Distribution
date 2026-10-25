@@ -298,6 +298,21 @@ async function handler(req,env){
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
     }
+    // Existing audit table; owner-only read with no migration or IP in response.
+    // These are recorded licensing events, NOT verified game-engine telemetry.
+    if(path[1]==='audit'&&path.length===2&&req.method==='GET'){
+      const records=await env.DB.prepare(
+        "SELECT e.event_type,e.occurred_at,COALESCE(u.label,'—') AS user_label "+
+        "FROM portal_access_events e LEFT JOIN portal_users u ON u.id=e.user_id "+
+        "ORDER BY e.occurred_at DESC,e.id DESC LIMIT 40"
+      ).all();
+      const events=(records.results||[]).map(row=>({
+        type:String(row.event_type||'').slice(0,100),
+        at:String(row.occurred_at||'').slice(0,32),
+        user:String(row.user_label||'—').slice(0,80)
+      }));
+      return reply({ok:true,scope:'recorded_license_and_device_events',events});
+    }
     if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
       return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
         id,name,category,description,featured:FAV.has(id),
