@@ -138,6 +138,7 @@ const qaInstallIds=new Set([...qaInstallProbeIds,'qa-smoke']);
 const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent','smoke-ready']);
 const qaInstallTrace=[];
 let qaInstallTraceList=null;
+let qaInstallProgress=null;
 function qaInstallLog(id,stage,channel='',note=''){
   if(!qaPreviewHost||!qaInstallIds.has(id))return;
   // All fields stored/exported are chosen locally from finite diagnostic categories.
@@ -170,8 +171,8 @@ function qaInstallDiagnosticsInit(){
   h.id='qaProbeTitle';
   const info=el('p','small-muted','فحص تجريبي للسكربتات التسعة، مع سكربت مستقل للتأكد من تشغيل Tampermonkey. لإظهار «✓ مثبّت» يجب تثبيت كل سكربت فعليًا داخل Tampermonkey، ثم تحديث صفحة Preview. سجلات التشخيص تبقى محلية دون أسرار أو بيانات اشتراك.');
   const progress=el('p','qa-install-progress','جارٍ فحص السكربتات المرخّصة…');
-  progress.id='qaInstallProgress';
   progress.setAttribute('role','status');
+  qaInstallProgress=progress;
   const actions=el('div','qa-probe-actions');
   const start=el('button','btn outline','فحص جميع السكربتات الآن');
   start.type='button';
@@ -512,7 +513,7 @@ function renderScripts(){
     (!query||(x.name+' '+x.description).toLocaleLowerCase().includes(query)));
   $('resultsCount').textContent='عرض '+items.length+' من '+allowed().length+' سكربت مرخص';
   if(qaPreviewHost){
-    const progress=$('qaInstallProgress');
+    const progress=qaInstallProgress;
     if(progress){
       const all=allowed(),confirmed=all.filter(x=>state.installed.has(x.id)).length;
       progress.textContent='تم تأكيد تثبيت '+confirmed+' من '+all.length+' سكربت مرخّص في هذا المتصفح. '
