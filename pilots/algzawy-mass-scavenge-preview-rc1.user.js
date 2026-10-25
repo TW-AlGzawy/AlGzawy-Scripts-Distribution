@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية — تشغيل QA منفصل
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa-game-engine-rc1
-// @version      1.0.2.1
+// @version      1.0.2.2
 // @description  Isolated QA test runner: only signed Preview device + user entitlement + ON Preview global switch. No Production authorization.
 // @include      https://*.tribalwars.ae/game.php?*screen=scavenge_mass*
 // @include      https://*.tribalwars.ae/game.php?*mode=scavenge_mass*
