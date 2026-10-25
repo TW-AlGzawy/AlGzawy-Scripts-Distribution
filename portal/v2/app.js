@@ -8,7 +8,7 @@ const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
   if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.3 QA';});
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.4 QA';});
     return;
   }
   try{
@@ -206,7 +206,7 @@ function qaInstallDiagnosticsInit(){
     ['algzawy-builder-v1','البناء المتطور','1.0.3.1'],
     ['professional-training-v2','بوت التدريب','1.0.3.2'],
     ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
-    ['alg-attacks','تنبيه الهجمات','1.0.3.2'],
+    ['alg-attacks','تنبيه الهجمات والمخازن','1.0.3.3'],
     ['alg-coins','الصقل المتطور','1.0.2.1'],
     ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
   ];
@@ -723,6 +723,11 @@ function updateTelegramUI(data){
   $('telegramTest').disabled=!linked||!ready;
   $('telegramAttacks').disabled=!linked||!ready;
   $('telegramAttacks').checked=!!data?.preferences?.attacks;
+  $('telegramWarehouse').disabled=!linked||!ready||!data?.warehouseAvailable;
+  $('telegramWarehouse').checked=!!data?.preferences?.warehouse;
+  $('telegramWarehouseState').textContent=data?.warehouseAvailable
+    ?'حد التنبيه: 90% من سعة المخزن؛ القرية المفتوحة فقط أثناء تشغيل الجسر وسكربت التنبيه.'
+    :'لم تُطبّق بعد إضافة تفضيلات المخازن على قاعدة algzawy-preview-db.';
   const names={
     mode:'ALG_TELEGRAM_QA_MODE (القيمة المطلوبة: enabled)',
     botToken:'ALG_TELEGRAM_BOT_TOKEN (مفتاح BotFather الجديد)',
@@ -778,6 +783,16 @@ $('telegramAttacks').addEventListener('change',async event=>{
     await refreshTelegram();
   }catch(err){event.target.checked=!checked;toast(errText(err),true);}
   finally{event.target.disabled=!telegramCurrent?.linked;}
+});
+$('telegramWarehouse').addEventListener('change',async event=>{
+  const checked=event.target.checked;
+  event.target.disabled=true;
+  try{
+    await api('telegram/preferences',{method:'POST',body:{warehouse:checked}});
+    toast(checked?'تم تفعيل تنبيهات المخازن للقرية المفتوحة':'تم تعطيل تنبيهات المخازن');
+    await refreshTelegram();
+  }catch(err){event.target.checked=!checked;toast(errText(err),true);}
+  finally{event.target.disabled=!telegramCurrent?.linked||!telegramCurrent?.warehouseAvailable;}
 });
 $('telegramUnlink').addEventListener('click',async()=>{
   const btn=$('telegramUnlink');btn.disabled=true;
