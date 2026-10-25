@@ -109,51 +109,204 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
   }
   return bad('method_not_allowed',405);
 }
+
+export const telegramBotCommands=[
+  {command:'start',description:'بدء البوت وطريقة ربط الاشتراك'},
+  {command:'help',description:'شرح أوامر بوت AlGzawy'},
+  {command:'status',description:'حالة الربط والتنبيهات'},
+  {command:'on',description:'تفعيل إشعارات الهجمات'},
+  {command:'off',description:'إيقاف إشعارات الهجمات'},
+  {command:'unlink',description:'إلغاء ربط حساب Telegram'}
+];
+const PREVIEW_PORTAL='https://'+QA_HOST+'/v2/#telegram';
+const PREVIEW_WEBHOOK='https://'+QA_HOST+'/api/telegram/webhook';
+const HELP_TEXT='🤖 AlGzawy | TW Scripts Bot\n'
+  +'بوت التنبيهات الخاص بمشتركي AlGzawy (نسخة Preview).\n\n'
+  +'الأوامر:\n'
+  +'/start — بدء الاستخدام وربط البوت\n'
+  +'/help — شرح الأوامر\n'
+  +'/status — حالة ربط Telegram والتنبيهات\n'
+  +'/on — تشغيل تنبيهات الهجمات\n'
+  +'/off — إيقاف تنبيهات الهجمات\n'
+  +'/unlink — إلغاء ربط محادثتك\n\n'
+  +'🔗 افتح موقع المشترك لتوليد رابط الربط الخاص بك:\n'+PREVIEW_PORTAL+'\n\n'
+  +'⚠️ تنبيهات الهجمات تحتاج تشغيل سكربت التنبيه والجسر داخل اللعبة. '
+  +'تنبيهات المخازن قيد التطوير. لا ترسل كلمة مرور اللعبة أو مفاتيح البوت.';
+async function boundChat(env,chatId){
+  return env.DB.prepare('SELECT user_id,attack_alerts FROM portal_telegram_links WHERE chat_id=?')
+    .bind(chatId).first();
+}
+async function handleBotCommand(env,chatId,text,helpers){
+  const command=text.trim().match(/^\/([A-Za-z_]+)(?:@([A-Za-z][A-Za-z0-9_]{4,31}))?(?:\s+([\s\S]*))?$/);
+  if(!command)return false;
+  if(command[2]&&command[2].toLowerCase()!==env.ALG_TELEGRAM_BOT_USERNAME.toLowerCase())return false;
+  const action=command[1].toLowerCase();
+  if(!telegramBotCommands.some(item=>item.command===action))return false;
+  const chat=await boundChat(env,chatId);
+  const linked=!!chat;
+  if(action==='help'){
+    await send(env,chatId,HELP_TEXT);
+    return true;
+  }
+  if(action==='start'){
+    if(command[3]?.trim()){
+      // One-time enrollment belongs only to /start with a validated token.
+      const token=command[3].trim();
+      const m=token.match(/^alg_[a-f0-9]{48}$/);
+      if(!m){
+        await send(env,chatId,'هذا رابط ربط غير صالح. افتح موقع AlGzawy واضغط «ربط البوت» للحصول على رابط جديد:\n'+PREVIEW_PORTAL);
+        return true;
+      }
+      const hash=await helpers.digest(token,env.PORTAL_HASH_PEPPER);
+      let row=null;
+      try{
+        // A used/expired token never discloses the account that created it.
+        row=await env.DB.prepare('DELETE FROM portal_telegram_pair_codes WHERE code_hash=? AND expires_at>? RETURNING user_id')
+          .bind(hash,now()).first();
+        if(row){
+          const current=await env.DB.prepare('SELECT active FROM portal_users WHERE id=?').bind(row.user_id).first();
+          if(!current||current.active!==1)row=null;
+        }
+        if(row){
+          await env.DB.prepare('INSERT INTO portal_telegram_links(user_id,chat_id,linked_at,attack_alerts,warehouse_alerts) VALUES(?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET chat_id=excluded.chat_id,linked_at=excluded.linked_at,attack_alerts=excluded.attack_alerts')
+            .bind(row.user_id,chatId,now(),1).run();
+        }
+      }catch(_){return false;} // Telegram retries on storage failures; never log a token.
+      await send(env,chatId,row
+        ?'✅ تم ربط محادثتك بحساب AlGzawy Preview.\nتنبيهات الهجمات مفعّلة لهذا الاشتراك. استخدم /status لفحص حالتها أو /off لتعطيلها.'
+        :'رمز الربط غير صالح أو منتهي الصلاحية. ارجع إلى مركز Telegram واطلب رابطًا جديدًا:\n'+PREVIEW_PORTAL);
+      return true;
+    }
+    await send(env,chatId,linked
+      ?'👋 أهلًا بعودتك إلى AlGzawy.\nمحادثتك مرتبطة بالفعل بحساب Preview.\nاستخدم /status لحالة الاشتراك والتنبيهات أو /help لعرض الأوامر.'
+      :'👋 مرحبًا بك في AlGzawy | TW Scripts Bot.\nلتفعيل إشعارات الهجمات، افتح حسابك في موقع AlGzawy Preview، ثم اضغط «ربط البوت» و«Start» من رابط الربط الخاص بك.\n'+PREVIEW_PORTAL+'\n\nاستخدم /help لمعرفة الأوامر.');
+    return true;
+  }
+  if(!linked){
+    await send(env,chatId,'🔒 هذا الحساب غير مربوط بمشترك AlGzawy Preview.\nافتح الموقع واضغط «ربط البوت»:\n'+PREVIEW_PORTAL);
+    return true;
+  }
+  if(action==='status'){
+    await send(env,chatId,'📊 حالة Telegram في AlGzawy Preview\n'
+      +'✅ محادثتك مرتبطة بحساب مشترك.\n'
+      +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')
+      +'\nℹ️ تنبيهات المخازن قيد التطوير.\n'
+      +'تحتاج تنبيهات الهجمات إلى استمرار تشغيل اللعبة وسكربت التنبيه والجسر وتفعيل الاشتراك.');
+    return true;
+  }
+  if(action==='on'||action==='off'){
+    const enabled=action==='on'?1:0;
+    await env.DB.prepare('UPDATE portal_telegram_links SET attack_alerts=? WHERE chat_id=?')
+      .bind(enabled,chatId).run();
+    await send(env,chatId,enabled
+      ?'✅ تم تفعيل استقبال تنبيهات الهجمات لهذا الاشتراك.'
+      :'🔕 تم تعطيل استقبال تنبيهات الهجمات لهذا الاشتراك.');
+    return true;
+  }
+  if(action==='unlink'){
+    await env.DB.prepare('DELETE FROM portal_telegram_links WHERE chat_id=?').bind(chatId).run();
+    await send(env,chatId,'✅ تم إلغاء ربط Telegram بحساب AlGzawy.\nللربط مجددًا، افتح موقع المشترك وأنشئ رابطًا جديدًا.');
+    return true;
+  }
+  return false;
+}
 export async function telegramWebhook(req,env,{reply,bad,digest}){
   if(!telegramPreviewHost(req)||req.method!=='POST')return bad('not_found',404);
   if(!telegramReady(env))return bad('telegram_not_configured',503);
   if(!equal(req.headers.get('X-Telegram-Bot-Api-Secret-Token')||'',env.ALG_TELEGRAM_WEBHOOK_SECRET))
     return bad('unauthorized',401);
-  // Content-Length is not guaranteed, e.g. chunked requests. Always limit
-  // the bytes actually read, including when Telegram sends repeated updates.
   const lengthHeader=Number(req.headers.get('Content-Length')||0);
   if(lengthHeader>8192)return bad('payload_too_large',413);
   let update;
   try{
     const reader=req.body?.getReader();
     if(!reader)return bad('invalid_json');
-    const chunks=[];let bytes=0;
+    const chunks=[];let size=0;
     while(true){
       const {done,value}=await reader.read();
       if(done)break;
-      bytes+=value.byteLength;
-      if(bytes>8192){await reader.cancel();return bad('payload_too_large',413);}
+      size+=value.byteLength;
+      if(size>8192){await reader.cancel();return bad('payload_too_large',413);}
       chunks.push(value);
     }
-    const raw=new Uint8Array(bytes);let offset=0;
+    const raw=new Uint8Array(size);let offset=0;
     for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.byteLength;}
     update=JSON.parse(new TextDecoder().decode(raw));
   }catch(_){return bad('invalid_json');}
   const message=update?.message;
-  if(message?.chat?.type!=='private'||typeof message.text!=='string')return reply({ok:true,ignored:true});
-  const match=message.text.trim().match(/^\/start(?:@\w+)?\s+(alg_[a-f0-9]{48})$/);
-  if(!match)return reply({ok:true,ignored:true});
+  if(message?.chat?.type!=='private'||typeof message.text!=='string'
+    ||message.from?.is_bot===true)return reply({ok:true,ignored:true});
   const chatId=String(message.chat.id||'');
   if(!/^[1-9]\d{3,19}$/.test(chatId))return reply({ok:true,ignored:true});
-  const hash=await digest(match[1],env.PORTAL_HASH_PEPPER);
-  let row;
   try{
-    // Consume the token exactly once, even if Telegram retries its webhook.
-    row=await env.DB.prepare('DELETE FROM portal_telegram_pair_codes WHERE code_hash=? AND expires_at>? RETURNING user_id')
-      .bind(hash,now()).first();
-    if(!row)return reply({ok:true,ignored:true});
-    const current=await env.DB.prepare('SELECT active FROM portal_users WHERE id=?').bind(row.user_id).first();
-    if(!current||current.active!==1)return reply({ok:true,ignored:true});
-    await env.DB.prepare('INSERT INTO portal_telegram_links(user_id,chat_id,linked_at,attack_alerts,warehouse_alerts) VALUES(?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET chat_id=excluded.chat_id,linked_at=excluded.linked_at,attack_alerts=excluded.attack_alerts')
-      .bind(row.user_id,chatId,now(),1).run();
-  }catch(_){return bad('telegram_storage_not_ready',503);}
-  await send(env,chatId,'✅ تم ربط Telegram بحسابك في AlGzawy Preview.\nيمكنك إدارة تنبيهات الهجمات وتجربة الإرسال من مركز التحكم. لا نطلب كلمة مرور اللعبة أو بيانات الدخول.');
-  return reply({ok:true,linked:true});
+    const handled=await handleBotCommand(env,chatId,message.text,{digest});
+    return reply({ok:true,handled});
+  }catch(_){
+    // Explicit non-2xx response permits Telegram webhook delivery retry.
+    return bad('telegram_command_temporarily_unavailable',503);
+  }
+}
+async function telegramAPI(env,method,payload){
+  if(!telegramReady(env))throw Error('telegram_not_configured');
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const result=await fetch('https://api.telegram.org/bot'+env.ALG_TELEGRAM_BOT_TOKEN+'/'+method,{
+      method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload||{})
+    });
+    if(!result.ok)throw Error('telegram_api_http_'+result.status);
+    const json=await result.json();
+    if(json?.ok!==true)throw Error('telegram_api_rejected');
+    return json.result;
+  }finally{clearTimeout(timer);}
+}
+export async function telegramOwner(req,env,action,{reply,bad}){
+  if(!telegramPreviewHost(req))return bad('not_found',404);
+  if(!telegramReady(env))return bad('telegram_not_configured',503);
+  let me,webhook,commands;
+  try{
+    me=await telegramAPI(env,'getMe',{});
+    if(me?.username?.toLowerCase()!==env.ALG_TELEGRAM_BOT_USERNAME.toLowerCase())
+      return bad('telegram_bot_username_mismatch',409);
+    if(action==='status'&&req.method==='GET'){
+      webhook=await telegramAPI(env,'getWebhookInfo',{});
+      commands=await telegramAPI(env,'getMyCommands',{});
+      const existing=typeof webhook.url==='string'?webhook.url:'';
+      let host='';
+      try{host=existing?new URL(existing).hostname:'';}catch(_){}
+      return reply({ok:true,configured:true,botUsername:me.username,
+        webhook:{registered:!!existing,forPreview:existing===PREVIEW_WEBHOOK,
+          existingHost:host,pending:Number.isSafeInteger(webhook.pending_update_count)?webhook.pending_update_count:0,
+          error:typeof webhook.last_error_message==='string'?webhook.last_error_message.slice(0,160):null},
+        commandsConfigured:Array.isArray(commands)&&telegramBotCommands.every(item=>
+          commands.some(c=>c.command===item.command))});
+    }
+    if(action==='webhook'&&req.method==='POST'){
+      const body=await req.json().catch(()=>null);
+      if(!body||typeof body.replaceExisting!=='boolean'||Object.keys(body).some(k=>k!=='replaceExisting'))
+        return bad('invalid_request',400);
+      webhook=await telegramAPI(env,'getWebhookInfo',{});
+      const existing=typeof webhook.url==='string'?webhook.url:'';
+      // Never hijack another Telegram integration without explicit owner approval.
+      if(existing&&existing!==PREVIEW_WEBHOOK&&!body.replaceExisting)
+        return reply({ok:false,error:'telegram_existing_webhook_requires_confirmation',
+          existingHost:(()=>{try{return new URL(existing).hostname;}catch(_){return 'unknown';}})()},409);
+      await telegramAPI(env,'setWebhook',{
+        url:PREVIEW_WEBHOOK,secret_token:env.ALG_TELEGRAM_WEBHOOK_SECRET,
+        allowed_updates:['message'],drop_pending_updates:false,max_connections:10
+      });
+      webhook=await telegramAPI(env,'getWebhookInfo',{});
+      return reply({ok:true,webhookConfigured:webhook?.url===PREVIEW_WEBHOOK});
+    }
+    if(action==='commands'&&req.method==='POST'){
+      await telegramAPI(env,'setMyCommands',{commands:telegramBotCommands});
+      const published=await telegramAPI(env,'getMyCommands',{});
+      return reply({ok:true,commandsConfigured:Array.isArray(published)&&telegramBotCommands.every(item=>
+        published.some(c=>c.command===item.command))});
+    }
+    return bad('method_not_allowed',405);
+  }catch(_){return bad('telegram_api_unavailable',502);}
 }
 export async function telegramNotify(req,env,device,{reply,bad,allowedSet,globallyDisabledScripts,subscriptionOK,globalState}){
   if(!telegramPreviewHost(req)||req.method!=='POST')return bad('not_found',404);
