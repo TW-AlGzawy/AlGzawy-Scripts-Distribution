@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const js=readFileSync(new URL('../portal/v2/app.js',import.meta.url),'utf8');
-const names={dashboard:1,scripts:1,tasks:1,villages:1,activity:1,connect:1,account:1};
+const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك'};
 
 function route(location){
   const from=js.indexOf('const routeFromHash=()=>{');
