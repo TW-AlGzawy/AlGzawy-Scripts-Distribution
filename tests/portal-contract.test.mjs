@@ -278,7 +278,7 @@ test('Admin per-script OFF overrides grants and preferences without changing glo
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2','alg-balance']}});
  assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,200);
  const baseline=db.global.revision;
- assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,9);
+ assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,10);
  const off=await api(db,'admin/scripts',{token:admin,method:'PUT',body:{id:'bot-farm-2',enabled:false}});
  assert.equal(off.status,200);
  const status=await api(db,'me',{token});
@@ -323,7 +323,7 @@ test('Catalog is private and subscriber-visible entries come solely from per-use
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
  list=await api(db,'catalog',{token:userToken});
  assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
- assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,9);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,10);
  await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
  assert.equal((await api(db,'catalog',{token:userToken})).status,403);
 });
