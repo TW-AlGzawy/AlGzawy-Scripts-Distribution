@@ -51,12 +51,17 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
   if(!telegramPreviewHost(req))return bad('not_found',404);
   const configured=telegramReady(env);
   if(action==='status'&&req.method==='GET'){
-    let link=null;
-    try{link=await dbLink(env,user.id);}catch(_){}
-    return reply({ok:true,configured,linked:!!link,
-      botUsername:configured?env.ALG_TELEGRAM_BOT_USERNAME:null,
-      preferences:{attacks:link?.attack_alerts===1,warehouse:false},
-      warehouseAvailable:false,attacksAvailable:configured});
+    let link=null,schemaReady=false;
+    try{
+      // All three tables must exist, not merely the link table.
+      const tableSet=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('portal_telegram_links','portal_telegram_pair_codes','portal_telegram_alert_events')").all();
+      schemaReady=new Set((tableSet.results||[]).map(row=>row.name)).size===3;
+      if(schemaReady)link=await dbLink(env,user.id);
+    }catch(_){schemaReady=false;link=null;}
+    return reply({ok:true,configured:configured&&schemaReady,linked:configured&&schemaReady&&!!link,
+      botUsername:configured&&schemaReady?env.ALG_TELEGRAM_BOT_USERNAME:null,
+      preferences:{attacks:configured&&schemaReady&&link?.attack_alerts===1,warehouse:false},
+      warehouseAvailable:false,attacksAvailable:configured&&schemaReady});
   }
   if(!configured)return bad('telegram_not_configured',503);
   if(action==='link'&&req.method==='POST'){
@@ -100,9 +105,26 @@ export async function telegramWebhook(req,env,{reply,bad,digest}){
   if(!telegramReady(env))return bad('telegram_not_configured',503);
   if(!equal(req.headers.get('X-Telegram-Bot-Api-Secret-Token')||'',env.ALG_TELEGRAM_WEBHOOK_SECRET))
     return bad('unauthorized',401);
-  if(Number(req.headers.get('Content-Length')||0)>8192)return bad('payload_too_large',413);
+  // Content-Length is not guaranteed, e.g. chunked requests. Always limit
+  // the bytes actually read, including when Telegram sends repeated updates.
+  const lengthHeader=Number(req.headers.get('Content-Length')||0);
+  if(lengthHeader>8192)return bad('payload_too_large',413);
   let update;
-  try{update=await req.json();}catch(_){return bad('invalid_json');}
+  try{
+    const reader=req.body?.getReader();
+    if(!reader)return bad('invalid_json');
+    const chunks=[];let bytes=0;
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      bytes+=value.byteLength;
+      if(bytes>8192){await reader.cancel();return bad('payload_too_large',413);}
+      chunks.push(value);
+    }
+    const raw=new Uint8Array(bytes);let offset=0;
+    for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.byteLength;}
+    update=JSON.parse(new TextDecoder().decode(raw));
+  }catch(_){return bad('invalid_json');}
   const message=update?.message;
   if(message?.chat?.type!=='private'||typeof message.text!=='string')return reply({ok:true,ignored:true});
   const match=message.text.trim().match(/^\/start(?:@\w+)?\s+(alg_[a-f0-9]{48})$/);
