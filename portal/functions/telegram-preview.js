@@ -58,7 +58,7 @@ export function formatTelegramAlert(event){
       '📏 <b>المسافة:</b> '+niceText(d.distance),
       '⏳ <b>يصل في:</b> '+niceText(d.remaining),
       '📅 <b>توقيت الوصول:</b> '+niceText(d.arrival)];
-    if(!Object.values(d).some(x=>x&& !['world','account'].includes(x)))lines.push('🚨 <b>الهجمات الواردة:</b> '+event.count);
+    if(!['target','origin','attacker','distance','arrival','remaining'].some(k=>cleanText(d[k])))lines.push('🚨 <b>الهجمات الواردة:</b> '+event.count);
     lines.push('','🚀 <b>AlGzawy Edition</b>');
     return lines.join('\n');
   }
@@ -179,6 +179,8 @@ export const telegramBotCommands=[
   {command:'status',description:'حالة الربط والتنبيهات'},
   {command:'on',description:'تفعيل إشعارات الهجمات'},
   {command:'off',description:'إيقاف إشعارات الهجمات'},
+  {command:'warehouse_on',description:'تفعيل تنبيهات امتلاء المخازن'},
+  {command:'warehouse_off',description:'إيقاف تنبيهات امتلاء المخازن'},
   {command:'unlink',description:'إلغاء ربط حساب Telegram'}
 ];
 const PREVIEW_PORTAL='https://'+QA_HOST+'/v2/#telegram';
@@ -191,10 +193,12 @@ const HELP_TEXT='🤖 AlGzawy | TW Scripts Bot\n'
   +'/status — حالة ربط Telegram والتنبيهات\n'
   +'/on — تشغيل تنبيهات الهجمات\n'
   +'/off — إيقاف تنبيهات الهجمات\n'
+  +'/warehouse_on — تفعيل تنبيهات المخازن (90%)\n'
+  +'/warehouse_off — إيقاف تنبيهات المخازن\n'
   +'/unlink — إلغاء ربط محادثتك\n\n'
   +'🔗 افتح موقع المشترك لتوليد رابط الربط الخاص بك:\n'+PREVIEW_PORTAL+'\n\n'
   +'⚠️ تنبيهات الهجمات تحتاج تشغيل سكربت التنبيه والجسر داخل اللعبة. '
-  +'تنبيهات المخازن قيد التطوير. لا ترسل كلمة مرور اللعبة أو مفاتيح البوت.';
+  +'تنبيهات المخازن تُرسل عند وصول أي مورد إلى 90% من السعة بعد تفعيلها. لا ترسل كلمة مرور اللعبة أو مفاتيح البوت.';
 async function boundChat(env,chatId){
   return env.DB.prepare('SELECT user_id,attack_alerts FROM portal_telegram_links WHERE chat_id=?')
     .bind(chatId).first();
@@ -250,11 +254,14 @@ async function handleBotCommand(env,chatId,text,helpers){
     return true;
   }
   if(action==='status'){
+    const available=await warehouseTableReady(env);
+    const pref=available?await warehousePreference(env,chat.user_id):null;
     await send(env,chatId,'📊 حالة Telegram في AlGzawy Preview\n'
       +'✅ محادثتك مرتبطة بحساب مشترك.\n'
-      +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')
-      +'\nℹ️ تنبيهات المخازن قيد التطوير.\n'
-      +'تحتاج تنبيهات الهجمات إلى استمرار تشغيل اللعبة وسكربت التنبيه والجسر وتفعيل الاشتراك.');
+      +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')+'\n'
+      +(available?(pref?.enabled===1?'🟢 تنبيهات المخازن: مفعّلة عند 90%':'🔴 تنبيهات المخازن: متوقفة')
+        :'ℹ️ تنبيهات المخازن تحتاج إعداد قاعدة Preview')
+      +'\n⚠️ تحتاج الإشعارات تشغيل اللعبة والجسر وسكربت التنبيه. المخازن للقرية المفتوحة فقط.');
     return true;
   }
   if(action==='on'||action==='off'){
@@ -264,6 +271,18 @@ async function handleBotCommand(env,chatId,text,helpers){
     await send(env,chatId,enabled
       ?'✅ تم تفعيل استقبال تنبيهات الهجمات لهذا الاشتراك.'
       :'🔕 تم تعطيل استقبال تنبيهات الهجمات لهذا الاشتراك.');
+    return true;
+  }
+  if(action==='warehouse_on'||action==='warehouse_off'){
+    if(!(await warehouseTableReady(env))){
+      await send(env,chatId,'⚠️ لا يمكن تفعيل تنبيهات المخازن قبل تهيئة قاعدة Preview.');return true;
+    }
+    const enabled=action==='warehouse_on'?1:0;
+    await env.DB.prepare('INSERT INTO portal_telegram_warehouse_preferences(user_id,enabled,threshold) VALUES(?,?,90) ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled')
+      .bind(chat.user_id,enabled).run();
+    await send(env,chatId,enabled
+      ?'✅ تم تفعيل تنبيهات امتلاء المخازن عند 90% للقرية المفتوحة.'
+      :'🔕 تم إيقاف تنبيهات امتلاء المخازن.');
     return true;
   }
   if(action==='unlink'){
