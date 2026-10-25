@@ -13,16 +13,30 @@ test('Every published loader reports its installed version from approved preview
     const source=read('loaders/'+entry.id+'.user.js');
     assert.match(source,/^\/\/ @match\s+https:\/\/\*\.algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
     for(const origin of [previewOrigin,productionOrigin]){
-      const handlers={},domHandlers={},reports=[],domReports=[];
-      const win={addEventListener(type,fn){handlers[type]=fn;},postMessage(value,target){reports.push({value,target});}};
+      const handlers={},domHandlers={},reports=[],domReports=[],qaSignals=[],qaDomSignals=[];
+      const win={addEventListener(type,fn){handlers[type]=fn;},postMessage(value,target){
+        if(value.scope==='algzawy-installation-debug-v1')qaSignals.push({value,target});
+        else reports.push({value,target});
+      }};
       const doc={
         addEventListener(type,fn){domHandlers[type]=fn;},
-        dispatchEvent(event){domReports.push(event);}
+        dispatchEvent(event){
+          if(event.type==='algzawy-installation-debug-v1')qaDomSignals.push(event);
+          else domReports.push(event);
+        }
       };
       class CustomEvent{constructor(type,options){this.type=type;this.detail=options.detail;}}
       const loc={origin,pathname:'/v2/',hostname:new URL(origin).hostname};
       // No localStorage or network APIs: the game engine must not run on portal domains.
       vm.runInNewContext(source,{window:win,document:doc,CustomEvent,location:loc,console},{filename:entry.id+'.user.js'});
+      if(['mass-scavenge-v1','alg-attacks'].includes(entry.id)&&origin===previewOrigin){
+        assert.deepEqual(qaSignals.slice(0,2).map(x=>x.value.stage),['loader-start','listener-ready']);
+        assert.ok(qaSignals.some(x=>x.value.stage==='report-sent'));
+        assert.ok(qaDomSignals.every(x=>typeof x.detail==='string'),'QA diagnostics carry a JSON string');
+        assert.ok(qaDomSignals.every(x=>!x.detail.includes('nonce')),'QA diagnostics do not leak nonce values');
+      }else{
+        assert.equal(qaSignals.length,0,'QA instrumentation inactive for other scripts or production');
+      }
       assert.equal(reports.length,1,entry.id+' initial UI-only report from '+origin);
       assert.equal(reports[0].value.id,entry.id);
       assert.equal(reports[0].value.version,entry.version);
@@ -34,6 +48,10 @@ test('Every published loader reports its installed version from approved preview
       domHandlers['algzawy-installation-probe-v1']({detail:{scope:'algzawy-installation-v1',type:'probe',nonce:'dom-nonce'}});
       assert.equal(domReports[2].detail.nonce,'dom-nonce');
       assert.equal(reports[2].value.nonce,'dom-nonce');
+      if(['mass-scavenge-v1','alg-attacks'].includes(entry.id)&&origin===previewOrigin){
+        assert.ok(qaSignals.some(x=>x.value.stage==='probe-received'),'QA records probe processing');
+        assert.ok(qaSignals.some(x=>x.value.stage==='report-sent'),'QA records report send');
+      }
       handlers.message({source:win,origin:'https://evil.example',data:{scope:'algzawy-installation-v1',type:'probe',nonce:'evil'}});
       assert.equal(reports.length,3,entry.id+' rejects other origins');
     }
