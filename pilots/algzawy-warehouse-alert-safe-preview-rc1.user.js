@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | تنبيه المخازن — QA
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa-game-engine-rc1
-// @version      1.1.1
+// @version      1.1.2
 // @description  QA: isolated Preview device, subscription, per-script permission, ON switch, approved tab. No Production grants.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/v2/*
@@ -19,7 +19,7 @@
 (function () {
   'use strict';
   // Policy-first: no engine source is executed until a valid ENABLED response is confirmed.
-  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/5ab3185f15678da570f911a7d85a3f52249303ad";
+  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/72aeaf2e04e7c1cd2032978a5a337be8ca09f710";
   const SOURCE_URL = ROOT_URL + "/pilots/engines/warehouse-alert-safe-qa.js";
   const STATUS_URL = 'https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/api/status';
   const ID = "warehouse-alert-safe";
@@ -29,7 +29,7 @@
   if(location.origin==='https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev'
     &&location.pathname.startsWith('/v2/')){
     const report=nonce=>{
-      const payload={scope:'algzawy-installation-v1',type:'report',id:ID,version:'1.1.1',nonce};
+      const payload={scope:'algzawy-installation-v1',type:'report',id:ID,version:'1.1.2',nonce};
       window.postMessage(payload,location.origin);
       document.dispatchEvent(new CustomEvent('algzawy-installation-report-v1',{detail:payload}));
     };

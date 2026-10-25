@@ -209,7 +209,7 @@ function qaInstallDiagnosticsInit(){
     ['professional-training-v2','بوت التدريب','1.0.3.2'],
     ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
     ['alg-attacks','تنبيه الهجمات','1.0.3.4'],
-    ['warehouse-alert-safe','تنبيه المخازن','1.1.1'],
+    ['warehouse-alert-safe','تنبيه المخازن','1.1.2'],
     ['alg-coins','الصقل المتطور','1.0.2.1'],
     ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
   ];

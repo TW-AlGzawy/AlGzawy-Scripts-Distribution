@@ -25,13 +25,13 @@ test('standalone installer reports Preview installation and only authorizes game
  new vm.Script(loader);
  new vm.Script(engine);
  assert.match(loader,/^\/\/ @name\s+الغزااوي \| تنبيه المخازن — QA$/m);
- assert.match(loader,/^\/\/ @version\s+1\.1\.1$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.1\.2$/m);
  assert.match(loader,/^\/\/ @match\s+https:\/\/feature-algzawy-quality-hard\.algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
  assert.match(loader,/^\/\/ @include\s+https:\/\/\*\.tribalwars\.\*\/game\.php\*/m);
  assert.match(loader,/const ID = "warehouse-alert-safe"/);
  assert.match(loader,/algzawy-installation-report-v1/);
  assert.match(loader,/\/pilots\/engines\/warehouse-alert-safe-qa\.js/);
- assert.match(loader,/5ab3185f15678da570f911a7d85a3f52249303ad/);
+ assert.match(loader,/72aeaf2e04e7c1cd2032978a5a337be8ca09f710/);
  assert.doesNotMatch(loader,/\/main\/scripts\/|algzawy-control-api\.|const TAB_PIN_PREFIX='algzawy_tab_pin_v1_'/);
  assert.match(engine,/__algzawy_preview_stop_warehouse-alert-safe/);
  assert.match(engine,/function allowed\(\)/);

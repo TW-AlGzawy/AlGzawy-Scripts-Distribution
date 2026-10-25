@@ -52,7 +52,7 @@ test('game pilot remains compact and reads actual attack rows and village resour
  assert.match(warehouseEngine,/function readVillage\(\)/);
  assert.match(warehouseEngine,/function watch\(\)/);
  assert.match(warehouseEngine,/threshold:Number\.isInteger\(percent\)/);
- assert.match(warehouseEngine,/sessionStorage\.setItem\(key,String\(now\)\)/);
+ assert.match(warehouseEngine,/function shouldSendWarehouse\(village,threshold\)/);
  assert.match(bridge,/qaTelegramQueue=qaTelegramQueue\.catch/);
  assert.match(bridge,/deviceProof\('\/api\/telegram\/notify'\)/);
 });
