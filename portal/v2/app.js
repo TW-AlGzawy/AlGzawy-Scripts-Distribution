@@ -8,7 +8,7 @@ const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
   if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.1 QA';});
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.2 QA';});
     return;
   }
   try{
