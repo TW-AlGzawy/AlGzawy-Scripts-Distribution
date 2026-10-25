@@ -3,7 +3,7 @@
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.0.2
 // @description  AlGzawy BETA — اشتراك وجهاز معتمد
-// @include      https://*/*=scavenge_mass*
+// @include      https://*.tribalwars.*/game.php?*screen=scavenge_mass*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
