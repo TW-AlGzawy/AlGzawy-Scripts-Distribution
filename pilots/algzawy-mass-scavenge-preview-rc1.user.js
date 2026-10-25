@@ -4,6 +4,7 @@
 // @version      1.0.2.1
 // @description  Isolated QA test runner: only signed Preview device + user entitlement + ON Preview global switch. No Production authorization.
 // @include      https://*.tribalwars.ae/game.php?*screen=scavenge_mass*
+// @include      https://*.tribalwars.ae/game.php?*mode=scavenge_mass*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
 // @connect      feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev
