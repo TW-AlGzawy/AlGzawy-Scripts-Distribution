@@ -477,10 +477,12 @@
       if(!isRunning)return;
       const info=readWarehouse();if(!info)return;
       const key='algzawy_preview_warehouse_alert_state_'+info.villageId;
-      const sent=sessionStorage.getItem(key)==='1';
-      if(info.percent<85){if(sent)sessionStorage.removeItem(key);return;}
-      if(info.percent<WAREHOUSE_ALERT_THRESHOLD||sent)return;
-      sessionStorage.setItem(key,'1');
+      const last=Number(sessionStorage.getItem(key)||0);
+      if(info.percent<85){if(last)sessionStorage.removeItem(key);return;}
+      // Retry an unacknowledged opt-in after 5 min; server deduplicates
+      // successful alerts for six hours even across page reloads.
+      if(info.percent<WAREHOUSE_ALERT_THRESHOLD||(last&&Date.now()-last<300000))return;
+      sessionStorage.setItem(key,String(Date.now()));
       document.dispatchEvent(new CustomEvent('algzawy-preview-telegram-event',{detail:info}));
     }
 
