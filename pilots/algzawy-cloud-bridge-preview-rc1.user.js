@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي — PREVIEW RC1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/preview-rc1
-// @version      2.4.1.5
+// @version      2.4.1.6
 // @description  TEST ONLY: signed pairing to isolated Cloudflare Preview. Does not authorize production game engines.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -83,13 +83,14 @@
     for(const id of known.filter(id=>licensedPins.has(id))){
       const row=document.createElement('div');
       row.dataset.algScriptId=id;
-      row.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin:3px 0;padding:5px 2px;border-bottom:1px solid #31565a;flex-wrap:wrap';
+      row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) 118px;gap:8px;align-items:center;margin:3px 0;padding:6px 2px;border-bottom:1px solid #31565a;min-width:0';
       const text=document.createElement('span');text.textContent=scriptLabels[id]||id;
+       text.style.cssText='min-width:0;overflow-wrap:anywhere;line-height:1.45';
       const toggle=document.createElement('button');toggle.type='button';
       toggle.textContent=pinned(id)?'إلغاء التثبيت':'📌 تثبيت بهذا التاب';
       toggle.setAttribute('aria-pressed',String(pinned(id)));
       toggle.setAttribute('aria-label',(pinned(id)?'إلغاء تثبيت ':'تثبيت ')+(scriptLabels[id]||id));
-      toggle.style.cssText='color:#d5fff7;background:#194f4c;border:1px solid #2ebbaa;padding:4px 7px;border-radius:5px;font-size:10px;cursor:pointer';
+      toggle.style.cssText='width:118px;min-width:118px;min-height:30px;color:#d5fff7;background:#194f4c;border:1px solid #2ebbaa;padding:4px 3px;border-radius:5px;font-size:10px;line-height:1.35;cursor:pointer;white-space:normal';
       toggle.addEventListener('click',()=>setTabPin(id,!pinned(id)));
       row.append(text,toggle);holder.appendChild(row);
     }
@@ -225,39 +226,54 @@
   }
   document.addEventListener('algzawy-preview-telegram-event',event=>{
     const info=event.detail;
-    if(!info||!['attack','warehouse'].includes(info.type)
-      ||!Number.isSafeInteger(info.villageId)||info.villageId<1||info.villageId>9999999999
+    if(!info||!['attack','warehouse','warehouse-batch'].includes(info.type)
       ||!connection.device||publisherPreviouslyOn!==true)return;
-    const requiredId=info.type==='warehouse'?'warehouse-alert-safe':'alg-attacks';
+    const requiredId=info.type==='attack'?'alg-attacks':'warehouse-alert-safe';
     if(!pinned(requiredId)||localStorage.getItem('algzawy_preview_portal_grant_'+requiredId)!=='1')return;
-    const body={type:info.type,villageId:info.villageId};
+    const body={type:info.type};
+    const validVillage=id=>Number.isSafeInteger(id)&&id>0&&id<=9999999999;
+    const validResources=x=>x&&validVillage(x.villageId)
+      &&Number.isSafeInteger(x.capacity)&&x.capacity>0&&x.capacity<=99999999999
+      &&['wood','stone','iron'].every(k=>Number.isSafeInteger(x[k])&&x[k]>=0&&x[k]<=99999999999)
+      &&Number.isSafeInteger(x.percent)&&x.percent>=0&&x.percent<=100;
+    const fields=['world','account','villageName','coords'];
+    const cleanVillage=x=>{
+      const obj={};
+      for(const k of ['villageId','capacity','wood','stone','iron','percent'])obj[k]=x[k];
+      for(const k of fields){const value=qaTextField(x[k],k==='villageName'?100:120);if(value)obj[k]=value;}
+      return obj;
+    };
     if(info.type==='attack'){
-      if(!Number.isSafeInteger(info.count)||info.count<1||info.count>500)return;
-      body.count=info.count;
+      if(!validVillage(info.villageId)||!Number.isSafeInteger(info.count)||info.count<1||info.count>500)return;
+      body.villageId=info.villageId;body.count=info.count;
       if(typeof info.attackId==='string'&&/^\d{1,18}$/.test(info.attackId))body.attackId=info.attackId;
       if(info.details&&typeof info.details==='object'){
         const d={};
         for(const field of ['world','account','target','origin','attacker','distance','arrival','remaining']){
-          const v=qaTextField(info.details[field]);
-          if(v)d[field]=v;
+          const v=qaTextField(info.details[field]);if(v)d[field]=v;
         }
         body.details=d;
       }
-    }else{
-      if(!Number.isSafeInteger(info.capacity)||info.capacity<1||info.capacity>99999999999
-        ||![info.wood,info.stone,info.iron].every(x=>Number.isSafeInteger(x)&&x>=0&&x<=99999999999)
-        ||!Number.isSafeInteger(info.threshold)||info.threshold<50||info.threshold>100
-        ||!Number.isSafeInteger(info.percent)||info.percent<info.threshold||info.percent>100)return;
-      for(const key of ['capacity','wood','stone','iron','percent'])body[key]=info[key];
+    }else if(info.type==='warehouse'){
+      if(!validResources(info)||!Number.isSafeInteger(info.threshold)||info.threshold<1||info.threshold>100
+        ||info.percent<info.threshold)return;
+      Object.assign(body,cleanVillage(info));
       body.threshold=info.threshold;
-      for(const key of ['world','account','villageName','coords']){
-        const value=qaTextField(info[key]);if(value)body[key]=value;
-      }
+    }else{
+      if(!Number.isSafeInteger(info.threshold)||info.threshold<1||info.threshold>100||
+        !Array.isArray(info.villages)||info.villages.length<1||info.villages.length>12||
+        !info.villages.every(x=>validResources(x)&&x.percent>=info.threshold))return;
+      body.villages=info.villages.map(cleanVillage);
+      body.threshold=info.threshold;
+      body.totalOverLimit=Number.isSafeInteger(info.totalOverLimit)?Math.min(info.totalOverLimit,9999):body.villages.length;
+      body.part=Number.isSafeInteger(info.part)?info.part:1;
+      body.parts=Number.isSafeInteger(info.parts)?info.parts:1;
     }
-    const name=info.type==='attack'?(body.attackId||'count-'+body.count):'village';
-    const key=info.type+':'+info.villageId+':'+name;
+    const identity=body.type==='warehouse-batch'?body.villages.map(v=>v.villageId).join(','):
+      body.villageId+':'+(body.attackId||body.count||'warehouse');
+    const key=body.type+':'+identity;
     const now=Date.now(),last=qaTelegramRecent.get(key)||0;
-    if(now-last<(info.type==='warehouse'?600000:120000))return;
+    if(now-last<(body.type==='attack'?120000:300000))return;
     qaTelegramRecent.set(key,now);
     for(const [k,when] of qaTelegramRecent)if(now-when>21600000)qaTelegramRecent.delete(k);
     qaTelegramQueue=qaTelegramQueue.catch(()=>{}).then(async()=>{
@@ -266,9 +282,7 @@
       try{
         const headers=await deviceProof('/api/telegram/notify');
         await request('telegram/notify',{method:'POST',headers,data:body});
-      }catch(_){
-        // Telegram is best effort; never stop the game or leak credentials.
-      }
+      }catch(_){/* best effort; never interfere with game and no token in UI */}
     });
   });
 
@@ -490,13 +504,13 @@
     if(card||!document.body)return;
     card=document.createElement('section');
     card.id='algzawy-cloud-pair-panel';card.dir='rtl';
-    card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:245px;max-width:93vw;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial;overflow:hidden';
-    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong>☁ AlG PREVIEW — جسر الاختبار</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
+    card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:285px;height:355px;min-width:255px;min-height:170px;max-width:92vw;max-height:85vh;resize:both;overflow:auto;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial';
+    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong style="min-width:0;flex:1">☁ AlG PREVIEW — جسر الاختبار</strong><button type="button" id="algzawy-cloud-size-down" title="تصغير العرض" style="color:#d5fff7;background:#194f4c;border:1px solid #36796a;border-radius:5px;cursor:pointer">−</button><button type="button" id="algzawy-cloud-size-up" title="تكبير العرض" style="color:#d5fff7;background:#194f4c;border:1px solid #36796a;border-radius:5px;cursor:pointer">＋</button><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
       '<div id="algzawy-cloud-body" style="padding:10px"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
       '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">التحقق من الموقع والترخيص يتم تلقائيًا بعد الربط الأول.</p>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
-      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:170px;overflow-y:auto"></div></details>'+
+      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:200px;min-height:65px;overflow-y:auto;overflow-x:hidden"></div></details>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
       '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
@@ -527,15 +541,36 @@
       GM_setValue(keys.device,'');GM_setValue(keys.last,0);GM_setValue('algzawy_preview_cloud_counter',0);
       stopAll();renderLinked();
     });
+    const geometryKey='algzawy-preview-bridge-panel-geometry-v1';
+    let saved={};try{saved=JSON.parse(localStorage.getItem(geometryKey)||'{}');}catch(_){}
+    const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
+    if(Number.isFinite(saved.width))card.style.width=clamp(saved.width,255,Math.max(255,window.innerWidth-20))+'px';
+    if(Number.isFinite(saved.height))card.style.height=clamp(saved.height,170,Math.max(170,window.innerHeight-30))+'px';
+    if(Number.isFinite(saved.left)&&Number.isFinite(saved.top)){
+      card.style.left=clamp(saved.left,0,Math.max(0,window.innerWidth-card.offsetWidth))+'px';
+      card.style.top=clamp(saved.top,0,Math.max(0,window.innerHeight-card.offsetHeight))+'px';
+      card.style.bottom='auto';
+    }
+    function persistGeometry(){
+      try{localStorage.setItem(geometryKey,JSON.stringify({
+        width:card.offsetWidth,height:card.offsetHeight,left:card.offsetLeft,top:card.offsetTop
+      }));}catch(_){}
+    }
+    q('size-down').addEventListener('click',()=>{card.style.width=clamp(card.offsetWidth-40,255,530)+'px';persistGeometry();});
+    q('size-up').addEventListener('click',()=>{card.style.width=clamp(card.offsetWidth+40,255,Math.min(530,window.innerWidth-15))+'px';persistGeometry();});
+    // Persist native resize:both changes on pointer release without forcing
+    // the pin buttons to move between lines.
+    card.addEventListener('pointerup',persistGeometry);
     const mini=q('min');mini.addEventListener('click',()=>{
       const body=q('body');
       body.style.display=body.style.display==='none'?'':'none';
       mini.textContent=body.style.display==='none'?'+':'−';
     });
     const hdr=q('hdr');let drag=null;
-    hdr.addEventListener('pointerdown',e=>{if(e.target===mini)return;drag={x:e.clientX,y:e.clientY,top:card.offsetTop,left:card.offsetLeft};hdr.setPointerCapture?.(e.pointerId);});
+    hdr.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag={x:e.clientX,y:e.clientY,top:card.offsetTop,left:card.offsetLeft};hdr.setPointerCapture?.(e.pointerId);});
     hdr.addEventListener('pointermove',e=>{if(!drag)return;card.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';card.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';card.style.bottom='auto';});
-    hdr.addEventListener('pointerup',()=>{drag=null;});
+    hdr.addEventListener('pointerup',()=>{drag=null;persistGeometry();});
+    hdr.addEventListener('pointercancel',()=>{drag=null;});
     renderLinked();
     renderPinControls();
   }
