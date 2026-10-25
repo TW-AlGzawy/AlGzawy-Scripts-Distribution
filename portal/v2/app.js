@@ -8,7 +8,7 @@ const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
   if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.2 QA';});
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.3 QA';});
     return;
   }
   try{
@@ -204,9 +204,9 @@ function qaInstallDiagnosticsInit(){
     ['bot-farm-2','بوت النهب','1.0.2.1'],
     ['alg-balance','موازنة الموارد','1.0.2.1'],
     ['algzawy-builder-v1','البناء المتطور','1.0.3.1'],
-    ['professional-training-v2','بوت التدريب','1.0.3.1'],
+    ['professional-training-v2','بوت التدريب','1.0.3.2'],
     ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
-    ['alg-attacks','تنبيه الهجمات','1.0.3.1'],
+    ['alg-attacks','تنبيه الهجمات','1.0.3.2'],
     ['alg-coins','الصقل المتطور','1.0.2.1'],
     ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
   ];
