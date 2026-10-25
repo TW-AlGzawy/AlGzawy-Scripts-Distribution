@@ -67,3 +67,14 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 .diagnostic-row{display:flex;gap:6px;flex-wrap:wrap;margin:0;padding:10px 12px;background:var(--panel2,#13283a);border:1px solid var(--border,#263c4f);border-radius:10px}
 .diagnostic-caveat{color:var(--muted,#95acbc);margin:6px 0 0}
 @media(max-width:520px){.subscriber-diagnostics{padding:14px}.diagnostic-row{padding:10px}}
+
+/* QA Preview only: ephemeral, sanitized installation-handshake trace. */
+.qa-probe-panel{margin:18px 0 20px;background:#101f30;border-color:#376476}
+.qa-probe-panel h3{font-size:16px;margin:0 0 8px;color:#a4f5de}
+.qa-probe-panel p{margin:0 0 12px}
+.qa-probe-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qa-probe-actions .btn{min-height:34px;padding:6px 11px}
+.qa-probe-trace{list-style:none;margin:12px 0 0;padding:0;max-height:290px;overflow-y:auto;display:grid;gap:6px}
+.qa-probe-item{display:flex;gap:7px;justify-content:space-between;align-items:baseline;border:1px solid #25465b;border-radius:8px;padding:7px 10px;background:#0a1927;font-size:10px;overflow-wrap:anywhere;flex-wrap:wrap}
+.qa-probe-item strong{color:#79dbc3}.qa-probe-item span{color:#c2d9e1;direction:ltr}
+@media(max-width:500px){.qa-probe-item{display:grid;gap:3px}.qa-probe-actions .btn{flex:1}}
