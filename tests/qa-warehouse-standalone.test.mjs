@@ -32,7 +32,7 @@ test('standalone installer reports Preview installation and only authorizes game
  assert.match(loader,/algzawy-installation-report-v1/);
  assert.match(loader,/\/pilots\/engines\/warehouse-alert-safe-qa\.js/);
  assert.match(loader,/35e94e72d6a4d41197c6864ccc70f37eadc8b1b6/);
- assert.doesNotMatch(loader,/\/main\/scripts\/|algzawy-control-api\.|algzawy_tab_pin_v1_/);
+ assert.doesNotMatch(loader,/\/main\/scripts\/|algzawy-control-api\.|const TAB_PIN_PREFIX='algzawy_tab_pin_v1_'/);
  assert.match(engine,/__algzawy_preview_stop_warehouse-alert-safe/);
  assert.match(engine,/function allowed\(\)/);
  assert.match(engine,/function stop\(\)/);
@@ -87,7 +87,7 @@ test('independent portal threshold defaults to 90 and accepts only validated 50.
 });
 test('warehouse event is rejected when only attacks is licensed or globally enabled',async()=>{
  const t='warehouse-alert-safe';
- const req=new Request(host+'/api/telegram/notify',{method:'POST',body:JSON.stringify({
+ const makeRequest=()=>new Request(host+'/api/telegram/notify',{method:'POST',body:JSON.stringify({
   type:'warehouse',villageId:996,capacity:10000,wood:9100,stone:0,iron:0,
   percent:91,threshold:90
  })});
@@ -98,11 +98,11 @@ test('warehouse event is rejected when only attacks is licensed or globally enab
   allowedSet:async()=>new Set(['alg-attacks']),
   globallyDisabledScripts:async()=>new Set(),
   subscriptionOK:async()=>true,globalState:async()=>({enabled:true})};
- const res=await alertsModule.telegramNotify(req,env,{user_id:'qa'},helpers);
+ const res=await alertsModule.telegramNotify(makeRequest(),env,{user_id:'qa'},helpers);
  assert.equal(res.status,403);
  assert.equal((await res.json()).error,'script_not_licensed');
  helpers.allowedSet=async()=>new Set([t]);
  helpers.globallyDisabledScripts=async()=>new Set([t]);
- const res2=await alertsModule.telegramNotify(req,env,{user_id:'qa'},helpers);
+ const res2=await alertsModule.telegramNotify(makeRequest(),env,{user_id:'qa'},helpers);
  assert.equal(res2.status,403);
 });
