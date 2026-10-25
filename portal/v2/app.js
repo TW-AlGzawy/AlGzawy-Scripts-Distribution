@@ -462,7 +462,7 @@ async function runDiagnostics(){
     {label:'الجلسة الآمنة',path:'session',check:data=>data.expiresAt>Math.floor(Date.now()/1000)?'جلسة صالحة':'تحتاج إعادة تسجيل الدخول'},
     {label:'الاشتراك والصلاحيات',path:'me',check:data=>data.subscription?.active===true?'نشط · '+Object.values(data.scripts||{}).filter(x=>x?.allowed===true).length+' سكربت مرخص':'الاشتراك غير نشط'},
     {label:'التحكم المركزي',path:'status',check:data=>data.global?.enabled===true?'متاح (ON)':'متوقف من الإدارة (OFF)'},
-    {label:'إصدار Cloud Bridge',path:'bridge-version',check:data=>/^\\d+(?:\\.\\d+){1,3}$/.test(data.version||'')?'الإصدار المتاح v'+data.version:'الإصدار غير متاح'},
+    {label:'إصدار Cloud Bridge',path:'bridge-version',check:data=>/^\d+(?:\.\d+){1,3}$/.test(data.version||'')?'الإصدار المتاح v'+data.version:'الإصدار غير متاح'},
     {label:'فهرس تحديثات السكربتات',path:'installer-releases',check:data=>Array.isArray(data.items)?'متاح · '+data.items.length+' إصدارات':'لا يمكن قراءة الفهرس'}
   ];
   try{
