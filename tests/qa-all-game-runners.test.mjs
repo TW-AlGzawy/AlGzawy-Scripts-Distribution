@@ -75,7 +75,7 @@ for(const id of ids){
     assert.match(s,/^\/\/ @version\s+\d+(?:\.\d+){2,3}$/m);
     assert.match(s,new RegExp('^\\/\\/ @updateURL\\s+https:\\/\\/raw\\.githubusercontent\\.com\\/TW-AlGzawy\\/AlGzawy-Scripts-Distribution\\/feature\\/algzawy-quality-hardening-2026-10-25\\/pilots\\/algzawy-'+id+'-preview-rc1\\.user\\.js$','m'));
     assert.match(s,/^\/\/ @connect\s+feature-algzawy-quality-hard\.algzawy-cloud-control\.pages\.dev$/m);
-    assert.doesNotMatch(s,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev|\/main\/scripts\/|algzawy-cloud-control\.pages\.dev\/api\/status/);
+    assert.doesNotMatch(s,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev|\/main\/scripts\/|https:\/\/algzawy-cloud-control\.pages\.dev\/api\/status/);
     assert.doesNotMatch(s,/^\/\/ @match\s+https:\/\/.*algzawy-cloud-control\.pages\.dev/m);
     assert.match(s,/^\/\/ @(?:include|match)\s+https:\/\/.*tribalwars\./m);
     assert.match(s,new RegExp(pin));
