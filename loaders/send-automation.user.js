@@ -26,13 +26,23 @@
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
     const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.5.3';
-    const report=nonce=>window.postMessage({scope:'algzawy-installation-v1',type:'report',
-      id:ID,version:String(version),nonce},location.origin);
+    const report=nonce=>{
+      const payload={scope:'algzawy-installation-v1',type:'report',
+        id:ID,version:String(version),nonce};
+      window.postMessage(payload,location.origin);
+      // Tampermonkey may run in a Chrome isolated world. A DOM CustomEvent
+      // provides a second UI-only route without granting engine permissions.
+      document.dispatchEvent(new CustomEvent('algzawy-installation-report-v1',{detail:payload}));
+    };
+    const acceptProbe=m=>{
+      if(m?.scope==='algzawy-installation-v1'&&m.type==='probe'
+        &&typeof m.nonce==='string'&&m.nonce.length<=100)report(m.nonce);
+    };
     window.addEventListener('message',event=>{
       if(event.source!==window||event.origin!==location.origin)return;
-      const m=event.data;
-      if(m?.scope==='algzawy-installation-v1'&&m.type==='probe'&&typeof m.nonce==='string'&&m.nonce.length<=100)report(m.nonce);
+      acceptProbe(event.data);
     });
+    document.addEventListener('algzawy-installation-probe-v1',event=>acceptProbe(event.detail));
     report('');
     return;
   }
