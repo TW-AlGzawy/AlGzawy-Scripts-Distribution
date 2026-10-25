@@ -105,11 +105,15 @@ function installationControl(item){
   link.href=installerUrlFor(item);link.rel='noopener noreferrer';link.target='_blank';
   link.title=result.note+(qaPreviewHost?' (نسخة اختبار من فرع RC1؛ ليست إصدار Production)':'');
   link.addEventListener('click',()=>{
-    // Never put unrelated script cards in the checking state.
-    state.probeTarget=item.id;
-    state.probing=true;
-    renderScripts();
-    // The new userscript may only execute after reloading the portal tab.
+    // Do not synchronously remove the clicked anchor before the browser opens it.
+    setTimeout(()=>{
+      if(!state.user)return;
+      // Never put unrelated script cards in the checking state.
+      state.probeTarget=item.id;
+      state.probing=true;
+      renderScripts();
+    },0);
+    // A new Tampermonkey script usually needs a portal tab reload to inject.
     setTimeout(()=>{if(state.user)probeInstalledScripts(item.id);},4500);
   });
   return link;
