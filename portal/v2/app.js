@@ -16,7 +16,7 @@ async function syncBridgeVersion(){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,probeTarget:null,probeResponders:new Set(),helloProbed:new Set(),releaseError:false};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probeInFlight:false,probing:false,probeTarget:null,probeResponders:new Set(),helloProbed:new Set(),releaseError:false};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
@@ -130,8 +130,9 @@ function installationControl(item){
 }
 // QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
 // Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
-const qaInstallIds=new Set(['mass-scavenge-v1','alg-attacks']);
-const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent']);
+const qaInstallProbeIds=['mass-scavenge-v1','alg-attacks'];
+const qaInstallIds=new Set([...qaInstallProbeIds,'qa-smoke']);
+const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent','smoke-ready']);
 const qaInstallTrace=[];
 let qaInstallTraceList=null;
 function qaInstallLog(id,stage,channel='',note=''){
@@ -164,7 +165,7 @@ function qaInstallDiagnosticsInit(){
   panel.setAttribute('aria-labelledby','qaProbeTitle');
   const h=el('h3','', 'تشخيص تأكيد التثبيت — Preview فقط');
   h.id='qaProbeTitle';
-  const info=el('p','small-muted','فحص تجريبي لسكربتَي الإغارات وتنبيه الهجمات. لا يتم إرسال السجل إلى أي خادم، ولا يحتوي على رموز تحقق أو معلومات الاشتراك. يجب إعادة تثبيت نسختَي QA لتظهر إشارات Loader.');
+  const info=el('p','small-muted','فحص تجريبي لسكربتَي الإغارات وتنبيه الهجمات، مع سكربت اختبار مستقل للتأكد من حقن Tampermonkey. السجل محلي ولا يحتوي رموز تحقق أو معلومات اشتراك. يجب إعادة تثبيت نسختَي QA لتظهر إشارات Loader.');
   const actions=el('div','qa-probe-actions');
   const start=el('button','btn outline','فحص السكربتين الآن');
   start.type='button';
@@ -219,10 +220,18 @@ function probeInstalledScripts(targetId=null){
   if(!state.user||document.visibilityState==='hidden')return;
   if(targetId&&state.catalog.some(item=>item.id===targetId))state.probeTarget=targetId;
   state.probing=Boolean(state.probeTarget);
+  // Focus, visibilitychange and refresh may fire together. Never invalidate
+  // a live challenge by replacing its nonce during an overlapping probe.
+  if(state.probeInFlight){
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-coalesced','portal');
+    renderScripts();
+    return;
+  }
+  state.probeInFlight=true;
   state.probeNonce=crypto.randomUUID();
   state.probeResponders=new Set();
   const nonce=state.probeNonce;
-  for(const id of qaInstallIds)qaInstallLog(id,'probe-sent','portal','target='+(targetId||'all'));
+  for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-sent','portal','target='+(targetId||'all'));
   const ask={scope:'algzawy-installation-v1',type:'probe',nonce};
   // The document event works across injected content worlds without network calls.
   document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
@@ -231,7 +240,7 @@ function probeInstalledScripts(targetId=null){
   // Some Tampermonkey loaders wait for @require, so retry before declaring no proof.
   setTimeout(()=>{
     if(state.probeNonce!==nonce||!state.user)return;
-    for(const id of qaInstallIds)qaInstallLog(id,'probe-retry','portal');
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-retry','portal');
     document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
     window.postMessage(ask,location.origin);
   },2600);
@@ -239,7 +248,8 @@ function probeInstalledScripts(targetId=null){
     if(state.probeNonce!==nonce||!state.user)return;
     for(const id of state.installed.keys())
       if(!state.probeResponders.has(id))state.installed.delete(id);
-    for(const id of qaInstallIds)qaInstallLog(id,state.probeResponders.has(id)?'probe-complete':'probe-timeout','portal');
+    for(const id of qaInstallProbeIds)qaInstallLog(id,state.probeResponders.has(id)?'probe-complete':'probe-timeout','portal');
+    state.probeInFlight=false;
     state.probing=false;state.probeTarget=null;
     renderScripts();
   },6500);
@@ -284,7 +294,7 @@ window.addEventListener('message',event=>{
 document.addEventListener('algzawy-installation-report-v1',event=>{
   if(event.detail===null||event.detail===undefined){
     // Cannot attribute an empty payload to a particular loader.
-    for(const id of qaInstallIds)qaInstallLog(id,'empty-event-detail','document.CustomEvent');
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'empty-event-detail','document.CustomEvent');
   }
   receiveInstallationReport(event.detail,'document.CustomEvent');
 });
@@ -690,7 +700,7 @@ $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActiv
 $('refreshButton').addEventListener('click',()=>void refresh());
 async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeInFlight=false;state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
   state.prefs={};state.csrf='';state.expiresAt=0;
   history.replaceState(null,'',location.pathname+location.search);
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
