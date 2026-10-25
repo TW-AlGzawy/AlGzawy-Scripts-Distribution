@@ -8,7 +8,7 @@ const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
   if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.4 QA';});
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.5 QA';});
     return;
   }
   try{
@@ -101,6 +101,8 @@ if(qaPreviewHost){
   if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
 }
 function installerUrlFor(item){
+  if(qaPreviewHost&&item.id==='warehouse-alert-safe')
+    return 'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js';
   return qaPreviewHost
     ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
     :item.installer;
@@ -134,10 +136,10 @@ function installationControl(item){
 }
 // QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
 // Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
-// The published nine-script catalog is the source of installation IDs.
+// The Preview catalog includes a separately licensed warehouse script.
 // QA traces are limited to these IDs and never imply an installation.
 const qaInstallProbeIds=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
-  'professional-training-v2','send-automation','alg-attacks','alg-coins','tribal-wars-helper'];
+  'professional-training-v2','send-automation','alg-attacks','warehouse-alert-safe','alg-coins','tribal-wars-helper'];
 const qaInstallIds=new Set([...qaInstallProbeIds,'qa-smoke']);
 const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent','smoke-ready']);
 const qaInstallTrace=[];
@@ -206,7 +208,8 @@ function qaInstallDiagnosticsInit(){
     ['algzawy-builder-v1','البناء المتطور','1.0.3.1'],
     ['professional-training-v2','بوت التدريب','1.0.3.2'],
     ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
-    ['alg-attacks','تنبيه الهجمات والمخازن','1.0.3.3'],
+    ['alg-attacks','تنبيه الهجمات','1.0.3.4'],
+    ['warehouse-alert-safe','تنبيه المخازن','1.0.0'],
     ['alg-coins','الصقل المتطور','1.0.2.1'],
     ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
   ];
