@@ -1,4 +1,5 @@
 // Cloudflare Pages Functions — AlGzawy Cloud Portal (Free / D1)
+import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost} from '../../telegram-preview.js';
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
@@ -143,7 +144,7 @@ async function accessEvent(env,req,userId,deviceId,type){
     .bind(crypto.randomUUID(),userId,deviceId||null,type,requesterIP(req)).run();}
   catch(err){console.error('[AlGzawy] event audit write failed',err);}
 }
-async function signatureAuth(req,env){
+async function signatureAuth(req,env,proofPath='/api/device/state'){
   const id=req.headers.get('X-ALG-DEVICE-ID')||'';
   const timestamp=Number(req.headers.get('X-ALG-TIMESTAMP')||0);
   const counter=Number(req.headers.get('X-ALG-COUNTER')||0);
@@ -163,7 +164,7 @@ async function signatureAuth(req,env){
     const normalized=sig.replace(/-/g,'+').replace(/_/g,'/');
     const binary=atob(normalized+'='.repeat((4-normalized.length%4)%4));
     const raw=Uint8Array.from(binary,c=>c.charCodeAt(0));
-    const statement=id+'|'+timestamp+'|'+counter+'|/api/device/state';
+    const statement=id+'|'+timestamp+'|'+counter+'|'+proofPath;
     verified=await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,raw,encoder.encode(statement));
   }catch(_){return null;}
   if(!verified||record.last_counter>=counter)return null;
@@ -208,7 +209,20 @@ function validateSettings(id,raw){
 async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
+  // Preview-only Telegram endpoints: never expose the bot token to clients.
+  if(path[0]==='telegram'&&!telegramPreviewHost(req))return bad('not_found',404);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
+  if(path[0]==='telegram'&&path[1]==='webhook'&&path.length===2){
+    return telegramWebhook(req,env,{reply,bad,digest});
+  }
+  if(path[0]==='telegram'&&path[1]==='notify'&&path.length===2){
+    // Device signature binds precisely to this path, not a reusable state proof.
+    const device=await signatureAuth(req,env,'/api/telegram/notify');
+    if(!device)return bad('device_proof_invalid',401);
+    if(device.approved!==1)return bad('device_pending_approval',403);
+    return telegramNotify(req,env,device,
+      {reply,bad,allowedSet,globallyDisabledScripts,subscriptionOK,globalState});
+  }
   if(req.method==='GET'&&path[0]==='bridge-version'&&path.length===1){
     try{
       // Public version-only metadata: never return grants or credentials.
@@ -583,6 +597,9 @@ async function handler(req,env){
       return bad('csrf_invalid',403);
   }
   if(!(await subscriptionOK(env,user.id)))return bad('subscription_inactive',403);
+  if(path[0]==='telegram'&&path.length===2){
+    return telegramSubscriber(req,env,user,path[1],{reply,bad,digest,bytes});
+  }
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(user.id).first();
