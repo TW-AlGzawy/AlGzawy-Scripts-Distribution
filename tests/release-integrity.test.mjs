@@ -28,7 +28,11 @@ test('all published installers have coherent versions and immutable identity',()
     assert.deepEqual(metadata(js,'version'),[item.version],item.id+' metadata version');
     assert.deepEqual(metadata(js,'updateURL'),[DIST+'/'+path],item.id+' update origin');
     assert.deepEqual(metadata(js,'downloadURL'),[DIST+'/'+path],item.id+' download origin');
-    assert.deepEqual(metadata(js,'match').concat(metadata(js,'include')).filter(url=>url.startsWith('https://algzawy-cloud-control.pages.dev/')),['https://algzawy-cloud-control.pages.dev/v2/*'],item.id+' portal probe only');
+    assert.deepEqual(
+      metadata(js,'match').concat(metadata(js,'include')).filter(url=>url.includes('algzawy-cloud-control.pages.dev/')).sort(),
+      ['https://algzawy-cloud-control.pages.dev/v2/*','https://*.algzawy-cloud-control.pages.dev/v2/*'].sort(),
+      item.id+' only official and QA portal probe URLs'
+    );
     assert.ok(js.includes(DIST+'/scripts/'+item.id+'.js'),item.id+' canonical source address');
     assert.ok(existsSync(new URL('../scripts/'+item.id+'.js',import.meta.url)),item.id+' published engine exists');
     assert.equal(typeof item.approved_for_final,'boolean',item.id+' explicit release approval');
@@ -41,7 +45,7 @@ test('installers cannot inject across unrelated websites',()=>{
     const js=read('loaders/'+item.id+'.user.js');
     const patterns=[...metadata(js,'match'),...metadata(js,'include')];
     for(const pattern of patterns){
-      if(pattern==='https://algzawy-cloud-control.pages.dev/v2/*')continue;
+      if(['https://algzawy-cloud-control.pages.dev/v2/*','https://*.algzawy-cloud-control.pages.dev/v2/*'].includes(pattern))continue;
       assert.ok(/^https:\/\/\*\.tribalwars\.(?:\*|ae|net|com\.sa)\/game\.php/.test(pattern),
         item.id+' has unsupported or excessively broad game include: '+pattern);
       assert.ok(!pattern.includes('https://*/*'),item.id+' unrestricted host wildcard');
