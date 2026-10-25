@@ -86,3 +86,8 @@
 .admin-script-toggle b{color:#83ebc8;font-size:11px}
 @media(max-width:1200px){.admin-script-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.admin-script-grid{grid-template-columns:1fr}}
+
+/* Read-only audit activity; display user-originated text only via textContent. */
+.owner-audit-feed{display:grid;gap:9px;max-height:440px;overflow:auto;margin-top:14px}
+.owner-audit-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:12px;border:1px solid var(--border,#263c4f);border-radius:10px;background:rgba(255,255,255,.025)}
+.owner-audit-row small{opacity:.8;unicode-bidi:plaintext}
