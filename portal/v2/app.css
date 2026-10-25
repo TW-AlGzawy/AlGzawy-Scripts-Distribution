@@ -107,3 +107,13 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 .telegram-teaser p{margin:0;color:#accfcd;line-height:1.8;font-size:12px}
 .telegram-teaser .btn{flex:0 0 auto;white-space:normal;text-align:center}
 @media(max-width:700px){.telegram-teaser{flex-wrap:wrap;padding:12px}.telegram-teaser>div:nth-child(2){flex-basis:calc(100% - 65px)}.telegram-teaser .btn{width:100%}}
+
+/* Telegram teaser and verified owner-provided public bot profile. */
+.telegram-teaser{display:flex;align-items:center;gap:16px;padding:17px 19px;margin:15px 0;background:linear-gradient(120deg,#103c38,#0d2638);border:1px solid #347e75;border-radius:14px;color:#edfdfb}
+.telegram-teaser-symbol{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:12px;background:#4cdeaf;color:#083f37;font-size:23px}
+.telegram-teaser>div:nth-child(2){flex:1}.telegram-teaser h3{margin:4px 0 7px;font-size:16px}.telegram-teaser p{margin:0;color:#b6d8d7;line-height:1.8;font-size:12px}
+.telegram-teaser-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.telegram-teaser-links .btn{white-space:nowrap}
+.telegram-bot-handle{direction:ltr;text-align:right;font-size:12px;color:#60e8c3!important;font-weight:700;margin:2px 0 12px!important}
+.telegram-hero a.btn{margin-top:12px;display:inline-flex}
+@media(max-width:760px){.telegram-teaser{flex-wrap:wrap}.telegram-teaser-links{width:100%;justify-content:stretch}.telegram-teaser-links .btn{flex:1}}
