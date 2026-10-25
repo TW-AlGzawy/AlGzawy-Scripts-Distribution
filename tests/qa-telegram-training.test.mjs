@@ -87,7 +87,8 @@ test('QA troop goal counts owned-plus-queued, and fails closed on an absent queu
 test('The QA training loader and attack loader use pinned Preview-only engines',()=>{
   for(const id of ['professional-training-v2','alg-attacks']){
     const pilot=read('pilots/algzawy-'+id+'-preview-rc1.user.js');
-    assert.match(pilot,new RegExp('^// @version\\s+1\\.0\\.3\\.'+(id==='alg-attacks'?'3':'2')+'
+    if(id==='alg-attacks')assert.match(pilot,/^\/\/ @version\s+1\.0\.3\.3$/m);
+    else assert.match(pilot,/^\/\/ @version\s+1\.0\.3\.2$/m);
     assert.ok(pilot.includes('/pilots/engines/'+id+'-qa.js'));
     assert.ok(!pilot.includes('https://algzawy-cloud-control.pages.dev/api'));
   }
