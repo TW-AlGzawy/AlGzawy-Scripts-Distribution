@@ -48,6 +48,7 @@
         <div class="side-label side-label-secondary">الحساب والأمان</div>
         <button class="nav-item" data-view="connect"><span class="nav-icon">⌁</span><span>ربط اللعبة</span></button>
         <button class="nav-item" data-view="account"><span class="nav-icon">♙</span><span>حسابي والاشتراك</span></button>
+        <button class="nav-item" data-view="telegram"><span class="nav-icon">✉</span><span>تنبيهات Telegram</span></button>
       </nav>
       <div class="sidebar-bottom">
         <div class="side-notice"><span>✧</span><strong>تحكمك محمي</strong><p>التشغيل يعتمد على ترخيص الحساب والجهاز وإذن كل سكربت.</p></div>
@@ -133,6 +134,35 @@
           </div>
           <div class="info-note"><strong>04 — التشغيل داخل اللعبة:</strong> فعّل السكربت من مركز البوتات، وحدّث اللعبة بعد التثبيت، ثم اضغط «تشغيل هنا» للسكربت و«مزامنة الآن» في الجسر. يكفي جهاز واحد معتمد لكل اشتراك.</div>
           <div class="info-note">لا يلزم إبقاء موقع AlGzawy مفتوحًا. حالة ON/OFF تُستمد من الخادم. عند رفض الجهاز أو انقطاع التحقق يتوقف السماح بالتشغيل. يظل تثبيت سكربتات اللعبة وعلامة التثبيت في التبويب مطلوبين حسب إعدادات الأمان الحالية.</div>
+        </section>
+        <section class="view" data-panel="telegram">
+          <div class="page-head"><div><span class="kicker">ALGZAWY ALERT CENTER — PREVIEW</span><h2>تنبيهات Telegram</h2><p>اعرف ما يستحق انتباهك من حرب القبائل من خلال إشعارات تصل إلى محادثتك الخاصة.</p></div></div>
+          <section class="telegram-hero">
+            <div class="telegram-hero-icon">✉</div>
+            <div><span class="kicker">AlGzawy × Telegram</span><h3>خليك على علم قبل فوات الأوان</h3>
+              <p>عندما يكتشف سكربت تنبيه الهجمات نشاطًا واردًا، يمكن للجسر التجريبي إرسال ملخص إلى Telegram عبر خادم AlGzawy الآمن؛ بدون وضع مفتاح البوت داخل اللعبة.</p>
+              <span class="telegram-fineprint">الإشعارات تعتمد على تشغيل اللعبة وسكربت التنبيه والجسر والترخيص. ليست مراقبة مستقلة للخادم أثناء إغلاق اللعبة.</span>
+            </div>
+          </section>
+          <div class="telegram-benefits">
+            <article><span>⚔️</span><strong>تنبيهات الهجمات</strong><p>عدد الهجمات الواردة ورقم القرية، لتعرف أن عليك مراجعة اللعبة بسرعة.</p><small class="telegram-ready-label">متاح بعد الربط والتفعيل</small></article>
+            <article><span>◈</span><strong>تنبيهات المخازن</strong><p>تصوّر مستقبلي للتنبيه عند اقتراب المخزن من الامتلاء أو الحاجة لتوزيع الموارد.</p><small>قيد التطوير — غير مفعّل حاليًا</small></article>
+            <article><span>◷</span><strong>تنبيهات تستحق انتباهك</strong><p>إشعار مختصر بدل البقاء على الشاشة باستمرار، مع تحكم منفصل لكل نوع مستقبلاً.</p><small>الإرسال من سكربت مرخّص ومفعّل فقط</small></article>
+          </div>
+          <section class="panel telegram-setup">
+            <div class="panel-head"><div><span class="kicker">SECURE PAIRING</span><h3>ربط Telegram بحسابك</h3></div><span id="telegramState" class="pill neutral">جارٍ التحقق...</span></div>
+            <p>الربط يتم بنقرة واحدة، ثم الضغط على «Start» داخل محادثة البوت الخاصة. لا تطلب منك المنصة إدخال Bot Token أو Chat ID أو كلمة مرور حرب القبائل.</p>
+            <div id="telegramStatusText" class="telegram-description" role="status">افتح هذا القسم بعد الدخول إلى حساب المشترك لقراءة حالة الخدمة.</div>
+            <div class="telegram-controls">
+              <button type="button" class="btn primary" id="telegramLink" disabled>ربط البوت</button>
+              <button type="button" class="btn outline" id="telegramRefresh">تحديث حالة الربط</button>
+              <button type="button" class="btn outline" id="telegramTest" disabled>إرسال إشعار تجريبي</button>
+              <button type="button" class="btn danger" id="telegramUnlink" disabled>إلغاء الربط</button>
+            </div>
+            <label class="telegram-opt"><input id="telegramAttacks" type="checkbox" disabled> استقبال تنبيهات الهجمات الواردة</label>
+            <label class="telegram-opt disabled"><input type="checkbox" disabled> تنبيهات المخازن — قيد التطوير</label>
+            <p class="telegram-fineprint">في نسخة Preview لا يتم تفعيل الربط والإرسال قبل إعداد سرّ البوت الجديد وWebhook وقاعدة البيانات التجريبية. لا نعِد بإشعارات أثناء إغلاق اللعبة.</p>
+          </section>
         </section>
         <section class="view" data-panel="account">
           <div class="page-head"><div><span class="kicker">SUBSCRIPTION</span><h2>الحساب والأمان</h2><p>إدارة الهوية والجلسة والصلاحيات دون تخزين مفتاح الوصول داخل المتصفح.</p></div></div>
