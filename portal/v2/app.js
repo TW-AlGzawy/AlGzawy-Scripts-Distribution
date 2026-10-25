@@ -723,11 +723,23 @@ function updateTelegramUI(data){
   $('telegramTest').disabled=!linked||!ready;
   $('telegramAttacks').disabled=!linked||!ready;
   $('telegramAttacks').checked=!!data?.preferences?.attacks;
+  const names={
+    mode:'ALG_TELEGRAM_QA_MODE (القيمة المطلوبة: enabled)',
+    botToken:'ALG_TELEGRAM_BOT_TOKEN (مفتاح BotFather الجديد)',
+    botUsername:'ALG_TELEGRAM_BOT_USERNAME (اسم البوت دون @)',
+    webhookSecret:'ALG_TELEGRAM_WEBHOOK_SECRET (رمز سري من 32 إلى 128 حرفًا)',
+    database:'DB / جداول portal_telegram_* في قاعدة Preview'
+  };
+  const checks=data?.checks;
+  const missing=checks&&typeof checks==='object'
+    ?Object.keys(names).filter(key=>checks[key]!==true).map(key=>names[key]):[];
   $('telegramStatusText').textContent=!ready
-    ?'البوت قيد الإعداد في نسخة Preview: يجب تدوير المفتاح المكشوف وإضافة مفتاح جديد مشفر وربط Webhook وجداول الاختبار. لا توجد إشعارات مفعّلة الآن.'
+    ?missing.length
+      ?'السبب الذي يمنع الربط في Preview: '+missing.join('، ')+'. راجع أسماء المتغيرات وقيمها في بيئة Preview ثم أعد النشر. لا تُرسل أي قيمة سرية هنا.'
+      :'حالة Telegram غير جاهزة. اضغط «تحديث حالة الربط» للتحقق، ولا تضع المفتاح في المحادثة.'
     :linked
       ?'تم ربط محادثتك الخاصة. استخدم زر الإرسال التجريبي للتحقق، ثم فعّل تنبيه الهجمات داخل اللعبة والجسر.'
-      :'جاهز للربط. اضغط «ربط البوت» ثم افتح Telegram واضغط Start في المحادثة الخاصة.';
+      :'إعدادات الخادم وقاعدة البيانات جاهزة. قبل ربط البوت تأكد من تسجيل Telegram Webhook على عنوان Preview، ثم اضغط «ربط البوت» وStart داخل المحادثة.';
 }
 async function refreshTelegram(){
   if(!state.user)return;
