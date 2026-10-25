@@ -26,7 +26,7 @@ const group={
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
  military:{title:'الهجمات والإرسال',symbol:'➤'},tools:{title:'أدوات إضافية',symbol:'✧'}
 };
-const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك'};
+const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك',telegram:'تنبيهات Telegram'};
 const routeFromHash=()=>{
   const route=location.hash.slice(1);
   return Object.prototype.hasOwnProperty.call(names,route)?route:'dashboard';
@@ -711,6 +711,69 @@ async function runDiagnostics(){
     root.append(el('p','diagnostic-caveat','آخر اتصال موقّع يثبت وصول الجسر فقط، ولا يثبت تنفيذ أي محرك داخل اللعبة.'));
   }finally{button.disabled=false;}
 }
+
+let telegramCurrent=null;
+function updateTelegramUI(data){
+  telegramCurrent=data;
+  const linked=!!data?.linked,ready=!!data?.configured;
+  $('telegramState').textContent=!ready?'قيد الإعداد':linked?'✓ مربوط':'غير مربوط';
+  $('telegramState').className='pill '+(ready&&linked?'positive':'neutral');
+  $('telegramLink').disabled=!ready||linked;
+  $('telegramUnlink').disabled=!linked||!ready;
+  $('telegramTest').disabled=!linked||!ready;
+  $('telegramAttacks').disabled=!linked||!ready;
+  $('telegramAttacks').checked=!!data?.preferences?.attacks;
+  $('telegramStatusText').textContent=!ready
+    ?'البوت قيد الإعداد في نسخة Preview: يجب تدوير المفتاح المكشوف وإضافة مفتاح جديد مشفر وربط Webhook وجداول الاختبار. لا توجد إشعارات مفعّلة الآن.'
+    :linked
+      ?'تم ربط محادثتك الخاصة. استخدم زر الإرسال التجريبي للتحقق، ثم فعّل تنبيه الهجمات داخل اللعبة والجسر.'
+      :'جاهز للربط. اضغط «ربط البوت» ثم افتح Telegram واضغط Start في المحادثة الخاصة.';
+}
+async function refreshTelegram(){
+  if(!state.user)return;
+  try{updateTelegramUI(await api('telegram/status'));}
+  catch(_){updateTelegramUI(null);$('telegramStatusText').textContent='تعذر قراءة حالة ربط Telegram. لم تتغير إعداداتك.';}
+}
+$('telegramRefresh').addEventListener('click',()=>void refreshTelegram());
+$('telegramLink').addEventListener('click',()=>{
+  if(!state.user||!telegramCurrent?.configured||telegramCurrent.linked)return;
+  // Open the tab directly on the click; do not wait for an async request.
+  const tab=window.open('about:blank','_blank');
+  const btn=$('telegramLink');btn.disabled=true;
+  void (async()=>{
+    try{
+      const info=await api('telegram/link',{method:'POST'});
+      if(!/^https:\/\/t\.me\/[A-Za-z][A-Za-z0-9_]{4,31}\?start=alg_[a-f0-9]{48}$/.test(info.url))
+        throw Error('invalid_link');
+      if(tab)tab.location.href=info.url;
+      else{$('telegramStatusText').textContent='سمح الموقع بإنشاء رابط الربط. فعّل النوافذ المنبثقة لفتح Telegram.';}
+      toast('افتح Telegram واضغط Start، ثم حدّث حالة الربط.');
+    }catch(error){tab?.close();toast(errText(error),true);}
+    finally{btn.disabled=false;}
+  })();
+});
+$('telegramTest').addEventListener('click',async()=>{
+  const btn=$('telegramTest');btn.disabled=true;
+  try{await api('telegram/test',{method:'POST'});toast('تم طلب إرسال اختبار إلى محادثتك الخاصة');}
+  catch(err){toast(errText(err),true);}
+  finally{btn.disabled=!telegramCurrent?.linked;}
+});
+$('telegramAttacks').addEventListener('change',async event=>{
+  const checked=event.target.checked;
+  event.target.disabled=true;
+  try{await api('telegram/preferences',{method:'POST',body:{attacks:checked}});
+    toast(checked?'تم تفعيل تنبيهات الهجمات':'تم تعطيل تنبيهات الهجمات');
+    await refreshTelegram();
+  }catch(err){event.target.checked=!checked;toast(errText(err),true);}
+  finally{event.target.disabled=!telegramCurrent?.linked;}
+});
+$('telegramUnlink').addEventListener('click',async()=>{
+  const btn=$('telegramUnlink');btn.disabled=true;
+  try{await api('telegram/unlink',{method:'POST'});await refreshTelegram();toast('أُلغي ربط Telegram بهذا الاشتراك');}
+  catch(err){toast(errText(err),true);}
+  finally{btn.disabled=!telegramCurrent?.linked;}
+});
+
 $('runDiagnostics').addEventListener('click',()=>void runDiagnostics());
 $('loginForm').addEventListener('submit',async event=>{
   event.preventDefault();
@@ -727,8 +790,8 @@ $('loginForm').addEventListener('submit',async event=>{
   finally{button.disabled=false;}
 });
 // Support direct links and manual fragment navigation as well as normal sidebar clicks.
-window.addEventListener('hashchange',()=>{if(state.user)view(routeFromHash(),false);});
-qa('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
+window.addEventListener('hashchange',()=>{if(state.user){view(routeFromHash(),false);if(routeFromHash()==='telegram')void refreshTelegram();}});
+qa('[data-view]').forEach(button=>button.addEventListener('click',()=>{view(button.dataset.view);if(button.dataset.view==='telegram')void refreshTelegram();}));
 qa('[data-go]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.go)));
 $('menuToggle').addEventListener('click',()=>{$('sidebar').classList.toggle('open');$('mobileBackdrop').hidden=!$('sidebar').classList.contains('open');});
 $('mobileBackdrop').addEventListener('click',()=>{$('sidebar').classList.remove('open');$('mobileBackdrop').hidden=true;});
