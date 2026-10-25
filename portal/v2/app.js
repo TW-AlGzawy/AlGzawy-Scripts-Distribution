@@ -91,6 +91,43 @@ function installationState(item){
  // The public API continues to provide production URLs and never authorizes game execution.
 const qaPreviewHost=/^[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.hostname);
 
+
+if(qaPreviewHost){
+  const help=document.querySelector('.scripts-summary span:last-child');
+  if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
+}
+function installerUrlFor(item){
+  return qaPreviewHost
+    ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
+    :item.installer;
+}
+function installationControl(item){
+  const result=installationState(item);
+  if(result.kind==='installed'){
+    const chip=el('span','btn installed-verified',result.label);
+    chip.setAttribute('role','status');chip.title=result.note;return chip;
+  }
+  if(result.kind==='checking'){
+    const checking=el('span','btn installation-checking','جارٍ التحقق…');
+    checking.title=result.note;return checking;
+  }
+  const link=el('a','btn '+(result.kind==='update'?'install-update':'subtle'),result.label+' ↗');
+  link.href=installerUrlFor(item);link.rel='noopener noreferrer';link.target='_blank';
+  link.title=result.note+(qaPreviewHost?' (نسخة اختبار من فرع RC1؛ ليست إصدار Production)':'');
+  link.addEventListener('click',()=>{
+    // Do not synchronously remove the clicked anchor before the browser opens it.
+    setTimeout(()=>{
+      if(!state.user)return;
+      // Never put unrelated script cards in the checking state.
+      state.probeTarget=item.id;
+      state.probing=true;
+      renderScripts();
+    },0);
+    // A new Tampermonkey script usually needs a portal tab reload to inject.
+    setTimeout(()=>{if(state.user)probeInstalledScripts(item.id);},4500);
+  });
+  return link;
+}
 // QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
 // Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
 const qaInstallIds=new Set(['mass-scavenge-v1','alg-attacks']);
@@ -163,42 +200,6 @@ if(qaPreviewHost){
   document.addEventListener('algzawy-installation-debug-v1',event=>qaInstallReceiveDebug(event.detail,'document.CustomEvent'));
 }
 
-if(qaPreviewHost){
-  const help=document.querySelector('.scripts-summary span:last-child');
-  if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
-}
-function installerUrlFor(item){
-  return qaPreviewHost
-    ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
-    :item.installer;
-}
-function installationControl(item){
-  const result=installationState(item);
-  if(result.kind==='installed'){
-    const chip=el('span','btn installed-verified',result.label);
-    chip.setAttribute('role','status');chip.title=result.note;return chip;
-  }
-  if(result.kind==='checking'){
-    const checking=el('span','btn installation-checking','جارٍ التحقق…');
-    checking.title=result.note;return checking;
-  }
-  const link=el('a','btn '+(result.kind==='update'?'install-update':'subtle'),result.label+' ↗');
-  link.href=installerUrlFor(item);link.rel='noopener noreferrer';link.target='_blank';
-  link.title=result.note+(qaPreviewHost?' (نسخة اختبار من فرع RC1؛ ليست إصدار Production)':'');
-  link.addEventListener('click',()=>{
-    // Do not synchronously remove the clicked anchor before the browser opens it.
-    setTimeout(()=>{
-      if(!state.user)return;
-      // Never put unrelated script cards in the checking state.
-      state.probeTarget=item.id;
-      state.probing=true;
-      renderScripts();
-    },0);
-    // A new Tampermonkey script usually needs a portal tab reload to inject.
-    setTimeout(()=>{if(state.user)probeInstalledScripts(item.id);},4500);
-  });
-  return link;
-}
 async function fetchReleaseVersions(){
   if(!state.user)return;
   try{
