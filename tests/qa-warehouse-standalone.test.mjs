@@ -18,7 +18,7 @@ test('warehouse exists as separately licensed tenth QA script in administration 
   assert.match(userUI,/item\.id==='warehouse-alert-safe'/);
   assert.match(userUI,/algzawy-warehouse-alert-safe-preview-rc1\.user\.js/);
   assert.match(bridge,/const requiredId=info\.type==='attack'\?'alg-attacks':'warehouse-alert-safe'/);
-  assert.match(read('portal/functions/telegram-preview.js'),/const requiredId=event\.type==='warehouse'\?'warehouse-alert-safe':'alg-attacks'/);
+  assert.match(read('portal/functions/telegram-preview.js'),/const requiredId=event\.type==='attack'\?'alg-attacks':'warehouse-alert-safe'/);
   assert.doesNotMatch(read('pilots/engines/alg-attacks-qa.js'),/function checkWarehouse/);
 });
 test('standalone installer reports Preview installation and only authorizes game with own device grant and tab pin',()=>{
