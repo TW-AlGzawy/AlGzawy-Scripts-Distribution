@@ -16,7 +16,7 @@ async function syncBridgeVersion(){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,releaseError:false};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,probeTarget:null,probeResponders:new Set(),releaseError:false};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
@@ -72,15 +72,24 @@ function compareVersion(left,right){
 function installationState(item){
   const installed=state.installed.get(item.id),latest=state.releases.get(item.id);
   if(!installed){
-    return {kind:state.probing?'checking':'install',
-      label:state.probing?'جارٍ التحقق…':'تثبيت السكربت',
-      note:state.probing?'جارٍ البحث عن تأكيد Tampermonkey':
-        'لم يصل تأكيد التثبيت؛ قد يكون السكربت غير مثبت أو معطّلًا'};
+    const checking=state.probing&&state.probeTarget===item.id;
+    return {kind:checking?'checking':'install',
+      label:checking?'جارٍ التحقق…':'تثبيت السكربت',
+      note:checking?'جارٍ البحث عن تأكيد هذا السكربت فقط':
+        'لم يصل تأكيد التثبيت؛ بعد التثبيت فعّل السكربت وحدّث صفحة الموقع ليبدأ Tampermonkey الرد'};
   }
   const note='المثبّت v'+installed+(latest?' · المتاح v'+latest:' · تعذر فحص أحدث إصدار');
   if(latest&&compareVersion(installed,latest)<0)
     return {kind:'update',label:'تحديث السكربت',note};
   return {kind:'installed',label:'✓ مثبّت',note};
+}
+// QA previews require a loader which explicitly matches the Cloudflare preview hostname.
+ // The public API continues to provide production URLs and never authorizes game execution.
+const qaPreviewHost=/^[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.hostname);
+function installerUrlFor(item){
+  return qaPreviewHost
+    ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
+    :item.installer;
 }
 function installationControl(item){
   const result=installationState(item);
@@ -93,9 +102,16 @@ function installationControl(item){
     checking.title=result.note;return checking;
   }
   const link=el('a','btn '+(result.kind==='update'?'install-update':'subtle'),result.label+' ↗');
-  link.href=item.installer;link.rel='noopener noreferrer';link.target='_blank';
-  link.title=result.note;
-  link.addEventListener('click',()=>{setTimeout(()=>{if(state.user)probeInstalledScripts();},4500);});
+  link.href=installerUrlFor(item);link.rel='noopener noreferrer';link.target='_blank';
+  link.title=result.note+(qaPreviewHost?' (نسخة اختبار من فرع RC1؛ ليست إصدار Production)':'');
+  link.addEventListener('click',()=>{
+    // Never put unrelated script cards in the checking state.
+    state.probeTarget=item.id;
+    state.probing=true;
+    renderScripts();
+    // The new userscript may only execute after reloading the portal tab.
+    setTimeout(()=>{if(state.user)probeInstalledScripts(item.id);},4500);
+  });
   return link;
 }
 async function fetchReleaseVersions(){
@@ -110,15 +126,22 @@ async function fetchReleaseVersions(){
   }catch(error){state.releaseError=true;/* Installed-script proof is independent of GitHub availability. */}
   if(state.user)renderScripts();
 }
-function probeInstalledScripts(){
+function probeInstalledScripts(targetId=null){
   if(!state.user||document.visibilityState==='hidden')return;
+  if(targetId&&state.catalog.some(item=>item.id===targetId))state.probeTarget=targetId;
+  state.probing=Boolean(state.probeTarget);
   state.probeNonce=crypto.randomUUID();
-  state.installed=new Map();state.probing=true;
+  state.probeResponders=new Set();
   const nonce=state.probeNonce;
   window.postMessage({scope:'algzawy-installation-v1',type:'probe',nonce},location.origin);
   renderScripts();
   setTimeout(()=>{
-    if(state.probeNonce===nonce&&state.user){state.probing=false;renderScripts();}
+    if(state.probeNonce!==nonce||!state.user)return;
+    // Installation proof must be fresh, not a previous page-local cache.
+    for(const id of state.installed.keys())
+      if(!state.probeResponders.has(id))state.installed.delete(id);
+    state.probing=false;state.probeTarget=null;
+    renderScripts();
   },2200);
 }
 window.addEventListener('message',event=>{
@@ -128,7 +151,9 @@ window.addEventListener('message',event=>{
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
   if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
   state.installed.set(message.id,message.version);
-  if(!state.probing)renderScripts();
+  state.probeResponders.add(message.id);
+  if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
+  renderScripts();
 });
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
@@ -526,7 +551,7 @@ $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActiv
 $('refreshButton').addEventListener('click',()=>void refresh());
 async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeTarget=null;state.probing=false;state.probeResponders.clear();
   state.prefs={};state.csrf='';state.expiresAt=0;
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
 }
