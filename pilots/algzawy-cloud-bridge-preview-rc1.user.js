@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي — PREVIEW RC1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/preview-rc1
-// @version      2.4.1.3
+// @version      2.4.1.4
 // @description  TEST ONLY: signed pairing to isolated Cloudflare Preview. Does not authorize production game engines.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -215,27 +215,59 @@
   // Preview-only Telegram alert relay. The game never sees the bot token.
   // Event details are untrusted; the server validates the signed device,
   // subscriber entitlement, global ON, linked chat, and per-user rate limit.
-  let qaTelegramPending=false;
-  let qaTelegramLastSent=0;
+  // Both attack and warehouse notifications share the approved Preview
+  // device signature path. Queue requests so the anti-replay counter is never
+  // reused concurrently. The browser has no BotFather token or chat ID.
+  let qaTelegramQueue=Promise.resolve();
+  const qaTelegramRecent=new Map();
+  function qaTextField(x,max=120){
+    return typeof x==='string'?x.slice(0,max):undefined;
+  }
   document.addEventListener('algzawy-preview-telegram-event',event=>{
     const info=event.detail;
-    if(!info||info.type!=='attack'||!Number.isSafeInteger(info.count)||info.count<1||info.count>500
+    if(!info||!['attack','warehouse'].includes(info.type)
       ||!Number.isSafeInteger(info.villageId)||info.villageId<1||info.villageId>9999999999
-      ||!connection.device||qaTelegramPending||publisherPreviouslyOn!==true||!pinned('alg-attacks')
+      ||!connection.device||publisherPreviouslyOn!==true||!pinned('alg-attacks')
       ||localStorage.getItem('algzawy_preview_portal_grant_alg-attacks')!=='1')return;
-    if(Date.now()-qaTelegramLastSent<120000)return;
-    qaTelegramLastSent=Date.now();qaTelegramPending=true;
-    void (async()=>{
+    const body={type:info.type,villageId:info.villageId};
+    if(info.type==='attack'){
+      if(!Number.isSafeInteger(info.count)||info.count<1||info.count>500)return;
+      body.count=info.count;
+      if(typeof info.attackId==='string'&&/^\d{1,18}$/.test(info.attackId))body.attackId=info.attackId;
+      if(info.details&&typeof info.details==='object'){
+        const d={};
+        for(const field of ['world','account','target','origin','attacker','distance','arrival','remaining']){
+          const v=qaTextField(info.details[field]);
+          if(v)d[field]=v;
+        }
+        body.details=d;
+      }
+    }else{
+      if(!Number.isSafeInteger(info.capacity)||info.capacity<1||info.capacity>99999999999
+        ||![info.wood,info.stone,info.iron].every(x=>Number.isSafeInteger(x)&&x>=0&&x<=99999999999)
+        ||!Number.isSafeInteger(info.percent)||info.percent<90||info.percent>100)return;
+      for(const key of ['capacity','wood','stone','iron','percent'])body[key]=info[key];
+      body.threshold=90;
+      for(const key of ['world','account','villageName','coords']){
+        const value=qaTextField(info[key]);if(value)body[key]=value;
+      }
+    }
+    const name=info.type==='attack'?(body.attackId||'count-'+body.count):'village';
+    const key=info.type+':'+info.villageId+':'+name;
+    const now=Date.now(),last=qaTelegramRecent.get(key)||0;
+    if(now-last<(info.type==='warehouse'?600000:120000))return;
+    qaTelegramRecent.set(key,now);
+    for(const [k,when] of qaTelegramRecent)if(now-when>21600000)qaTelegramRecent.delete(k);
+    qaTelegramQueue=qaTelegramQueue.catch(()=>{}).then(async()=>{
+      if(publisherPreviouslyOn!==true||!pinned('alg-attacks')
+        ||localStorage.getItem('algzawy_preview_portal_grant_alg-attacks')!=='1')return;
       try{
         const headers=await deviceProof('/api/telegram/notify');
-        await request('telegram/notify',{method:'POST',headers,data:{
-          type:'attack',count:info.count,villageId:info.villageId
-        }});
+        await request('telegram/notify',{method:'POST',headers,data:body});
       }catch(_){
-        // Alerts are best-effort. Never leak credentials, stall the game,
-        // or reinterpret Telegram failure as a game engine license.
-      }finally{qaTelegramPending=false;}
-    })();
+        // Telegram is best effort; never stop the game or leak credentials.
+      }
+    });
   });
 
   let authorizing=null;
