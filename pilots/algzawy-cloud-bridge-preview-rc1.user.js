@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي — PREVIEW RC1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/preview-rc1
-// @version      2.4.1.2
+// @version      2.4.1.3
 // @description  TEST ONLY: signed pairing to isolated Cloudflare Preview. Does not authorize production game engines.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -191,25 +191,53 @@
   }
   // Old links must explicitly reauthorize; do not reuse an old device ID with
   // a different signing key or silently downgrade signature verification.
-  async function deviceProof(){
+  async function deviceProof(proofPath='/api/device/state'){
     const timestamp=Date.now();
     const counter=Math.max(timestamp*1024,Number(GM_getValue('algzawy_preview_cloud_counter',0)||0)+1);
     let signature;
     const mode=GM_getValue(keys.mode,'legacy');
     if(mode==='shared'){
+      if(proofPath!=='/api/device/state')throw Error('signed_alerts_require_portable_pairing');
       const result=await callSharedSigner('sign',{deviceId:connection.device,timestamp,counter});
       signature=result.signature;
     }else{
       let identity;
       if(mode==='portable')identity=await portableIdentity();
       else identity=await signingKey();
-      const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
+      const message=connection.device+'|'+timestamp+'|'+counter+'|'+proofPath;
       const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
       signature=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
     }
     GM_setValue('algzawy_preview_cloud_counter',counter);
     return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':signature};
   }
+
+  // Preview-only Telegram alert relay. The game never sees the bot token.
+  // Event details are untrusted; the server validates the signed device,
+  // subscriber entitlement, global ON, linked chat, and per-user rate limit.
+  let qaTelegramPending=false;
+  let qaTelegramLastSent=0;
+  document.addEventListener('algzawy-preview-telegram-event',event=>{
+    const info=event.detail;
+    if(!info||info.type!=='attack'||!Number.isSafeInteger(info.count)||info.count<1||info.count>500
+      ||!Number.isSafeInteger(info.villageId)||info.villageId<1||info.villageId>9999999999
+      ||!connection.device||qaTelegramPending||publisherPreviouslyOn!==true||!pinned('alg-attacks')
+      ||localStorage.getItem('algzawy_preview_portal_grant_alg-attacks')!=='1')return;
+    if(Date.now()-qaTelegramLastSent<120000)return;
+    qaTelegramLastSent=Date.now();qaTelegramPending=true;
+    void (async()=>{
+      try{
+        const headers=await deviceProof('/api/telegram/notify');
+        await request('telegram/notify',{method:'POST',headers,data:{
+          type:'attack',count:info.count,villageId:info.villageId
+        }});
+      }catch(_){
+        // Alerts are best-effort. Never leak credentials, stall the game,
+        // or reinterpret Telegram failure as a game engine license.
+      }finally{qaTelegramPending=false;}
+    })();
+  });
+
   let authorizing=null;
   async function openAutoLicense(){
     if(authorizing&&!authorizing.closed){authorizing.focus();return;}
