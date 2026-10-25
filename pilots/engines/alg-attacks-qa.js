@@ -31,10 +31,10 @@
     }
 
     var inputStyle = 'padding:3px;border:1px solid #263c4f;background:#07111c;color:#eaf3f8;color-scheme:dark;border-radius:4px;box-sizing:border-box;';
-    var btnStyle = 'width:100%;padding:6px;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;display:block;';
+    var btnStyle = 'width:100%;padding:5px;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:bold;display:block;';
 
     function row(label, inputHtml) {
-        return '<div style="margin-bottom:6px;"><label style="display:block;margin-bottom:2px;font-weight:bold;color:#eaf3f8;">' + label + '</label>' + inputHtml + '</div>';
+        return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 74px;gap:4px;align-items:center;margin-bottom:5px;"><label style="font-weight:bold;color:#eaf3f8;font-size:10px;">' + label + '</label>' + inputHtml + '</div>';
     }
 
     function makeDraggable(el, handle) {
@@ -79,31 +79,31 @@
             'border:2px solid #263c4f',
             'border-radius:8px',
             'font-family:Trebuchet MS,sans-serif',
-            'font-size:13px',
+            'font-size:11px','width:268px','max-width:calc(100vw - 14px)','max-height:72vh','overflow:hidden',
             'color:#eaf3f8',
             'direction:rtl',
-            'min-width:240px',
+            'min-width:0',
             'box-shadow:3px 3px 10px rgba(0,0,0,0.5)',
             'user-select:none'
         ].join(';');
 
         panel.innerHTML =
-            '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#123e3d,#102031);color:#eaf3f8;padding:7px 10px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
+            '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#123e3d,#102031);color:#eaf3f8;padding:6px 8px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
                 '<b>الغزااوي | تنبيه الهجمات</b>' +
                 '<button id="alg-atk-min" style="background:none;border:none;color:#40e1bf;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;">' + (minimized ? '+' : '−') + '</button>' +
             '</div>' +
-            '<div id="alg-atk-body" style="padding:10px;display:' + (minimized ? 'none' : 'block') + ';">' +
-                '<p style="font-size:10px;background:#113c37;color:#d4ffed;padding:8px;border-radius:7px">تنبيهات Telegram تُدار بأمان من مركز AlGzawy Preview؛ لا تحتاج إلى كتابة Bot Token أو Chat ID داخل اللعبة.</p>' +
+            '<div id="alg-atk-body" style="padding:7px;max-height:calc(72vh - 37px);overflow-y:auto;display:' + (minimized ? 'none' : 'block') + ';">' +
+                '<p style="font-size:9px;color:#71dfbf;text-align:center;margin:2px 0 6px">🔔 Telegram عبر موقع AlGzawy Preview</p>' +
                 row('فترة الفحص (ثانية)', '<input id="alg-atk-interval" type="number" min="10" value="' + interval + '" style="' + inputStyle + 'width:100%;">') +
                 row('تذكير إذا بقيت الهجمة (دقيقة)', '<input id="alg-atk-reminder" type="number" min="1" value="' + reminderMins + '" style="' + inputStyle + 'width:100%;">') +
-                '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="alg-atk-sound" ' + (alertSound ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">صوت تنبيه</span></label></div>' +
-                '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="alg-atk-village" ' + (showVillage ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">أرسل تفاصيل القرية</span></label></div>' +
-                '<button id="alg-atk-test" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">إعداد إشعارات Telegram</button>' +
+                '<div style="display:inline-block;width:50%;vertical-align:top;margin-bottom:5px;"><label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;"><input type="checkbox" id="alg-atk-sound" ' + (alertSound ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">صوت تنبيه</span></label></div>' +
+                '<div style="display:inline-block;width:50%;vertical-align:top;margin-bottom:5px;"><label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;"><input type="checkbox" id="alg-atk-village" ' + (showVillage ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">أرسل تفاصيل القرية</span></label></div>' +
+                '<button id="alg-atk-test" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">⚙ إعداد Telegram</button>' +
                 '<button id="alg-atk-save" style="' + btnStyle + 'background:#143e3a;margin-bottom:6px;">حفظ</button>' +
                 '<button id="alg-atk-run" style="' + btnStyle + 'background:' + (isRunning ? '#965160' : '#247a68') + ';font-size:14px;margin-bottom:4px;">' + (isRunning ? 'إيقاف' : 'تشغيل') + '</button>' +
                 '<div id="alg-atk-status" style="margin-top:6px;font-size:11px;color:#eaf3f8;text-align:center;min-height:16px;">' + (isRunning ? 'يراقب...' : 'متوقف') + '</div>' +
                 '<div id="alg-atk-lastcheck" style="margin-top:4px;font-size:12px;color:#b1c9d4;text-align:center;min-height:14px;"></div>' +
-                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | BETA · v1.0.2</div>' +
+                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | BETA · v1.0.3.3</div>' +
             '</div>';
 
         document.body.appendChild(panel);
@@ -196,6 +196,7 @@
 
     function checkAttacks() {
         if (!isRunning) return;
+        checkWarehouse();
 
         var el = document.getElementById('incomings_amount');
         var count = el ? parseInt(el.textContent.trim(), 10) : 0;
@@ -426,17 +427,61 @@
         return msg;
     }
 
-    function emitPreviewAlert(count) {
-      const g=typeof unsafeWindow==='object'?unsafeWindow.game_data:window.game_data;
-      const vid=Number(g?.village?.id);
+    function emitPreviewAlert(count,row) {
+      const g=getGameData();
+      const vid=Number(g?.village?.id||getCurrentVillageId());
       const amount=Number(count);
       if(!Number.isSafeInteger(vid)||vid<1||!Number.isSafeInteger(amount)||amount<1||amount>500)return;
-      document.dispatchEvent(new CustomEvent('algzawy-preview-telegram-event',{
-        detail:{type:'attack',count:amount,villageId:vid}
-      }));
+      const detail={type:'attack',count:amount,villageId:vid};
+      const fields={world:getWorldName(),account:getAccountName()};
+      if(row){
+        const cells=row.querySelectorAll('td');
+        const map={target:1,origin:2,attacker:3,distance:4,arrival:5,remaining:6};
+        for(const [key,index] of Object.entries(map)){
+          const value=cells[index]?.textContent?.trim();
+          if(value&&value!=='—')fields[key]=value.slice(0,120);
+        }
+        const attackId=extractAttackId(row);
+        if(attackId&&/^\d{1,18}$/.test(attackId))detail.attackId=attackId;
+      }
+      detail.details=fields;
+      document.dispatchEvent(new CustomEvent('algzawy-preview-telegram-event',{detail}));
     }
     function sendTelegramAlerts(attacks) {
-      if(Array.isArray(attacks)&&attacks.length)emitPreviewAlert(attacks.length);
+      if(!Array.isArray(attacks)||!attacks.length)return;
+      attacks.slice(0,12).forEach(function(row,i){
+        setTimeout(function(){if(isRunning)emitPreviewAlert(1,row);},i*900);
+      });
+    }
+    const WAREHOUSE_ALERT_THRESHOLD=90;
+    function gameNumber(input){
+      if(typeof input==='number')return Number.isSafeInteger(input)&&input>=0?input:null;
+      const cleaned=String(input??'').trim().replace(/[.,\s]/g,'');
+      return /^\d{1,11}$/.test(cleaned)?Number(cleaned):null;
+    }
+    function readWarehouse(){
+      const v=getGameData().village||{};
+      const villageId=Number(v.id||getCurrentVillageId());
+      if(!Number.isSafeInteger(villageId)||villageId<1)return null;
+      const capacity=gameNumber(document.getElementById('storage')?.textContent??v.storage_max);
+      if(!capacity||capacity<=0)return null;
+      const getValue=(id,key)=>gameNumber(document.getElementById(id)?.textContent??v[key]);
+      const wood=getValue('wood','wood'),stone=getValue('stone','stone'),iron=getValue('iron','iron');
+      if([wood,stone,iron].some(x=>x===null))return null;
+      const percent=Math.min(100,Math.floor(100*Math.max(wood,stone,iron)/capacity));
+      return {type:'warehouse',villageId,world:getWorldName(),account:getAccountName(),
+        villageName:String(v.name||'').slice(0,100),coords:String(v.coord||'').slice(0,20),
+        wood,stone,iron,capacity,percent,threshold:WAREHOUSE_ALERT_THRESHOLD};
+    }
+    function checkWarehouse(){
+      if(!isRunning)return;
+      const info=readWarehouse();if(!info)return;
+      const key='algzawy_preview_warehouse_alert_state_'+info.villageId;
+      const sent=sessionStorage.getItem(key)==='1';
+      if(info.percent<85){if(sent)sessionStorage.removeItem(key);return;}
+      if(info.percent<WAREHOUSE_ALERT_THRESHOLD||sent)return;
+      sessionStorage.setItem(key,'1');
+      document.dispatchEvent(new CustomEvent('algzawy-preview-telegram-event',{detail:info}));
     }
 
     function simulateFakeAttack() {
