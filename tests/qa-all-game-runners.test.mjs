@@ -114,3 +114,34 @@ for(const id of ids){
     assert.equal(h.network.filter(x=>x.includes('/scripts/'+id+'.js')).length,1,'no extra source load after stop');
   });
 }
+
+test('All eight QA runners correctly remap embedded engine-owned license checks to Preview',()=>{
+  const namespaces=[
+    ['algzawy_portal_grant_','algzawy_preview_portal_grant_'],
+    ['algzawy_portal_device_authorized_until','algzawy_preview_portal_device_authorized_until'],
+    ['algzawy_portal_approved_device','algzawy_preview_portal_approved_device'],
+    ['algzawy_local_enabled_','algzawy_preview_local_enabled_'],
+    ['algzawy_tab_instance_v1','algzawy_preview_tab_instance_v1'],
+    ['algzawy_tab_pins_ready_v1','algzawy_preview_tab_pins_ready_v1'],
+    ['algzawy_tab_pin_v1_','algzawy_preview_tab_pin_v1_'],
+    ['__algzawy_stop_','__algzawy_preview_stop_']
+  ];
+  for(const id of ids){
+    const s=read(id);
+    const begin=s.indexOf('function preparePreviewEngine(code)');
+    const end=s.indexOf('\n  function startCore(',begin);
+    assert.ok(begin>0&&end>begin,id+' must have a Preview source adapter');
+    const adapter=new Function(s.slice(begin,end)+';return preparePreviewEngine')();
+    const source=readFileSync(new URL('../scripts/'+id+'.js',import.meta.url),'utf8');
+    assert.match(s,/const code = preparePreviewEngine\(await requestText\(SOURCE_URL\)\)/);
+    const modified=adapter(source);
+    for(const [official,qa] of namespaces){
+      assert.ok(!modified.includes(official),
+        id+' game engine must not retain Production permission key '+official);
+      if(source.includes(official))assert.ok(modified.includes(qa),
+        id+' game engine must replace '+official);
+    }
+    if(['algzawy-builder-v1','send-automation','tribal-wars-helper'].includes(id))
+      assert.notEqual(modified,source,'internal Production permission checks must be remapped for '+id);
+  }
+});
