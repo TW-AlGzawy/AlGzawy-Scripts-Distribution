@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | تنبيه الهجمات — تشغيل QA منفصل
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa-game-engine-rc1
-// @version      1.0.3.3
+// @version      1.0.3.4
 // @description  QA: isolated Preview device, subscription, per-script permission, ON switch, approved tab. No Production grants.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-end
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
   // Policy-first: no engine source is executed until a valid ENABLED response is confirmed.
-  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/756162e387e5ecbb150300001c143bc58aabaa43";
+  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/c4e2b82ce0b9656ef91e25a97296dd0385764cf9";
   const SOURCE_URL = ROOT_URL + "/pilots/engines/alg-attacks-qa.js";
   const STATUS_URL = 'https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/api/status';
   const ID = "alg-attacks";
