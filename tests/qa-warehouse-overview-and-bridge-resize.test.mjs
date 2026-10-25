@@ -8,15 +8,23 @@ const bridge=read('pilots/algzawy-cloud-bridge-preview-rc1.user.js');
 const server=read('portal/functions/telegram-preview.js');
 const telegram=await import('data:text/javascript;base64,'+Buffer.from(server).toString('base64'));
 
-test('Bridge has real resize controls and fixed-width pin buttons, not wrapping flex layouts',()=>{
+test('Bridge uses independent pointer-accessible side edges and stable script-pin grid',()=>{
  new vm.Script(bridge);new vm.Script(engine);
- for(const phrase of ['resize:both','id="algzawy-cloud-size-up"','id="algzawy-cloud-size-down"',
-  "grid-template-columns:minmax(0,1fr) 118px",'width:118px;min-width:118px',
-  'algzawy-preview-bridge-panel-geometry-v1','persistGeometry()'])
+ for(const phrase of ['resize:both','algzawy-cloud-resize-left','algzawy-cloud-resize-right',
+  'grid-template-columns:minmax(0,1fr) 120px','width:120px;min-width:120px',
+  'algzawy-preview-bridge-panel-geometry-v1','persistGeometry()','setPointerCapture','touch-action:none'])
   assert.ok(bridge.includes(phrase),phrase);
- assert.match(bridge,/toggle\.style\.cssText=/);
- assert.match(bridge,/saved\.width/);
+ assert.doesNotMatch(bridge,/algzawy-cloud-size-(up|down)/);
  assert.match(bridge,/saved\.height/);
+ const begin=bridge.indexOf('function nextEdgeGeometry('),end=bridge.indexOf('function render(){',begin);
+ assert.ok(begin>0&&end>begin);
+ const next=new Function(bridge.slice(begin,end)+';return nextEdgeGeometry;')();
+ const box={left:160,width:300};
+ assert.deepEqual(next('right',box,40,1024),{left:160,width:340});
+ assert.deepEqual(next('left',box,40,1024),{left:200,width:260});
+ assert.deepEqual(next('left',box,-40,1024),{left:120,width:340});
+ assert.deepEqual(next('left',box,400,1024),{left:205,width:255});
+ assert.deepEqual(next('right',box,1000,1024),{left:160,width:856});
 });
 test('Production overview reads resource spans and adjacent warehouse capacity, never farm or merchants',()=>{
  const start=engine.indexOf('function digits('),end=engine.indexOf('function draw(',start);
