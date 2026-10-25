@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | بوت التدريب — تشغيل QA منفصل
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa-game-engine-rc1
-// @version      1.0.3.1
+// @version      1.0.3.2
 // @description  QA: isolated Preview device, subscription, per-script permission, ON switch, approved tab. No Production grants.
 // @include      https://*.tribalwars.*/game.php?*screen=train*
 // @run-at       document-end
@@ -16,8 +16,8 @@
 (function () {
   'use strict';
   // Policy-first: no engine source is executed until a valid ENABLED response is confirmed.
-  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/38557d2926dce18a40171e972a911a0c39d04726";
-  const SOURCE_URL = ROOT_URL + "/scripts/professional-training-v2.js";
+  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/f0dcc819b662e34b087c887786bea968e1d9c570";
+  const SOURCE_URL = ROOT_URL + "/pilots/engines/professional-training-v2-qa.js";
   const STATUS_URL = 'https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/api/status';
   const ID = "professional-training-v2";
   // Game-only QA runner. A portal installation badge is handled separately by the official loader.
