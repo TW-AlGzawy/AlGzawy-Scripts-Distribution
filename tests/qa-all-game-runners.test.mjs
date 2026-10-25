@@ -10,7 +10,7 @@ const ids=[
 const preview='https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
 const pin='38557d2926dce18a40171e972a911a0c39d04726';
 const qaPin='f0dcc819b662e34b087c887786bea968e1d9c570';
-const attackPin='756162e387e5ecbb150300001c143bc58aabaa43';
+const attackPin='c4e2b82ce0b9656ef91e25a97296dd0385764cf9';
 const special=new Set(['professional-training-v2','alg-attacks']);
 const enginePath=id=>special.has(id)?'/pilots/engines/'+id+'-qa.js':'/scripts/'+id+'.js';
 const read=id=>readFileSync(new URL('../pilots/algzawy-'+id+'-preview-rc1.user.js',import.meta.url),'utf8');
