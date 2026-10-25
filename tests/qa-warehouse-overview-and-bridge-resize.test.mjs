@@ -10,7 +10,7 @@ const telegram=await import('data:text/javascript;base64,'+Buffer.from(server).t
 
 test('Bridge uses independent pointer-accessible side edges and stable script-pin grid',()=>{
  new vm.Script(bridge);new vm.Script(engine);
- for(const phrase of ['resize:both','algzawy-cloud-resize-left','algzawy-cloud-resize-right',
+ for(const phrase of ['resize:both',"grip.className='algzawy-cloud-resize-'+edge","['left','right']",
   'grid-template-columns:minmax(0,1fr) 120px','width:120px;min-width:120px',
   'algzawy-preview-bridge-panel-geometry-v1','persistGeometry()','setPointerCapture','touch-action:none'])
   assert.ok(bridge.includes(phrase),phrase);
@@ -49,7 +49,7 @@ test('Production overview reads resource spans and adjacent warehouse capacity, 
   makeRow(678,'0001 K44 (477|496)','79.188','8.378','159.791','400000'),
   makeRow(679,'0002 K45 (478|516)','68.392','5.392','162.894','500000')
  ];
- const productionTable={querySelectorAll(sel){assert.equal(sel,'tbody tr');return valid;}};
+ const productionTable={querySelector(){return null;},querySelectorAll(sel){assert.equal(sel,'tbody tr');return valid;}};
  const document={getElementById(id){return id==='production_table'?productionTable:null;}};
  const loc={href:'https://aep14.tribalwars.ae/game.php?village=678&screen=overview_villages&mode=prod',
   hostname:'aep14.tribalwars.ae'};
@@ -64,6 +64,28 @@ test('Production overview reads resource spans and adjacent warehouse capacity, 
  assert.equal(list[0].percent,39);
  assert.equal(list[1].percent,32);
  assert.ok(!list.some(v=>v.wood===12154||v.capacity===24000));
+});
+test('Warehouse headers override adjacent farm capacity with correct storage column',()=>{
+ const cells=[{}, {}, {textContent:'12000'}, {textContent:'400000'}];
+ cells[1].nextElementSibling=cells[2];
+ const headings=[{textContent:'Village'},{textContent:'Resources'},
+  {textContent:'Farm'},{textContent:'Storage'}];
+ const res={
+  'span.res.wood':{textContent:'100000',closest:()=>cells[1]},
+  'span.res.stone':{textContent:'90000',closest:()=>cells[1]},
+  'span.res.iron':{textContent:'80000',closest:()=>cells[1]}
+ };
+ const name={textContent:'K44 (477|496)',querySelector:q=>q==='a[href*="village="]'?
+  {textContent:'K44 (477|496)',getAttribute:()=>'?village=678'}:null};
+ const row={children:cells,querySelector:q=>q==='td'?name:(res[q]||null),getAttribute:()=>null,id:''};
+ const table={querySelector:q=>q==='thead tr'?{querySelectorAll:()=>headings}:null,querySelectorAll:()=>[row]};
+ const document={getElementById:q=>q==='production_table'?table:null};
+ const start=engine.indexOf('function digits('),end=engine.indexOf('function draw(',start);
+ const fn=new Function('document','unsafeWindow','window','location',engine.slice(start,end)+';return readProductionVillages;')(
+  document,{game_data:{world:'aep14'}},{},{href:'https://aep14.tribalwars.ae/game.php?screen=overview_villages&mode=prod',
+  hostname:'aep14.tribalwars.ae'});
+ assert.equal(fn()[0].capacity,400000);
+ assert.equal(fn()[0].percent,25);
 });
 test('10s overview scan batches qualifying villages and suppresses repeats per village',()=>{
  const start=engine.indexOf('function sendOverviewAlerts('),end=engine.indexOf('function draw(',start);
@@ -81,10 +103,18 @@ test('10s overview scan batches qualifying villages and suppresses repeats per v
  assert.equal(events.length,2);
  assert.deepEqual(events.map(e=>e.villages.length),[12,12]);
  assert.equal(events[0].totalOverLimit,25);
+ assert.equal(events[0].parts,2,'reported parts match dispatched parts');
  assert.equal(fn(rows,1),1,'next scan handles the last eligible village');
  assert.equal(fn(rows,1),0,'third scan does not send repeats');
  assert.equal(events.length,3);
  assert.equal(fn(rows,2),0,'threshold greater than resources produces no alert');
+ rows[0].percent=6;
+ assert.equal(fn(rows,1),1,'five-point increase sends new alert');
+ assert.equal(fn(rows,1),0,'unchanged levels do not repeat');
+ rows[0].percent=0;
+ assert.equal(fn(rows,1),0,'recovery clears alert state');
+ rows[0].percent=1;
+ assert.equal(fn(rows,1),1,'renewed threshold crossing sends new alert');
 });
 test('Server formats a compact production message for a single village or many',()=>{
  const village={villageId:678,villageName:'قرية <script>alert(1)</script>',
@@ -140,6 +170,7 @@ test('Signed warehouse batch accepts 1 percent and checks independently licensed
   assert.equal(res.status,200);
   assert.equal((await res.json()).deliveredVillages,2);
   assert.equal(log.length,2);
+   assert.ok(log.every(args=>args[1].includes(':level:7:threshold:1')));
   assert.ok(sent?.text.includes('BarQ'));
   assert.equal(sent?.parse_mode,'HTML');
   helpers.allowedSet=async()=>new Set(['alg-attacks']);
