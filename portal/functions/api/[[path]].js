@@ -1,5 +1,5 @@
 // Cloudflare Pages Functions — AlGzawy Cloud Portal (Free / D1)
-import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost} from '../../telegram-preview.js';
+import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost} from '../telegram-preview.js';
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
