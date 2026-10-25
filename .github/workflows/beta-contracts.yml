@@ -18,4 +18,4 @@ jobs:
           node-version: '22'
 
       - run: node --check scripts/algzawy-builder-v1.js
-      - run: node --test tests/algzawy-beta-contracts.test.mjs tests/builder-v1.test.mjs tests/send-automation-v11.test.mjs tests/rewards-timing.test.mjs tests/installation-status.test.mjs
+      - run: node --test tests/algzawy-beta-contracts.test.mjs tests/builder-v1.test.mjs tests/send-automation-v11.test.mjs tests/rewards-timing.test.mjs tests/installation-status.test.mjs tests/release-integrity.test.mjs
