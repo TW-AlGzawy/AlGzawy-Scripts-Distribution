@@ -354,7 +354,7 @@
       const key='algzawy_preview_warehouse_alert_settings_v01';
       let prev={};try{prev=JSON.parse(localStorage.getItem(key)||'{}');}catch(_){}
       const next={...prev,enabled};
-      if(Number.isInteger(opts?.percent))next.percent=opts.percent;
+      // Keep the locally edited threshold. Syncing license must not overwrite a player's in-game settings.
       if(JSON.stringify(prev)!==JSON.stringify(next))localStorage.setItem(key,JSON.stringify(next));
     }
     if(id==='professional-training-v2'){
