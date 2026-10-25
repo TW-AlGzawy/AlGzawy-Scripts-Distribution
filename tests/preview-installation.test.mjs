@@ -13,11 +13,16 @@ test('Every published loader reports its installed version from approved preview
     const source=read('loaders/'+entry.id+'.user.js');
     assert.match(source,/^\/\/ @match\s+https:\/\/\*\.algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
     for(const origin of [previewOrigin,productionOrigin]){
-      const handlers={},reports=[];
+      const handlers={},domHandlers={},reports=[],domReports=[];
       const win={addEventListener(type,fn){handlers[type]=fn;},postMessage(value,target){reports.push({value,target});}};
+      const doc={
+        addEventListener(type,fn){domHandlers[type]=fn;},
+        dispatchEvent(event){domReports.push(event);}
+      };
+      class CustomEvent{constructor(type,options){this.type=type;this.detail=options.detail;}}
       const loc={origin,pathname:'/v2/',hostname:new URL(origin).hostname};
-      // No localStorage, document or network APIs supplied: reaching engine code must throw.
-      vm.runInNewContext(source,{window:win,location:loc,console},{filename:entry.id+'.user.js'});
+      // No localStorage or network APIs: the game engine must not run on portal domains.
+      vm.runInNewContext(source,{window:win,document:doc,CustomEvent,location:loc,console},{filename:entry.id+'.user.js'});
       assert.equal(reports.length,1,entry.id+' initial UI-only report from '+origin);
       assert.equal(reports[0].value.id,entry.id);
       assert.equal(reports[0].value.version,entry.version);
@@ -25,8 +30,12 @@ test('Every published loader reports its installed version from approved preview
       handlers.message({source:win,origin,data:{scope:'algzawy-installation-v1',type:'probe',nonce:'qa-nonce'}});
       assert.equal(reports.length,2,entry.id+' responds to nonce');
       assert.equal(reports[1].value.nonce,'qa-nonce');
+      assert.equal(domReports[1].detail.nonce,'qa-nonce','custom-event report is emitted');
+      domHandlers['algzawy-installation-probe-v1']({detail:{scope:'algzawy-installation-v1',type:'probe',nonce:'dom-nonce'}});
+      assert.equal(domReports[2].detail.nonce,'dom-nonce');
+      assert.equal(reports[2].value.nonce,'dom-nonce');
       handlers.message({source:win,origin:'https://evil.example',data:{scope:'algzawy-installation-v1',type:'probe',nonce:'evil'}});
-      assert.equal(reports.length,2,entry.id+' rejects other origins');
+      assert.equal(reports.length,3,entry.id+' rejects other origins');
     }
   }
 });
