@@ -16,7 +16,7 @@ async function syncBridgeVersion(){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,probeTarget:null,probeResponders:new Set(),releaseError:false};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,probeTarget:null,probeResponders:new Set(),helloProbed:new Set(),releaseError:false};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
@@ -134,6 +134,9 @@ async function fetchReleaseVersions(){
   }catch(error){state.releaseError=true;/* Installed-script proof is independent of GitHub availability. */}
   if(state.user)renderScripts();
 }
+// UI-only proof: an installed, enabled loader must respond to the current nonce.
+// Chrome isolated worlds can delay @require or message bridging; listen on BOTH
+// page messages and the document event bus. Neither is a licensing authority.
 function probeInstalledScripts(targetId=null){
   if(!state.user||document.visibilityState==='hidden')return;
   if(targetId&&state.catalog.some(item=>item.id===targetId))state.probeTarget=targetId;
@@ -141,27 +144,50 @@ function probeInstalledScripts(targetId=null){
   state.probeNonce=crypto.randomUUID();
   state.probeResponders=new Set();
   const nonce=state.probeNonce;
-  window.postMessage({scope:'algzawy-installation-v1',type:'probe',nonce},location.origin);
+  const ask={scope:'algzawy-installation-v1',type:'probe',nonce};
+  // The document event works across injected content worlds without network calls.
+  document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
+  window.postMessage(ask,location.origin);
   renderScripts();
+  // Some Tampermonkey loaders wait for @require, so retry before declaring no proof.
   setTimeout(()=>{
     if(state.probeNonce!==nonce||!state.user)return;
-    // Installation proof must be fresh, not a previous page-local cache.
+    document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
+    window.postMessage(ask,location.origin);
+  },2600);
+  setTimeout(()=>{
+    if(state.probeNonce!==nonce||!state.user)return;
     for(const id of state.installed.keys())
       if(!state.probeResponders.has(id))state.installed.delete(id);
     state.probing=false;state.probeTarget=null;
     renderScripts();
-  },2200);
+  },6500);
 }
-window.addEventListener('message',event=>{
-  if(event.source!==window||event.origin!==location.origin||!state.user)return;
-  const message=event.data;
-  if(message?.scope!=='algzawy-installation-v1'||message.type!=='report'||message.nonce!==state.probeNonce)return;
+function receiveInstallationReport(message){
+  if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
   if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
+  // A loader initialized AFTER the probe (for example due to @require) may send
+  // an unsolicited hello. Never call that installation proof; challenge it afresh.
+  if(message.nonce===''){
+    if(!state.helloProbed.has(message.id)){
+      state.helloProbed.add(message.id);
+      probeInstalledScripts(message.id);
+    }
+    return;
+  }
+  if(message.nonce!==state.probeNonce)return;
   state.installed.set(message.id,message.version);
   state.probeResponders.add(message.id);
   if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
   renderScripts();
+}
+window.addEventListener('message',event=>{
+  if(event.source!==window||event.origin!==location.origin)return;
+  receiveInstallationReport(event.data);
+});
+document.addEventListener('algzawy-installation-report-v1',event=>{
+  receiveInstallationReport(event.detail);
 });
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
@@ -559,7 +585,7 @@ $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActiv
 $('refreshButton').addEventListener('click',()=>void refresh());
 async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeTarget=null;state.probing=false;state.probeResponders.clear();
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
   state.prefs={};state.csrf='';state.expiresAt=0;
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
 }
