@@ -130,7 +130,10 @@ function shouldSendWarehouse(village,threshold){
   if(village.percent<=Math.max(0,threshold-5))sessionStorage.removeItem(key);
   return false;
  }
- if(typeof previous==='number'&&previous>0)previous={percent:village.percent,threshold};
+ if(typeof previous==='number'&&previous>0){
+  previous={percent:village.percent,threshold};
+  sessionStorage.setItem(key,JSON.stringify(previous));
+ }
  return !previous||previous.threshold!==threshold||
   !Number.isInteger(previous.percent)||village.percent>=previous.percent+5;
 }
