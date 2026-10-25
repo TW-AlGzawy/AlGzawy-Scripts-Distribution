@@ -23,15 +23,15 @@ test('Preview never checks in a BotFather token or sends it through game client'
   assert.match(api,/signatureAuth\(req,env,'\/api\/telegram\/notify'\)/);
   assert.match(api,/signatureAuth\(req,env,proofPath='\/api\/device\/state'\)/);
 });
-test('Telegram API has subscriber opt-in binding and disables unreleased warehouse alerts',()=>{
+test('Telegram API isolates subscriber attack and warehouse preferences',()=>{
   assert.match(telegram,/const QA_HOST='feature-algzawy-quality-hard\.algzawy-cloud-control\.pages\.dev'/);
   for(const path of ['link','unlink','test','preferences','status'])assert.match(telegram,new RegExp("action==='"+path+"'"));
-  assert.match(telegram,/warehouseAvailable:false/);
-  assert.match(telegram,/warehouse:false/);
+  assert.match(telegram,/warehouseAvailable/);
+  assert.match(telegram,/portal_telegram_warehouse_preferences/);
   assert.match(telegram,/X-Telegram-Bot-Api-Secret-Token/);
   assert.match(telegram,/telegramReady\(env\)/);
   assert.match(telegram,/telegram_not_configured/);
-  assert.match(telegram,/limitedEvent\(env,device\.user_id,eventKey,300\)/);
+  assert.match(telegram,/limitedEvent\(env,device\.user_id,key,period\)/);
   assert.match(api,/readSubscriberSession\(req,env\)/);
   assert.match(api,/csrf_invalid/);
 });
@@ -39,7 +39,7 @@ test('Preview onboarding advertises accurately and does not pretend 24/7 monitor
   assert.match(client,/data-view="telegram"/);
   assert.match(client,/data-panel="telegram"/);
   assert.match(client,/تنبيهات المخازن/);
-  assert.match(client,/قيد التطوير — غير مفعّل/);
+  assert.match(client,/استقبال تنبيهات امتلاء المخازن/);
   assert.match(client,/أثناء إغلاق اللعبة/);
   assert.match(ui,/updateTelegramUI/);
   assert.match(ui,/telegramCurrent\?\.configured/);
