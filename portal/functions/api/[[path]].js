@@ -202,7 +202,7 @@ function validateSettings(id,raw){
     return {};
   }
   if(id==='warehouse-alert-safe'){
-    if(Object.keys(raw).some(x=>x!=='percent')||!Number.isInteger(raw.percent)||raw.percent<50||raw.percent>100)return undefined;
+    if(Object.keys(raw).some(x=>x!=='percent')||!Number.isInteger(raw.percent)||raw.percent<1||raw.percent>100)return undefined;
     return {percent:raw.percent};
   }
   return Object.keys(raw).length===0?{}:undefined;
