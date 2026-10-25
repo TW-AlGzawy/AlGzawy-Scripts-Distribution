@@ -5,6 +5,7 @@
 // @description  AlGzawy BETA — المرخص للمشترك والجهاز المعتمد
 // @include      https://*.tribalwars.*/game.php?*screen=am_farm*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
+// @match        https://*.algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
@@ -20,7 +21,10 @@
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "bot-farm-2";
   // Portal presence report is UI-only. Never run the game engine on the portal.
-  if(location.origin==='https://algzawy-cloud-control.pages.dev'&&location.pathname.startsWith('/v2/')){
+  if((location.origin==='https://algzawy-cloud-control.pages.dev'||
+     /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
+     &&location.pathname.startsWith('/v2/')){
+     // Installation metadata only: never execute the game engine on Preview or Production portal.
     const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.2';
     const report=nonce=>window.postMessage({scope:'algzawy-installation-v1',type:'report',
       id:ID,version:String(version),nonce},location.origin);
