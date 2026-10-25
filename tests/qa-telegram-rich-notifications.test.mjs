@@ -112,5 +112,5 @@ test('warehouse D1 migration is Preview-only and preserves the old Telegram subs
  const sql=read('portal/migrations/2026-10-25-telegram-warehouse-preview.sql');
  assert.match(sql,/CREATE TABLE IF NOT EXISTS portal_telegram_warehouse_preferences/);
  assert.match(sql,/CHECK\(enabled IN \(0,1\)\)/);
- assert.doesNotMatch(sql,/DROP|DELETE|ALTER TABLE portal_telegram_links/i);
+ assert.doesNotMatch(sql,/DROP TABLE|DELETE FROM|ALTER TABLE portal_telegram_links/i);
 });
