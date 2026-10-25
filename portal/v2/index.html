@@ -95,7 +95,7 @@
           <section class="telegram-teaser" aria-labelledby="telegramTeaserTitle">
             <div class="telegram-teaser-symbol">✉</div>
             <div><span class="kicker">ALGZAWY × TELEGRAM</span><h3 id="telegramTeaserTitle">تنبيه مهم، في الوقت المناسب</h3>
-              <p>تعرّف على طريقة استقبال تنبيهات الهجمات الواردة في محادثتك الخاصة، وعلى خطة إضافة تنبيهات المخازن لاحقًا. دون مشاركة بيانات دخول اللعبة.</p></div>
+              <p>تعرّف على طريقة استقبال تنبيهات الهجمات الواردة في محادثتك الخاصة، وتنبيهات اقتراب المخزن من الامتلاء عندما تكون صفحة القرية وسكربت التنبيه قيد التشغيل، دون مشاركة بيانات دخول اللعبة.</p></div>
             <div class="telegram-teaser-links"><button type="button" class="btn primary" data-go="telegram">كيف تعمل التنبيهات؟ ←</button><a class="btn outline" href="https://t.me/AlG_Reserve_bot" target="_blank" rel="noopener noreferrer">عرض بوت AlGzawy في Telegram ↗</a></div>
           </section>
           <div class="dashboard-grid">
@@ -153,7 +153,7 @@
           </section>
           <div class="telegram-benefits">
             <article><span>⚔️</span><strong>تنبيهات الهجمات</strong><p>عدد الهجمات الواردة ورقم القرية، لتعرف أن عليك مراجعة اللعبة بسرعة.</p><small class="telegram-ready-label">متاح بعد الربط والتفعيل</small></article>
-            <article><span>◈</span><strong>تنبيهات المخازن</strong><p>تصوّر مستقبلي للتنبيه عند اقتراب المخزن من الامتلاء أو الحاجة لتوزيع الموارد.</p><small>قيد التطوير — غير مفعّل حاليًا</small></article>
+            <article><span>◈</span><strong>تنبيهات المخازن</strong><p>إشعار منسق عن موارد القرية وسعة المخزن إذا وصلت أي من الموارد إلى 90% أو أكثر.</p><small>متاح بعد تفعيل إعداد المخازن في Preview وتشغيل اللعبة</small></article>
             <article><span>◷</span><strong>تنبيهات تستحق انتباهك</strong><p>إشعار مختصر بدل البقاء على الشاشة باستمرار، مع تحكم منفصل لكل نوع مستقبلاً.</p><small>الإرسال من سكربت مرخّص ومفعّل فقط</small></article>
           </div>
           <section class="panel telegram-setup">
@@ -167,8 +167,8 @@
               <button type="button" class="btn danger" id="telegramUnlink" disabled>إلغاء الربط</button>
             </div>
             <label class="telegram-opt"><input id="telegramAttacks" type="checkbox" disabled> استقبال تنبيهات الهجمات الواردة</label>
-            <label class="telegram-opt disabled"><input type="checkbox" disabled> تنبيهات المخازن — قيد التطوير</label>
-            <p class="telegram-fineprint">في نسخة Preview لا يتم تفعيل الربط والإرسال قبل إعداد سرّ البوت الجديد وWebhook وقاعدة البيانات التجريبية. لا نعِد بإشعارات أثناء إغلاق اللعبة.</p>
+            <label class="telegram-opt"><input id="telegramWarehouse" type="checkbox" disabled> استقبال تنبيهات امتلاء المخازن (90%)</label><small id="telegramWarehouseState" class="telegram-fineprint">يتطلب تهيئة جدول تفضيلات المخازن في قاعدة Preview.</small>
+            <p class="telegram-fineprint">تنبيهات الهجمات والمخازن تعمل عند تشغيل اللعبة والجسر وسكربت تنبيه الهجمات المرخّص. تنبيه المخزن يراقب القرية المفتوحة فقط ولا يعمل أثناء إغلاق اللعبة.</p>
           </section>
         </section>
         <section class="view" data-panel="account">
