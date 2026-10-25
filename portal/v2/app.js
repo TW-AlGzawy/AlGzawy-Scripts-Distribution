@@ -477,7 +477,24 @@ async function runDiagnostics(){
       row.append(el('strong','',checks[i].label+' — '),el('span','',description));
       root.append(row);
     }
-    root.append(el('p','diagnostic-caveat','الجهاز المعتمد وتشغيل المحركات داخل اللعبة لا يمكن إثباتهما من هذه الصفحة. افحص المزامنة الموقّعة في Cloud Bridge.'));
+    const account=results[1].status==='fulfilled'?results[1].value:null;
+    let deviceSummary='تعذر التحقق من الجهاز المعتمد';
+    if(account?.deviceHealth){
+      if(!account.deviceHealth.approved)deviceSummary='لا يوجد جهاز معتمد لهذا الاشتراك';
+      else if(!account.deviceHealth.lastSeen)deviceSummary='جهاز معتمد — لم يسجّل اتصالًا موقّعًا بعد';
+      else{
+        const raw=String(account.deviceHealth.lastSeen).replace(' ','T');
+        const last=Date.parse(raw.endsWith('Z')?raw:raw+'Z');
+        const seconds=Math.max(0,Math.floor(Number(account.serverNow||0)-last/1000));
+        deviceSummary=Number.isFinite(seconds)&&Number.isSafeInteger(seconds)
+          ?'آخر تحقق موقّع منذ '+seconds+' ثانية'+(seconds>120?' — الاتصال غير حديث':'')
+          :'جهاز معتمد — وقت آخر الاتصال غير متاح';
+      }
+    }
+    const deviceRow=el('p','diagnostic-row');
+    deviceRow.append(el('strong','','الجهاز المعتمد — '),el('span','',deviceSummary));
+    root.append(deviceRow);
+    root.append(el('p','diagnostic-caveat','آخر اتصال موقّع يثبت وصول الجسر فقط، ولا يثبت تنفيذ أي محرك داخل اللعبة.'));
   }finally{button.disabled=false;}
 }
 $('runDiagnostics').addEventListener('click',()=>void runDiagnostics());
