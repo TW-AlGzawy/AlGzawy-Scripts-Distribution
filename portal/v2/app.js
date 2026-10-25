@@ -130,7 +130,10 @@ function installationControl(item){
 }
 // QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
 // Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
-const qaInstallProbeIds=['mass-scavenge-v1','alg-attacks'];
+// The published nine-script catalog is the source of installation IDs.
+// QA traces are limited to these IDs and never imply an installation.
+const qaInstallProbeIds=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
+  'professional-training-v2','send-automation','alg-attacks','alg-coins','tribal-wars-helper'];
 const qaInstallIds=new Set([...qaInstallProbeIds,'qa-smoke']);
 const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent','smoke-ready']);
 const qaInstallTrace=[];
@@ -140,7 +143,7 @@ function qaInstallLog(id,stage,channel='',note=''){
   // All fields stored/exported are chosen locally from finite diagnostic categories.
   const entry={time:new Date().toLocaleTimeString('ar-BE',{hour12:false}),id,stage,channel,note};
   qaInstallTrace.unshift(entry);
-  if(qaInstallTrace.length>75)qaInstallTrace.length=75;
+  if(qaInstallTrace.length>200)qaInstallTrace.length=200;
   if(qaInstallTraceList){
     qaInstallTraceList.replaceChildren();
     for(const x of qaInstallTrace){
@@ -165,13 +168,15 @@ function qaInstallDiagnosticsInit(){
   panel.setAttribute('aria-labelledby','qaProbeTitle');
   const h=el('h3','', 'تشخيص تأكيد التثبيت — Preview فقط');
   h.id='qaProbeTitle';
-  const info=el('p','small-muted','فحص تجريبي لسكربتَي الإغارات وتنبيه الهجمات، مع سكربت اختبار مستقل للتأكد من حقن Tampermonkey. السجل محلي ولا يحتوي رموز تحقق أو معلومات اشتراك. يجب إعادة تثبيت نسختَي QA لتظهر إشارات Loader.');
+  const info=el('p','small-muted','فحص تجريبي للسكربتات التسعة، مع سكربت مستقل للتأكد من تشغيل Tampermonkey. لإظهار «✓ مثبّت» يجب تثبيت كل سكربت فعليًا داخل Tampermonkey، ثم تحديث صفحة Preview. سجلات التشخيص تبقى محلية دون أسرار أو بيانات اشتراك.');
+  const progress=el('p','qa-install-progress','جارٍ فحص السكربتات المرخّصة…');
+  progress.id='qaInstallProgress';
+  progress.setAttribute('role','status');
   const actions=el('div','qa-probe-actions');
-  const start=el('button','btn outline','فحص السكربتين الآن');
+  const start=el('button','btn outline','فحص جميع السكربتات الآن');
   start.type='button';
   start.addEventListener('click',()=>{
-    qaInstallLog('alg-attacks','manual-check','portal');
-    qaInstallLog('mass-scavenge-v1','manual-check','portal');
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'manual-check','portal');
     probeInstalledScripts();
   });
   const copy=el('button','btn subtle','نسخ سجل التشخيص');
@@ -188,7 +193,7 @@ function qaInstallDiagnosticsInit(){
   actions.append(start,copy,clear);
   qaInstallTraceList=el('ol','qa-probe-trace');
   qaInstallTraceList.setAttribute('aria-label','سجل مراحل التحقق');
-  panel.append(h,info,actions,qaInstallTraceList);
+  panel.append(h,info,progress,actions,qaInstallTraceList);
   grid.parentNode.insertBefore(panel,grid);
 }
 if(qaPreviewHost){
@@ -506,6 +511,15 @@ function renderScripts(){
   const items=allowed().filter(x=>(state.category==='all'||state.category===x.category)&&
     (!query||(x.name+' '+x.description).toLocaleLowerCase().includes(query)));
   $('resultsCount').textContent='عرض '+items.length+' من '+allowed().length+' سكربت مرخص';
+  if(qaPreviewHost){
+    const progress=$('qaInstallProgress');
+    if(progress){
+      const all=allowed(),confirmed=all.filter(x=>state.installed.has(x.id)).length;
+      progress.textContent='تم تأكيد تثبيت '+confirmed+' من '+all.length+' سكربت مرخّص في هذا المتصفح. '
+        +(confirmed===all.length?'جميع الملفات المرخّصة ردّت على الفحص.':
+          'البقية: اضغط «تثبيت السكربت» على بطاقتها وأكّد التثبيت في Tampermonkey، ثم حدّث الصفحة.');
+    }
+  }
   if(!items.length){root.append(el('div','empty',allowed().length?'لا توجد نتائج مطابقة للبحث.':'لا توجد سكربتات مرخصة لهذا الاشتراك.'));return;}
   for(const item of items){
     const pref=state.prefs[item.id]||{};
