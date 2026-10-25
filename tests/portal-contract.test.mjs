@@ -23,6 +23,10 @@ class DB{
        if(sql.includes('SELECT encrypted_key,iv FROM portal_access_key_vault'))return db.vault.find(x=>x.user_id===a[0])||null;
        if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
       if(sql.includes('SELECT active,expires_at FROM portal_subscriptions'))return db.subs.find(x=>x.user_id===a[0])||null;
+       if(sql.includes('SELECT last_seen FROM portal_device_keys WHERE user_id=? AND approved=1 LIMIT 1')){
+         const approved=db.keys.find(x=>x.user_id===a[0]&&x.approved===1);
+         return approved?{last_seen:approved.last_seen||null}:null;
+       }
       if(sql.includes('SELECT settings_json FROM portal_preferences')){const x=db.prefs.find(v=>v.user_id===a[0]&&v.script_id===a[1]);return x?{settings_json:x.settings_json}:null;}
       if(sql.includes('FROM portal_device_keys k JOIN portal_users u')){
         const k=db.keys.find(x=>x.device_id===a[0]);const u=db.users.find(x=>x.id===k?.user_id);const d=db.devices.find(x=>x.id===k?.device_id);
