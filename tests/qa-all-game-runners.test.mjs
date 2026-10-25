@@ -10,6 +10,7 @@ const ids=[
 const preview='https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
 const pin='38557d2926dce18a40171e972a911a0c39d04726';
 const qaPin='f0dcc819b662e34b087c887786bea968e1d9c570';
+const attackPin='756162e387e5ecbb150300001c143bc58aabaa43';
 const special=new Set(['professional-training-v2','alg-attacks']);
 const enginePath=id=>special.has(id)?'/pilots/engines/'+id+'-qa.js':'/scripts/'+id+'.js';
 const read=id=>readFileSync(new URL('../pilots/algzawy-'+id+'-preview-rc1.user.js',import.meta.url),'utf8');
@@ -81,7 +82,7 @@ for(const id of ids){
     assert.doesNotMatch(s,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev|\/main\/scripts\/|https:\/\/algzawy-cloud-control\.pages\.dev\/api\/status/);
     assert.doesNotMatch(s,/^\/\/ @match\s+https:\/\/.*algzawy-cloud-control\.pages\.dev/m);
     assert.match(s,/^\/\/ @(?:include|match)\s+https:\/\/.*tribalwars\./m);
-    assert.match(s,new RegExp(special.has(id)?qaPin:pin));
+    assert.match(s,new RegExp(id==='alg-attacks'?attackPin:special.has(id)?qaPin:pin));
     assert.ok(s.includes('SOURCE_URL = ROOT_URL + "'+enginePath(id)+'"'),id+' must pin expected engine source');
     for(const key of ['algzawy_preview_portal_grant_','algzawy_preview_portal_device_authorized_until',
       'algzawy_preview_tab_pin_v1_','algzawy-preview-tab-pins-ready','__algzawy_preview_stop_'])
