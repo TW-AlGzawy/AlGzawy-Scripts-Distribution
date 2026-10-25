@@ -7,6 +7,10 @@ const $=id=>document.getElementById(id);
 const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
+  if(qaPreviewHost){
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.1 QA';});
+    return;
+  }
   try{
     const response=await fetch('/api/bridge-version',{credentials:'same-origin',cache:'no-store'});
     const release=await response.json();
@@ -194,7 +198,12 @@ function qaInstallDiagnosticsInit(){
   actions.append(start,copy,clear);
   qaInstallTraceList=el('ol','qa-probe-trace');
   qaInstallTraceList.setAttribute('aria-label','سجل مراحل التحقق');
-  panel.append(h,info,progress,actions,qaInstallTraceList);
+  // Separate game-only QA installer. It cannot set the browser's official installed badge.
+  const qaGameInstall=el('a','btn subtle','تثبيت مشغّل الإغارات التجريبي (داخل اللعبة فقط) ↗');
+  qaGameInstall.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-mass-scavenge-preview-rc1.user.js';
+  qaGameInstall.target='_blank';qaGameInstall.rel='noopener noreferrer';
+  const warning=el('p','small-muted','تنبيه: مشغّل QA منفصل عن السكربت الرسمي. عند تفعيل Preview والسماح بالإغارات، قد يرسل أوامر فعلية داخل حرب القبائل. لا تستخدمه إلا على حساب اختبار وضمن قوانين اللعبة.');
+  panel.append(h,info,progress,qaGameInstall,warning,actions,qaInstallTraceList);
   grid.parentNode.insertBefore(panel,grid);
 }
 if(qaPreviewHost){
@@ -732,6 +741,13 @@ setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refres
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible'){probeInstalledScripts();void fetchReleaseVersions();}},5*60*1000);
 qaInstallDiagnosticsInit();
+if(qaPreviewHost){
+  const officialLink=q('a[href$="/loaders/algzawy-cloud-bridge.user.js"]');
+  if(officialLink){
+    officialLink.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-cloud-bridge-preview-rc1.user.js';
+    officialLink.title='الجسر التجريبي فقط — معزول عن Production';
+  }
+}
 void syncBridgeVersion();
 setInterval(()=>{if(document.visibilityState==='visible')void syncBridgeVersion();},300000);
 void init();
