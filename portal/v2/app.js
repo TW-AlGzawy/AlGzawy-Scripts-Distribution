@@ -198,12 +198,30 @@ function qaInstallDiagnosticsInit(){
   actions.append(start,copy,clear);
   qaInstallTraceList=el('ol','qa-probe-trace');
   qaInstallTraceList.setAttribute('aria-label','سجل مراحل التحقق');
-  // Separate game-only QA installer. It cannot set the browser's official installed badge.
-  const qaGameInstall=el('a','btn subtle','تثبيت مشغّل الإغارات التجريبي (داخل اللعبة فقط) ↗');
-  qaGameInstall.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-mass-scavenge-preview-rc1.user.js';
-  qaGameInstall.target='_blank';qaGameInstall.rel='noopener noreferrer';
-  const warning=el('p','small-muted','تنبيه: مشغّل QA منفصل عن السكربت الرسمي. عند تفعيل Preview والسماح بالإغارات، قد يرسل أوامر فعلية داخل حرب القبائل. لا تستخدمه إلا على حساب اختبار وضمن قوانين اللعبة.');
-  panel.append(h,info,progress,qaGameInstall,warning,actions,qaInstallTraceList);
+  // QA game-only launchers. Their presence is distinct from website-installed checkmarks.
+  const qaLaunchers=[
+    ['mass-scavenge-v1','الإغارات الجماعية','1.0.2.2'],
+    ['bot-farm-2','بوت النهب','1.0.2.1'],
+    ['alg-balance','موازنة الموارد','1.0.2.1'],
+    ['algzawy-builder-v1','البناء المتطور','1.0.3.1'],
+    ['professional-training-v2','بوت التدريب','1.0.3.1'],
+    ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
+    ['alg-attacks','تنبيه الهجمات','1.0.3.1'],
+    ['alg-coins','الصقل المتطور','1.0.2.1'],
+    ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
+  ];
+  const qaTitle=el('h4','', 'مشغّلات اللعبة التجريبية — تثبيت منفصل');
+  const qaHelp=el('p','small-muted',
+    'هذه الملفات لتشغيل المحركات داخل اللعبة عبر الجسر التجريبي. لا تغيّر حالة «✓ مثبّت» للـLoader العادي. ثبّت المشغّل الذي تريد تجربته فقط، وعطّل نظيره الرسمي داخل متصفح الاختبار.');
+  const qaLinks=el('div','qa-game-links');
+  for(const [id,label,version] of qaLaunchers){
+    const link=el('a','btn subtle','تثبيت '+label+' · v'+version+' ↗');
+    link.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-'+id+'-preview-rc1.user.js';
+    link.target='_blank';link.rel='noopener noreferrer';
+    qaLinks.append(link);
+  }
+  const warning=el('p','small-muted','تنبيه: هذه مشغّلات QA مستقلة. قد تنفّذ أوامر فعلية داخل حرب القبائل عند تشغيل Preview، ولا ينبغي اختبارها كلها في الوقت نفسه. فعّل صلاحية سكربت واحد ثم تحقّق من توقفه عند OFF. لا تستخدمها إلا ضمن قواعد اللعبة.');
+  panel.append(h,info,progress,qaTitle,qaHelp,qaLinks,warning,actions,qaInstallTraceList);
   grid.parentNode.insertBefore(panel,grid);
 }
 if(qaPreviewHost){
