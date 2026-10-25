@@ -17,7 +17,7 @@ test('warehouse exists as separately licensed tenth QA script in administration 
   assert.doesNotMatch(bridge,/retiredIds=\[[^\n]*"warehouse-alert-safe"/);
   assert.match(userUI,/item\.id==='warehouse-alert-safe'/);
   assert.match(userUI,/algzawy-warehouse-alert-safe-preview-rc1\.user\.js/);
-  assert.match(bridge,/const requiredId=info\.type==='warehouse'\?'warehouse-alert-safe':'alg-attacks'/);
+  assert.match(bridge,/const requiredId=info\.type==='attack'\?'alg-attacks':'warehouse-alert-safe'/);
   assert.match(read('portal/functions/telegram-preview.js'),/const requiredId=event\.type==='warehouse'\?'warehouse-alert-safe':'alg-attacks'/);
   assert.doesNotMatch(read('pilots/engines/alg-attacks-qa.js'),/function checkWarehouse/);
 });
