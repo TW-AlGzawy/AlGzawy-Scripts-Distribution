@@ -31,7 +31,7 @@ test('Telegram API isolates subscriber attack and warehouse preferences',()=>{
   assert.match(telegram,/X-Telegram-Bot-Api-Secret-Token/);
   assert.match(telegram,/telegramReady\(env\)/);
   assert.match(telegram,/telegram_not_configured/);
-  assert.match(telegram,/limitedEvent\(env,device\.user_id,key,period\)/);
+  assert.match(telegram,/limitedEvent\(env,device\.user_id,key,21600\)/);
   assert.match(api,/readSubscriberSession\(req,env\)/);
   assert.match(api,/csrf_invalid/);
 });
@@ -39,7 +39,7 @@ test('Preview onboarding advertises accurately and does not pretend 24/7 monitor
   assert.match(client,/data-view="telegram"/);
   assert.match(client,/data-panel="telegram"/);
   assert.match(client,/تنبيهات المخازن/);
-  assert.match(client,/استقبال تنبيهات امتلاء المخازن/);
+  assert.match(client,/استقبال تنبيهات المخازن/);
   assert.match(client,/أثناء إغلاق اللعبة/);
   assert.match(ui,/updateTelegramUI/);
   assert.match(ui,/telegramCurrent\?\.configured/);
