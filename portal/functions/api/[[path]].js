@@ -586,8 +586,10 @@ async function handler(req,env){
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(user.id).first();
+    const approvedDevice=await env.DB.prepare('SELECT last_seen FROM portal_device_keys WHERE user_id=? AND approved=1 LIMIT 1').bind(user.id).first();
     return reply({ok:true,user,global,scripts:await settingsFor(env,user.id),
       subscription:{active:sub?.active===1,expiresAt:Number.isSafeInteger(sub?.expires_at)?sub.expires_at:null},
+      deviceHealth:{approved:!!approvedDevice,lastSeen:approvedDevice?.last_seen||null},
       serverNow:Math.floor(Date.now()/1000)});
   }
   if(path[0]==='scripts'&&path[1]==='bulk'&&path.length===2&&req.method==='POST'){
