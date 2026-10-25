@@ -421,7 +421,7 @@ async function loadMe(){
   state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;readSubscription(data);
   const catalog=await api('catalog');
   state.catalog=Array.isArray(catalog.items)?catalog.items.filter(x=>state.prefs[x.id]?.allowed===true):[];
-  showShell();render();view(routeFromHash(),false);showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
+  showShell();render();view(routeFromHash(),false);if(routeFromHash()==='telegram')void refreshTelegram();showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
 }
 async function init(){
   try{
@@ -792,7 +792,7 @@ $('loginForm').addEventListener('submit',async event=>{
 // Support direct links and manual fragment navigation as well as normal sidebar clicks.
 window.addEventListener('hashchange',()=>{if(state.user){view(routeFromHash(),false);if(routeFromHash()==='telegram')void refreshTelegram();}});
 qa('[data-view]').forEach(button=>button.addEventListener('click',()=>{view(button.dataset.view);if(button.dataset.view==='telegram')void refreshTelegram();}));
-qa('[data-go]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.go)));
+qa('[data-go]').forEach(button=>button.addEventListener('click',()=>{view(button.dataset.go);if(button.dataset.go==='telegram')void refreshTelegram();}));
 $('menuToggle').addEventListener('click',()=>{$('sidebar').classList.toggle('open');$('mobileBackdrop').hidden=!$('sidebar').classList.contains('open');});
 $('mobileBackdrop').addEventListener('click',()=>{$('sidebar').classList.remove('open');$('mobileBackdrop').hidden=true;});
 $('scriptSearch').addEventListener('input',event=>{state.search=event.target.value;renderScripts();});
