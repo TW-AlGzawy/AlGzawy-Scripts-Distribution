@@ -12,7 +12,7 @@ test('Preview Bridge has separate userscript identity, update channel, and appro
   new vm.Script(pilot,{filename:'pilots/algzawy-cloud-bridge-preview-rc1.user.js'});
   assert.match(pilot,/^\/\/ @name\s+الغزااوي \| الجسر السحابي — PREVIEW RC1/m);
   assert.match(pilot,/^\/\/ @namespace\s+https:\/\/github\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/preview-rc1/m);
-  assert.match(pilot,/^\/\/ @version\s+2\.4\.1\.1/m);
+  assert.match(pilot,/^\/\/ @version\s+2\.4\.1\.2/m);
   assert.match(pilot,/^\/\/ @connect\s+feature-algzawy-quality-hard\.algzawy-cloud-control\.pages\.dev/m);
   assert.match(pilot,/^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/feature\/algzawy-quality-hardening-2026-10-25\/pilots\/algzawy-cloud-bridge-preview-rc1\.user\.js/m);
   assert.match(pilot,new RegExp("const PORTAL_ORIGIN='"+qaHost.replaceAll('.','\\.')+"'"));
@@ -36,7 +36,8 @@ test('Pilot cannot write original Bridge credentials or loader authorization sta
   assert.ok(pilot.includes("data.ok===true&&data.global?.enabled===true"));
   assert.ok(!pilot.includes("const PUBLISHER_STATUS='https://algzawy-control-api"));
   assert.match(pilot,/window\.__algzawyCloudBridge \|\| window\.__algzawyPreviewCloudBridge/);
-  assert.match(pilot,/لا تمنح صلاحية تشغيل محركات اللعبة/);
+  assert.match(pilot,/تسمح بمشغّلات QA المنفصلة عند الترخيص والتثبيت في هذا التبويب والتحكم ON/);
+  assert.match(pilot,/لا تشغّل محركات Production/);
   assert.ok(!pilot.includes("__algzawy_stop_"),'QA must never dispatch production stop signal');
 });
 
