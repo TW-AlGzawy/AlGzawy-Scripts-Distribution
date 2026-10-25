@@ -138,6 +138,12 @@
           <div class="page-head"><div><span class="kicker">SUBSCRIPTION</span><h2>الحساب والأمان</h2><p>إدارة الهوية والجلسة والصلاحيات دون تخزين مفتاح الوصول داخل المتصفح.</p></div></div>
           <div class="account-panel panel"><div class="account-identity"><span class="avatar-large">AlG</span><div><small>المشترك</small><h3 id="accountLabel">—</h3><span class="pill positive">الحساب متصل</span></div></div><div class="account-fields"><div><small>مدة الجلسة</small><strong>7 أيام</strong></div><div><small>انتهاء الجلسة الحالية</small><strong id="sessionExpiry">—</strong></div><div><small>السكربتات المرخصة</small><strong id="accountLicensed">—</strong></div></div><button id="logoutButton" class="btn danger">تسجيل الخروج من هذا المتصفح</button></div>
           <div class="info-note">يتم التحقق من الصلاحيات والاشتراك والجهاز على الخادم. لا يملك المشترك إمكانية إنشاء حساب بنفسه أو الحصول على سكربت غير مشمول بترخيصه.</div>
+          <section class="panel subscriber-diagnostics" aria-labelledby="diagnosticsTitle">
+            <h3 id="diagnosticsTitle">تشخيص حالة الحساب والاتصال</h3>
+            <p>فحص مباشر للخادم والإصدارات. لا يمكن لهذه الصفحة إثبات أن بوتًا يعمل داخل اللعبة؛ استخدم الجسر للتحقق من حالة التنفيذ.</p>
+            <button class="btn outline" type="button" id="runDiagnostics">فحص الآن</button>
+            <div id="diagnosticsResult" class="diagnostics-result" role="status" aria-live="polite">لم يتم إجراء فحص بعد.</div>
+          </section>
         </section>
       </main>
       <footer class="footer">© 2026 الغزااوي — جميع الحقوق محفوظة · AlGzawy Cloud Control</footer>
