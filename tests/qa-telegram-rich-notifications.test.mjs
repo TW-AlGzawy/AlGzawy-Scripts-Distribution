@@ -7,6 +7,7 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const module=await import('data:text/javascript;base64,'+Buffer.from(read('portal/functions/telegram-preview.js')).toString('base64'));
 const {formatTelegramAlert,telegramNotify}=module;
 const engine=read('pilots/engines/alg-attacks-qa.js');
+const warehouseEngine=read('pilots/engines/warehouse-alert-safe-qa.js');
 const bridge=read('pilots/algzawy-cloud-bridge-preview-rc1.user.js');
 
 test('attack Telegram HTML matches the original detailed layout and escapes unsafe game values',()=>{
@@ -48,10 +49,10 @@ test('game pilot remains compact and reads actual attack rows and village resour
  assert.match(engine,/max-height:72vh/);
  assert.match(engine,/function emitPreviewAlert\(count,row\)/);
  assert.match(engine,/function sendTelegramAlerts\(attacks\)/);
- assert.match(engine,/function readWarehouse\(\)/);
- assert.match(engine,/function checkWarehouse\(\)/);
- assert.match(engine,/const WAREHOUSE_ALERT_THRESHOLD=90/);
- assert.match(engine,/sessionStorage\.setItem\(key,String\(Date\.now\(\)\)\)/);
+ assert.match(warehouseEngine,/function readVillage\(\)/);
+ assert.match(warehouseEngine,/function watch\(\)/);
+ assert.match(warehouseEngine,/threshold:Number\.isInteger\(percent\)/);
+ assert.match(warehouseEngine,/sessionStorage\.setItem\(key,String\(current\)\)/);
  assert.match(bridge,/qaTelegramQueue=qaTelegramQueue\.catch/);
  assert.match(bridge,/deviceProof\('\/api\/telegram\/notify'\)/);
 });
@@ -87,7 +88,7 @@ test('warehouse notifications require signed, licensed, enabled subscriber and e
  };
  const args={reply:(obj,status=200)=>new Response(JSON.stringify(obj),{status}),
    bad:(code,status=400)=>new Response(JSON.stringify({ok:false,error:code}),{status}),
-   allowedSet:async()=>new Set(['alg-attacks']),
+   allowedSet:async()=>new Set(['warehouse-alert-safe']),
    globallyDisabledScripts:async()=>new Set(),
    subscriptionOK:async()=>true,globalState:async()=>({enabled:true})};
  const payload={type:'warehouse',villageId:996,world:'ae101',account:'Father',
