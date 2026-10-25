@@ -196,7 +196,7 @@
 
     function checkAttacks() {
         if (!isRunning) return;
-        checkWarehouse();
+        // Independent warehouse monitor lives in its own licensed QA script.
 
         var el = document.getElementById('incomings_amount');
         var count = el ? parseInt(el.textContent.trim(), 10) : 0;
@@ -453,39 +453,6 @@
         setTimeout(function(){if(isRunning)emitPreviewAlert(1,row);},i*900);
       });
     }
-    const WAREHOUSE_ALERT_THRESHOLD=90;
-    function gameNumber(input){
-      if(typeof input==='number')return Number.isSafeInteger(input)&&input>=0?input:null;
-      const cleaned=String(input??'').trim().replace(/[.,\s]/g,'');
-      return /^\d{1,11}$/.test(cleaned)?Number(cleaned):null;
-    }
-    function readWarehouse(){
-      const v=getGameData().village||{};
-      const villageId=Number(v.id||getCurrentVillageId());
-      if(!Number.isSafeInteger(villageId)||villageId<1)return null;
-      const capacity=gameNumber(document.getElementById('storage')?.textContent??v.storage_max);
-      if(!capacity||capacity<=0)return null;
-      const getValue=(id,key)=>gameNumber(document.getElementById(id)?.textContent??v[key]);
-      const wood=getValue('wood','wood'),stone=getValue('stone','stone'),iron=getValue('iron','iron');
-      if([wood,stone,iron].some(x=>x===null))return null;
-      const percent=Math.min(100,Math.floor(100*Math.max(wood,stone,iron)/capacity));
-      return {type:'warehouse',villageId,world:getWorldName(),account:getAccountName(),
-        villageName:String(v.name||'').slice(0,100),coords:String(v.coord||'').slice(0,20),
-        wood,stone,iron,capacity,percent,threshold:WAREHOUSE_ALERT_THRESHOLD};
-    }
-    function checkWarehouse(){
-      if(!isRunning)return;
-      const info=readWarehouse();if(!info)return;
-      const key='algzawy_preview_warehouse_alert_state_'+info.villageId;
-      const last=Number(sessionStorage.getItem(key)||0);
-      if(info.percent<85){if(last)sessionStorage.removeItem(key);return;}
-      // Retry an unacknowledged opt-in after 5 min; server deduplicates
-      // successful alerts for six hours even across page reloads.
-      if(info.percent<WAREHOUSE_ALERT_THRESHOLD||(last&&Date.now()-last<300000))return;
-      sessionStorage.setItem(key,String(Date.now()));
-      document.dispatchEvent(new CustomEvent('algzawy-preview-telegram-event',{detail:info}));
-    }
-
     function simulateFakeAttack() {
         var fakeId = '999' + Date.now();
         var fakeHtml = '<!DOCTYPE html><html><body>' +
