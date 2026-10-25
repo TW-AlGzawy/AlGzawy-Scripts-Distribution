@@ -8,7 +8,7 @@ let toastTimer=null;
 const toast=(msg,error=false)=>{const el=$('toast');el.textContent=msg;el.classList.toggle('error',error);el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},4400);};
 const h=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=String(text);return el;};
 
-const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"]};
+const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"],"telegram":["إعداد Telegram","إدارة Webhook وأوامر البوت التجريبي"]};
 const ownerPanels=[...document.querySelectorAll('[data-owner-view]')];
 const ownerLinks=[...document.querySelectorAll('[data-owner-page]')];
 const ownerSidebar=$('ownerSidebar'),ownerBackdrop=$('ownerSidebarBackdrop'),ownerToggle=$('ownerMenuToggle');
@@ -26,6 +26,7 @@ function navigateOwner(page){
 
  closeOwnerSidebar();
  if(page==='session'&&csrfToken)void loadAuditEvents();
+ if(page==='telegram'&&csrfToken)void loadTelegramAdmin();
 }
 ownerLinks.forEach(b=>b.addEventListener('click',()=>navigateOwner(b.dataset.ownerPage)));
 ownerToggle.addEventListener('click',()=>{const open=!ownerSidebar.classList.contains('is-open');ownerSidebar.classList.toggle('is-open',open);ownerBackdrop.hidden=!open;ownerToggle.setAttribute('aria-expanded',String(open));});
@@ -410,6 +411,67 @@ function renderScriptControls(){
 }
 $('adminScriptSearch').addEventListener('input',e=>{globalScriptView.filter=e.target.value;renderScriptControls();});
 $('adminScriptReload').addEventListener('click',()=>loadScriptControls().catch(e=>toast(errorArabic(e),true)));
+
+let telegramAdminState=null;
+function showTelegramAdmin(data){
+  telegramAdminState=data;
+  const holder=$('adminTelegramStatus');
+  $('adminTelegramWebhook').disabled=!data?.configured;
+  $('adminTelegramCommands').disabled=!data?.configured;
+  if(!data?.configured){
+    holder.textContent='الإعدادات غير مكتملة أو تعذّر التحقق من BotFather. تأكد من إعداد Preview والأسرار ثم أعد النشر.';
+    return;
+  }
+  const w=data.webhook||{};
+  holder.textContent='البوت: @'+data.botUsername
+    +' | Webhook: '+(w.forPreview?'✅ مربوط بـPreview':w.registered?'⚠️ يعمل على '+(w.existingHost||'موقع آخر'):'غير مسجل')
+    +' | الأوامر: '+(data.commandsConfigured?'✅ منشورة':'لم تُنشر بعد')
+    +' | انتظار Telegram: '+String(w.pending||0)
+    +(w.error?' | آخر خطأ: '+w.error:'');
+}
+async function loadTelegramAdmin(){
+  const el=$('adminTelegramStatus');el.textContent='جارٍ فحص BotFather وWebhook...';
+  try{
+    const result=await api('admin/telegram/status');
+    showTelegramAdmin(result);
+  }catch(err){
+    telegramAdminState=null;
+    $('adminTelegramWebhook').disabled=true;
+    $('adminTelegramCommands').disabled=true;
+    el.textContent='تعذّر فحص Telegram: '+errorArabic(err);
+  }
+}
+$('adminTelegramRefresh').addEventListener('click',()=>void loadTelegramAdmin());
+$('adminTelegramWebhook').addEventListener('click',async()=>{
+  if(!telegramAdminState?.configured)return;
+  const webhook=telegramAdminState.webhook||{};
+  let replaceExisting=false;
+  if(webhook.registered&&!webhook.forPreview){
+    replaceExisting=confirm('بوت AlGzawy يستخدم حاليًا Webhook على '+(webhook.existingHost||'عنوان مختلف')
+      +'. استبداله سيوقف التنبيهات القادمة من التكامل القديم. هل تأكدت أن التكامل القديم لم يعد مطلوبًا، وتريد التحويل إلى Preview؟');
+    if(!replaceExisting)return;
+  }else if(!confirm('هل استبدلت المفتاح القديم المكشوف، وأعددت سر Webhook الجديد في Cloudflare Preview؟\nسيتم توجيه الرسائل الجديدة إلى Preview فقط.'))return;
+  const btn=$('adminTelegramWebhook');btn.disabled=true;
+  try{
+    const result=await api('admin/telegram/webhook',{method:'POST',body:{replaceExisting}});
+    if(!result.webhookConfigured)throw Error('telegram_webhook_not_verified');
+    toast('تم توجيه Telegram إلى Webhook الخاص ببيئة Preview');
+    await loadTelegramAdmin();
+  }catch(err){toast(errorArabic(err),true);await loadTelegramAdmin();}
+  finally{btn.disabled=false;}
+});
+$('adminTelegramCommands').addEventListener('click',async()=>{
+  if(!telegramAdminState?.configured)return;
+  const btn=$('adminTelegramCommands');btn.disabled=true;
+  try{
+    const result=await api('admin/telegram/commands',{method:'POST',body:{}});
+    if(!result.commandsConfigured)throw Error('telegram_commands_not_verified');
+    toast('تم نشر /start و/help و/status و/on و/off و/unlink في Telegram');
+    await loadTelegramAdmin();
+  }catch(err){toast(errorArabic(err),true);await loadTelegramAdmin();}
+  finally{btn.disabled=false;}
+});
+
 const auditLabels={
   device_pair_requested:'طلب ربط جهاز',
   device_approved:'اعتماد جهاز',
