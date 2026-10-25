@@ -63,7 +63,8 @@ test('QA troop goal counts owned-plus-queued, and fails closed on an absent queu
   assert.ok(a>=0&&b>a);
   const snippet=training.slice(a,b);
   const cell={textContent:'316 / 316'};
-  const field={closest(selector){return selector==='form'?{}:selector==='tr'?row:null;}};
+  const form={contains(node){return node===field;}};
+  const field={closest(selector){return selector==='form'?form:selector==='tr'?row:null;}};
   const row={querySelectorAll(selector){assert.equal(selector,'td');return[cell]}};
   const icon={};
   const queueRow={querySelector(selector){
