@@ -10,6 +10,7 @@ const GROUPS = [
   ['professional-training-v2','الغزااوي | بوت التدريب','training','التدريب المتقدم'],
   ['send-automation','الغزااوي | الإرساليات الدقيقة','military','جدولة الإرسال والوصول'],
   ['alg-attacks','الغزااوي | تنبيه الهجمات','military','تنبيه الهجمات الواردة'],
+  ['warehouse-alert-safe','الغزااوي | تنبيه المخازن','resources','تنبيه المخازن عند اقتراب الامتلاء وإرساله إلى Telegram'],
   ['alg-coins','الغزااوي | الصقل المتطور','resources','الصقل المتطور'],
   ['tribal-wars-helper','الغزااوي | جامع الجوائز','tools','جمع جوائز المهمات']
 ];
@@ -243,10 +244,12 @@ async function handler(req,env){
       if(!response.ok)return bad('release_manifest_unavailable',503);
       const manifest=await response.json();
       if(manifest?.schema!==1||!Array.isArray(manifest.published_candidates))return bad('release_manifest_invalid',503);
-      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&
+      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&item.id!=='warehouse-alert-safe'&&
         typeof item.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(item.version))
         .map(({id,version})=>({id,version}));
-      if(items.length!==GROUPS.length)return bad('release_manifest_incomplete',503);
+      if(items.length!==GROUPS.length-1)return bad('release_manifest_incomplete',503);
+      // QA-only standalone warehouse pilot has a separate version channel.
+      if(telegramPreviewHost(req))items.push({id:'warehouse-alert-safe',version:'1.0.0'});
       return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
     }catch(e){console.warn('[installer-releases]',e);return bad('release_manifest_unavailable',503);}
   }
@@ -257,7 +260,7 @@ async function handler(req,env){
     if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
     if(currentUser&&!(await subscriptionOK(env,currentUser.id)))return bad('subscription_inactive',403);
     const licensed=hasAdmin?new Set(GROUPS.map(([id])=>id)):await allowedSet(env,currentUser.id);
-    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:id==='warehouse-alert-safe'&&telegramPreviewHost(req)?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
   }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
@@ -335,7 +338,7 @@ async function handler(req,env){
     if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
       return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
         id,name,category,description,featured:FAV.has(id),
-        installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
+        installer:id==='warehouse-alert-safe'&&telegramPreviewHost(req)?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
       }))});
     }
     if(path[1]==='scripts'&&path.length===2){
