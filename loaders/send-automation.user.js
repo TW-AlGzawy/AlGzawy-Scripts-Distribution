@@ -26,7 +26,19 @@
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
     const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.5.3';
+
+    // QA-only transient diagnostics for the install handshake; not a license or execution authorization.
+    const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
+    const qaTrace=stage=>{
+      if(!qaDiagnostics)return;
+      const trace={scope:'algzawy-installation-debug-v1',id:ID,stage,version:String(version)};
+      console.info('[AlG QA loader]',ID,stage);
+      window.postMessage(trace,location.origin);
+      document.dispatchEvent(new CustomEvent('algzawy-installation-debug-v1',{detail:JSON.stringify(trace)}));
+    };
+    qaTrace('loader-start');
     const report=nonce=>{
+      qaTrace('report-sent');
       const payload={scope:'algzawy-installation-v1',type:'report',
         id:ID,version:String(version),nonce};
       window.postMessage(payload,location.origin);
@@ -36,13 +48,14 @@
     };
     const acceptProbe=m=>{
       if(m?.scope==='algzawy-installation-v1'&&m.type==='probe'
-        &&typeof m.nonce==='string'&&m.nonce.length<=100)report(m.nonce);
+        &&typeof m.nonce==='string'&&m.nonce.length<=100){qaTrace('probe-received');report(m.nonce);}
     };
     window.addEventListener('message',event=>{
       if(event.source!==window||event.origin!==location.origin)return;
       acceptProbe(event.data);
     });
     document.addEventListener('algzawy-installation-probe-v1',event=>acceptProbe(event.detail));
+    qaTrace('listener-ready');
     report('');
     return;
   }
