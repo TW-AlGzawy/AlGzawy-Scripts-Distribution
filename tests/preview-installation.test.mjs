@@ -35,13 +35,13 @@ test('Subscriber UI scopes pending installation to the clicked script instead of
   const source=read('portal/v2/app.js');
   const a=source.indexOf('function installationState('),b=source.indexOf('function installationControl(',a);
   assert.ok(a>0&&b>a);
-  const make=new Function('state','compareVersion','location',source.slice(a,b)+';return {installationState,installerUrlFor};');
+  const make=new Function('state','compareVersion','location','document',source.slice(a,b)+';return {installationState,installerUrlFor};');
   const state={installed:new Map(),releases:new Map(),probing:true,probeTarget:'bot-farm-2'};
-  const preview=make(state,()=>0,{hostname:'da012635.algzawy-cloud-control.pages.dev'});
+  const preview=make(state,()=>0,{hostname:'da012635.algzawy-cloud-control.pages.dev'},{querySelector:()=>null});
   assert.equal(preview.installationState({id:'bot-farm-2'}).kind,'checking');
   assert.equal(preview.installationState({id:'alg-attacks'}).kind,'install');
   assert.match(preview.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),/feature\/algzawy-quality-hardening-2026-10-25\/loaders\/bot-farm-2\.user\.js$/);
-  const main=make(state,()=>0,{hostname:'algzawy-cloud-control.pages.dev'});
+  const main=make(state,()=>0,{hostname:'algzawy-cloud-control.pages.dev'},{querySelector:()=>null});
   assert.equal(main.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),'main-path');
   state.installed.set('bot-farm-2','1.0.2');
   assert.equal(preview.installationState({id:'bot-farm-2'}).kind,'installed');
