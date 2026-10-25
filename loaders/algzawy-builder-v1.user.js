@@ -3,8 +3,7 @@
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.0.3
 // @description  AlGzawy BETA — المرخص للمشترك والجهاز المعتمد
-// @match        https://*/game.php?village=*&screen=main*
-// @match        https://*/game.php?screen=main*&village=*
+// @include      https://*.tribalwars.*/game.php?*screen=main*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
