@@ -28,6 +28,13 @@ const now=()=>Math.floor(Date.now()/1000);
 async function dbLink(env,userId){
   return await env.DB.prepare('SELECT chat_id,attack_alerts,warehouse_alerts FROM portal_telegram_links WHERE user_id=?').bind(userId).first();
 }
+async function warehouseSiteThreshold(env,userId){
+  const pref=await env.DB.prepare('SELECT settings_json FROM portal_preferences WHERE user_id=? AND script_id=?')
+    .bind(userId,'warehouse-alert-safe').first();
+  let parsed={};try{parsed=JSON.parse(pref?.settings_json||'{}');}catch(_){}
+  const percent=parsed?.percent;
+  return Number.isInteger(percent)&&percent>=50&&percent<=100?percent:90;
+}
 async function warehouseTableReady(env){
   try{
     const row=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='portal_telegram_warehouse_preferences'").first();
@@ -125,7 +132,7 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
       checks:{...telegramConfigChecks(env),database:schemaReady},
       botUsername:configured&&schemaReady?env.ALG_TELEGRAM_BOT_USERNAME:null,
       preferences:{attacks:configured&&schemaReady&&link?.attack_alerts===1,warehouse:warehouse?.enabled===1},
-      warehouseAvailable,warehouseThreshold:warehouse?.threshold??90,attacksAvailable:configured&&schemaReady});
+      warehouseAvailable,warehouseThreshold:warehouseAvailable?await warehouseSiteThreshold(env,user.id):90,attacksAvailable:configured&&schemaReady});
   }
   if(!configured)return bad('telegram_not_configured',503);
   if(action==='link'&&req.method==='POST'){
@@ -414,7 +421,7 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
     if(![event.wood,event.stone,event.iron].every(x=>safeInt(x,0,99999999999))
        ||!safeInt(event.capacity,1,99999999999))return bad('invalid_warehouse_values',400);
     const computed=Math.min(100,Math.floor(Math.max(event.wood,event.stone,event.iron)*100/event.capacity));
-    if(computed<90||event.percent!==computed||event.threshold!==90)return bad('warehouse_not_full',400);
+    if(event.percent!==computed||!safeInt(event.threshold,50,100)||computed<event.threshold)return bad('warehouse_not_full',400);
     if(['world','account','villageName','coords'].some(k=>event[k]!==undefined&&
       (typeof event[k]!=='string'||event[k].length>120)))return bad('invalid_warehouse_details',400);
   }
@@ -423,12 +430,17 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
   if(global.enabled!==true)return bad('global_disabled',403);
   const allowed=await allowedSet(env,device.user_id);
   const disabled=await globallyDisabledScripts(env);
-  // Warehouse observations are scoped to the licensed, active QA attack monitor;
-  // this does not revive the retired stand-alone warehouse script.
-  if(!allowed.has('alg-attacks')||disabled.has('alg-attacks'))return bad('script_not_licensed',403);
+  const requiredId=event.type==='warehouse'?'warehouse-alert-safe':'alg-attacks';
+  // Independent Preview entitlement: disabling attacks does not disable
+  // the warehouse observer, and vice versa.
+  if(!allowed.has(requiredId)||disabled.has(requiredId))return bad('script_not_licensed',403);
   const pref=await env.DB.prepare('SELECT enabled FROM portal_preferences WHERE user_id=? AND script_id=?')
-    .bind(device.user_id,'alg-attacks').first();
+    .bind(device.user_id,requiredId).first();
   if(pref?.enabled!==1)return bad('script_disabled',403);
+  if(event.type==='warehouse'){
+    const configuredPercent=await warehouseSiteThreshold(env,device.user_id);
+    if(event.threshold!==configuredPercent)return bad('warehouse_threshold_mismatch',403);
+  }
   let link;
   try{link=await dbLink(env,device.user_id);}catch(_){return bad('telegram_storage_not_ready',503);}
   if(!link)return bad('telegram_not_linked',409);
