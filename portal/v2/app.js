@@ -8,7 +8,7 @@ const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
   if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.5 QA';});
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.6 QA';});
     return;
   }
   try{
@@ -209,7 +209,7 @@ function qaInstallDiagnosticsInit(){
     ['professional-training-v2','بوت التدريب','1.0.3.2'],
     ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
     ['alg-attacks','تنبيه الهجمات','1.0.3.4'],
-    ['warehouse-alert-safe','تنبيه المخازن','1.0.0'],
+    ['warehouse-alert-safe','تنبيه المخازن','1.1.0'],
     ['alg-coins','الصقل المتطور','1.0.2.1'],
     ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
   ];
@@ -633,12 +633,12 @@ function openScript(id){
   actions.append(toggle,link);root.append(actions);
   if(id==='warehouse-alert-safe'){
     const pref=state.prefs[id]||{},wrap=el('div','dialog-setting');
-    const label=el('label','','نسبة امتلاء المخزن لإظهار التنبيه (50–100%)');
-    const inp=el('input');inp.type='number';inp.min='50';inp.max='100';inp.step='1';inp.value=String(pref.settings?.percent??90);
+    const label=el('label','','نسبة التنبيه (1–100%) — يمكنك تغييرها أيضًا من نافذة السكربت داخل اللعبة');
+    const inp=el('input');inp.type='number';inp.min='1';inp.max='100';inp.step='1';inp.value=String(pref.settings?.percent??90);
     const save=el('button','btn subtle','حفظ نسبة التنبيه');save.style.marginTop='11px';
     save.addEventListener('click',async()=>{
       const percent=Number(inp.value);
-      if(!Number.isInteger(percent)||percent<50||percent>100)return toast('أدخل نسبة صحيحة بين 50 و100',true);
+      if(!Number.isInteger(percent)||percent<1||percent>100)return toast('أدخل نسبة صحيحة بين 1 و100',true);
       save.disabled=true;
       try{
         const r=await api('scripts/'+encodeURIComponent(id),{method:'PUT',body:{enabled:!!pref.enabled,settings:{percent}}});
@@ -729,7 +729,7 @@ function updateTelegramUI(data){
   $('telegramWarehouse').disabled=!linked||!ready||!data?.warehouseAvailable;
   $('telegramWarehouse').checked=!!data?.preferences?.warehouse;
   $('telegramWarehouseState').textContent=data?.warehouseAvailable
-    ?'حد التنبيه: 90% من سعة المخزن؛ القرية المفتوحة فقط أثناء تشغيل الجسر وسكربت التنبيه.'
+    ?'النسبة والمدة قابلة للتعديل من نافذة سكربت تنبيه المخازن داخل اللعبة؛ ويشمل الفحص قرى جدول الإنتاج المعروضة.'
     :'لم تُطبّق بعد إضافة تفضيلات المخازن على قاعدة algzawy-preview-db.';
   const names={
     mode:'ALG_TELEGRAM_QA_MODE (القيمة المطلوبة: enabled)',
