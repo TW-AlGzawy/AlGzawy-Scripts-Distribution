@@ -25,6 +25,7 @@ function navigateOwner(page){
  $('ownerPageSubtitle').textContent=ownerTitles[page][1];
 
  closeOwnerSidebar();
+ if(page==='session'&&csrfToken)void loadAuditEvents();
 }
 ownerLinks.forEach(b=>b.addEventListener('click',()=>navigateOwner(b.dataset.ownerPage)));
 ownerToggle.addEventListener('click',()=>{const open=!ownerSidebar.classList.contains('is-open');ownerSidebar.classList.toggle('is-open',open);ownerBackdrop.hidden=!open;ownerToggle.setAttribute('aria-expanded',String(open));});
@@ -409,6 +410,45 @@ function renderScriptControls(){
 }
 $('adminScriptSearch').addEventListener('input',e=>{globalScriptView.filter=e.target.value;renderScriptControls();});
 $('adminScriptReload').addEventListener('click',()=>loadScriptControls().catch(e=>toast(errorArabic(e),true)));
+const auditLabels={
+  device_pair_requested:'طلب ربط جهاز',
+  device_approved:'اعتماد جهاز',
+  device_revoked:'إلغاء اعتماد جهاز',
+  subscription_updated:'تعديل بيانات اشتراك',
+  account_enabled:'تفعيل حساب',
+  account_deleted:'حذف حساب'
+};
+function auditName(type){
+  if(type.startsWith('account_deleted:'))return auditLabels.account_deleted;
+  return auditLabels[type]||type.replace(/[_:]/g,' ');
+}
+async function loadAuditEvents(){
+  const root=$('adminAuditEvents');
+  const refresh=$('adminAuditReload');
+  if(refresh.disabled)return;
+  refresh.disabled=true;
+  root.replaceChildren(h('p','field-note','جارٍ قراءة سجل الأحداث…'));
+  try{
+    const response=await api('admin/audit');
+    if(!Array.isArray(response.events)||response.scope!=='recorded_license_and_device_events')throw Error('invalid_audit_response');
+    root.replaceChildren();
+    if(!response.events.length){
+      root.append(h('p','field-note','لا توجد أحداث ترخيص أو أجهزة مسجلة بعد.'));
+    }else{
+      for(const event of response.events){
+        const row=h('div','owner-audit-row');
+        const parsed=String(event.at||'').replace(' ','T');
+        const time=Date.parse(parsed+(parsed.endsWith('Z')?'':'Z'));
+        const date=Number.isFinite(time)?new Date(time).toLocaleString('ar-BE'):'تاريخ غير متاح';
+        row.append(h('strong','',auditName(String(event.type||''))),h('small','',String(event.user||'—')+' · '+date));
+        root.append(row);
+      }
+    }
+  }catch(err){
+    root.replaceChildren(h('p','field-note','تعذر جلب الأحداث: '+errorArabic(err)));
+  }finally{refresh.disabled=false;}
+}
+$('adminAuditReload').addEventListener('click',()=>void loadAuditEvents());
 $('adminLoad').addEventListener('click',loadUsers);
 $('createUser').addEventListener('click',async()=>{
  
