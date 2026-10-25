@@ -8,7 +8,7 @@ const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
   if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.6 QA';});
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.7 QA';});
     return;
   }
   try{
@@ -209,7 +209,7 @@ function qaInstallDiagnosticsInit(){
     ['professional-training-v2','بوت التدريب','1.0.3.2'],
     ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
     ['alg-attacks','تنبيه الهجمات','1.0.3.4'],
-    ['warehouse-alert-safe','تنبيه المخازن','1.1.0'],
+    ['warehouse-alert-safe','تنبيه المخازن','1.1.1'],
     ['alg-coins','الصقل المتطور','1.0.2.1'],
     ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
   ];

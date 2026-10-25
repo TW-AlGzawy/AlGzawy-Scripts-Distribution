@@ -88,7 +88,7 @@ test('Warehouse headers override adjacent farm capacity with correct storage col
  assert.equal(fn()[0].percent,25);
 });
 test('10s overview scan batches qualifying villages and suppresses repeats per village',()=>{
- const start=engine.indexOf('function sendOverviewAlerts('),end=engine.indexOf('function draw(',start);
+ const start=engine.indexOf('function shouldSendWarehouse('),end=engine.indexOf('function draw(',start);
  const snippet=engine.slice(start,end);
  let events=[];
  const store=new Map();
