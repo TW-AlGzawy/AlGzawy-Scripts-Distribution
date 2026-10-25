@@ -86,6 +86,10 @@ function installationState(item){
 // QA previews require a loader which explicitly matches the Cloudflare preview hostname.
  // The public API continues to provide production URLs and never authorizes game execution.
 const qaPreviewHost=/^[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.hostname);
+if(qaPreviewHost){
+  const help=document.querySelector('.scripts-summary span:last-child');
+  if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
+}
 function installerUrlFor(item){
   return qaPreviewHost
     ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
