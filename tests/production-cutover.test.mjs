@@ -18,6 +18,7 @@ test('production release never points customers to isolated preview installers o
   assert.doesNotMatch(src,/feature-algzawy-quality-hard|preview-rc1|نسخة اختبار فقط|الجسر التجريبي|Preview فقط/);
  }
  assert.doesNotMatch(portal,/qaInstallLog|qaInstallDiagnosticsInit/);
+ assert.doesNotMatch(ownerHTML,/Preview فقط|Cloudflare Preview|Webhook على Preview/);
  assert.match(bridge,/^\/\/ @version\s+2\.5\.0$/m);
  assert.match(bridge,/^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/main\/loaders\/algzawy-cloud-bridge\.user\.js$/m);
 });
