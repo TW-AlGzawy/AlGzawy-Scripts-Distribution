@@ -37,7 +37,7 @@
   let timer = null;
   let actions = 0;
   const attempted = new Set();
-  const attemptedRows = new WeakSet();
+  let attemptedRows = new WeakSet();
   // Select Tribal Wars' actual farm actions by type, not fragile table columns.
   const cols = {A:'farm_icon_a',B:'farm_icon_b',C:'farm_icon_c'};
   const panel = document.createElement('section');
@@ -55,7 +55,7 @@
   document.body.appendChild(panel);
   const q = id => document.getElementById('algzawy-bot2-'+id);
   const status = msg => { q('status').textContent = msg; };
-  const store = () => localStorage.setItem(KEY,JSON.stringify(settings));
+  const store = () => localStorage.setItem(KEY,JSON.stringify({...settings,enabled:false}));
   const bounded = n => Math.min(60000,Math.max(500,Number(n)||1000));
   q('template').value = cols[settings.template] ? settings.template : 'A';
   q('min-delay').value = bounded(settings.minDelay);
@@ -96,7 +96,7 @@
     status(message+' — إعادة الفحص تلقائيًا');
     timer=setTimeout(()=>{
       if (!settings.enabled || challengeDetected()) return;
-      attempted.clear();
+      attempted.clear();attemptedRows=new WeakSet();
       if(settings.switchVillages) location.reload(); else step();
     },Math.max(15000,settings.maxDelay));
   }
@@ -152,7 +152,7 @@
   q('toggle').addEventListener('click',function(){
     saveInputs();
     if (settings.enabled) return stop('أوقفه المستخدم');
-    settings.enabled=true;updateButton();attempted.clear();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
+    settings.enabled=true;updateButton();attempted.clear();attemptedRows=new WeakSet();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
     schedule();
   });
   ['template','min-delay','max-delay','switch'].forEach(id => q(id).addEventListener('change',saveInputs));
