@@ -27,7 +27,7 @@
     {
       "id": "alg-balance",
       "name": "الغزااوي | موازنة الموارد",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
