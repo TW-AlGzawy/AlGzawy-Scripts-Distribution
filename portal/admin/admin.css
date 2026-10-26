@@ -91,3 +91,20 @@
 .owner-audit-feed{display:grid;gap:9px;max-height:440px;overflow:auto;margin-top:14px}
 .owner-audit-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:12px;border:1px solid var(--border,#263c4f);border-radius:10px;background:rgba(255,255,255,.025)}
 .owner-audit-row small{opacity:.8;unicode-bidi:plaintext}
+
+
+/* Owner username/password sign-in: readable, touch-friendly and RTL-safe. */
+.owner-login-fields{display:grid;gap:9px;min-width:0}
+.owner-login-fields[hidden]{display:none!important}
+.owner-login-fields>label{font-weight:700;font-size:13px;color:#c9efe5}
+.owner-login-fields>input,.owner-password-control input{
+ width:100%;min-width:0;min-height:46px;border:1px solid #3b6576;
+ border-radius:9px;background:#10283a;color:#f1fffb;
+ padding:10px 12px;font:inherit;box-sizing:border-box;
+}
+.owner-login-fields input:focus-visible{outline:2px solid #48ddad;outline-offset:2px}
+.owner-password-control{display:flex;align-items:center;gap:7px;min-width:0}
+.owner-password-control>input{flex:1}
+.owner-password-control>button{flex:none;min-height:42px;padding:6px 12px;border:1px solid #3b6576;border-radius:8px;color:#bffbe5;background:#16463e;cursor:pointer}
+#ownerLoginModeStatus{min-height:24px;color:#a6ddcf;overflow-wrap:anywhere}
+#ownerAuthSubmit:disabled{opacity:.6;cursor:not-allowed}
