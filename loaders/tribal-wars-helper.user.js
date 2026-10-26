@@ -2,7 +2,7 @@
 // @name         الغزااوي | جامع الجوائز
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.2.1
-// @description  AlGzawy BETA — اشتراك وجهاز معتمد
+// @description  AlGzawy Cloud — اشتراك وجهاز معتمد
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.com.sa/game.php*
