@@ -74,6 +74,6 @@ test('mobile UI makes applied threshold and success/error confirmation visible',
  assert.match(engine,/input\.addEventListener\('change',\(\)=>applyWarehouseSettings\(false\)\)/);
  assert.match(engine,/panel\.querySelector\('\[data-save\]'\)\.addEventListener\('click',\(\)=>applyWarehouseSettings\(true\)\)/);
  assert.match(engine,/watch\(\);schedule\(\)/);
- assert.match(engine,/__algzawy_preview_stop_warehouse-alert-safe/);
+ assert.match(engine,/document\.dispatchEvent\(new Event\('__algzawy'\+'_preview_stop_'\+ID\)\)/);
  assert.match(engine,/panel\.dataset\.algWarehouseOfficial='1'/);
 });
