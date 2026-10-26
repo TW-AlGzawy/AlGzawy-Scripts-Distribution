@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.4
+// @version      2.4.5
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -531,6 +531,24 @@
     const max=Math.max(min,rightEdge-origin.left);
     return {left:origin.left,width:Math.max(min,Math.min(max,origin.width+dx))};
   }
+  // Resize each corner on both axes, keeping the opposite corner anchored.
+  // Like the edge handles, calculations use Safari's visual viewport.
+  function nextVerticalGeometry(edge,origin,dy,bounds){
+    const margin=8;
+    const min=Math.min(140,Math.max(55,bounds.height-2*margin));
+    const bottomEdge=bounds.bottom-margin,topEdge=bounds.top+margin;
+    if(edge==='top'){
+      const bottom=Math.min(bottomEdge,origin.top+origin.height);
+      const top=Math.max(topEdge,Math.min(bottom-min,origin.top+dy));
+      return {top,height:bottom-top};
+    }
+    const max=Math.max(min,bottomEdge-origin.top);
+    return {top:origin.top,height:Math.max(min,Math.min(max,origin.height+dy))};
+  }
+  function nextCornerGeometry(corner,origin,dx,dy,bounds){
+    return {...nextEdgeGeometry(corner.endsWith('left')?'left':'right',origin,dx,bounds),
+      ...nextVerticalGeometry(corner.startsWith('top')?'top':'bottom',origin,dy,bounds)};
+  }
   function render(){
     if(card||!document.body)return;
     card=document.createElement('section');
@@ -599,6 +617,11 @@
       initialBounds.top+margin,Math.max(initialBounds.top+margin,initialBounds.bottom-card.offsetHeight-margin))+'px';
     card.style.bottom='auto';
     const mini=q('min');
+    const resizeGrips=[];
+    function showResizeGrips(){
+      // No resize controls should protrude from the header when folded.
+      for(const grip of resizeGrips)grip.style.display=collapsed?'none':'block';
+    }
     function setCollapsed(next){
       if(!next&&collapsed===next)return;
       if(next&&!collapsed)expandedHeight=card.getBoundingClientRect().height;
@@ -608,6 +631,7 @@
       mini.setAttribute('aria-expanded',String(!collapsed));
       if(collapsed)card.style.height='auto';
       else card.style.height=Number.isFinite(expandedHeight)?expandedHeight+'px':'auto';
+      showResizeGrips();
     }
     function persistGeometry(){
       const rect=card.getBoundingClientRect();
@@ -649,6 +673,7 @@
       grip.tabIndex=0;
       grip.style.cssText='position:absolute;top:40px;bottom:15px;'+edge+':0;width:18px;z-index:5;cursor:ew-resize;touch-action:none;-webkit-user-select:none;user-select:none;border-'+edge+':2px solid #2d8576';
       card.appendChild(grip);
+      resizeGrips.push(grip);
       let sizing=null;
       grip.addEventListener('pointerdown',e=>{
         if(e.button!==0||sizing)return;
@@ -689,6 +714,7 @@
     heightGrip.tabIndex=0;
     heightGrip.style.cssText='position:absolute;bottom:0;left:18px;right:18px;height:18px;z-index:5;cursor:ns-resize;touch-action:none;user-select:none;background:linear-gradient(90deg,transparent 35%,#378a7f 35%,#378a7f 65%,transparent 65%) center bottom 5px/48px 2px no-repeat';
     card.appendChild(heightGrip);
+    resizeGrips.push(heightGrip);
     let sizingHeight=null;
     heightGrip.addEventListener('pointerdown',e=>{
       if(e.button!==0||collapsed)return;
@@ -725,6 +751,65 @@
       card.style.height=clamp(wanted,minHeight(bounds),bounds.bottom-top-margin)+'px';
       constrainGeometry();persistGeometry();
     });
+    // Explicit corner grips work with mouse, touch and pen. The top grips
+    // sit just below the header so they never obscure the fold control.
+    for(const corner of ['top-left','top-right','bottom-left','bottom-right']){
+      const grip=document.createElement('div');
+      const side=corner.endsWith('left')?'left':'right';
+      const vertical=corner.startsWith('top')?'top':'bottom';
+      grip.className='algzawy-cloud-resize-corner-'+corner;
+      grip.setAttribute('role','button');
+      grip.setAttribute('aria-label','سحب زاوية الجسر '+(vertical==='top'?'العلوية':'السفلية')+' '+(side==='left'?'اليسرى':'اليمنى')+' لتغيير العرض والارتفاع');
+      grip.setAttribute('title','اسحب الزاوية لتغيير العرض والارتفاع معًا');
+      grip.tabIndex=0;
+      grip.style.cssText='position:absolute;'+side+':0;'+vertical+':'+(vertical==='top'?'40px':'0')+
+        ';width:26px;height:26px;z-index:7;cursor:'+
+        ((corner==='top-left'||corner==='bottom-right')?'nwse-resize':'nesw-resize')+
+        ';touch-action:none;-webkit-user-select:none;user-select:none;box-sizing:border-box;'+
+        'border-'+vertical+':3px solid #49d6af;border-'+side+':3px solid #49d6af;'+
+        'border-radius:5px;background:#153f41a6';
+      card.appendChild(grip);
+      resizeGrips.push(grip);
+      let sizingCorner=null;
+      grip.addEventListener('pointerdown',e=>{
+        if(e.button!==0||collapsed||sizingCorner)return;
+        const rect=card.getBoundingClientRect();
+        sizingCorner={id:e.pointerId,x:e.clientX,y:e.clientY,
+          left:rect.left,top:rect.top,width:rect.width,height:rect.height};
+        grip.setPointerCapture?.(e.pointerId);
+        if(e.cancelable)e.preventDefault();
+      });
+      grip.addEventListener('pointermove',e=>{
+        if(!sizingCorner||sizingCorner.id!==e.pointerId||collapsed)return;
+        const next=nextCornerGeometry(corner,sizingCorner,
+          e.clientX-sizingCorner.x,e.clientY-sizingCorner.y,visibleBounds());
+        card.style.left=next.left+'px';card.style.top=next.top+'px';
+        card.style.width=next.width+'px';card.style.height=next.height+'px';
+        card.style.bottom='auto';
+        if(e.cancelable)e.preventDefault();
+      });
+      const finishCorner=e=>{
+        if(!sizingCorner||sizingCorner.id!==e.pointerId)return;
+        sizingCorner=null;
+        if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);
+        constrainGeometry();persistGeometry();
+      };
+      grip.addEventListener('pointerup',finishCorner);
+      grip.addEventListener('pointercancel',finishCorner);
+      grip.addEventListener('keydown',e=>{
+        if(collapsed||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+        e.preventDefault();
+        const rect=card.getBoundingClientRect();
+        const dx=e.key==='ArrowLeft'?-12:e.key==='ArrowRight'?12:0;
+        const dy=e.key==='ArrowUp'?-12:e.key==='ArrowDown'?12:0;
+        const next=nextCornerGeometry(corner,rect,dx,dy,visibleBounds());
+        card.style.left=next.left+'px';card.style.top=next.top+'px';
+        card.style.width=next.width+'px';card.style.height=next.height+'px';
+        card.style.bottom='auto';
+        constrainGeometry();persistGeometry();
+      });
+    }
+    showResizeGrips();
     const hdr=q('hdr');
     let drag=null;
     hdr.addEventListener('pointerdown',e=>{
