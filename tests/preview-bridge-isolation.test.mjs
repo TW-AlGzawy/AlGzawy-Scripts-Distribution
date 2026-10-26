@@ -12,14 +12,14 @@ test('Preview Bridge has separate userscript identity, update channel, and appro
   new vm.Script(pilot,{filename:'pilots/algzawy-cloud-bridge-preview-rc1.user.js'});
   assert.match(pilot,/^\/\/ @name\s+الغزااوي \| الجسر السحابي — PREVIEW RC1/m);
   assert.match(pilot,/^\/\/ @namespace\s+https:\/\/github\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/preview-rc1/m);
-  assert.match(pilot,/^\/\/ @version\s+2\.4\.1\.7/m);
+  assert.match(pilot,/^\/\/ @version\s+2\.5\.0\.7/m);
   assert.match(pilot,/^\/\/ @connect\s+feature-algzawy-quality-hard\.algzawy-cloud-control\.pages\.dev/m);
   assert.match(pilot,/^\/\/ @updateURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy\/AlGzawy-Scripts-Distribution\/feature\/algzawy-quality-hardening-2026-10-25\/pilots\/algzawy-cloud-bridge-preview-rc1\.user\.js/m);
   assert.match(pilot,new RegExp("const PORTAL_ORIGIN='"+qaHost.replaceAll('.','\\.')+"'"));
   assert.ok(!/^\/\/ @connect\s+algzawy-cloud-control\.pages\.dev/m.test(pilot));
   assert.ok(!pilot.includes('algzawy-control-api.karm-saleh-usa2.workers.dev'));
   assert.ok(!pilot.includes("https://algzawy-cloud-control.pages.dev"));
-  assert.match(live,/^\/\/ @version\s+2\.4\.1$/m,'Official Bridge remains untouched');
+  assert.match(live,/^\/\/ @version\s+2\.4\.1$/m,'Official Bridge is promoted with distinct production identity');
 });
 
 test('Pilot cannot write original Bridge credentials or loader authorization state',()=>{
