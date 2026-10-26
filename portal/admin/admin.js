@@ -8,7 +8,7 @@ let toastTimer=null;
 const toast=(msg,error=false)=>{const el=$('toast');el.textContent=msg;el.classList.toggle('error',error);el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},4400);};
 const h=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=String(text);return el;};
 
-const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"],"telegram":["إعداد Telegram","إدارة Webhook وأوامر البوت التجريبي"]};
+const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"],"telegram":["إعداد Telegram","إدارة Webhook وأوامر البوت"]};
 const ownerPanels=[...document.querySelectorAll('[data-owner-view]')];
 const ownerLinks=[...document.querySelectorAll('[data-owner-page]')];
 const ownerSidebar=$('ownerSidebar'),ownerBackdrop=$('ownerSidebarBackdrop'),ownerToggle=$('ownerMenuToggle');

@@ -49,6 +49,16 @@ test('official routes and subscriber content do not advertise test-only game run
  assert.match(app,/installerUrlFor\(item\)/);
 });
 
+test('official subscriber and owner UI do not display preview or trial wording',()=>{
+ const html=read('portal/v2/index.html');
+ const owner=read('portal/admin/index.html');
+ const admin=read('portal/admin/admin.js');
+ assert.doesNotMatch(html,/Preview|الجسر التجريبي|نسخة اختبار|نسخة تجريبية/);
+ assert.doesNotMatch(owner,/Preview|نسخة اختبار|نسخة تجريبية/);
+ assert.doesNotMatch(admin,/البوت التجريبي|نسخة تجريبية/);
+ assert.match(html,/يمكن للجسر إرسال ملخص إلى Telegram/);
+});
+
 test('Telegram server accepts only explicitly approved production/QA hostnames',()=>{
  const server=read('portal/functions/telegram-preview.js');
  const api=read('portal/functions/api/[[path]].js');
