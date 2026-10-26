@@ -8,6 +8,22 @@
 (function () {
   'use strict';
   if (document.getElementById('algzawy-bot2-panel')) return;
+  // Position floating controls within the Safari visual viewport during pinch zoom.
+  function algMobileBounds(){
+    const v=window.visualViewport;
+    const left=v?.offsetLeft||0,top=v?.offsetTop||0;
+    return {left,top,right:left+(v?.width||innerWidth),bottom:top+(v?.height||innerHeight)};
+  }
+  function algClampVisible(panel,x,y,visibleHeader=40){
+    const b=algMobileBounds(),margin=6;
+    const minX=b.left+margin,minY=b.top+margin;
+    const maxX=Math.max(minX,b.right-panel.offsetWidth-margin);
+    const maxY=Math.max(minY,b.bottom-visibleHeader);
+    panel.style.left=Math.min(maxX,Math.max(minX,x))+'px';
+    panel.style.top=Math.min(maxY,Math.max(minY,y))+'px';
+    panel.style.right='auto';
+    panel.style.bottom='auto';
+  }
   const KEY = 'algzawy_bot2_settings_v02';
   const POS = 'algzawy_bot2_panel_position_v02';
   const defaults = {enabled:false,template:'A',minDelay:1000,maxDelay:2000,switchVillages:true};
@@ -137,9 +153,7 @@
   });
   header.addEventListener('pointermove',ev=>{
     if (!drag) return;
-    panel.style.top = Math.max(0,drag.top+ev.clientY-drag.y)+'px';
-    panel.style.left = Math.max(0,drag.left+ev.clientX-drag.x)+'px';
-    panel.style.right = 'auto';
+    algClampVisible(panel,drag.left+ev.clientX-drag.x,drag.top+ev.clientY-drag.y);
   });
   header.addEventListener('pointerup',()=>{
     if (!drag) return;
