@@ -107,7 +107,7 @@ test('viewport fixes and reward drag are present without altering automation or 
  assert.match(attacks,/constrainAttackPanel\(panel\)/);
  assert.match(rewards,/panel\.__algRewardDragAbort\?\.abort\(\)/);
  assert.match(rewards,/top\.setPointerCapture\?\.\(event\.pointerId\)/);
- assert.match(rewards,/panel\.addEventListener\('pointermove'/);
+ assert.match(rewards,/window\.addEventListener\('pointermove',move,dragOptions\)/);
  assert.match(rewards,/new AbortController\(\)/);
  assert.match(builder,/const DOCK_SIDES=\['left','right','top','bottom'\]/);
  assert.match(builder,/dockTab\.addEventListener\('pointermove'/);
