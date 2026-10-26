@@ -1,0 +1,27 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;background:#08121f;color:#ecf9f6}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px 12px env(safe-area-inset-bottom)}
+.card{width:min(540px,100%);border:1px solid #315d6c;border-radius:20px;background:#101f30;padding:clamp(18px,5vw,32px);box-shadow:0 18px 60px #0007}
+.top{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.logo{background:#3ed7af;color:#092c28;font-size:23px;font-weight:900;border-radius:11px;padding:5px 13px;letter-spacing:-.05em}
+.tag{font-size:12px;color:#5fe4c3}
+h1{font-size:clamp(23px,6vw,31px);line-height:1.5;margin:21px 0 8px}
+p{line-height:1.9}.desc,.note{color:#b9d6dc;font-size:14px}
+.security{padding:15px;background:#153940;border-right:4px solid #45d9b0;border-radius:10px;line-height:1.9;margin:22px 0}
+label{display:block;margin:16px 0 9px;font-weight:700;font-size:14px}
+input,textarea{display:block;width:100%;min-height:50px;border-radius:11px;border:1px solid #498274;background:#081827;color:#eafff7;padding:12px;font:16px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}
+textarea{resize:vertical;overflow-wrap:anywhere;font-size:14px}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #5ae8bc;outline-offset:3px}
+button{font:600 15px/1.4 inherit;cursor:pointer;min-height:49px;border:0;border-radius:10px;padding:12px 17px}
+button:disabled{opacity:.55;cursor:wait}
+.primary{background:#44d6b0;color:#07382f;font-weight:800}
+.secondary{background:#284456;color:#e5f4f5}
+#generate{margin-top:15px;width:100%}
+#status{min-height:1.7em;color:#69f2c3;font-size:14px}
+#status.error{color:#ffb4af}
+#resultArea[hidden]{display:none}
+.actions{display:flex;gap:10px;margin-top:12px}
+.actions button{flex:1}
+code{direction:ltr;unicode-bidi:isolate;overflow-wrap:anywhere;color:#80e8c8}
+.back{display:inline-block;color:#80e7cd;margin-top:12px;text-underline-offset:4px}
+@media(max-width:400px){.actions{flex-direction:column}}
