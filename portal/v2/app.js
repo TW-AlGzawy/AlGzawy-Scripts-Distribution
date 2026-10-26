@@ -7,10 +7,6 @@ const $=id=>document.getElementById(id);
 const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
-  if(qaPreviewHost){
-    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.7 QA';});
-    return;
-  }
   try{
     const response=await fetch('/api/bridge-version',{credentials:'same-origin',cache:'no-store'});
     const release=await response.json();
@@ -91,22 +87,7 @@ function installationState(item){
     return {kind:'update',label:'تحديث السكربت',note};
   return {kind:'installed',label:'✓ مثبّت',note};
 }
-// QA previews require a loader which explicitly matches the Cloudflare preview hostname.
- // The public API continues to provide production URLs and never authorizes game execution.
-const qaPreviewHost=/^[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.hostname);
-
-
-if(qaPreviewHost){
-  const help=document.querySelector('.scripts-summary span:last-child');
-  if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
-}
-function installerUrlFor(item){
-  if(qaPreviewHost&&item.id==='warehouse-alert-safe')
-    return 'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js';
-  return qaPreviewHost
-    ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
-    :item.installer;
-}
+function installerUrlFor(item){return item.installer;}
 function installationControl(item){
   const result=installationState(item);
   if(result.kind==='installed'){
@@ -119,7 +100,7 @@ function installationControl(item){
   }
   const link=el('a','btn '+(result.kind==='update'?'install-update':'subtle'),result.label+' ↗');
   link.href=installerUrlFor(item);link.rel='noopener noreferrer';link.target='_blank';
-  link.title=result.note+(qaPreviewHost?' (نسخة اختبار من فرع RC1؛ ليست إصدار Production)':'');
+  link.title=result.note;
   link.addEventListener('click',()=>{
     // Do not synchronously remove the clicked anchor before the browser opens it.
     setTimeout(()=>{
@@ -134,109 +115,6 @@ function installationControl(item){
   });
   return link;
 }
-// QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
-// Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
-// The Preview catalog includes a separately licensed warehouse script.
-// QA traces are limited to these IDs and never imply an installation.
-const qaInstallProbeIds=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
-  'professional-training-v2','send-automation','alg-attacks','warehouse-alert-safe','alg-coins','tribal-wars-helper'];
-const qaInstallIds=new Set([...qaInstallProbeIds,'qa-smoke']);
-const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent','smoke-ready']);
-const qaInstallTrace=[];
-let qaInstallTraceList=null;
-let qaInstallProgress=null;
-function qaInstallLog(id,stage,channel='',note=''){
-  if(!qaPreviewHost||!qaInstallIds.has(id))return;
-  // All fields stored/exported are chosen locally from finite diagnostic categories.
-  const entry={time:new Date().toLocaleTimeString('ar-BE',{hour12:false}),id,stage,channel,note};
-  qaInstallTrace.unshift(entry);
-  if(qaInstallTrace.length>200)qaInstallTrace.length=200;
-  if(qaInstallTraceList){
-    qaInstallTraceList.replaceChildren();
-    for(const x of qaInstallTrace){
-      const node=el('li','qa-probe-item');
-      node.append(el('strong','',x.time+' · '+x.id),el('span','',x.stage+' · '+x.channel+(x.note?' · '+x.note:'')));
-      qaInstallTraceList.append(node);
-    }
-  }
-}
-function qaInstallReceiveDebug(payload,channel){
-  if(!qaPreviewHost)return;
-  const data=typeof payload==='string'?(()=>{try{return JSON.parse(payload);}catch(_){return null;}})():payload;
-  if(!data||data.scope!=='algzawy-installation-debug-v1'
-     ||!qaInstallIds.has(data.id)||!qaInstallStages.has(data.stage))return;
-  qaInstallLog(data.id,data.stage,channel,typeof data.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(data.version)?'v'+data.version:'');
-}
-function qaInstallDiagnosticsInit(){
-  if(!qaPreviewHost)return;
-  const grid=$('scriptsGrid');
-  if(!grid||!grid.parentNode)return;
-  const panel=el('section','panel qa-probe-panel');
-  panel.setAttribute('aria-labelledby','qaProbeTitle');
-  const h=el('h3','', 'تشخيص تأكيد التثبيت — Preview فقط');
-  h.id='qaProbeTitle';
-  const info=el('p','small-muted','فحص تجريبي للسكربتات التسعة، مع سكربت مستقل للتأكد من تشغيل Tampermonkey. لإظهار «✓ مثبّت» يجب تثبيت كل سكربت فعليًا داخل Tampermonkey، ثم تحديث صفحة Preview. سجلات التشخيص تبقى محلية دون أسرار أو بيانات اشتراك.');
-  const progress=el('p','qa-install-progress','جارٍ فحص السكربتات المرخّصة…');
-  progress.setAttribute('role','status');
-  qaInstallProgress=progress;
-  const actions=el('div','qa-probe-actions');
-  const start=el('button','btn outline','فحص جميع السكربتات الآن');
-  start.type='button';
-  start.addEventListener('click',()=>{
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'manual-check','portal');
-    probeInstalledScripts();
-  });
-  const copy=el('button','btn subtle','نسخ سجل التشخيص');
-  copy.type='button';
-  copy.addEventListener('click',async()=>{
-    const header='AlGzawy QA installation trace (not proof of Tampermonkey execution). Entries: '+qaInstallTrace.length;
-    const text=[header,...[...qaInstallTrace].reverse().map(x=>[x.time,x.id,x.stage,x.channel,x.note].filter(Boolean).join(' | '))].join('\n');
-    try{await navigator.clipboard.writeText(text);toast('تم نسخ سجل التشخيص دون بيانات حساسة');}
-    catch(_){toast('لم يسمح المتصفح بالنسخ. صوّر سجل التشخيص الظاهر.',true);}
-  });
-  const clear=el('button','btn outline','مسح السجل');
-  clear.type='button';
-  clear.addEventListener('click',()=>{qaInstallTrace.length=0;qaInstallTraceList?.replaceChildren();});
-  actions.append(start,copy,clear);
-  qaInstallTraceList=el('ol','qa-probe-trace');
-  qaInstallTraceList.setAttribute('aria-label','سجل مراحل التحقق');
-  // QA game-only launchers. Their presence is distinct from website-installed checkmarks.
-  const qaLaunchers=[
-    ['mass-scavenge-v1','الإغارات الجماعية','1.0.2.2'],
-    ['bot-farm-2','بوت النهب','1.0.2.1'],
-    ['alg-balance','موازنة الموارد','1.0.2.1'],
-    ['algzawy-builder-v1','البناء المتطور','1.0.3.1'],
-    ['professional-training-v2','بوت التدريب','1.0.3.2'],
-    ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
-    ['alg-attacks','تنبيه الهجمات','1.0.3.4'],
-    ['warehouse-alert-safe','تنبيه المخازن','1.1.2'],
-    ['alg-coins','الصقل المتطور','1.0.2.1'],
-    ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
-  ];
-  const qaTitle=el('h4','', 'مشغّلات اللعبة التجريبية — تثبيت منفصل');
-  const qaHelp=el('p','small-muted',
-    'هذه الملفات لتشغيل المحركات داخل اللعبة عبر الجسر التجريبي. لا تغيّر حالة «✓ مثبّت» للـLoader العادي. ثبّت المشغّل الذي تريد تجربته فقط، وعطّل نظيره الرسمي داخل متصفح الاختبار.');
-  const qaLinks=el('div','qa-game-links');
-  for(const [id,label,version] of qaLaunchers){
-    const link=el('a','btn subtle','تثبيت '+label+' · v'+version+' ↗');
-    link.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-'+id+'-preview-rc1.user.js';
-    link.target='_blank';link.rel='noopener noreferrer';
-    qaLinks.append(link);
-  }
-  const warning=el('p','small-muted','تنبيه: هذه مشغّلات QA مستقلة. قد تنفّذ أوامر فعلية داخل حرب القبائل عند تشغيل Preview، ولا ينبغي اختبارها كلها في الوقت نفسه. فعّل صلاحية سكربت واحد ثم تحقّق من توقفه عند OFF. لا تستخدمها إلا ضمن قواعد اللعبة.');
-  panel.append(h,info,progress,qaTitle,qaHelp,qaLinks,warning,actions,qaInstallTraceList);
-  grid.parentNode.insertBefore(panel,grid);
-}
-if(qaPreviewHost){
-  window.addEventListener('message',event=>{
-    if(event.data?.scope==='algzawy-installation-debug-v1'){
-      const channel=event.origin===location.origin?'window.message same-origin':'window.message other-origin';
-      if(event.origin===location.origin)qaInstallReceiveDebug(event.data,channel);
-    }
-  });
-  document.addEventListener('algzawy-installation-debug-v1',event=>qaInstallReceiveDebug(event.detail,'document.CustomEvent'));
-}
-
 async function fetchReleaseVersions(){
   if(!state.user)return;
   try{
@@ -249,34 +127,22 @@ async function fetchReleaseVersions(){
   }catch(error){state.releaseError=true;/* Installed-script proof is independent of GitHub availability. */}
   if(state.user)renderScripts();
 }
-// UI-only proof: an installed, enabled loader must respond to the current nonce.
-// Chrome isolated worlds can delay @require or message bridging; listen on BOTH
-// page messages and the document event bus. Neither is a licensing authority.
+// Installation proof is UI-only: an enabled userscript must answer a fresh nonce.
+// It never grants a license or proves the game engine is running.
 function probeInstalledScripts(targetId=null){
   if(!state.user||document.visibilityState==='hidden')return;
   if(targetId&&state.catalog.some(item=>item.id===targetId))state.probeTarget=targetId;
   state.probing=Boolean(state.probeTarget);
-  // Focus, visibilitychange and refresh may fire together. Never invalidate
-  // a live challenge by replacing its nonce during an overlapping probe.
-  if(state.probeInFlight){
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-coalesced','portal');
-    renderScripts();
-    return;
-  }
+  if(state.probeInFlight){renderScripts();return;}
   state.probeInFlight=true;
-  state.probeNonce=crypto.randomUUID();
-  state.probeResponders=new Set();
-  const nonce=state.probeNonce;
-  for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-sent','portal','target='+(targetId||'all'));
+  const nonce=crypto.randomUUID();
+  state.probeNonce=nonce;state.probeResponders=new Set();
   const ask={scope:'algzawy-installation-v1',type:'probe',nonce};
-  // The document event works across injected content worlds without network calls.
   document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
   window.postMessage(ask,location.origin);
   renderScripts();
-  // Some Tampermonkey loaders wait for @require, so retry before declaring no proof.
   setTimeout(()=>{
     if(state.probeNonce!==nonce||!state.user)return;
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-retry','portal');
     document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
     window.postMessage(ask,location.origin);
   },2600);
@@ -284,56 +150,32 @@ function probeInstalledScripts(targetId=null){
     if(state.probeNonce!==nonce||!state.user)return;
     for(const id of state.installed.keys())
       if(!state.probeResponders.has(id))state.installed.delete(id);
-    for(const id of qaInstallProbeIds)qaInstallLog(id,state.probeResponders.has(id)?'probe-complete':'probe-timeout','portal');
-    state.probeInFlight=false;
-    state.probing=false;state.probeTarget=null;
+    state.probeInFlight=false;state.probing=false;state.probeTarget=null;
     renderScripts();
   },6500);
 }
-function receiveInstallationReport(message,channel='unknown'){
-  if(qaInstallIds.has(message?.id)&&message?.scope==='algzawy-installation-v1'){
-    qaInstallLog(message.id,'report-received',channel);
-  }
+function receiveInstallationReport(message){
   if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
-  if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
-  // A loader initialized AFTER the probe (for example due to @require) may send
-  // an unsolicited hello. Never call that installation proof; challenge it afresh.
+  if(typeof message.version!=='string'||!/^\\d+(?:\\.\\d+){1,3}$/.test(message.version))return;
   if(message.nonce===''){
-    qaInstallLog(message.id,'hello-received',channel);
     if(!state.helloProbed.has(message.id)){
       state.helloProbed.add(message.id);
       probeInstalledScripts(message.id);
     }
     return;
   }
-  if(message.nonce!==state.probeNonce){
-    qaInstallLog(message.id,'report-rejected',channel,'nonce-mismatch');
-    return;
-  }
-  qaInstallLog(message.id,'report-accepted',channel,'v'+message.version);
+  if(message.nonce!==state.probeNonce)return;
   state.installed.set(message.id,message.version);
   state.probeResponders.add(message.id);
   if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
   renderScripts();
 }
 window.addEventListener('message',event=>{
-  if(event.data?.scope==='algzawy-installation-v1'&&event.data.type==='report'
-     &&qaInstallIds.has(event.data.id)){
-    const source=event.source===window?'source=window':event.source===null?'source=null':'source=other';
-    qaInstallLog(event.data.id,'postmessage-seen','window.message',
-      source+(event.origin===location.origin?' origin=ok':' origin=other'));
-  }
   if(event.source!==window||event.origin!==location.origin)return;
-  receiveInstallationReport(event.data,'window.message');
+  receiveInstallationReport(event.data);
 });
-document.addEventListener('algzawy-installation-report-v1',event=>{
-  if(event.detail===null||event.detail===undefined){
-    // Cannot attribute an empty payload to a particular loader.
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'empty-event-detail','document.CustomEvent');
-  }
-  receiveInstallationReport(event.detail,'document.CustomEvent');
-});
+document.addEventListener('algzawy-installation-report-v1',event=>receiveInstallationReport(event.detail));
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
   const raw=new URLSearchParams(location.search).get('alg_auto');
@@ -542,15 +384,6 @@ function renderScripts(){
   const items=allowed().filter(x=>(state.category==='all'||state.category===x.category)&&
     (!query||(x.name+' '+x.description).toLocaleLowerCase().includes(query)));
   $('resultsCount').textContent='عرض '+items.length+' من '+allowed().length+' سكربت مرخص';
-  if(qaPreviewHost){
-    const progress=qaInstallProgress;
-    if(progress){
-      const all=allowed(),confirmed=all.filter(x=>state.installed.has(x.id)).length;
-      progress.textContent='تم تأكيد تثبيت '+confirmed+' من '+all.length+' سكربت مرخّص في هذا المتصفح. '
-        +(confirmed===all.length?'جميع الملفات المرخّصة ردّت على الفحص.':
-          'البقية: اضغط «تثبيت السكربت» على بطاقتها وأكّد التثبيت في Tampermonkey، ثم حدّث الصفحة.');
-    }
-  }
   if(!items.length){root.append(el('div','empty',allowed().length?'لا توجد نتائج مطابقة للبحث.':'لا توجد سكربتات مرخصة لهذا الاشتراك.'));return;}
   for(const item of items){
     const pref=state.prefs[item.id]||{};
@@ -851,14 +684,6 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refresh();},5*60*1000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible'){probeInstalledScripts();void fetchReleaseVersions();}},5*60*1000);
-qaInstallDiagnosticsInit();
-if(qaPreviewHost){
-  const officialLink=q('a[href$="/loaders/algzawy-cloud-bridge.user.js"]');
-  if(officialLink){
-    officialLink.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-cloud-bridge-preview-rc1.user.js';
-    officialLink.title='الجسر التجريبي فقط — معزول عن Production';
-  }
-}
 void syncBridgeVersion();
 setInterval(()=>{if(document.visibilityState==='visible')void syncBridgeVersion();},300000);
 void init();
