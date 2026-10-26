@@ -1,5 +1,5 @@
 // Cloudflare Pages Functions — AlGzawy Cloud Portal (Free / D1)
-import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost,telegramOwner} from '../telegram-preview.js';
+import {telegramSubscriber,telegramWebhook,telegramNotify,telegramOfficialHost,telegramOwner} from '../telegram-production.js';
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
@@ -211,7 +211,7 @@ async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
   // Preview-only Telegram endpoints: never expose the bot token to clients.
-  if(path[0]==='telegram'&&!telegramPreviewHost(req))return bad('not_found',404);
+  if(path[0]==='telegram'&&!telegramOfficialHost(req))return bad('not_found',404);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
   if(path[0]==='telegram'&&path[1]==='webhook'&&path.length===2){
     return telegramWebhook(req,env,{reply,bad,digest});
@@ -244,13 +244,11 @@ async function handler(req,env){
       if(!response.ok)return bad('release_manifest_unavailable',503);
       const manifest=await response.json();
       if(manifest?.schema!==1||!Array.isArray(manifest.published_candidates))return bad('release_manifest_invalid',503);
-      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&item.id!=='warehouse-alert-safe'&&
-        typeof item.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(item.version))
-        .map(({id,version})=>({id,version}));
-      if(items.length!==GROUPS.length-1)return bad('release_manifest_incomplete',503);
-      // QA-only standalone warehouse pilot has a separate version channel.
-      if(telegramPreviewHost(req))items.push({id:'warehouse-alert-safe',version:'1.1.0'});
-      return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
+      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&
+         typeof item.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(item.version))
+         .map(({id,version})=>({id,version}));
+       if(items.length!==GROUPS.length)return bad('release_manifest_incomplete',503);
+       return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
     }catch(e){console.warn('[installer-releases]',e);return bad('release_manifest_unavailable',503);}
   }
   if(req.method==='GET'&&path[0]==='catalog'&&path.length===1){
@@ -260,7 +258,7 @@ async function handler(req,env){
     if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
     if(currentUser&&!(await subscriptionOK(env,currentUser.id)))return bad('subscription_inactive',403);
     const licensed=hasAdmin?new Set(GROUPS.map(([id])=>id)):await allowedSet(env,currentUser.id);
-    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:id==='warehouse-alert-safe'&&telegramPreviewHost(req)?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
   }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
@@ -338,7 +336,7 @@ async function handler(req,env){
     if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
       return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
         id,name,category,description,featured:FAV.has(id),
-        installer:id==='warehouse-alert-safe'&&telegramPreviewHost(req)?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
+        installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
       }))});
     }
     if(path[1]==='scripts'&&path.length===2){
