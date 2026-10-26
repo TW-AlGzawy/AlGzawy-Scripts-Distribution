@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const source=readFileSync(new URL('../portal/functions/telegram-preview.js',import.meta.url),'utf8');
-const {telegramNotify,telegramSubscriber}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {telegramNotify,telegramSubscriber,formatTelegramAlert}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const host='https://algzawy-cloud-control.pages.dev';
 const envBase={
  ALG_TELEGRAM_MODE:'enabled',
@@ -125,4 +125,44 @@ test('bridge seeds portal threshold on first sync and preserves explicit local e
  data.clear();
  apply('warehouse-alert-safe',{percent:150},true);
  assert.equal(JSON.parse(data.get(key)).percent,undefined,'invalid portal percent must not be copied');
+});
+
+
+test('linked subscriber receives exactly one signed human-check alert even without attack/warehouse entitlements',async()=>{
+ const DB=new FakeDB(),env={...envBase,DB},outbound=fakeDelivery();
+ const incidentId='11c63fc2-5d82-4851-9c54-6817467bd184';
+ const event={type:'human-verification',incidentId,world:'aep14.tribalwars.ae',villageName:'My village',coords:'500|500'};
+ const limited={...helpers,allowedSet:async()=>new Set()};
+ try{
+  const failed=await telegramNotify(request(event),env,{user_id:'customer-1'},limited);
+  assert.equal(failed.status,502);
+  assert.equal(DB.events.size,0,'both incident and 5-min reservations released on confirmed delivery failure');
+  const sent=await telegramNotify(request(event),env,{user_id:'customer-1'},limited);
+  assert.equal(sent.status,200);
+  assert.equal((await sent.json()).sent,true);
+  const repeated=await telegramNotify(request(event),env,{user_id:'customer-1'},limited);
+  assert.equal((await repeated.json()).rateLimited,true);
+  assert.equal(outbound.tries(),2,'no duplicate outbound send');
+  const second={...event,incidentId:'c781c23e-a322-4810-88e7-6da8c7d3b642'};
+  const limitedAgain=await telegramNotify(request(second),env,{user_id:'customer-1'},limited);
+  assert.equal((await limitedAgain.json()).rateLimited,true,'avoid notification flood from forged new incidents');
+ }finally{outbound.restore();}
+});
+test('human-check payload escapes game-controlled HTML and rejects invalid IDs',async()=>{
+ const event={type:'human-verification',incidentId:'a0474f20-a381-442e-a384-dcb514029af4',
+  world:'<script>alert(1)</script>',villageName:'<b>Injected</b>',coords:'500|500'};
+ const output=formatTelegramAlert(event);
+ assert.match(output,/فحص بشري/);
+ assert.doesNotMatch(output,/<script>|<b>Injected<\/b>/);
+ assert.match(output,/&lt;script&gt;/);
+ assert.match(output,/&lt;b&gt;Injected&lt;\/b&gt;/);
+ const DB=new FakeDB(),env={...envBase,DB};
+ for(const bad of [{...event,incidentId:'fake'}, {...event,villageName:'x'.repeat(121)}]){
+  const response=await telegramNotify(request(bad),env,{user_id:'customer-1'},helpers);
+  assert.equal(response.status,400);
+ }
+ assert.equal(DB.events.size,0);
+ const noSubscription=await telegramNotify(request(event),env,{user_id:'customer-1'},
+  {...helpers,subscriptionOK:async()=>false});
+ assert.equal(noSubscription.status,403);
 });
