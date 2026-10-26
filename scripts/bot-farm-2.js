@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.0.3
+// @version      1.0.4
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -26,14 +26,20 @@
   }
   const KEY = 'algzawy_bot2_settings_v02';
   const POS = 'algzawy_bot2_panel_position_v02';
+  const RUN_KEY='algzawy_bot2_running_tab_v1';
+  const NEXT_KEY='algzawy_bot2_next_action_at_v1';
+  const HUMAN_KEY='algzawy_human_verification_pause';
+  const humanLocked=()=>localStorage.getItem(HUMAN_KEY)==='1'||
+    sessionStorage.getItem(HUMAN_KEY)==='1';
   const defaults = {enabled:false,template:'A',minDelay:1000,maxDelay:2000,switchVillages:true};
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { saved = null; }
   let settings = Object.assign({},defaults,saved || {});
-  // Saved ON from any earlier run is never authorization to farm on load.
-  // Keep template/delays/preferences, but require an explicit click every time.
-  settings.enabled=false;
-  try { localStorage.setItem(KEY,JSON.stringify(settings)); } catch (_) {}
+  // Tab-local run consent survives reload/village switching, but never leaks
+  // into another normal tab or bypasses the Cloud Bridge's human check lock.
+  const resumeRequested=sessionStorage.getItem(RUN_KEY)==='1';
+  settings.enabled=resumeRequested&&!humanLocked();
+  if(!settings.enabled)sessionStorage.removeItem(RUN_KEY);
   let timer = null;
   let actions = 0;
   const attempted = new Set();
@@ -56,6 +62,11 @@
   const q = id => document.getElementById('algzawy-bot2-'+id);
   const status = msg => { q('status').textContent = msg; };
   const store = () => localStorage.setItem(KEY,JSON.stringify({...settings,enabled:false}));
+  store(); // retire legacy persisted ON flags without erasing settings
+  const rememberRun=()=>{
+    if(settings.enabled)sessionStorage.setItem(RUN_KEY,'1');
+    else{sessionStorage.removeItem(RUN_KEY);sessionStorage.removeItem(NEXT_KEY);}
+  };
   const bounded = n => Math.min(60000,Math.max(500,Number(n)||1000));
   q('template').value = cols[settings.template] ? settings.template : 'A';
   q('min-delay').value = bounded(settings.minDelay);
@@ -77,6 +88,7 @@
   }
   function stop(msg) {
     settings.enabled = false;
+    rememberRun();
     store();
     if (timer) clearTimeout(timer);
     timer = null;
@@ -84,12 +96,18 @@
     status(msg || 'متوقف');
   }
   function challengeDetected() {
-    return !!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection');
+    return humanLocked()||!!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection,[id*="captcha"],.g-recaptcha');
   }
-  function schedule() {
-    if (!settings.enabled) return;
-    const delay = settings.minDelay + Math.random()*(settings.maxDelay-settings.minDelay);
-    timer = setTimeout(step,Math.ceil(delay));
+  function schedule(remaining=null) {
+    if (!settings.enabled || challengeDetected()){
+      if(challengeDetected())stop('متوقف بسبب الفحص البشري');
+      return;
+    }
+    const delay=remaining!==null&&remaining>0?
+      remaining:settings.minDelay+Math.random()*(settings.maxDelay-settings.minDelay);
+    const wait=Math.max(500,Math.ceil(delay));
+    sessionStorage.setItem(NEXT_KEY,String(Date.now()+wait));
+    timer=setTimeout(step,wait);
   }
   function retryLater(message) {
     if (!settings.enabled) return;
@@ -111,6 +129,8 @@
   }
   function step() {
     if (!settings.enabled) return;
+    if (timer){clearTimeout(timer);timer=null;}
+    sessionStorage.removeItem(NEXT_KEY);
     if (challengeDetected()) {
       document.dispatchEvent(new Event('algzawy-human-verification'));
       stop('تم رصد تحقق بشري. أُوقفت عمليات النهب.');
@@ -152,7 +172,8 @@
   q('toggle').addEventListener('click',function(){
     saveInputs();
     if (settings.enabled) return stop('أوقفه المستخدم');
-    settings.enabled=true;updateButton();attempted.clear();attemptedRows=new WeakSet();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
+    if(challengeDetected())return stop('لن يبدأ النهب قبل إكمال الفحص البشري');
+    settings.enabled=true;rememberRun();updateButton();attempted.clear();attemptedRows=new WeakSet();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
     schedule();
   });
   ['template','min-delay','max-delay','switch'].forEach(id => q(id).addEventListener('change',saveInputs));
@@ -178,6 +199,14 @@
     if (pos && pos.top && pos.left) {panel.style.top=pos.top;panel.style.left=pos.left;panel.style.right='auto';}
   } catch (_) {}
   document.addEventListener('algzawy-human-verification',()=>stop('توقف بسبب التحقق البشري'));
+  // Wait for the installer to authorize this browser/tab before constructing
+  // the engine. A refreshed authorized tab keeps its explicit run intent and
+  // the remaining delay; an expired delay schedules a *new* interval.
+  if(settings.enabled){
+    const oldDeadline=Number(sessionStorage.getItem(NEXT_KEY)||0);
+    const remaining=oldDeadline-Date.now();
+    schedule(Number.isFinite(remaining)&&remaining>0&&remaining<=60000?remaining:null);
+    status('استعادة النهب في هذا التبويب — سيتم الإرسال حسب التأخير المحفوظ');
+  }else status(humanLocked()?'متوقف بسبب الفحص البشري':'متوقف — اضغط تشغيل النهب');
   updateButton();
-  status('متوقف — اختر الإعدادات ثم اضغط تشغيل النهب');
 })();

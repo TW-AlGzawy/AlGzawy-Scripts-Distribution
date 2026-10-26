@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const bridge=read('loaders/algzawy-cloud-bridge.user.js');
+const portal=read('portal/v2/app.js');
+const page=read('portal/v2/index.html');
+test('bridge 2.4.10 advertises update notices only, with a portal link',()=>{
+ new vm.Script(bridge);new vm.Script(portal);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.10$/m);
+ assert.match(bridge,/@match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*/);
+ assert.match(bridge,/function pollReleaseUpdates\(\)/);
+ assert.match(bridge,/function paintUpdateNotices\(\)/);
+ assert.match(bridge,/algzawy_installed_loader_version_/);
+ assert.match(bridge,/link\.href=UPDATE_PORTAL\+'#'\+entry\.section/);
+ assert.match(bridge,/id:'algzawy-cloud-bridge',version:BRIDGE_VERSION,nonce/);
+ assert.match(bridge,/@connect\s+raw\.githubusercontent\.com/);
+ assert.doesNotMatch(bridge,/eval\(.*availableReleases|new Function\(.*availableReleases/);
+ assert.match(portal,/bridgeLatestVersion/);
+ assert.match(portal,/bridgeInstalledVersion/);
+ assert.match(portal,/paintBridgeReleaseStatus/);
+ assert.match(page,/id="bridgeUpdateNotice"/);
+ assert.match(portal,/label:'تحديث السكربت'/);
+});
