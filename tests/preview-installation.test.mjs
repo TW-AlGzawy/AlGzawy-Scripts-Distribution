@@ -67,7 +67,7 @@ test('Subscriber UI scopes pending installation to the clicked script instead of
   const preview=make(state,()=>0,{hostname:'da012635.algzawy-cloud-control.pages.dev'},{querySelector:()=>null});
   assert.equal(preview.installationState({id:'bot-farm-2'}).kind,'checking');
   assert.equal(preview.installationState({id:'alg-attacks'}).kind,'install');
-  assert.match(preview.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),/feature\/algzawy-quality-hardening-2026-10-25\/loaders\/bot-farm-2\.user\.js$/);
+  assert.equal(preview.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),'main-path');
   const main=make(state,()=>0,{hostname:'algzawy-cloud-control.pages.dev'},{querySelector:()=>null});
   assert.equal(main.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),'main-path');
   state.installed.set('bot-farm-2','1.0.2');
@@ -76,20 +76,18 @@ test('Subscriber UI scopes pending installation to the clicked script instead of
   assert.match(source,/if\(!state\.probeResponders\.has\(id\)\)state\.installed\.delete\(id\)/);
 });
 
-test('QA preview applies the same trace protocol to all nine licensed loaders, without implying fake installs',()=>{
-  const source=read('portal/v2/app.js');
-  for(const item of entries){
-    assert.match(source,new RegExp("'"+item.id+"'"),item.id+' must have a QA trace identifier');
-    const loader=read('loaders/'+item.id+'.user.js');
-    assert.match(loader,/qaTrace\('loader-start'\)/);
-    assert.match(loader,/qaTrace\('listener-ready'\)/);
-    assert.match(loader,/qaTrace\('probe-received'\)/);
-    assert.match(loader,/qaTrace\('report-sent'\)/);
-    assert.match(loader,/^\/\/ @version\s+/m);
-  }
-  assert.match(source,/state\.installed\.has\(x\.id\)/,'confirmation counter only counts acknowledged loaders');
-  assert.match(source,/تم تأكيد تثبيت/);
-  assert.match(source,/فحص جميع السكربتات الآن/);
-  assert.doesNotMatch(source,/state\.installed\.set\(item\.id\s*,\s*item\.version\)/,
-    'catalog version alone must never mark a script installed');
+test('official portal removes QA diagnostics while loader-side preview trace remains isolated',()=>{
+ const source=read('portal/v2/app.js');
+ assert.doesNotMatch(source,/qaInstallIds|qaInstallTrace|qaInstallDiagnosticsInit|qa-smoke|preview-rc1/);
+ assert.match(source,/message\.nonce!==state\.probeNonce/);
+ assert.match(source,/state\.installed\.set\(message\.id,message\.version\)/);
+ assert.doesNotMatch(source,/state\.installed\.set\(item\.id\s*,\s*item\.version\)/);
+ for(const item of entries){
+   const loader=read('loaders/'+item.id+'.user.js');
+   assert.match(loader,/qaTrace\('loader-start'\)/);
+   assert.match(loader,/qaTrace\('listener-ready'\)/);
+   assert.match(loader,/qaTrace\('probe-received'\)/);
+   assert.match(loader,/qaTrace\('report-sent'\)/);
+   assert.match(loader,/^\/\/ @version\s+/m);
+ }
 });
