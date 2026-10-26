@@ -12,11 +12,13 @@ async function syncBridgeVersion(){
     const release=await response.json();
     if(!response.ok||release.ok!==true||!/^\d+(?:\.\d+){1,3}$/.test(release.version))throw Error('version_unavailable');
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v'+release.version;});
+    state.bridgeLatestVersion=release.version;
+    paintBridgeReleaseStatus();
   }catch(_){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probeInFlight:false,probing:false,probeTarget:null,probeResponders:new Set(),helloProbed:new Set(),releaseError:false};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probeInFlight:false,probing:false,probeTarget:null,probeResponders:new Set(),helloProbed:new Set(),releaseError:false,bridgeLatestVersion:null,bridgeInstalledVersion:null};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
@@ -41,7 +43,9 @@ function toast(message,isError=false){
 const errors={
  unauthorized:'الجلسة غير صالحة أو انتهت صلاحيتها. يرجى تسجيل الدخول.',
  subscription_inactive:'الاشتراك متوقف أو منتهي. تواصل مع الإدارة.',
- device_already_linked:'يوجد جهاز معتمد مسبقًا. تواصل مع الإدارة لإلغاء اعتماده قبل ربط جهاز جديد.',
+ device_already_linked:'الجهاز مسجل مسبقًا. تواصل مع الإدارة.',
+ device_limit_reached:'يسمح الاشتراك بجهازين فقط (كمبيوتر وهاتف). اطلب من الإدارة حذف الجهاز القديم لاستبداله.',
+ device_slot_occupied:'هناك جهاز مسجل من الفئة نفسها. يسمح بكمبيوتر واحد وهاتف واحد فقط.',
  invalid_public_key:'طلب ربط الجهاز غير صالح أو تالف.',
  script_not_licensed:'هذا السكربت غير متاح في اشتراكك.',
  script_globally_disabled:'هذا السكربت متوقف من الإدارة.',
@@ -72,6 +76,22 @@ function compareVersion(left,right){
     if((a[i]||0)!==(b[i]||0))return (a[i]||0)<(b[i]||0)?-1:1;
   }
   return 0;
+}
+function paintBridgeReleaseStatus(){
+ const box=$('bridgeUpdateNotice');if(!box)return;
+ const latest=state.bridgeLatestVersion,installed=state.bridgeInstalledVersion;
+ if(!latest){box.hidden=true;return;}
+ box.hidden=false;
+ if(installed&&compareVersion(installed,latest)<0){
+   box.textContent='🔄 تحديث Cloud Bridge متاح: المثبت v'+installed+'، الأحدث v'+latest+'. استخدم زر تحديث الجسر هنا.';
+   box.className='notice warning';
+ }else if(installed){
+   box.textContent='✓ Cloud Bridge محدث — الإصدار المثبت v'+installed;
+   box.className='notice';
+ }else{
+   box.textContent='أحدث إصدار للجسر v'+latest+' — لم يصل تأكيد الإصدار المثبت من Tampermonkey. يمكن التثبيت أو التحديث من الرابط أعلاه.';
+   box.className='notice';
+ }
 }
 function installationState(item){
   const installed=state.installed.get(item.id),latest=state.releases.get(item.id);
@@ -156,7 +176,7 @@ function probeInstalledScripts(targetId=null){
 }
 function receiveInstallationReport(message){
   if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
-  if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
+  if(typeof message.id!=='string'||!(message.id==='algzawy-cloud-bridge'||state.catalog.some(item=>item.id===message.id)))return;
   if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
   if(message.nonce===''){
     if(!state.helloProbed.has(message.id)){
@@ -166,6 +186,9 @@ function receiveInstallationReport(message){
     return;
   }
   if(message.nonce!==state.probeNonce)return;
+  if(message.id==='algzawy-cloud-bridge'){
+    state.bridgeInstalledVersion=message.version;paintBridgeReleaseStatus();return;
+  }
   state.installed.set(message.id,message.version);
   state.probeResponders.add(message.id);
   if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
@@ -668,7 +691,7 @@ $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActiv
 $('refreshButton').addEventListener('click',()=>void refresh());
 async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeInFlight=false;state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.bridgeInstalledVersion=null;state.probeNonce='';state.probeInFlight=false;state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
   state.prefs={};state.csrf='';state.expiresAt=0;
   history.replaceState(null,'',location.pathname+location.search);
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
