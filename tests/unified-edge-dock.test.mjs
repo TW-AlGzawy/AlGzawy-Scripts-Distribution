@@ -44,6 +44,7 @@ test('four-way docking is deliberate, uses viewport bounds and selects axis by t
  assert.equal(choose({x:220,y:150},{x:230,y:30},r,b),'top');
  assert.equal(choose({x:200,y:450},{x:210,y:690},{...r,top:595,bottom:900},b),'bottom');
  assert.equal(choose({x:100,y:100},{x:105,y:105},r,b),null);
+ assert.equal(choose({x:400,y:250},{x:408,y:280},{left:200,right:500,top:45,bottom:950},b),null,'tall panels must not auto-dock to the bottom');
  assert.equal(choose({x:250,y:250},{x:130,y:240},{...r,left:350,right:650,top:200},b),null);
 });
 test('edge tabs may switch among four sides only when released close to another edge',()=>{
