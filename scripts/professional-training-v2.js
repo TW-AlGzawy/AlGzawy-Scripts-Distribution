@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | بوت التدريب
 // @namespace    http://tampermonkey.net/
-// @version      1.0.4
+// @version      1.0.5
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
@@ -172,7 +172,7 @@
       if(!document.getElementById('alg-training-qa-css')){
         const css=document.createElement('style');css.id='alg-training-qa-css';
         css.textContent=[
-          '#training-bot-panel{position:fixed;top:8px;left:8px;z-index:2147483001;direction:rtl;width:308px;min-width:0;max-width:calc(100vw - 12px);max-height:70vh;overflow:hidden;background:#0b1724;border:1px solid #2a8677;border-radius:12px;box-shadow:0 12px 28px #0009;color:#edfdfc;font:11px/1.55 Tahoma,Arial,sans-serif;box-sizing:border-box;color-scheme:dark}',
+          '#training-bot-panel{position:fixed;top:8px;left:8px;z-index:2147483001;direction:rtl;width:286px;min-width:0;max-width:calc(100vw - 12px);max-height:70vh;overflow:hidden;background:#0b1724;border:1px solid #2a8677;border-radius:12px;box-shadow:0 12px 28px #0009;color:#edfdfc;font:11px/1.55 Tahoma,Arial,sans-serif;box-sizing:border-box;color-scheme:dark}',
           '#training-bot-panel *{box-sizing:border-box}',
           '#training-bot-panel .tr-head{display:flex;align-items:center;gap:7px;min-height:44px;padding:6px 8px;background:linear-gradient(110deg,#15433e,#143347);touch-action:none;cursor:move;user-select:none}',
           '#training-bot-panel .tr-logo{background:#56edbc;color:#05372d;border-radius:8px;width:33px;height:33px;display:grid;place-items:center;font-weight:900}',
@@ -190,7 +190,7 @@
           '#training-bot-panel .tr-status label{display:flex;align-items:center;gap:5px;font-weight:700}',
           '#training-bot-panel #bot-status{color:#56edbc;font-weight:700;font-size:10px}',
           '#training-bot-panel input[type="checkbox"]{accent-color:#56edbc}',
-          '#training-bot-panel .tr-headings,#training-bot-panel .tr-unit{display:grid;grid-template-columns:minmax(82px,1fr) 47px 39px 44px;gap:3px;align-items:center}',
+          '#training-bot-panel .tr-headings,#training-bot-panel .tr-unit{display:grid;grid-template-columns:minmax(82px,1fr) 48px 52px;gap:3px;align-items:center}',
           '#training-bot-panel .tr-headings{font-size:9px;color:#b6d0d4;padding:5px 3px;text-align:center}',
           '#training-bot-panel .tr-headings span:first-child{text-align:right}',
           '#training-bot-panel .tr-rows{display:grid;gap:4px;max-height:185px;overflow-y:auto}',
@@ -202,6 +202,7 @@
           '#training-bot-panel .tr-extra{margin-top:8px;padding-top:8px;border-top:1px solid #31505a;font-size:10px}',
           '#training-bot-panel .tr-extra label{display:flex;gap:8px;align-items:center;justify-content:space-between}',
           '#training-bot-panel .tr-extra input{max-width:75px}',
+          '#training-bot-panel .tr-goal{display:flex;align-items:center;gap:6px;justify-content:space-between;margin:4px 0}',
           '#training-bot-panel .tr-info{font-size:9px;color:#91b8bb;padding:6px 0 2px}',
           '#training-bot-panel button:focus-visible,#training-bot-panel input:focus-visible{outline:2px solid #56edbc;outline-offset:2px}'
         ].join('');
@@ -282,22 +283,22 @@
         const total=data?'الموجود '+data.owned+' + قيد التدريب '+data.queued+' = '+data.total
           :'عدد الجنود غير متاح — لن يرسل البوت طلب تدريب لهذه الوحدة';
         return '<div class="tr-unit"><label title="'+safe(u.name)+'"><input type="checkbox" data-unit="'+id+'" data-field="enabled" '+(u.enabled?'checked':'')+'><span>'+safe(u.name)+'</span></label>'
-          +'<input type="number" min="0" title="الهدف" data-unit="'+id+'" data-field="targetCount" value="'+u.targetCount+'">'
           +'<input type="number" min="1" max="20" title="الأولوية" data-unit="'+id+'" data-field="priority" value="'+u.priority+'">'
           +'<input type="number" min="0" title="أقصى دفعة (0=المتاح)" data-unit="'+id+'" data-field="maxBatch" value="'+(u.maxBatch||0)+'">'
           +'<span class="tr-total">'+safe(total)+'</span></div>';
       }).join('');
+      const targetControls=shown.map(([id,u])=>'<label class="tr-goal"><span>'+safe(u.name)+'</span><input type="number" min="0" max="1000000" title="الهدف الإجمالي (0=بلا سقف)" data-unit="'+id+'" data-field="targetCount" value="'+u.targetCount+'"></label>').join('');
       panel.innerHTML=
-        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>v1.0.4 · قرية '+safe(VILLAGE)+'</small></span>'
+        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>v1.0.5 · قرية '+safe(VILLAGE)+'</small></span>'
         +'<button class="tr-fold" type="button" data-training-action="fold" aria-label="طي أو فتح النافذة">'+(panel.dataset.collapsed==='1'?'＋':'−')+'</button></header>'
         +'<div class="tr-body"><div class="tr-status"><label><input id="algzawy-training-enabled" type="checkbox" '+(CONFIG.AUTO_TRAIN?'checked':'')+'>تدريب تلقائي</label>'
         +'<strong id="bot-status">'+(CONFIG.AUTO_TRAIN?'نشط':'متوقف')+'</strong></div>'
         +'<div class="tr-actions"><button type="button" data-training-action="all" aria-pressed="'+ui.all+'">'+(ui.all?'الوحدات المفعّلة':'كل الوحدات')+' ('+active.length+'/'+Object.keys(CONFIG.units).length+')</button>'
         +'<button type="button" data-training-action="advanced" aria-pressed="'+ui.advanced+'">'+(ui.advanced?'إخفاء الخيارات':'خيارات إضافية')+'</button></div>'
-        +'<div class="tr-headings"><span>الوحدة</span><span>الهدف</span><span>الأولوية</span><span>الأقصى</span></div>'
+        +'<div class="tr-headings"><span>الوحدة</span><span>الأولوية</span><span>أقصى دفعة</span></div>'
         +'<div class="tr-rows">'+(rows||'<p class="tr-info">لا توجد وحدات مفعلة. اختر «كل الوحدات» لتفعيل المطلوب.</p>')+'</div>'
-        +(ui.advanced?'<div class="tr-extra"><label>تحديث الصفحة تلقائيًا (دقائق)<input type="number" min="0" max="1440" id="algzawy-training-refresh" value="'+CONFIG.AUTO_REFRESH_MINUTES+'"></label><p class="tr-info">0 = إيقاف التحديث · الفاصل بين المحاولات '+CONFIG.GLOBAL_INTERVAL_SECONDS+' ثانية · الحد الأقصى 0 = المتاح</p></div>':'')
-        +'<p class="tr-info">الهدف يُحسب من الجنود الموجودين وقيد التدريب. لن يرسل البوت عند تعذّر قراءة العدد.</p>'
+        +(ui.advanced?'<div class="tr-extra"><strong>سقف الجنود الإجمالي (اختياري)</strong><p class="tr-info">0 = بلا سقف. إجمالي الجنود يحسب الموجود + قيد التدريب.</p>'+targetControls+'<label>تحديث الصفحة تلقائيًا (دقائق)<input type="number" min="0" max="1440" id="algzawy-training-refresh" value="'+CONFIG.AUTO_REFRESH_MINUTES+'"></label><p class="tr-info">0 = إيقاف التحديث · الفاصل بين المحاولات '+CONFIG.GLOBAL_INTERVAL_SECONDS+' ثانية · أقصى دفعة 0 = المتاح</p></div>':'')
+        +'<p class="tr-info">المجموع = الموجود + قيد التدريب؛ أقصى دفعة 0 = المتاح. اضغط خيارات إضافية لتعديل سقف إجمالي محفوظ.</p>'
         +'<div class="tr-info" style="text-align:center;border-top:1px solid #274b55">AlG · جميع الحقوق محفوظة للغزااوي</div></div>';
     }
 
