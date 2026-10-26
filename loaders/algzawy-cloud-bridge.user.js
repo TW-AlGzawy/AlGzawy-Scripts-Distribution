@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.1
-// @description  Auto License V2 + AlG Control Center; approved device and 9 approved scripts
+// @version      2.4.2
+// @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
 // @grant        GM_xmlhttpRequest
@@ -10,18 +10,18 @@
 // @grant        GM_getValue
 // @grant        unsafeWindow
 // @connect      algzawy-cloud-control.pages.dev
-// @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // ==/UserScript==
 (function () {
   'use strict';
+  // Primary production Bridge instance.
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
   const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
-  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","alg-coins","tribal-wars-helper"];
-  const retiredIds=["training-edition","light","train-master-b","holy-grail","market-bot-v7","polish-all-in-one","professional-training","reserve-correct-v2","reserve-smart-v4","reserve-smart-v5","auto-reserve-barbarians","warehouse-alert-safe","attack-renamer"];
+  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper"];
+  const retiredIds=["training-edition","light","train-master-b","holy-grail","market-bot-v7","polish-all-in-one","professional-training","reserve-correct-v2","reserve-smart-v4","reserve-smart-v5","auto-reserve-barbarians","attack-renamer"];
   // Fail closed for licenses cached by previously installed scripts.
   for(const oldId of retiredIds){
     try{localStorage.setItem('algzawy_portal_grant_'+oldId,'0');localStorage.setItem('algzawy_local_enabled_'+oldId,'false');}catch(_){}
@@ -33,7 +33,7 @@
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
+  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
@@ -83,13 +83,14 @@
     for(const id of known.filter(id=>licensedPins.has(id))){
       const row=document.createElement('div');
       row.dataset.algScriptId=id;
-      row.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin:3px 0;padding:5px 2px;border-bottom:1px solid #31565a;flex-wrap:wrap';
+      row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px;align-items:center;margin:3px 0;padding:6px 2px;border-bottom:1px solid #31565a;min-width:0';
       const text=document.createElement('span');text.textContent=scriptLabels[id]||id;
+       text.style.cssText='min-width:0;overflow-wrap:anywhere;line-height:1.45;unicode-bidi:plaintext';
       const toggle=document.createElement('button');toggle.type='button';
       toggle.textContent=pinned(id)?'إلغاء التثبيت':'📌 تثبيت بهذا التاب';
       toggle.setAttribute('aria-pressed',String(pinned(id)));
       toggle.setAttribute('aria-label',(pinned(id)?'إلغاء تثبيت ':'تثبيت ')+(scriptLabels[id]||id));
-      toggle.style.cssText='color:#d5fff7;background:#194f4c;border:1px solid #2ebbaa;padding:4px 7px;border-radius:5px;font-size:10px;cursor:pointer';
+      toggle.style.cssText='width:120px;min-width:120px;min-height:30px;color:#d5fff7;background:#194f4c;border:1px solid #2ebbaa;padding:4px 3px;border-radius:5px;font-size:10px;line-height:1.35;cursor:pointer;white-space:nowrap;align-self:center';
       toggle.addEventListener('click',()=>setTabPin(id,!pinned(id)));
       row.append(text,toggle);holder.appendChild(row);
     }
@@ -191,25 +192,100 @@
   }
   // Old links must explicitly reauthorize; do not reuse an old device ID with
   // a different signing key or silently downgrade signature verification.
-  async function deviceProof(){
+  async function deviceProof(proofPath='/api/device/state'){
     const timestamp=Date.now();
     const counter=Math.max(timestamp*1024,Number(GM_getValue('algzawy_cloud_counter',0)||0)+1);
     let signature;
     const mode=GM_getValue(keys.mode,'legacy');
     if(mode==='shared'){
+      if(proofPath!=='/api/device/state')throw Error('signed_alerts_require_portable_pairing');
       const result=await callSharedSigner('sign',{deviceId:connection.device,timestamp,counter});
       signature=result.signature;
     }else{
       let identity;
       if(mode==='portable')identity=await portableIdentity();
       else identity=await signingKey();
-      const message=connection.device+'|'+timestamp+'|'+counter+'|/api/device/state';
+      const message=connection.device+'|'+timestamp+'|'+counter+'|'+proofPath;
       const raw=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},identity.privateKey,new TextEncoder().encode(message)));
       signature=btoa(Array.from(raw,b=>String.fromCharCode(b)).join('')).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
     }
     GM_setValue('algzawy_cloud_counter',counter);
     return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':signature};
   }
+
+  // Preview-only Telegram alert relay. The game never sees the bot token.
+  // Event details are untrusted; the server validates the signed device,
+  // subscriber entitlement, global ON, linked chat, and per-user rate limit.
+  // Both attack and warehouse notifications share the approved Preview
+  // device signature path. Queue requests so the anti-replay counter is never
+  // reused concurrently. The browser has no BotFather token or chat ID.
+  let qaTelegramQueue=Promise.resolve();
+  const qaTelegramRecent=new Map();
+  function qaTextField(x,max=120){
+    return typeof x==='string'?x.slice(0,max):undefined;
+  }
+  document.addEventListener('algzawy-telegram-event',event=>{
+    const info=event.detail;
+    if(!info||!['attack','warehouse','warehouse-batch'].includes(info.type)
+      ||!connection.device||publisherPreviouslyOn!==true)return;
+    const requiredId=info.type==='attack'?'alg-attacks':'warehouse-alert-safe';
+    if(!pinned(requiredId)||localStorage.getItem('algzawy_portal_grant_'+requiredId)!=='1')return;
+    const body={type:info.type};
+    const validVillage=id=>Number.isSafeInteger(id)&&id>0&&id<=9999999999;
+    const validResources=x=>x&&validVillage(x.villageId)
+      &&Number.isSafeInteger(x.capacity)&&x.capacity>0&&x.capacity<=99999999999
+      &&['wood','stone','iron'].every(k=>Number.isSafeInteger(x[k])&&x[k]>=0&&x[k]<=99999999999)
+      &&Number.isSafeInteger(x.percent)&&x.percent>=0&&x.percent<=100;
+    const fields=['world','account','villageName','coords'];
+    const cleanVillage=x=>{
+      const obj={};
+      for(const k of ['villageId','capacity','wood','stone','iron','percent'])obj[k]=x[k];
+      for(const k of fields){const value=qaTextField(x[k],k==='villageName'?100:120);if(value)obj[k]=value;}
+      return obj;
+    };
+    if(info.type==='attack'){
+      if(!validVillage(info.villageId)||!Number.isSafeInteger(info.count)||info.count<1||info.count>500)return;
+      body.villageId=info.villageId;body.count=info.count;
+      if(typeof info.attackId==='string'&&/^\d{1,18}$/.test(info.attackId))body.attackId=info.attackId;
+      if(info.details&&typeof info.details==='object'){
+        const d={};
+        for(const field of ['world','account','target','origin','attacker','distance','arrival','remaining']){
+          const v=qaTextField(info.details[field]);if(v)d[field]=v;
+        }
+        body.details=d;
+      }
+    }else if(info.type==='warehouse'){
+      if(!validResources(info)||!Number.isSafeInteger(info.threshold)||info.threshold<1||info.threshold>100
+        ||info.percent<info.threshold)return;
+      Object.assign(body,cleanVillage(info));
+      body.threshold=info.threshold;
+    }else{
+      if(!Number.isSafeInteger(info.threshold)||info.threshold<1||info.threshold>100||
+        !Array.isArray(info.villages)||info.villages.length<1||info.villages.length>12||
+        !info.villages.every(x=>validResources(x)&&x.percent>=info.threshold))return;
+      body.villages=info.villages.map(cleanVillage);
+      body.threshold=info.threshold;
+      body.totalOverLimit=Number.isSafeInteger(info.totalOverLimit)?Math.min(info.totalOverLimit,9999):body.villages.length;
+      body.part=Number.isSafeInteger(info.part)?info.part:1;
+      body.parts=Number.isSafeInteger(info.parts)?info.parts:1;
+    }
+    const identity=body.type==='warehouse-batch'?body.villages.map(v=>v.villageId).join(','):
+      body.villageId+':'+(body.attackId||body.count||'warehouse');
+    const key=body.type+':'+identity;
+    const now=Date.now(),last=qaTelegramRecent.get(key)||0;
+    if(now-last<(body.type==='attack'?120000:300000))return;
+    qaTelegramRecent.set(key,now);
+    for(const [k,when] of qaTelegramRecent)if(now-when>21600000)qaTelegramRecent.delete(k);
+    qaTelegramQueue=qaTelegramQueue.catch(()=>{}).then(async()=>{
+      if(publisherPreviouslyOn!==true||!pinned(requiredId)
+        ||localStorage.getItem('algzawy_portal_grant_'+requiredId)!=='1')return;
+      try{
+        const headers=await deviceProof('/api/telegram/notify');
+        await request('telegram/notify',{method:'POST',headers,data:body});
+      }catch(_){/* best effort; never interfere with game and no token in UI */}
+    });
+  });
+
   let authorizing=null;
   async function openAutoLicense(){
     if(authorizing&&!authorizing.closed){authorizing.focus();return;}
@@ -278,7 +354,7 @@
       const key='algzawy_warehouse_alert_settings_v01';
       let prev={};try{prev=JSON.parse(localStorage.getItem(key)||'{}');}catch(_){}
       const next={...prev,enabled};
-      if(Number.isInteger(opts?.percent))next.percent=opts.percent;
+      // Keep the locally edited threshold. Syncing license must not overwrite a player's in-game settings.
       if(JSON.stringify(prev)!==JSON.stringify(next))localStorage.setItem(key,JSON.stringify(next));
     }
     if(id==='professional-training-v2'){
@@ -309,7 +385,7 @@
 
   // One coordinator polls the publisher switch for all script engines on this
   // game tab. This protects the Cloudflare Free request budget.
-  const PUBLISHER_STATUS='https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
+  const PUBLISHER_STATUS=PORTAL_ORIGIN+'/api/status';
   let publisherPending=false,publisherPreviouslyOn=null;
   function checkPublisher(){
     if(!connection.device||publisherPending||document.visibilityState==='hidden')return;
@@ -320,7 +396,7 @@
       onload:r=>{
         publisherPending=false;
         let enabled=false;
-        try{const data=JSON.parse(r.responseText);enabled=r.status===200&&data.schema===1&&data.enabled===true&&Number.isInteger(data.revision);}catch(_){}
+        try{const data=JSON.parse(r.responseText);enabled=r.status===200&&data.ok===true&&data.global?.enabled===true&&Number.isInteger(data.global?.revision);}catch(_){}
         if(!enabled){
           publisherPreviouslyOn=false;
           stopAll();
@@ -424,21 +500,30 @@
     document.getElementById('algzawy-cloud-script-name').textContent=lastBlockedDetail.name;
     document.getElementById('algzawy-cloud-script-note').textContent=lastBlockedDetail.message;
   });
+  function nextEdgeGeometry(edge,origin,dx,viewportWidth){
+    const margin=8,min=Math.min(255,Math.max(180,viewportWidth-2*margin));
+    if(edge==='left'){
+      const right=origin.left+origin.width;
+      const left=Math.max(margin,Math.min(right-min,origin.left+dx));
+      return {left,width:right-left};
+    }
+    return {left:origin.left,width:Math.max(min,Math.min(viewportWidth-origin.left-margin,origin.width+dx))};
+  }
   function render(){
     if(card||!document.body)return;
     card=document.createElement('section');
     card.id='algzawy-cloud-pair-panel';card.dir='rtl';
-    card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:245px;max-width:93vw;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial;overflow:hidden';
-    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong>☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
+    card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:285px;height:355px;min-width:255px;min-height:170px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);resize:both;overflow:auto;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial';
+    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong style="min-width:0;flex:1">☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
       '<div id="algzawy-cloud-body" style="padding:10px"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
       '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">التحقق من الموقع والترخيص يتم تلقائيًا بعد الربط الأول.</p>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
-      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:170px;overflow-y:auto"></div></details>'+
+      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:200px;min-height:65px;overflow-y:auto;overflow-x:hidden"></div></details>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
       '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
-      '<p style="font-size:10px;color:#86a8b9">يلزم تثبيت سكربتات اللعبة المختارة إلى جانب هذا الجسر.</p></div>';
+      '<p style="font-size:10px;color:#86a8b9">يلزم تثبيت السكربتات المرخّصة وتثبيتها بهذا التبويب قبل التشغيل.</p></div>';
     document.body.appendChild(card);
     const q=id=>document.getElementById('algzawy-cloud-'+id);
     q('script-refresh').addEventListener('click',async()=>{
@@ -465,15 +550,114 @@
       GM_setValue(keys.device,'');GM_setValue(keys.last,0);GM_setValue('algzawy_cloud_counter',0);
       stopAll();renderLinked();
     });
-    const mini=q('min');mini.addEventListener('click',()=>{
-      const body=q('body');
-      body.style.display=body.style.display==='none'?'':'none';
-      mini.textContent=body.style.display==='none'?'+':'−';
+    const geometryKey='algzawy-bridge-panel-geometry-v1';
+    let saved={};try{saved=JSON.parse(localStorage.getItem(geometryKey)||'{}');}catch(_){}
+    const clamp=(n,min,max)=>Math.min(max,Math.max(min,n)),margin=8;
+    const maxWidth=()=>Math.max(180,window.innerWidth-16);
+    const minWidth=()=>Math.min(255,maxWidth());
+    const maxHeight=()=>Math.max(70,window.innerHeight-16);
+    const minHeight=()=>Math.min(170,maxHeight());
+    if(Number.isFinite(saved.width))card.style.width=clamp(saved.width,minWidth(),maxWidth())+'px';
+    if(Number.isFinite(saved.height))card.style.height=clamp(saved.height,minHeight(),maxHeight())+'px';
+    let expandedHeight=card.offsetHeight;
+    const initial=card.getBoundingClientRect();
+    card.style.left=clamp(Number.isFinite(saved.left)?saved.left:initial.left,margin,
+      Math.max(margin,window.innerWidth-card.offsetWidth-margin))+'px';
+    card.style.top=clamp(Number.isFinite(saved.top)?saved.top:initial.top,margin,
+      Math.max(margin,window.innerHeight-card.offsetHeight-margin))+'px';
+    card.style.bottom='auto';
+    function persistGeometry(){
+      if(q('body').style.display!=='none')expandedHeight=card.offsetHeight;
+      try{localStorage.setItem(geometryKey,JSON.stringify({
+        width:card.offsetWidth,height:expandedHeight,
+        left:card.getBoundingClientRect().left,top:card.getBoundingClientRect().top
+      }));}catch(_){}
+    }
+    function constrainGeometry(){
+      const width=clamp(card.offsetWidth,minWidth(),maxWidth());
+      card.style.width=width+'px';
+      if(q('body').style.display!=='none')card.style.height=clamp(card.offsetHeight,minHeight(),maxHeight())+'px';
+      const rect=card.getBoundingClientRect();
+      card.style.left=clamp(rect.left,margin,Math.max(margin,window.innerWidth-width-margin))+'px';
+      card.style.top=clamp(rect.top,margin,Math.max(margin,window.innerHeight-card.offsetHeight-margin))+'px';
+      card.style.bottom='auto';
+    }
+    // Full-height 12px side edges, separate from the draggable title bar.
+    for(const edge of ['left','right']){
+      const grip=document.createElement('div');
+      grip.className='algzawy-cloud-resize-'+edge;
+      grip.setAttribute('role','separator');
+      grip.setAttribute('aria-orientation','vertical');
+      grip.setAttribute('aria-label',edge==='left'?'تغيير عرض الجسر من اليسار':'تغيير عرض الجسر من اليمين');
+      grip.tabIndex=0;
+      grip.style.cssText='position:absolute;top:0;bottom:0;'+edge+':0;width:12px;z-index:4;cursor:ew-resize;touch-action:none;user-select:none';
+      card.appendChild(grip);
+      let sizing=null;
+      grip.addEventListener('pointerdown',e=>{
+        if(e.button!==0)return;
+        const rect=card.getBoundingClientRect();
+        sizing={id:e.pointerId,x:e.clientX,left:rect.left,width:rect.width};
+        grip.setPointerCapture?.(e.pointerId);e.preventDefault();
+      });
+      grip.addEventListener('pointermove',e=>{
+        if(!sizing||sizing.id!==e.pointerId)return;
+        const next=nextEdgeGeometry(edge,sizing,e.clientX-sizing.x,window.innerWidth);
+        card.style.left=next.left+'px';card.style.width=next.width+'px';card.style.bottom='auto';
+      });
+      const finish=e=>{
+        if(!sizing||sizing.id!==e.pointerId)return;
+        sizing=null;
+        if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);
+        constrainGeometry();persistGeometry();
+      };
+      grip.addEventListener('pointerup',finish);
+      grip.addEventListener('pointercancel',finish);
+      grip.addEventListener('keydown',e=>{
+        if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+        e.preventDefault();
+        const rect=card.getBoundingClientRect();
+        const next=nextEdgeGeometry(edge,{left:rect.left,width:rect.width},e.key==='ArrowRight'?10:-10,window.innerWidth);
+        card.style.left=next.left+'px';card.style.width=next.width+'px';
+        constrainGeometry();persistGeometry();
+      });
+    }
+    // The native bottom corner still supports height adjustment.
+    card.addEventListener('pointerup',persistGeometry);
+    const mini=q('min');
+    mini.addEventListener('click',()=>{
+      const body=q('body'),opening=body.style.display==='none';
+      if(opening){
+        body.style.display='';card.style.minHeight=minHeight()+'px';
+        card.style.height=clamp(expandedHeight,minHeight(),maxHeight())+'px';card.style.resize='both';
+      }else{
+        expandedHeight=card.offsetHeight;body.style.display='none';
+        card.style.minHeight='0';card.style.height='auto';card.style.resize='horizontal';
+      }
+      mini.textContent=opening?'−':'+';
+      constrainGeometry();persistGeometry();
     });
     const hdr=q('hdr');let drag=null;
-    hdr.addEventListener('pointerdown',e=>{if(e.target===mini)return;drag={x:e.clientX,y:e.clientY,top:card.offsetTop,left:card.offsetLeft};hdr.setPointerCapture?.(e.pointerId);});
-    hdr.addEventListener('pointermove',e=>{if(!drag)return;card.style.top=Math.max(0,drag.top+e.clientY-drag.y)+'px';card.style.left=Math.max(0,drag.left+e.clientX-drag.x)+'px';card.style.bottom='auto';});
-    hdr.addEventListener('pointerup',()=>{drag=null;});
+    hdr.addEventListener('pointerdown',e=>{
+      if(e.button!==0||e.target.closest('button'))return;
+      const rect=card.getBoundingClientRect();
+      drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
+      hdr.setPointerCapture?.(e.pointerId);
+    });
+    hdr.addEventListener('pointermove',e=>{
+      if(!drag||drag.id!==e.pointerId)return;
+      card.style.left=clamp(drag.left+e.clientX-drag.x,margin,Math.max(margin,window.innerWidth-card.offsetWidth-margin))+'px';
+      card.style.top=clamp(drag.top+e.clientY-drag.y,margin,Math.max(margin,window.innerHeight-card.offsetHeight-margin))+'px';
+      card.style.bottom='auto';
+    });
+    const finishDrag=e=>{
+      if(!drag||drag.id!==e.pointerId)return;
+      drag=null;
+      if(hdr.hasPointerCapture?.(e.pointerId))hdr.releasePointerCapture(e.pointerId);
+      persistGeometry();
+    };
+    hdr.addEventListener('pointerup',finishDrag);
+    hdr.addEventListener('pointercancel',finishDrag);
+    window.addEventListener('resize',()=>{constrainGeometry();persistGeometry();});
     renderLinked();
     renderPinControls();
   }
@@ -490,7 +674,7 @@
   else start();
 })();
 
-/* QA companion — existing linked Bridge owns permissions and per-tab pin changes.
+/* Official launcher companion — existing linked Bridge owns permissions and per-tab pin changes.
    No code here grants a license or executes an engine. */
 (function(){
  'use strict';
