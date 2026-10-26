@@ -685,16 +685,19 @@
     let sizingHeight=null;
     heightGrip.addEventListener('pointerdown',e=>{
       if(e.button!==0||collapsed)return;
-      sizingHeight={id:e.pointerId,y:e.clientY,height:card.getBoundingClientRect().height};
+      const rect=card.getBoundingClientRect();
+      sizingHeight={id:e.pointerId,y:e.clientY,top:rect.top,height:rect.height};
       heightGrip.setPointerCapture?.(e.pointerId);
       if(e.cancelable)e.preventDefault();
     });
     heightGrip.addEventListener('pointermove',e=>{
       if(!sizingHeight||sizingHeight.id!==e.pointerId)return;
       const bounds=visibleBounds();
-      const top=card.getBoundingClientRect().top;
-      card.style.height=clamp(sizingHeight.height+e.clientY-sizingHeight.y,
-        minHeight(bounds),Math.max(minHeight(bounds),bounds.bottom-top-margin))+'px';
+      const wanted=clamp(sizingHeight.height+e.clientY-sizingHeight.y,minHeight(bounds),maxHeight(bounds));
+      const top=clamp(sizingHeight.top,bounds.top+margin,
+        Math.max(bounds.top+margin,bounds.bottom-wanted-margin));
+      card.style.top=top+'px';
+      card.style.height=clamp(wanted,minHeight(bounds),bounds.bottom-top-margin)+'px';
       if(e.cancelable)e.preventDefault();
     });
     const finishHeight=e=>{
@@ -708,9 +711,11 @@
     heightGrip.addEventListener('keydown',e=>{
       if(collapsed||!['ArrowUp','ArrowDown'].includes(e.key))return;
       e.preventDefault();
-      const bounds=visibleBounds(),top=card.getBoundingClientRect().top;
-      card.style.height=clamp(card.getBoundingClientRect().height+(e.key==='ArrowDown'?12:-12),
-        minHeight(bounds),Math.max(minHeight(bounds),bounds.bottom-top-margin))+'px';
+      const bounds=visibleBounds(),rect=card.getBoundingClientRect();
+      const wanted=clamp(rect.height+(e.key==='ArrowDown'?12:-12),minHeight(bounds),maxHeight(bounds));
+      const top=clamp(rect.top,bounds.top+margin,Math.max(bounds.top+margin,bounds.bottom-wanted-margin));
+      card.style.top=top+'px';
+      card.style.height=clamp(wanted,minHeight(bounds),bounds.bottom-top-margin)+'px';
       constrainGeometry();persistGeometry();
     });
     const hdr=q('hdr');
@@ -744,8 +749,14 @@
     // Pinch zoom and scrolling can change this independently of window.resize.
     window.visualViewport?.addEventListener('resize',constrainGeometry);
     window.visualViewport?.addEventListener('scroll',constrainGeometry);
+    // A later license sync adds/removes pins: keep the growing panel on screen.
+    const pinListObserver=new MutationObserver(()=>{
+      if(!collapsed)requestAnimationFrame(constrainGeometry);
+    });
+    pinListObserver.observe(q('tab-list'),{childList:true});
     renderLinked();
     renderPinControls();
+    constrainGeometry();
   }
   function start(){
     render();
