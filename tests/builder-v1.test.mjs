@@ -37,7 +37,7 @@ test('Cloud Bridge v2.5.0 preserves integrated launcher and one active builder',
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  const center=read('loaders/algzawy-control-center.user.js');
  new vm.Script(bridge);new vm.Script(center);
- assert.match(bridge,/@version\s+2\.4\.1/);
+ assert.match(bridge,/@version\s+2\.5\.0/);
  assert.ok(bridge.includes('algzawy-cloud-resize-'));
  assert.ok(bridge.includes('"algzawy-builder-v1":"الغزااوي | البناء المتطور"'));
  for(const id of retired){
