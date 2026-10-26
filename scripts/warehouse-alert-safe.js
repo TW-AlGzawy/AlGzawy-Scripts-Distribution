@@ -229,7 +229,7 @@ function schedule(){
 const oldPanel=document.getElementById(PANEL);
 if(oldPanel){
  if(oldPanel.dataset.algWarehouseOfficial==='1')return;
- document.dispatchEvent(new Event('__algzawy_preview_stop_warehouse-alert-safe'));
+ document.dispatchEvent(new Event('__algzawy'+'_preview_stop_'+ID));
  oldPanel.remove();
 }
 const style=document.createElement('style');
