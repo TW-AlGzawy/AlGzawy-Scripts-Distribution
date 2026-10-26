@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.2.2
+// @version      1.2.3
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -17,6 +17,10 @@
     if (typeof game_data === 'undefined') return;
 
     const CFG_KEY='algzawy_reward_timing_v11';
+    // Session-scoped absolute deadline survives a page reload in this tab.
+    // Separate from preferences: a saved duration is NOT a fresh-run permit.
+    const NEXT_KEY='algzawy_reward_next_cycle_at_v1';
+    const LAST_KEY='algzawy_reward_last_run_at_v1';
     const DEFAULT={enabled:true,cycle:60,openDelay:2000,tabDelay:1500,clickDelay:1200,jitter:0,collapsed:false};
     const clamp=(v,min,max,fallback)=>{
       const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,Math.round(n))):fallback;
@@ -32,6 +36,28 @@
     }catch(_){}
     const TW_Helper = {
       cfg,busy:false,cycleTimer:null,lastRunAt:0,claimCount:0,nextCycleAt:0,
+      // The loader pauses all bot actions on challenge and invalidates its
+      // timers. Guard this engine too, including delayed async claim clicks.
+      humanChallenge:function(){
+        return sessionStorage.getItem('algzawy_human_verification_pause')==='1'||
+          localStorage.getItem('algzawy_human_verification_pause')==='1'||
+          !!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection,[id*="captcha"],.g-recaptcha');
+      },
+      rememberDeadline:function(timestamp){
+        try{
+          if(timestamp>0)sessionStorage.setItem(NEXT_KEY,String(timestamp));
+          else sessionStorage.removeItem(NEXT_KEY);
+        }catch(_){}
+      },
+      restoredWait:function(){
+        let next=0;
+        try{next=Number(sessionStorage.getItem(NEXT_KEY)||0);}catch(_){}
+        const remaining=next-Date.now(),period=cfg.cycle*1000;
+        // An expired deadline should NOT trigger an immediate catch-up
+        // collection on refresh; resume at the next full normal interval.
+        return Number.isFinite(remaining)&&remaining>0&&remaining<=period?
+          remaining:period;
+      },
       permitted:function(){
         const tab=sessionStorage.getItem('algzawy_tab_instance_v1');
         const pinned=!!tab&&sessionStorage.getItem('algzawy_tab_pins_ready_v1')===tab&&
@@ -41,7 +67,7 @@
           until>Date.now()&&until<=Date.now()+180000&&
           localStorage.getItem('algzawy_portal_grant_tribal-wars-helper')==='1'&&
           localStorage.getItem('algzawy_local_enabled_tribal-wars-helper')!=='false'&&
-          localStorage.getItem('algzawy_human_verification_pause')!=='1';
+          !this.humanChallenge();
       },
       sleep:function(ms){
         const random=cfg.jitter?Math.floor(Math.random()*(cfg.jitter+1)):0;
@@ -51,14 +77,21 @@
       status:function(s){const n=document.getElementById('alg-reward-status');if(n)n.textContent=s;},
       schedule:function(wait=cfg.cycle*1000){
         if(this.cycleTimer!==null)clearTimeout(this.cycleTimer);
-        if(!cfg.enabled){this.status('متوقف');return;}
-        this.nextCycleAt=Date.now()+wait;this.status('الدورة التالية خلال '+Math.ceil(wait/1000)+' ثانية');
+        this.cycleTimer=null;
+        if(!cfg.enabled){
+          this.nextCycleAt=0;this.rememberDeadline(0);
+          this.status('متوقف');return;
+        }
+        const safeWait=Math.max(100,Math.min(cfg.cycle*1000,Number(wait)||cfg.cycle*1000));
+        this.nextCycleAt=Date.now()+safeWait;
+        this.rememberDeadline(this.nextCycleAt);
+        this.status('الدورة التالية خلال '+Math.ceil(safeWait/1000)+' ثانية');
         this.cycleTimer=setTimeout(async()=>{
           this.cycleTimer=null;
           try{if(this.permitted())await this.checkAndClaimRewards();}
           catch(err){console.warn('[AlG Rewards]',err);}
           this.schedule();
-        },wait);
+        },safeWait);
       },
       timingPanel:function(){
         const panel=document.getElementById('algzawy-reward-panel');
@@ -109,7 +142,7 @@
         details.append(fields);body.append(details);
         checkbox.addEventListener('change',()=>{
           cfg.enabled=checkbox.checked;this.saveConfig();
-          if(!this.busy)this.schedule(cfg.enabled?1000:0);
+          if(!this.busy)this.schedule();
           this.status(cfg.enabled?'جاهز':'متوقف');
         });
         const run=create('button','alg-reward-action','▶ جمع الجوائز الآن');run.type='button';
@@ -119,7 +152,7 @@
           void this.checkAndClaimRewards(true);
         });
         body.append(run,create('div','alg-reward-note','يعمل فقط داخل التبويب المعتمد في الجسر السحابي'));
-        body.append(create('footer','alg-reward-footer','BETA · v1.2.2 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+        body.append(create('footer','alg-reward-footer','BETA · v1.2.3 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
         box.append(body);
         const draw=()=>{
           body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';
@@ -198,7 +231,12 @@
             this.addWatermark();
             this.timingPanel();
             this.setupPointsObserver();
-            this.schedule(2000);
+            try{
+              const saved=Number(sessionStorage.getItem(LAST_KEY)||0);
+              if(Number.isFinite(saved)&&saved>0&&saved<=Date.now())
+                this.lastRunAt=saved;
+            }catch(_){}
+            this.schedule(this.restoredWait());
         },
 
         // التحقق مما إذا كان السكربت مقفلاً على هذه النافذة تحديداً
@@ -353,6 +391,9 @@
         // وظيفة فحص وجمع الجوائز
         checkAndClaimRewards: async function(force=false) {
             if(this.busy||!this.permitted())return;
+            // Never allow point-change observers or early timer wakeups to
+            // bypass the user's configured cycle (e.g. 360 seconds).
+            if(!force&&this.nextCycleAt&&Date.now()<this.nextCycleAt)return;
             if(!force&&Date.now()-this.lastRunAt<cfg.cycle*1000)return;
             this.busy=true;
             this.status('جارٍ فحص الجوائز…');
@@ -365,6 +406,7 @@
             const openRewards=!!document.querySelector('#reward-system-rewards');
             if(!hasBadgeValue&&!hasNewQuest&&!openRewards&&!force){this.status('بانتظار جوائز جديدة');return;}
             this.lastRunAt=Date.now();
+            try{sessionStorage.setItem(LAST_KEY,String(this.lastRunAt));}catch(_){} 
 
             if (hasBadgeValue || hasNewQuest || openRewards || force) {
                 console.log("[AlGzawy Helper] Rewards detected! Opening quest dialog...");
@@ -422,7 +464,11 @@
                 const closeButton = document.querySelector('.popup_box_close');
                 if(closeButton&&this.permitted())closeButton.click();
             }
-            }finally{this.busy=false;this.status(cfg.enabled?'جاهز للدورة التالية':'متوقف');}
+            }finally{
+              this.busy=false;
+              if(force&&cfg.enabled)this.schedule(); // manual action restarts the next full cycle
+              this.status(cfg.enabled?'جاهز للدورة التالية':'متوقف');
+            }
         }
     };
 
