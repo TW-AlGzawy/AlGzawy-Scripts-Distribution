@@ -168,6 +168,6 @@ test('authenticated Preview Telegram status diagnoses only safe booleans, never 
   assert.ok(!JSON.stringify(info).includes(env.ALG_TELEGRAM_BOT_TOKEN));
   assert.ok(!JSON.stringify(info).includes(env.ALG_TELEGRAM_WEBHOOK_SECRET));
   assert.equal(info.botUsername,null);
-  assert.match(ui,/السبب الذي يمنع الربط في Preview/);
+  assert.match(ui,/السبب الذي يمنع الربط في الموقع/);
   assert.match(ui,/checks\[key\]!==true/);
 });
