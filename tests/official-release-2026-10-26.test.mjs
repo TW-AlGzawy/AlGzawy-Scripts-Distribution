@@ -24,7 +24,8 @@ test('production warehouse loader updates from main and never consumes isolated 
  new vm.Script(loader);
  new vm.Script(engine);
  assert.match(loader,/^\/\/ @version\s+1\.1\.2$/m);
- assert.match(loader,/main\/scripts\/warehouse-alert-safe\.js/);
+ assert.match(loader,/AlGzawy-Scripts-Distribution\/main/);
+ assert.match(loader,/\/scripts\/warehouse-alert-safe\.js/);
  assert.match(loader,/algzawy_portal_grant_/);
  assert.match(engine,/intervalSeconds\*1000/);
  assert.match(engine,/threshold:Number\.isInteger\(percent\)/);
