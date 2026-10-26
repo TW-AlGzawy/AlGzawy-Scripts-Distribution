@@ -2,7 +2,7 @@
 // @name         الغزااوي | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.5.3
-// @description  AlGzawy BETA — توقيت وصول وإرسال 24 ساعة وتعويض يدوي مرخص
+// @description  AlGzawy Cloud — توقيت وصول وإرسال 24 ساعة وتعويض يدوي مرخص
 // @include      https://*.tribalwars.*/game.php?*screen=place*try=confirm*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @match        https://*.algzawy-cloud-control.pages.dev/v2/*
@@ -105,7 +105,7 @@
   }
 
   function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"تجريبي - الغزااوي - الإرساليات الدقيقة",state,message}}));
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"الغزااوي | الإرساليات الدقيقة",state,message}}));
   }
   function message(text,force=false){bridgeNotice('blocked',text);}
   function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
