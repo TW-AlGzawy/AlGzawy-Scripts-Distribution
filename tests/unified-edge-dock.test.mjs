@@ -16,9 +16,9 @@ function extracted(name,to,args=[]){
  assert.ok(first>=0&&last>first,name+' is present');
  return new Function(...args,shelf.slice(first,last)+';return '+name.replace('function ','').split('(')[0]+';');
 }
-test('production bridge v2.4.8 has a complete, unique approved theme palette with a distinctive bridge',()=>{
+test('production bridge v2.4.9 has a complete, unique approved theme palette with a distinctive bridge',()=>{
  new vm.Script(bridge);new vm.Script(builder);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.8$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.9$/m);
  assert.equal(palettes.length,12);
  assert.equal(new Set(palettes.map(x=>x[1])).size,12);
  assert.equal(new Set(palettes.map(x=>x[5])).size,12);
@@ -106,7 +106,7 @@ test('viewport fixes and reward drag are present without altering automation or 
  assert.match(attacks,/function constrainAttackPanel\(el\)/);
  assert.match(attacks,/constrainAttackPanel\(panel\)/);
  assert.match(rewards,/panel\.__algRewardDragAbort\?\.abort\(\)/);
- assert.match(rewards,/panel\.setPointerCapture\?\.\(event\.pointerId\)/);
+ assert.match(rewards,/top\.setPointerCapture\?\.\(event\.pointerId\)/);
  assert.match(rewards,/panel\.addEventListener\('pointermove'/);
  assert.match(rewards,/new AbortController\(\)/);
  assert.match(builder,/const DOCK_SIDES=\['left','right','top','bottom'\]/);
