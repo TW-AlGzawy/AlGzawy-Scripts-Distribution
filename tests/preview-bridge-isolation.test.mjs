@@ -19,7 +19,7 @@ test('Preview Bridge has separate userscript identity, update channel, and appro
   assert.ok(!/^\/\/ @connect\s+algzawy-cloud-control\.pages\.dev/m.test(pilot));
   assert.ok(!pilot.includes('algzawy-control-api.karm-saleh-usa2.workers.dev'));
   assert.ok(!pilot.includes("https://algzawy-cloud-control.pages.dev"));
-  assert.match(live,/^\/\/ @version\s+2\.4\.9$/m,'Official Bridge was promoted');
+  assert.match(live,/^\/\/ @version\s+2\.4\.10$/m,'Official Bridge was promoted');
 });
 
 test('Pilot cannot write original Bridge credentials or loader authorization state',()=>{
