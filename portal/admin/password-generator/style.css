@@ -12,7 +12,7 @@ label{display:block;margin:16px 0 9px;font-weight:700;font-size:14px}
 input,textarea{display:block;width:100%;min-height:50px;border-radius:11px;border:1px solid #498274;background:#081827;color:#eafff7;padding:12px;font:16px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}
 textarea{resize:vertical;overflow-wrap:anywhere;font-size:14px}
 input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #5ae8bc;outline-offset:3px}
-button{font:600 15px/1.4 inherit;cursor:pointer;min-height:49px;border:0;border-radius:10px;padding:12px 17px}
+button{font:inherit;font-weight:600;font-size:15px;line-height:1.4;cursor:pointer;min-height:49px;border:0;border-radius:10px;padding:12px 17px}
 button:disabled{opacity:.55;cursor:wait}
 .primary{background:#44d6b0;color:#07382f;font-weight:800}
 .secondary{background:#284456;color:#e5f4f5}
