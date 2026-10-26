@@ -83,7 +83,7 @@ test('the shelf positions each group without overlap and reuses builder native a
   })).sort((a,z)=>a.pos-z.pos);
   for(let i=1;i<selected.length;i++)assert.ok(selected[i].pos>=selected[i-1].pos+selected[i-1].size,
     side+' same-edge tabs must not collide');
-  assert.ok(selected.every(x=>x.pos>=0&&x.pos+x.size<=vertical(side)?b.height:b.width));
+  assert.ok(selected.every(x=>x.pos>=0&&x.pos+x.size<=(vertical(side)?b.height:b.width)));
  }
 });
 test('dragged dock tabs remain keyboard operable without accidentally opening on pointerup',()=>{
