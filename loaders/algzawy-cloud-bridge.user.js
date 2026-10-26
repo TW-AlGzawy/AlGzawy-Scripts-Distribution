@@ -269,9 +269,12 @@
       body.part=Number.isSafeInteger(info.part)?info.part:1;
       body.parts=Number.isSafeInteger(info.parts)?info.parts:1;
     }
-    const identity=body.type==='warehouse-batch'?body.villages.map(v=>v.villageId).join(','):
-      body.villageId+':'+(body.attackId||body.count||'warehouse');
-    const key=body.type+':'+identity;
+    const identity=body.type==='warehouse-batch'
+       ?body.villages.map(v=>String(v.world||'')+':'+v.villageId+':'+Math.floor(v.percent/5)).join(',')+':'+body.threshold
+       :body.type==='warehouse'
+         ?String(body.world||'')+':'+body.villageId+':'+Math.floor(body.percent/5)+':'+body.threshold
+         :body.villageId+':'+(body.attackId||body.count||'attack');
+     const key=body.type+':'+identity;
     const now=Date.now(),last=qaTelegramRecent.get(key)||0;
     if(now-last<(body.type==='attack'?120000:300000))return;
     qaTelegramRecent.set(key,now);
