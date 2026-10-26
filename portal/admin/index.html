@@ -20,12 +20,21 @@
       <h1 id="ownerTitle">دخول إدارة المنظومة</h1>
       <p>هذه البوابة للمالك فقط. حساب المشترك لا يمنح صلاحيات الإدارة.</p>
       <form id="ownerLoginForm">
-        <label for="ownerToken">رمز إدارة الموقع</label>
-        <input id="ownerToken" type="password" required autocomplete="off" spellcheck="false" placeholder="رمز الإدارة">
-        <button id="ownerAuthSubmit" type="submit" class="button button-primary button-full">التحقق والدخول</button>
+        <div id="ownerPasswordFields" class="owner-login-fields">
+          <label for="ownerUsername">اسم المستخدم</label>
+          <input id="ownerUsername" type="text" required maxlength="32" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="اسم المستخدم">
+          <label for="ownerPassword">كلمة المرور</label>
+          <div class="owner-password-control"><input id="ownerPassword" type="password" required maxlength="256" autocomplete="current-password" placeholder="كلمة المرور"><button id="ownerPasswordVisibility" type="button" aria-label="إظهار كلمة المرور" aria-pressed="false">إظهار</button></div>
+        </div>
+        <div id="ownerLegacyFields" class="owner-login-fields" hidden>
+          <label for="ownerToken">رمز إدارة الموقع القديم</label>
+          <input id="ownerToken" type="password" autocomplete="off" spellcheck="false" placeholder="رمز الإدارة القديم">
+        </div>
+        <button id="ownerAuthSubmit" type="submit" class="button button-primary button-full" disabled>تسجيل الدخول</button>
       </form>
+      <p id="ownerLoginModeStatus" class="login-privacy" role="status">جارٍ التحقق من طريقة الدخول…</p>
       <p id="loginMessage" class="login-message" role="alert"></p>
-      <p class="login-privacy">رمز الإدارة لا يُحفظ داخل JavaScript أو localStorage. الجلسة محدودة الصلاحية.</p>
+      <p class="login-privacy">كلمة المرور لا تُحفظ على الجهاز؛ الجلسة محمية ومحدودة الصلاحية. لا يُعرض الرمز الداخلي للمشتركين.</p>
     </section>
   </main>
   <div id="adminShell" class="owner-shell" hidden>
