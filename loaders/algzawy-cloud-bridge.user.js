@@ -949,7 +949,8 @@
   }
   function setupHumanGuard(){
     document.addEventListener('algzawy-human-verification',()=>{
-      if(localStorage.getItem(HUMAN_LOCK)!=='1')blockForHuman();
+      if(localStorage.getItem(HUMAN_LOCK)!=='1'||!localStorage.getItem(HUMAN_EVENT))
+        blockForHuman();
     });
     window.addEventListener('storage',e=>{
       if(e.key!==HUMAN_LOCK)return;
@@ -965,7 +966,12 @@
       }
     });
     checkHumanGuard();
-    const observer=new MutationObserver(()=>{if(challengeVisible())checkHumanGuard();});
+    let scanPending=false;
+    const observer=new MutationObserver(()=>{
+      if(scanPending)return;
+      scanPending=true;
+      setTimeout(()=>{scanPending=false;if(challengeVisible())checkHumanGuard();},200);
+    });
     observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden']});
     setInterval(checkHumanGuard,1500);
   }
