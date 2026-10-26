@@ -71,7 +71,7 @@ async function adminClearFailures(env,{scope}){
   await env.DB.prepare('DELETE FROM portal_admin_login_limits WHERE scope=?').bind(scope).run();
 }
 
-function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
+function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return adminLoginMode(env)==='legacy'&&typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
 
 const ADMIN_COOKIE='algzawy_admin_session';
 const ADMIN_TTL=1800; // Short-lived, HttpOnly owner session; no D1 migration.
