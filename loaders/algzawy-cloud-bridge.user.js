@@ -360,7 +360,11 @@
       const key='algzawy_warehouse_alert_settings_v01';
       let prev={};try{prev=JSON.parse(localStorage.getItem(key)||'{}');}catch(_){}
       const next={...prev,enabled};
-      // Keep the locally edited threshold. Syncing license must not overwrite a player's in-game settings.
+      // The website threshold seeds a NEW browser's local preferences once.
+      // After the player edits the game panel, local percent remains authoritative.
+      const sitePercent=opts?.percent,localPercent=prev.percent;
+      if(!(Number.isInteger(localPercent)&&localPercent>=1&&localPercent<=100)
+        &&Number.isInteger(sitePercent)&&sitePercent>=1&&sitePercent<=100)next.percent=sitePercent;
       if(JSON.stringify(prev)!==JSON.stringify(next))localStorage.setItem(key,JSON.stringify(next));
     }
     if(id==='professional-training-v2'){

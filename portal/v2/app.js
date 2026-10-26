@@ -466,7 +466,7 @@ function openScript(id){
   actions.append(toggle,link);root.append(actions);
   if(id==='warehouse-alert-safe'){
     const pref=state.prefs[id]||{},wrap=el('div','dialog-setting');
-    const label=el('label','','نسبة التنبيه (1–100%) — يمكنك تغييرها أيضًا من نافذة السكربت داخل اللعبة');
+    const label=el('label','','نسبة التنبيه الابتدائية (1–100%) — تُطبّق عند أول مزامنة على المتصفح؛ إذا حفظت نسبة من نافذة اللعبة تبقى هي المعتمدة.');
     const inp=el('input');inp.type='number';inp.min='1';inp.max='100';inp.step='1';inp.value=String(pref.settings?.percent??90);
     const save=el('button','btn subtle','حفظ نسبة التنبيه');save.style.marginTop='11px';
     save.addEventListener('click',async()=>{
@@ -476,7 +476,7 @@ function openScript(id){
       try{
         const r=await api('scripts/'+encodeURIComponent(id),{method:'PUT',body:{enabled:!!pref.enabled,settings:{percent}}});
         state.prefs[id]={...pref,settings:r.settings,enabled:r.enabled};
-        logAction('تعديل نسبة تنبيه المخازن إلى '+percent+'%');toast('تم حفظ النسبة بنجاح');
+        logAction('تعديل نسبة تنبيه المخازن الابتدائية إلى '+percent+'%');toast('حُفظت النسبة الابتدائية؛ التعديلات المحلية داخل اللعبة لها الأولوية');
         closeDialog();render();
       }catch(err){toast(errText(err),true);save.disabled=false;}
     });
