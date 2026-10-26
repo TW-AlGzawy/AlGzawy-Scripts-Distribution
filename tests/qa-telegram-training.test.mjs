@@ -136,7 +136,9 @@ test('Telegram webhook requires secret and hard-stops oversized bodies without C
   const tooLarge=await telegramWebhook(big,env,helpers);
   assert.equal(tooLarge.status,413);
   const prod=new Request('https://algzawy-cloud-control.pages.dev/api/telegram/webhook',{method:'POST',body:'{}'});
-  assert.equal((await telegramWebhook(prod,env,helpers)).status,404);
+  assert.equal((await telegramWebhook(prod,env,helpers)).status,401,'production requires a signed webhook secret');
+  const foreign=new Request('https://unknown.invalid/api/telegram/webhook',{method:'POST',body:'{}'});
+  assert.equal((await telegramWebhook(foreign,env,helpers)).status,404);
 });
 
 test('authenticated Preview Telegram status diagnoses only safe booleans, never token content',async()=>{
@@ -168,6 +170,6 @@ test('authenticated Preview Telegram status diagnoses only safe booleans, never 
   assert.ok(!JSON.stringify(info).includes(env.ALG_TELEGRAM_BOT_TOKEN));
   assert.ok(!JSON.stringify(info).includes(env.ALG_TELEGRAM_WEBHOOK_SECRET));
   assert.equal(info.botUsername,null);
-  assert.match(ui,/السبب الذي يمنع الربط في Preview/);
+  assert.match(ui,/السبب الذي يمنع الربط:/);
   assert.match(ui,/checks\[key\]!==true/);
 });
