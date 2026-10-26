@@ -56,14 +56,14 @@
 <section class="owner-page-panel" data-owner-view="global" hidden><div class="owner-panel-kicker">السكربتات / التشغيل المركزي</div><div class="settings-card owner-global-card"><h3>مفتاح التشغيل المركزي</h3><p class="field-note">يؤثر على جميع السكربتات المدعومة.</p><div class="bulk-controls"><button id="adminGlobalOn" class="button button-primary" type="button">تشغيل المنظومة ON</button><button id="adminGlobalOff" class="button button-danger" type="button">إيقاف المنظومة OFF</button><button id="adminGlobalRefresh" class="button button-outline" type="button">تحديث الحالة</button></div><p id="adminGlobalMessage" class="field-note"></p></div></section>
 <section class="owner-page-panel" data-owner-view="scripts" hidden><div class="owner-panel-kicker">السكربتات / السكربتات</div><section class="settings-card users-card" aria-labelledby="scriptControlsTitle"><h3 id="scriptControlsTitle">التحكم الفردي بالسكربتات</h3><p class="field-note">إيقاف سكربت واحد يمنع تشغيله لجميع المشتركين، دون التأثير على المفتاح المركزي.</p><label for="adminScriptSearch">البحث عن سكربت</label><input id="adminScriptSearch" type="search" placeholder="ابحث عن اسم السكربت"><div id="adminScriptControls" class="admin-script-controls" aria-live="polite"></div><button id="adminScriptReload" type="button" class="button button-outline">تحديث الحالات</button></section></section>
 <section class="owner-page-panel" data-owner-view="telegram" hidden>
-  <div class="owner-panel-kicker">التنبيهات / Telegram — Preview فقط</div>
+  <div class="owner-panel-kicker">التنبيهات / Telegram</div>
   <div class="settings-card">
     <h3>إعداد بوت AlGzawy | TW Scripts Bot</h3>
-    <p class="field-note">يستخدم إعداد البوت أسرار Cloudflare Preview المخزنة على الخادم. لا تكتب مفتاح BotFather هنا. إعدادات Production لا تتغير.</p>
+    <p class="field-note">يستخدم إعداد البوت أسرار Cloudflare الرسمية المخزنة على الخادم. لا تُدخل مفتاح BotFather في الموقع أو المحادثات.</p>
     <div id="adminTelegramStatus" class="field-note" role="status" aria-live="polite">اضغط «فحص حالة Telegram» لقراءة حالة البوت وWebhook.</div>
     <div class="bulk-controls">
       <button type="button" id="adminTelegramRefresh" class="button button-outline">فحص حالة Telegram</button>
-      <button type="button" id="adminTelegramWebhook" class="button button-primary" disabled>تسجيل Webhook على Preview</button>
+      <button type="button" id="adminTelegramWebhook" class="button button-primary" disabled>تسجيل Webhook على الموقع الرسمي</button>
       <button type="button" id="adminTelegramCommands" class="button button-outline" disabled>نشر قائمة الأوامر</button>
     </div>
     <p class="field-note">إذا كان للبوت Webhook على موقع آخر، ستظهر مطالبة تأكيد قبل استبداله؛ فقد يؤدي الاستبدال إلى إيقاف تكامل Telegram القديم. لا تُسجل Webhook قبل تدوير المفتاح المكشوف.</p>
