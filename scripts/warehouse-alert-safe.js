@@ -124,7 +124,7 @@ function emitWarehouse(info,threshold){
  }));
 }
 function shouldSendWarehouse(village,threshold){
- const key='algzawy_wh_last_'+village.villageId;
+ const key='algzawy_wh_last_'+String(village.world||location.hostname)+'_'+String(village.account||'')+'_'+village.villageId;
  let previous=null;try{previous=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
  if(village.percent<threshold){
   if(village.percent<=Math.max(0,threshold-5))sessionStorage.removeItem(key);
@@ -138,7 +138,7 @@ function shouldSendWarehouse(village,threshold){
   !Number.isInteger(previous.percent)||village.percent>=previous.percent+5;
 }
 function rememberWarehouse(village,threshold){
- sessionStorage.setItem('algzawy_wh_last_'+village.villageId,
+ sessionStorage.setItem('algzawy_wh_last_'+String(village.world||location.hostname)+'_'+String(village.account||'')+'_'+village.villageId,
   JSON.stringify({percent:village.percent,threshold}));
 }
 function sendOverviewAlerts(rows,threshold){
