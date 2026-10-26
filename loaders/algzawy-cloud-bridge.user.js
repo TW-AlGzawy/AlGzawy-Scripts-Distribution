@@ -861,7 +861,7 @@
   const HUMAN_EVENT='algzawy_human_verification_incident_v1';
   const HUMAN_SENT='algzawy_human_verification_notified_v1';
   const HUMAN_SELECTORS='#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection,[id*="captcha"],[class*="captcha"],.g-recaptcha';
-  let humanBanner=null,humanAlertPending=false,humanRetryAfter=0;
+  let humanBanner=null,humanAlertPending=false,humanRetryAfter=0,humanStopApplied=false;
   function challengeVisible(){
     if(/[?&]screen=(?:bot_?protection|captcha)(?:&|$)/i.test(location.search))return true;
     for(const el of document.querySelectorAll(HUMAN_SELECTORS)){
@@ -900,6 +900,7 @@
       sessionStorage.removeItem(HUMAN_LOCK);
       localStorage.removeItem(HUMAN_EVENT);
       localStorage.removeItem(HUMAN_SENT);
+      humanStopApplied=false;
       root.remove();humanBanner=null;
       document.dispatchEvent(new Event('algzawy-local-control-changed'));
     });
@@ -915,7 +916,7 @@
       localStorage.setItem(HUMAN_EVENT,crypto.randomUUID());
       localStorage.removeItem(HUMAN_SENT);
     }
-    stopScriptsForHuman();
+    if(!humanStopApplied){humanStopApplied=true;stopScriptsForHuman();}
     createGuardBanner();
     void alertHumanOnce();
   }
@@ -940,7 +941,7 @@
   }
   function checkHumanGuard(){
     if(challengeVisible()){blockForHuman();return;}
-    if(localStorage.getItem(HUMAN_LOCK)==='1'){
+    if(localStorage.getItem(HUMAN_LOCK)==='1'||sessionStorage.getItem(HUMAN_LOCK)==='1'){
       sessionStorage.setItem(HUMAN_LOCK,'1');
       createGuardBanner();
       void alertHumanOnce();
@@ -948,14 +949,13 @@
   }
   function setupHumanGuard(){
     document.addEventListener('algzawy-human-verification',()=>{
-      if(localStorage.getItem(HUMAN_LOCK)==='1')checkHumanGuard();
-      else blockForHuman();
+      if(localStorage.getItem(HUMAN_LOCK)!=='1')blockForHuman();
     });
     window.addEventListener('storage',e=>{
       if(e.key!==HUMAN_LOCK)return;
       if(e.newValue==='1'){
         sessionStorage.setItem(HUMAN_LOCK,'1');
-        stopScriptsForHuman();
+        if(!humanStopApplied){humanStopApplied=true;stopScriptsForHuman();}
         createGuardBanner();
         void alertHumanOnce();
       }else if(e.newValue===null){
