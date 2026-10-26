@@ -12,10 +12,13 @@ Cloudflare Pages → algzawy-cloud-control → Settings → Variables and Secret
 أضف المتغيرين معًا:
 
 - ALG_ADMIN_USERNAME — Text؛ اسم إنجليزي من 3 إلى 32 حرفًا يبدأ بحرف ويقبل الأرقام و _ . -.
-- ALG_ADMIN_PASSWORD_HASH — **Encrypted Secret**؛ PBKDF2-SHA256 مع 210000 تكرار:
-  pbkdf2-sha256$210000$[salt-32-hex]$[hash-64-hex]
+- ALG_ADMIN_PASSWORD_HASH — **Encrypted Secret**؛ PBKDF2-SHA256 مع 100000 تكرار:
+  pbkdf2-sha256$100000$[salt-32-hex]$[hash-64-hex]
 
 لا تُدخل كلمة المرور الخام في Cloudflare أو GitHub، ولا ترسلها أو الـHash إلى المحادثات.
+
+**هام (إصلاح 26 أكتوبر 2026):** Cloudflare Workers Production لا يسمح بـ PBKDF2 بأكثر من 100,000 دورة للعملية الواحدة. البصمات السابقة من نوع `pbkdf2-sha256$210000$...` غير قابلة للاستخدام على Cloudflare، ويجب إعادة توليد `ALG_ADMIN_PASSWORD_HASH` باستخدام أداة الموقع المحدثة أو مقطع PowerShell أدناه ثم تحديث Secret في Production وإعادة نشر أحدث `main`. يمكن استعمال **كلمة المرور الأصلية نفسها**؛ لا يلزم تغييرها إذا كانت قوية وفريدة، لكن يجب إنشاء بصمة جديدة وSalt جديد. يُفضّل كلمة مرور عشوائية فريدة لا تقل عن 20 حرفًا، لأن 100,000 أقل من توصية OWASP لـ PBKDF2-SHA256. لا تغيّر أي Secret آخر، ولا تنشر البصمة في GitHub.
+
 
 ## إنشاء Hash من Windows PowerShell
 
@@ -30,7 +33,7 @@ try {
   $salt = New-Object byte[] 16
   $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
   try { $rng.GetBytes($salt) } finally { $rng.Dispose() }
-  $iterations = 210000
+  $iterations = 100000
   $pbkdf = [System.Security.Cryptography.Rfc2898DeriveBytes]::new(
     [System.Text.Encoding]::UTF8.GetBytes($plain),
     $salt,
@@ -40,7 +43,7 @@ try {
   try { $derived = $pbkdf.GetBytes(32) } finally { $pbkdf.Dispose() }
   $saltHex = ([BitConverter]::ToString($salt)).Replace("-", "").ToLowerInvariant()
   $hashHex = ([BitConverter]::ToString($derived)).Replace("-", "").ToLowerInvariant()
-  $record = 'pbkdf2-sha256$210000$' + $saltHex + '$' + $hashHex
+  $record = 'pbkdf2-sha256$100000$' + $saltHex + '$' + $hashHex
   Write-Host ""
   Write-Host "Add this record as ALG_ADMIN_PASSWORD_HASH Secret in Cloudflare Production:"
   Write-Host $record
