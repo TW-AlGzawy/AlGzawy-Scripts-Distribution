@@ -46,7 +46,11 @@ function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:50
  const document={
    body:{appendChild(child){if(child.id==='algzawy-bot2-panel')nodes.set(child.id,child);}},
    createElement:()=>panel,
-   getElementById:id=>nodes.get(id)||null,
+   getElementById(id){
+     if(id==='algzawy-bot2-panel')return nodes.get(id)||null;
+     if(id.startsWith('algzawy-bot2-'))return q(id.slice('algzawy-bot2-'.length));
+     return null;
+   },
    querySelector:()=>null,
    querySelectorAll:selector=>selector==='#plunder_list tr'?[{id:'header'},...rows]:[],
    addEventListener(){},dispatchEvent(){}
