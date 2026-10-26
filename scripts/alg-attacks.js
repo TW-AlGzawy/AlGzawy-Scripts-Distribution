@@ -1,4 +1,4 @@
-// @version      1.0.4
+// @version      1.0.5
 // @name         الغزااوي | تنبيه الهجمات
 (function () {
     'use strict';
@@ -76,19 +76,34 @@ function enableMobileTouchDrag(panel,handle,onDone){
         return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 74px;gap:4px;align-items:center;margin-bottom:5px;"><label style="font-weight:bold;color:#eaf3f8;font-size:10px;">' + label + '</label>' + inputHtml + '</div>';
     }
 
+    function constrainAttackPanel(el){
+        if(!el||!el.isConnected)return;
+        const vv=window.visualViewport;
+        const left=vv?.offsetLeft||0,top=vv?.offsetTop||0;
+        const right=left+(vv?.width||innerWidth),bottom=top+(vv?.height||innerHeight);
+        const maxWidth=Math.max(180,right-left-12);
+        if(el.getBoundingClientRect().width>maxWidth){
+            el.style.minWidth='0';el.style.width=maxWidth+'px';
+        }
+        const rect=el.getBoundingClientRect();
+        el.style.left=Math.min(Math.max(left+6,right-rect.width-6),Math.max(left+6,rect.left))+'px';
+        el.style.top=Math.min(Math.max(top+6,bottom-46),Math.max(top+6,rect.top))+'px';
+        el.style.right='auto';el.style.bottom='auto';
+    }
     function makeDraggable(el, handle) {
         var sX, sY, sL, sT;
         handle.onmousedown = function (e) {
             sX = e.clientX; sY = e.clientY;
-            sL = parseInt(el.style.left) || 0;
-            sT = parseInt(el.style.top) || 0;
+            const rect=el.getBoundingClientRect();sL=rect.left;sT=rect.top;
             document.onmousemove = function (e) {
                 el.style.left = (sL + e.clientX - sX) + 'px';
                 el.style.top = (sT + e.clientY - sY) + 'px';
+                constrainAttackPanel(el);
             };
             document.onmouseup = function () {
                 document.onmousemove = null;
                 document.onmouseup = null;
+                constrainAttackPanel(el);
                 GM_setValue(PREFIX + 'panelTop', el.style.top);
                 GM_setValue(PREFIX + 'panelLeft', el.style.left);
             };
@@ -142,10 +157,11 @@ function enableMobileTouchDrag(panel,handle,onDone){
                 '<button id="alg-atk-run" style="' + btnStyle + 'background:' + (isRunning ? '#965160' : '#247a68') + ';font-size:14px;margin-bottom:4px;">' + (isRunning ? 'إيقاف' : 'تشغيل') + '</button>' +
                 '<div id="alg-atk-status" style="margin-top:6px;font-size:11px;color:#eaf3f8;text-align:center;min-height:16px;">' + (isRunning ? 'يراقب...' : 'متوقف') + '</div>' +
                 '<div id="alg-atk-lastcheck" style="margin-top:4px;font-size:12px;color:#b1c9d4;text-align:center;min-height:14px;"></div>' +
-                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | v1.0.4</div>' +
+                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | v1.0.5</div>' +
             '</div>';
 
         document.body.appendChild(panel);
+        constrainAttackPanel(panel);
         statusEl = document.getElementById('alg-atk-status');
 
         makeDraggable(panel, document.getElementById('alg-atk-hdr'));
