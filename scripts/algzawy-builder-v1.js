@@ -672,7 +672,9 @@
       if(!drag||event.pointerId!==drag.pointer)return;
       const deltaX=drag.lastDx;
       drag=null;
-      const side=dockEdgeForRect(panel.getBoundingClientRect(),visibleMobileBounds(),deltaX);
+      // A cancelled touch gesture must never hide the panel.
+      const side=event.type==='pointerup'
+        ?dockEdgeForRect(panel.getBoundingClientRect(),visibleMobileBounds(),deltaX):null;
       if(side)dockPanel(side);
       else persistLayout();
     };
@@ -832,6 +834,7 @@
     dockTab=button('❮','alg-edge-tab',releaseDock,'إظهار نافذة البناء المتطور');
     dockTab.id=DOCK_ID;
     dockTab.setAttribute('aria-expanded','false');
+    dockTab.setAttribute('aria-controls',ROOT_ID);
     document.body.append(dockTab);
     restorePosition();
     installDrag(head);
