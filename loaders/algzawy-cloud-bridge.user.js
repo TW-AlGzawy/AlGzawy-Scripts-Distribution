@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.6
+// @version      2.4.7
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -1252,7 +1252,7 @@
    const r=c.getBoundingClientRect(),items=collect();
    let top=r.top;
    for(const id of links){
-     const el=items.find(x=>x.id===id);if(!el)continue;
+     const el=items.find(x=>x.id===id);if(!el||el.dataset.algEdgeDocked==='1')continue;
      const w=el.offsetWidth,h=el.offsetHeight;
      const left=r.left>w+8?r.left-w-8:r.right+w+8<innerWidth?r.right+8:clamp(r.left,0,innerWidth-w);
      el.style.left=Math.round(clamp(left,0,Math.max(0,innerWidth-w)))+'px';
@@ -1267,6 +1267,7 @@
  }
  function dock(el){
    const c=master();if(!c||!el)return;
+   if(el.dataset.algEdgeDocked==='1')return;
    if(gap(el.getBoundingClientRect(),c.getBoundingClientRect())<=72){
      if(!links.includes(el.id))links.push(el.id);
    }else links=links.filter(x=>x!==el.id);
@@ -1303,4 +1304,163 @@
    setInterval(()=>{if(document.visibilityState==='visible')moveLinked();},2000);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+
+
+/* AlG Edge Shelf — independent, UI-only dock tabs for official game panels. */
+(function(){
+'use strict';
+if(window.__algzawyEdgeShelfV1)return;window.__algzawyEdgeShelfV1=true;
+const records=[
+ ['algzawy-cloud-pair-panel','#algzawy-cloud-hdr','الجسر السحابي','☁','#F9C24F',true],
+ ['algzawy-smart-launcher-qa','.h','مركز السكربتات','✦','#3DD6CF'],
+ ['algzawy-panel','#algzawy-header','الإغارات الجماعية','⚔','#FA777B'],
+ ['algzawy-bot2-panel','#algzawy-bot2-header','بوت النهب','▣','#F5A65A'],
+ ['alg-window','#alg-hdr','موازنة الموارد','◇','#5BAFF1'],
+ ['alg-mini-panel','#alg-mini-hdr','الموازنة الآلية','⇄','#6E91E9'],
+ ['training-bot-panel','[data-training-drag]','بوت التدريب','♜','#B491F4'],
+ ['algzawy-send-float-v11','.head','الإرساليات الدقيقة','➤','#42D8B0'],
+ ['alg-atk-panel','#alg-atk-hdr','تنبيه الهجمات','⚑','#EF7AA8'],
+ ['algzawy-refine-panel','#alg-refine-header','الصقل المتطور','◉','#E6C46C'],
+ ['algzawy-reward-panel','.alg-reward-head','جامع الجوائز','✧','#C3A2F5'],
+ ['algzawy-warehouse-qa','header[data-drag]','تنبيه المخازن','⬡','#68CEE7']
+].map(([id,handle,name,icon,color,bridge])=>({id,handle,name,icon,color,bridge:!!bridge}));
+const managed=new Map(),storagePrefix='algzawy_edge_shelf_v1_';
+const clamp=(n,lo,hi)=>Math.max(lo,Math.min(n,Math.max(lo,hi)));
+const view=()=>{const v=window.visualViewport;const left=v?.offsetLeft||0,top=v?.offsetTop||0;
+ const width=v?.width>0?v.width:innerWidth,height=v?.height>0?v.height:innerHeight;
+ return {left,top,right:left+width,bottom:top+height,width,height};};
+function edgeFromGesture(start,end,rect,b){const delta=end-start;
+ if(delta<=-18&&rect.left<=b.left+14)return 'left';
+ if(delta>=18&&rect.right>=b.right-14)return 'right';
+ return null;
+}
+const key=id=>storagePrefix+location.host+'_'+String(window.game_data?.village?.id||'world')+'_'+id;
+function saved(id){try{const v=JSON.parse(localStorage.getItem(key(id))||'null');
+ return v&&['left','right'].includes(v.side)&&Number.isFinite(v.top)?v:null;}catch(_){return null;}}
+function save(item){try{if(item.side)localStorage.setItem(key(item.cfg.id),
+ JSON.stringify({side:item.side,top:item.top}));else localStorage.removeItem(key(item.cfg.id));}catch(_){}}
+function stylePanel(item){const yes=!!item.side;
+ item.panel.dataset.algEdgeDocked=yes?'1':'0';
+ item.panel.style.visibility=yes?'hidden':item.visibility;
+ item.panel.style.pointerEvents=yes?'none':item.pointerEvents;
+ item.tab.hidden=!yes;
+ item.tab.dataset.side=item.side||'';
+ item.tab.setAttribute('aria-expanded',String(!yes));
+ item.arrow.textContent=item.side==='left'?'❯':'❮';
+}
+function positionTabs(){
+ const b=view(),groups={left:[],right:[]};
+ for(const item of managed.values())if(item.side&&item.panel.isConnected)
+  groups[item.side].push({tab:item.tab,top:item.top,id:item.cfg.id});
+ // The advanced builder already owns its native edge tab. Do not duplicate it.
+ const native=document.getElementById('algzawy-builder-edge-tab-v1');
+ if(native?.style.display==='grid'&&['left','right'].includes(native.dataset.side)){
+  native.classList.add('alg-edge-native-builder');
+  native.title='إظهار البناء المتطور';
+  groups[native.dataset.side].push({tab:native,top:parseFloat(native.style.top)||b.top,id:'algzawy-builder-v1'});
+ }
+ for(const side of ['left','right']){
+  const rows=groups[side].sort((a,z)=>a.top-z.top||a.id.localeCompare(z.id));
+  const n=rows.length;if(!n)continue;
+  const gap=n>9?2:4,size=Math.min(58,Math.max(20,(b.height-12-(n-1)*gap)/n));
+  let y=b.top+6;
+  for(const r of rows){
+   r.tab.style.top=y+'px';r.tab.style.height=size+'px';r.tab.style.zIndex='2147483100';
+   r.tab.style.left=side==='left'?b.left+'px':'auto';
+   r.tab.style.right=side==='right'?Math.max(0,innerWidth-b.right)+'px':'auto';
+   y+=size+gap;
+  }
+ }
+}
+function setDock(item,side,top,persist=true){item.side=side;if(Number.isFinite(top))item.top=top;
+ stylePanel(item);if(persist)save(item);positionTabs();}
+function undock(item){
+ const side=item.side;if(!side)return;
+ const b=view(),rect=item.panel.getBoundingClientRect();
+ setDock(item,null,item.top);
+ const x=side==='left'?b.left+12:b.right-rect.width-12;
+ item.panel.style.left=clamp(x,b.left+4,b.right-rect.width-4)+'px';
+ item.panel.style.right='auto';item.panel.style.bottom='auto';
+ item.panel.style.top=clamp(item.top,b.top+4,b.bottom-48)+'px';
+ item.panel.style.transform='none';
+}
+function attach(cfg,panel){
+ const previous=managed.get(cfg.id);previous?.tab.remove();
+ const rect=panel.getBoundingClientRect();
+ const item={cfg,panel,tab:null,arrow:null,side:null,top:rect.top,
+   visibility:panel.style.visibility,pointerEvents:panel.style.pointerEvents};
+ const tab=document.createElement('button');tab.type='button';
+ tab.className='alg-edge-dock-tab'+(cfg.bridge?' alg-edge-dock-bridge':'');
+ tab.dataset.scriptId=cfg.id;tab.title='إظهار '+cfg.name;
+ tab.setAttribute('aria-controls',cfg.id);tab.setAttribute('aria-label','إظهار '+cfg.name);
+ tab.style.setProperty('--alg-edge-color',cfg.color);
+ const icon=document.createElement('span');icon.className='alg-edge-icon';
+ icon.textContent=cfg.icon;icon.setAttribute('aria-hidden','true');
+ const arrow=document.createElement('span');arrow.className='alg-edge-arrow';
+ arrow.textContent='❮';arrow.setAttribute('aria-hidden','true');
+ tab.append(icon,arrow);tab.hidden=true;tab.addEventListener('click',()=>undock(item));
+ document.body.append(tab);item.tab=tab;item.arrow=arrow;managed.set(cfg.id,item);
+ const previousState=saved(cfg.id);if(previousState)setDock(item,previousState.side,previousState.top,false);
+}
+function scan(){
+ for(const cfg of records){
+  const panel=document.getElementById(cfg.id),existing=managed.get(cfg.id);
+  if(panel?.isConnected){if(existing?.panel!==panel)attach(cfg,panel);}
+  else if(existing){existing.tab.remove();managed.delete(cfg.id);}
+ }
+ positionTabs();
+}
+let gesture=null;
+document.addEventListener('pointerdown',e=>{
+ if(e.button!==0||gesture)return;
+ const target=records.map(r=>document.getElementById(r.id)).find(p=>p?.contains(e.target));
+ if(!target)return;
+ const item=managed.get(target.id);
+ if(!item||item.side||e.target.closest?.('button,input,select,textarea,a,[contenteditable]'))return;
+ const handle=e.target.closest?.(item.cfg.handle);
+ if(!handle||!target.contains(handle))return;
+ gesture={pointerId:e.pointerId,item,x:e.clientX};
+},true);
+document.addEventListener('pointerup',e=>{
+ if(!gesture||gesture.pointerId!==e.pointerId)return;
+ const {item,x}=gesture,end=e.clientX;gesture=null;
+ // jQuery draggable may finish on mouseup, after pointerup.
+ setTimeout(()=>{
+  if(!item.panel.isConnected||item.side)return;
+  const rect=item.panel.getBoundingClientRect(),side=edgeFromGesture(x,end,rect,view());
+  if(side)setDock(item,side,rect.top);
+ },40);
+},true);
+document.addEventListener('pointercancel',()=>{gesture=null;},true);
+document.addEventListener('click',e=>{
+ if(e.target.closest?.('#algzawy-builder-edge-tab-v1'))setTimeout(positionTabs,20);
+},true);
+const css=document.createElement('style');css.id='algzawy-edge-shelf-css';
+css.textContent=[
+ '.alg-edge-dock-tab{position:fixed;z-index:2147483100;width:56px;height:58px;box-sizing:border-box;padding:5px;display:flex;gap:3px;align-items:center;justify-content:space-around;cursor:pointer;border:2px solid var(--alg-edge-color);background:#102331;color:white;box-shadow:0 5px 18px #000b;font:900 20px/1 Tahoma,Arial,sans-serif;touch-action:manipulation;-webkit-tap-highlight-color:transparent}',
+ '.alg-edge-dock-tab[hidden]{display:none!important}',
+ '.alg-edge-dock-tab[data-side="left"]{border-left:0;border-radius:0 12px 12px 0}',
+ '.alg-edge-dock-tab[data-side="right"]{border-right:0;border-radius:12px 0 0 12px}',
+ '.alg-edge-dock-tab .alg-edge-icon{color:var(--alg-edge-color);font-size:22px}',
+ '.alg-edge-dock-tab .alg-edge-arrow{color:#fff;font-size:14px}',
+ '.alg-edge-dock-tab:focus-visible{outline:3px solid white;outline-offset:-4px}',
+ '.alg-edge-dock-bridge{width:68px;border-width:3px;background:linear-gradient(150deg,#604718,#182b30);box-shadow:0 0 0 2px #f9c24f44,0 8px 24px #000c}',
+ '.alg-edge-dock-bridge .alg-edge-icon{font-size:27px}',
+ '#algzawy-builder-edge-tab-v1.alg-edge-native-builder{width:56px!important;min-width:56px!important;min-height:20px!important;padding:5px 1px 5px 21px!important;border:2px solid #63dca1!important;background:#102e31!important;color:#fff!important;box-shadow:0 5px 17px #000b!important;font:900 16px Arial!important;box-sizing:border-box!important}',
+ '#algzawy-builder-edge-tab-v1.alg-edge-native-builder::before{content:"▦";position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:19px;color:#63dca1}',
+ 'body.algzawy-camouflage .alg-edge-dock-tab,body.algzawy-camouflage #algzawy-builder-edge-tab-v1{visibility:hidden!important;pointer-events:none!important}',
+ '@media(max-width:500px){.alg-edge-dock-tab{width:51px}.alg-edge-dock-bridge{width:62px}}'
+].join('\n');
+(document.head||document.documentElement).append(css);
+function start(){
+ if(!document.body)return;scan();let pending=false;
+ new MutationObserver(()=>{if(pending)return;pending=true;
+  setTimeout(()=>{pending=false;scan();},90);
+ }).observe(document.body,{childList:true,subtree:true});
+ window.addEventListener('resize',positionTabs);
+ window.visualViewport?.addEventListener('resize',positionTabs);
+ window.visualViewport?.addEventListener('scroll',positionTabs);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
