@@ -1,5 +1,7 @@
-// AlGzawy Cloud Preview RC1 — independent, non-destructive warehouse observer.
-// Executed only by the signed, per-tab-pinned warehouse-alert-safe QA runner.
+// @name         الغزااوي | تنبيه المخازن
+// @version      1.2.0
+// AlGzawy Cloud Control — independent, non-destructive warehouse observer.
+// Executed only by the signed, per-tab-pinned warehouse-alert-safe runner.
 // Reads open village counters or production overview rows; never trains/sends troops.
 (function(){
 'use strict';
