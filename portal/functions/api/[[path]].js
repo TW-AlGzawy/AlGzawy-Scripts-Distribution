@@ -36,17 +36,24 @@ function adminLoginMode(env){
   return typeof user==='string'&&ADMIN_USERNAME_RE.test(user)&&
     typeof record==='string'&&ADMIN_PASSWORD_RE.test(record)?'password':'setup_required';
 }
+// Keep the public response identical for all credential failures. The return
+// category is written only to authenticated Cloudflare deployment logs and
+// must never contain a username, password, hash, IP address or token.
 async function verifyAdminPassword(env,username,password){
   const match=env.ALG_ADMIN_PASSWORD_HASH.match(ADMIN_PASSWORD_RE);
   if(!match||typeof username!=='string'||typeof password!=='string'||
-    password.length<12||password.length>256||username.length>80)return false;
+    password.length<12||password.length>256||username.length>80)
+    return {accepted:false,category:'invalid_input'};
   const userMatches=constantEqual(username.toLowerCase(),env.ALG_ADMIN_USERNAME.toLowerCase());
   const salt=new Uint8Array(match[1].match(/../g).map(x=>parseInt(x,16)));
   const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
   const result=new Uint8Array(await crypto.subtle.deriveBits(
     {name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},key,256));
   const hex=[...result].map(x=>x.toString(16).padStart(2,'0')).join('');
-  return userMatches&&constantEqual(hex,match[2]);
+  const passwordMatches=constantEqual(hex,match[2]);
+  const category=userMatches?(passwordMatches?'accepted':'password_mismatch')
+    :(passwordMatches?'username_mismatch':'both_mismatch');
+  return {accepted:userMatches&&passwordMatches,category};
 }
 // D1-backed, per-IP login throttling. IPs are never stored: only a keyed digest.
 // The additive table is initialized on the first password login attempt.
@@ -346,11 +353,17 @@ async function handler(req,env){
           let limiter;
           try{limiter=await adminLoginLimiter(env,req);}catch(_){return bad('admin_login_storage_not_ready',503);}
           if(limiter.locked)return bad('too_many_login_attempts',429);
-          let accepted=false;
-          try{accepted=await verifyAdminPassword(env,data.username,data.password);}catch(_){}
-          if(!accepted){
+          let verification={accepted:false,category:'crypto_error'};
+          try{verification=await verifyAdminPassword(env,data.username,data.password);}catch(_){}
+          if(!verification.accepted){
             try{await adminRecordFailure(env,limiter);}catch(_){return bad('admin_login_storage_not_ready',503);}
-            return bad('unauthorized',401);
+            // A random reference correlates the UI with owner-only Cloudflare
+            // logs. The browser still receives a generic 401 (no enumeration).
+            const reference=crypto.randomUUID();
+            console.warn('[AlGzawy admin login rejection]',{
+              reference,category:verification.category
+            });
+            return reply({ok:false,error:'unauthorized',reference},401);
           }
           try{await adminClearFailures(env,limiter);}catch(_){return bad('admin_login_storage_not_ready',503);}
         }else{
