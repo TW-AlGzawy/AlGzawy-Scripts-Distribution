@@ -2,7 +2,7 @@
 // @name         الغزااوي | بوت النهب
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.0.2
-// @description  AlGzawy BETA — المرخص للمشترك والجهاز المعتمد
+// @description  AlGzawy Cloud — المرخص للمشترك والجهاز المعتمد
 // @include      https://*.tribalwars.*/game.php?*screen=am_farm*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @match        https://*.algzawy-cloud-control.pages.dev/v2/*
