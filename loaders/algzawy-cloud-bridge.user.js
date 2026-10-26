@@ -1341,7 +1341,7 @@ function edgeFromGesture(start,end,rect,b){
  if(dx<=-18&&(rect.left<=b.left+16||end.x<=b.left+24))choices.push({side:'left',move:Math.abs(dx)});
  if(dx>=18&&(rect.right>=b.right-16||end.x>=b.right-24))choices.push({side:'right',move:Math.abs(dx)});
  if(dy<=-18&&(rect.top<=b.top+16||end.y<=b.top+24))choices.push({side:'top',move:Math.abs(dy)});
- if(dy>=18&&(rect.bottom>=b.bottom-16||rect.top>=b.bottom-58||end.y>=b.bottom-24))
+ if(dy>=18&&(rect.top>=b.bottom-58||end.y>=b.bottom-24))
   choices.push({side:'bottom',move:Math.abs(dy)});
  return choices.sort((a,z)=>z.move-a.move)[0]?.side||null;
 }
