@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.3
+// @version      2.4.4
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -76,6 +76,8 @@
   function renderPinControls(){
     const holder=document.getElementById('algzawy-cloud-tab-list');
     if(!holder)return;
+    // Keep the user's scroll position across automatic license refreshes.
+    const previousScroll=holder.scrollTop;
     holder.replaceChildren();
     if(!channel){holder.textContent='هذا المتصفح لا يدعم عزل التبويبات المطلوب.';return;}
     if(!tabReady){holder.textContent='التحقق من هوية التبويب...';return;}
@@ -94,6 +96,7 @@
       toggle.addEventListener('click',()=>setTabPin(id,!pinned(id)));
       row.append(text,toggle);holder.appendChild(row);
     }
+    holder.scrollTop=previousScroll;
   }
   const storageKey=id=>'algzawy_local_enabled_'+id;
   const connection={
