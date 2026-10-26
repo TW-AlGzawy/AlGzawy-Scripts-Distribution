@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.8
+// @version      2.4.9
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -855,8 +855,129 @@
     renderPinControls();
     constrainGeometry();
   }
+  // Shared safety stop: never mistake CAPTCHA visibility for permission to
+  // solve or bypass a challenge. One persistent lock covers all game tabs.
+  const HUMAN_LOCK='algzawy_human_verification_pause';
+  const HUMAN_EVENT='algzawy_human_verification_incident_v1';
+  const HUMAN_SENT='algzawy_human_verification_notified_v1';
+  const HUMAN_SELECTORS='#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection,[id*="captcha"],[class*="captcha"],.g-recaptcha';
+  let humanBanner=null,humanAlertPending=false,humanRetryAfter=0,humanStopApplied=false;
+  function challengeVisible(){
+    if(/[?&]screen=(?:bot_?protection|captcha)(?:&|$)/i.test(location.search))return true;
+    for(const el of document.querySelectorAll(HUMAN_SELECTORS)){
+      if(el.closest?.('#algzawy-human-guard-banner'))continue;
+      const style=getComputedStyle(el);
+      if(style.display!=='none'&&style.visibility!=='hidden'&&
+         el.getClientRects().length>0)return true;
+    }
+    return false;
+  }
+  function stopScriptsForHuman(){
+    // Engines and official loaders already check this legacy lock. Dispatch
+    // their stop events immediately as well, never waiting for a 2-min poll.
+    for(const id of known)document.dispatchEvent(new Event('__algzawy_stop_'+id));
+    document.dispatchEvent(new Event('algzawy-human-verification'));
+  }
+  function createGuardBanner(){
+    if(humanBanner?.isConnected)return humanBanner;
+    const root=document.createElement('div');
+    root.id='algzawy-human-guard-banner';
+    root.style.cssText='position:fixed;right:12px;top:8px;z-index:2147483500;max-width:min(360px,calc(100vw - 24px));background:#341922;border:2px solid #ff6e86;border-radius:11px;padding:10px;color:#fff;font:13px/1.65 Tahoma,Arial;text-align:right;box-shadow:0 7px 22px #000b;direction:rtl';
+    const title=document.createElement('strong');
+    title.textContent='🛑 فحص بشري — تم إيقاف جميع السكربتات';
+    const description=document.createElement('div');
+    description.textContent='أكمل CAPTCHA داخل اللعبة يدويًا، ثم اضغط استئناف بعد اختفاء الفحص.';
+    const button=document.createElement('button');
+    button.type='button';button.textContent='التحقق ثم الاستئناف يدويًا';
+    button.style.cssText='margin-top:7px;padding:7px;background:#264d46;border:1px solid #77d7b9;border-radius:5px;color:#fff;cursor:pointer';
+    button.addEventListener('click',()=>{
+      if(challengeVisible()){
+        description.textContent='لا يزال الفحص البشري ظاهرًا. أكمله أولًا.';
+        return;
+      }
+      if(!window.confirm('هل أكملت الفحص البشري وتريد السماح بإعادة تشغيل السكربتات يدويًا؟'))return;
+      localStorage.removeItem(HUMAN_LOCK);
+      sessionStorage.removeItem(HUMAN_LOCK);
+      localStorage.removeItem(HUMAN_EVENT);
+      localStorage.removeItem(HUMAN_SENT);
+      humanStopApplied=false;
+      root.remove();humanBanner=null;
+      document.dispatchEvent(new Event('algzawy-local-control-changed'));
+    });
+    root.append(title,description,button);document.body.append(root);
+    humanBanner=root;
+    return root;
+  }
+  function blockForHuman(){
+    const wasLocked=localStorage.getItem(HUMAN_LOCK)==='1';
+    localStorage.setItem(HUMAN_LOCK,'1');
+    sessionStorage.setItem(HUMAN_LOCK,'1');
+    if(!wasLocked||!localStorage.getItem(HUMAN_EVENT)){
+      localStorage.setItem(HUMAN_EVENT,crypto.randomUUID());
+      localStorage.removeItem(HUMAN_SENT);
+    }
+    if(!humanStopApplied){humanStopApplied=true;stopScriptsForHuman();}
+    createGuardBanner();
+    void alertHumanOnce();
+  }
+  async function alertHumanOnce(){
+    if(humanAlertPending||Date.now()<humanRetryAfter||!connection.device)return;
+    const incident=localStorage.getItem(HUMAN_EVENT);
+    if(!incident||localStorage.getItem(HUMAN_LOCK)!=='1'||localStorage.getItem(HUMAN_SENT)===incident)return;
+    humanAlertPending=true;
+    humanRetryAfter=Date.now()+60000;
+    try{
+      const game=unsafeWindow?.game_data||window.game_data;
+      const data={type:'human-verification',incidentId:incident,
+        world:String(location.hostname).slice(0,120),
+        villageName:String(game?.village?.name||'').slice(0,120),
+        coords:String(game?.village?.coord||'').slice(0,120)};
+      const headers=await deviceProof('/api/telegram/notify');
+      const result=await request('telegram/notify',{method:'POST',headers,data});
+      if(result?.ok===true&&localStorage.getItem(HUMAN_EVENT)===incident)
+        localStorage.setItem(HUMAN_SENT,incident);
+    }catch(_){/* Safety stop must succeed even when Telegram is offline/unlinked. */}
+    finally{humanAlertPending=false;}
+  }
+  function checkHumanGuard(){
+    if(challengeVisible()){blockForHuman();return;}
+    if(localStorage.getItem(HUMAN_LOCK)==='1'||sessionStorage.getItem(HUMAN_LOCK)==='1'){
+      sessionStorage.setItem(HUMAN_LOCK,'1');
+      createGuardBanner();
+      void alertHumanOnce();
+    }
+  }
+  function setupHumanGuard(){
+    document.addEventListener('algzawy-human-verification',()=>{
+      if(localStorage.getItem(HUMAN_LOCK)!=='1'||!localStorage.getItem(HUMAN_EVENT))
+        blockForHuman();
+    });
+    window.addEventListener('storage',e=>{
+      if(e.key!==HUMAN_LOCK)return;
+      if(e.newValue==='1'){
+        sessionStorage.setItem(HUMAN_LOCK,'1');
+        if(!humanStopApplied){humanStopApplied=true;stopScriptsForHuman();}
+        createGuardBanner();
+        void alertHumanOnce();
+      }else if(e.newValue===null){
+        // Cross-tab unlocking requires an explicit action in the active tab;
+        // until then each tab's session guard remains fail-closed.
+        createGuardBanner();
+      }
+    });
+    checkHumanGuard();
+    let scanPending=false;
+    const observer=new MutationObserver(()=>{
+      if(scanPending)return;
+      scanPending=true;
+      setTimeout(()=>{scanPending=false;if(challengeVisible())checkHumanGuard();},200);
+    });
+    observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden']});
+    setInterval(checkHumanGuard,1500);
+  }
   function start(){
     render();
+    setupHumanGuard();
     if(connection.device){void synchronize(true);checkPublisher();}
     timer=setInterval(()=>{if(document.visibilityState==='visible')void synchronize();},30000);
     setInterval(checkPublisher,15000);

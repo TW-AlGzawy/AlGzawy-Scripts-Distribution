@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.2.3
+// @version      1.2.4
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -152,7 +152,7 @@
           void this.checkAndClaimRewards(true);
         });
         body.append(run,create('div','alg-reward-note','يعمل فقط داخل التبويب المعتمد في الجسر السحابي'));
-        body.append(create('footer','alg-reward-footer','BETA · v1.2.3 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+        body.append(create('footer','alg-reward-footer','BETA · v1.2.4 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
         box.append(body);
         const draw=()=>{
           body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';
@@ -194,23 +194,29 @@
           if(event.button!==0||event.target.closest('button,input,select,a'))return;
           const rect=panel.getBoundingClientRect();
           dragging={id:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};
-          panel.setPointerCapture?.(event.pointerId);
+          // Capture on the actual drag handle: the game, Edge Shelf and other
+          // panels may listen on the outer container and interrupt its capture.
+          top.setPointerCapture?.(event.pointerId);
           if(event.cancelable)event.preventDefault();
         },dragOptions);
-        panel.addEventListener('pointermove',event=>{
+        const move=event=>{
           if(!dragging||event.pointerId!==dragging.id)return;
-          algClampVisible(panel,dragging.left+event.clientX-dragging.x,dragging.top+event.clientY-drag.y,40);
+          algClampVisible(panel,dragging.left+event.clientX-dragging.x,dragging.top+event.clientY-dragging.y,40);
+          panel.style.transform='none';
           if(event.cancelable)event.preventDefault();
-        },dragOptions);
+        };
+        // The pointer remains on the header, but a window-level fallback
+        // survives elements layered over it during a desktop or touch drag.
+        window.addEventListener('pointermove',move,dragOptions);
         const finish=event=>{
           if(!dragging||event.pointerId!==dragging.id)return;
           dragging=null;
           const r=panel.getBoundingClientRect();
           try{localStorage.setItem(positionKey,JSON.stringify({left:r.left,top:r.top}));}catch(_){}
-          if(panel.hasPointerCapture?.(event.pointerId))panel.releasePointerCapture(event.pointerId);
+          if(top.hasPointerCapture?.(event.pointerId))top.releasePointerCapture(event.pointerId);
         };
-        panel.addEventListener('pointerup',finish,dragOptions);
-        panel.addEventListener('pointercancel',finish,dragOptions);
+        window.addEventListener('pointerup',finish,dragOptions);
+        window.addEventListener('pointercancel',finish,dragOptions);
         setInterval(()=>{
           const next=document.getElementById('alg-reward-next');
           if(next)next.textContent=cfg.enabled&&this.nextCycleAt?
