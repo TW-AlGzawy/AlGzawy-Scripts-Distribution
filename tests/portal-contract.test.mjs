@@ -49,7 +49,7 @@ class DB{
       throw Error('Unexpected FIRST: '+sql);
     },
     async all(){const a=this.args;
-      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved,user_agent:k.user_agent}))};
+      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved,user_agent:k.user_agent}))};
        if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
        if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
