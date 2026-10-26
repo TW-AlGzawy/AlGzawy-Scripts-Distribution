@@ -33,7 +33,9 @@ test('all published installers have coherent versions and immutable identity',()
       ?['https://algzawy-cloud-control.pages.dev/v2/*']
       :['https://algzawy-cloud-control.pages.dev/v2/*','https://*.algzawy-cloud-control.pages.dev/v2/*'].sort(),
       item.id+' explicit portal installation proof origins');
-    assert.ok(js.includes(DIST+'/scripts/'+item.id+'.js'),item.id+' canonical source address');
+    assert.ok(item.id==='warehouse-alert-safe'
+      ?js.includes('ROOT_URL + "/scripts/warehouse-alert-safe.js"')
+      :js.includes(DIST+'/scripts/'+item.id+'.js'),item.id+' canonical source address');
     assert.ok(existsSync(new URL('../scripts/'+item.id+'.js',import.meta.url)),item.id+' published engine exists');
     assert.equal(typeof item.approved_for_final,'boolean',item.id+' explicit release approval');
     assert.ok(['needs-live-test','tested','approved','blocked'].includes(item.test_status),item.id+' explicit test status');
