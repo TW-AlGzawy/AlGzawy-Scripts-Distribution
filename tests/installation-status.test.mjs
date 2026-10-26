@@ -52,3 +52,66 @@ test('Version comparison and installation states do not infer installation from 
  assert.match(js,/state\.releases\.get\(item\.id\)/);
  assert.doesNotMatch(js,/localStorage\.getItem\('algzawy_installed_loader_version_/);
 });
+
+
+test('production portal accepts nonce-matched install reports from the real Tampermonkey loaders',()=>{
+ const code=read('portal/v2/app.js');
+ const start=code.indexOf('function receiveInstallationReport(');
+ const end=code.indexOf("window.addEventListener('message',event=>{",start);
+ assert.ok(start>0&&end>start,'extract actual production report receiver');
+ const makeReceiver=new Function('state','renderScripts','probeInstalledScripts',
+   code.slice(start,end)+';return receiveInstallationReport;');
+ for(const entry of [...catalog,{id:'warehouse-alert-safe',version:'1.1.3'}]){
+   const state={
+     user:{id:'test-subscriber'},
+     catalog:[{id:entry.id}],
+     installed:new Map(),releases:new Map([[entry.id,entry.version]]),
+     probeNonce:'fresh-challenge-nonce',probeResponders:new Set(),helloProbed:new Set(),
+     probeTarget:entry.id,probing:true
+   };
+   const reProbes=[],redraws=[];
+   const receive=makeReceiver(state,()=>redraws.push(true),id=>reProbes.push(id));
+   const handlers={},reports=[],loc={origin:'https://algzawy-cloud-control.pages.dev',pathname:'/v2/'};
+   const win={addEventListener(type,fn){handlers[type]=fn;},postMessage(data){reports.push(data);}};
+   const doc={addEventListener(){},dispatchEvent(){}};
+   class CustomEvent{constructor(type,opts){this.type=type;this.detail=opts.detail;}}
+   vm.runInNewContext(read('loaders/'+entry.id+'.user.js'),{
+     window:win,document:doc,CustomEvent,location:loc,console
+   },{filename:entry.id+'.user.js'});
+   assert.equal(reports[0].nonce,'','loader hello alone cannot prove installation');
+   receive(reports[0]);
+   assert.equal(state.installed.size,0);
+   assert.deepEqual(reProbes,[entry.id]);
+   handlers.message({source:win,origin:loc.origin,data:{
+     scope:'algzawy-installation-v1',type:'probe',nonce:state.probeNonce
+   }});
+   receive(reports.at(-1));
+   assert.equal(state.installed.get(entry.id),entry.version,entry.id+' should be verified');
+   assert.equal(state.probeResponders.has(entry.id),true);
+   assert.equal(state.probing,false);
+   assert.ok(redraws.length>0);
+ }
+});
+test('production report receiver rejects stale challenges and invalid version strings',()=>{
+ const code=read('portal/v2/app.js');
+ const start=code.indexOf('function receiveInstallationReport(');
+ const end=code.indexOf("window.addEventListener('message',event=>{",start);
+ const state={user:{id:'test'},catalog:[{id:'bot-farm-2'}],installed:new Map(),
+   probeNonce:'current',probeResponders:new Set(),helloProbed:new Set(),probeTarget:null,probing:false};
+ const receive=new Function('state','renderScripts','probeInstalledScripts',
+   code.slice(start,end)+';return receiveInstallationReport;')(state,()=>{},()=>{});
+ const message={scope:'algzawy-installation-v1',type:'report',
+   id:'bot-farm-2',version:'1.0.4',nonce:'current'};
+ for(const bad of [
+   {...message,nonce:'stale'},
+   {...message,version:'1.0.4<script>'},
+   {...message,version:'\\d+\\.\\d+'},
+   {...message,scope:'unexpected'},
+   {...message,id:'unlicensed-script'}
+ ]){
+   receive(bad);
+   assert.equal(state.installed.size,0);
+ }
+ receive(message);
+ assert.equal(state.installed.get(message.id),'1.0.4');
+});
