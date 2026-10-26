@@ -41,7 +41,7 @@
     report('');
     return;
   }
-  // Game-only QA runner. A portal installation badge is handled separately by the official loader.
+  // Game-only licensed runner. A portal installation badge is handled separately by the official loader.
   if(!/(?:^|\.)tribalwars\.(?:ae|net|com\.sa|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i.test(location.hostname)
      || location.pathname!=='/game.php')return;
   const TAB_ID_KEY='algzawy_tab_instance_v1';
@@ -175,24 +175,9 @@
 
   // Only audited immutable engine source is accepted above. Certain original engines
   // repeat the Production permission check internally; remap those checks to the
-  // Preview bridge namespace or the second protection layer would block legitimate QA.
-  // This mapping grants nothing: signed QA bridge sync + tab pin + double Preview ON
+  // The engine already uses official key namespaces.
+  // This mapping grants nothing: signed Bridge sync + tab pin + server ON
   // remain mandatory before the remapped source can run.
-  function preparePreviewEngine(code){
-    const namespaces=[
-      ['algzawy_tab_instance_v1','algzawy_tab_instance_v1'],
-      ['algzawy_tab_pins_ready_v1','algzawy_tab_pins_ready_v1'],
-      ['algzawy_tab_pin_v1_','algzawy_tab_pin_v1_'],
-      ['algzawy_portal_grant_','algzawy_portal_grant_'],
-      ['algzawy_portal_device_authorized_until','algzawy_portal_device_authorized_until'],
-      ['algzawy_portal_approved_device','algzawy_portal_approved_device'],
-      ['algzawy_local_enabled_','algzawy_local_enabled_'],
-      ['__algzawy_stop_','__algzawy_stop_']
-    ];
-    for(const [from,to] of namespaces)code=code.replaceAll(from,to);
-    return code;
-  }
-
   function startCore(code) {
     everStarted = true;
     if (HAS_GM_API) {
@@ -275,7 +260,7 @@
       if (!everStarted && !executing) {
         executing = true;
         try {
-          const code = preparePreviewEngine(await requestText(SOURCE_URL));
+          const code = await requestText(SOURCE_URL);
           const fresh = JSON.parse(await requestText(STATUS_URL));
           const checkAgain = fresh?.ok===true && typeof fresh.global?.enabled==='boolean'
             && Number.isSafeInteger(fresh.global.revision)
