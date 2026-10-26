@@ -33,7 +33,7 @@ test('QA-only smoke userscript is isolated, dependency-free and produces a visib
   assert.equal(JSON.parse(fired[0].detail).id,'qa-smoke');
   assert.equal(added.length,1);
   assert.match(added[0].textContent,/تم تنفيذ سكربت الاختبار/);
-  assert.match(app,/qaInstallIds=new Set\(\[\.\.\.qaInstallProbeIds,'qa-smoke'\]\)/);
+  assert.doesNotMatch(app,/qaInstallIds|qa-smoke|qaInstallDiagnosticsInit/,'official website does not display smoke testing tools');
 });
 
 test('Multiple overlapping subscriber installation checks keep their first nonce and do not send duplicate challenges',()=>{
@@ -62,7 +62,7 @@ test('Multiple overlapping subscriber installation checks keep their first nonce
   probe('alg-attacks');
   assert.equal(state.probeNonce,'original-nonce','overlapping probes must not invalidate in-flight nonce');
   assert.equal(emitted.length,2,'no duplicate challenge while prior probe is active');
-  assert.equal(logs.filter(x=>x[1]==='probe-coalesced').length,2);
+  assert.equal(logs.length,0,'production does not create QA trace logs');
   assert.equal(timers.length,2);
   timers.find(t=>t.ms===2600).fn();
   assert.equal(emitted.length,4,'original nonce gets a single retry');
