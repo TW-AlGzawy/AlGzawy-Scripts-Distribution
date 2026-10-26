@@ -67,12 +67,8 @@ test('refresh resumes remaining 360-second deadline, never starts at 2 seconds',
  assert.equal(second.timeouts.at(-1),260000);
  assert.equal(session.getItem(NEXT),'1360000','same absolute deadline survives reload');
  assert.equal(second.core.nextCycleAt,1360000);
- let claims=0;
- second.core.permitted=()=>true;
- second.core.checkAndClaimRewards=async()=>{claims++;};
- await second.core.checkAndClaimRewards();
- assert.equal(claims,1,'only explicit mock was called');
- // Real engine is separately gated before accessing DOM on any early observer.
+ // The actual observer's early-run block is exercised below against
+ // the unchanged production checkAndClaimRewards implementation.
 });
 test('observed game-point changes cannot claim reward before stored cycle deadline',async()=>{
  const clock={now:1000000},shared={session:makeStore(),local:makeStore(new Map([
