@@ -15,7 +15,7 @@
 // ==/UserScript==
 (function () {
   'use strict';
-  // Never overwrite the primary Bridge; this QA edition is for a separate browser profile.
+  // Official Bridge. Its device and tab-pin identifiers remain stable.
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
@@ -213,10 +213,10 @@
     return {'X-ALG-DEVICE-ID':connection.device,'X-ALG-TIMESTAMP':String(timestamp),'X-ALG-COUNTER':String(counter),'X-ALG-SIGNATURE':signature};
   }
 
-  // Preview-only Telegram alert relay. The game never sees the bot token.
+  // First-party Telegram alert relay. The game never sees the bot token.
   // Event details are untrusted; the server validates the signed device,
   // subscriber entitlement, global ON, linked chat, and per-user rate limit.
-  // Both attack and warehouse notifications share the approved Preview
+  // Both attack and warehouse notifications share the approved production
   // device signature path. Queue requests so the anti-replay counter is never
   // reused concurrently. The browser has no BotFather token or chat ID.
   let qaTelegramQueue=Promise.resolve();
