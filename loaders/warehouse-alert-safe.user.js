@@ -23,7 +23,7 @@
   const SOURCE_URL = ROOT_URL + "/scripts/warehouse-alert-safe.js";
   const STATUS_URL = 'https://algzawy-cloud-control.pages.dev/api/status';
   const ID = "warehouse-alert-safe";
-  // One installer for Preview subscriber installation badge AND QA game engine.
+  // One installer for subscriber installation confirmation and the licensed game engine.
   // Presence is UI-only; server-authorized game execution is still protected
   // by independent device signature, subscription, entitlement and tab pin.
   if(location.origin==='https://algzawy-cloud-control.pages.dev'
@@ -57,7 +57,7 @@
   const LICENSE_ID="algzawy_portal_approved_device";
   const hasPortalLicense=()=>{const t=Number(localStorage.getItem(LICENSE_UNTIL)||0);return !!localStorage.getItem(LICENSE_ID)&&t>Date.now()&&t<=Date.now()+180000 && localStorage.getItem('algzawy_portal_grant_'+ID)==='1';};
   const HAS_GM_API = true;
-  const POLL_MS = 15000; // Bridge coordinates central OFF every 15s
+  const POLL_MS = 120000; // Bridge coordinates central OFF every 15s; loader performs defense in depth
   const REQUEST_TIMEOUT = 6000;
   const STOP_EVENT = '__algzawy_stop_' + ID.replace(/[^a-zA-Z0-9_-]/g, '_');
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
