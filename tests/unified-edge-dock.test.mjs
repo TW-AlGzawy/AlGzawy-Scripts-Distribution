@@ -66,7 +66,7 @@ test('the shelf positions each group without overlap and reuses builder native a
  })));
  const managed=new Map(entries.map(item=>[item.cfg.id,item]));
  const native={style:{display:'grid',top:'100px',left:'100px'},dataset:{side:'left'},
-   classList:{add(){}},title:''};
+   classList:{add(){},contains:()=>false},title:''};
  const document={getElementById:()=>native};
  const vertical=side=>side==='left'||side==='right';
  const clamp=(n,lo,hi)=>Math.max(lo,Math.min(n,Math.max(lo,hi)));
@@ -94,7 +94,7 @@ test('dragged dock tabs remain keyboard operable without accidentally opening on
  assert.match(shelf,/tab\.addEventListener\('keydown'/);
  assert.match(shelf,/sideFromDrop\(e\.clientX,e\.clientY,b,item\.side\)/);
  assert.match(shelf,/['"]ArrowLeft['"]/);
- assert.match(shelf,/const KEY='algzawy_edge_shelf_v1_'/);
+ assert.match(shelf,/KEY='algzawy_edge_shelf_v1_'/);
  assert.match(shelf,/readState\(cfg\.id\)/);
  assert.match(shelf,/window\.visualViewport\?\.addEventListener\('resize'/);
  assert.match(shelf,/body\.algzawy-camouflage \.alg-edge-dock-tab/);
@@ -111,6 +111,6 @@ test('viewport fixes and reward drag are present without altering automation or 
  assert.match(builder,/const DOCK_SIDES=\['left','right','top','bottom'\]/);
  assert.match(builder,/dockTab\.addEventListener\('pointermove'/);
  assert.match(builder,/skipClickUntil=Date\.now\(\)\+500/);
- assert.match(shelf,/panel\.style\.visibility=hidden\?'hidden':item\.initialVisibility/);
+ assert.match(shelf,/p\.style\.visibility=hidden\?'hidden':item\.initialVisibility/);
  assert.doesNotMatch(shelf,/GM_xmlhttpRequest|fetch\(|stopAll\(|endLoop\(|portal_grant/);
 });
