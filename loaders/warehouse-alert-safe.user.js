@@ -23,7 +23,7 @@
   const SOURCE_URL = ROOT_URL + "/scripts/warehouse-alert-safe.js";
   const STATUS_URL = 'https://algzawy-cloud-control.pages.dev/api/status';
   const ID = "warehouse-alert-safe";
-  // One installer for Preview subscriber installation badge AND QA game engine.
+  // One official installer supports portal installation checks and the licensed game engine.
   // Presence is UI-only; server-authorized game execution is still protected
   // by independent device signature, subscription, entitlement and tab pin.
   if(location.origin==='https://algzawy-cloud-control.pages.dev'
@@ -175,8 +175,8 @@
 
   // Only audited immutable engine source is accepted above. Certain original engines
   // repeat the Production permission check internally; remap those checks to the
-  // Preview bridge namespace or the second protection layer would block legitimate QA.
-  // This mapping grants nothing: signed QA bridge sync + tab pin + double Preview ON
+  // Official Bridge namespace and license keys must agree.
+  // This mapping grants nothing: signed Bridge sync + tab pin + double global ON
   // remain mandatory before the remapped source can run.
   function prepareEngine(code){
     const namespaces=[
