@@ -1,4 +1,4 @@
-// @version      1.0.2
+// @version      1.0.3
 // @name         الغزااوي | موازنة الموارد
 // ============================================================
 //  AlGzawy - موازنة الموارد v1.0
@@ -47,6 +47,20 @@ function enableMobileTouchDrag(panel,handle,onDone){
     handle.addEventListener('pointercancel',finish);
 }
 
+function constrainBalancePanel(panel){
+ if(!panel||!panel.isConnected)return;
+ const v=window.visualViewport,b={left:v?.offsetLeft||0,top:v?.offsetTop||0,
+   right:(v?.offsetLeft||0)+(v?.width||innerWidth),
+   bottom:(v?.offsetTop||0)+(v?.height||innerHeight)};
+ const maxWidth=Math.max(180,b.right-b.left-12);
+ if(panel.getBoundingClientRect().width>maxWidth){
+   panel.style.minWidth='0px';panel.style.width=maxWidth+'px';panel.style.maxWidth=maxWidth+'px';
+ }
+ const rect=panel.getBoundingClientRect(),maxLeft=Math.max(b.left+6,b.right-rect.width-6);
+ panel.style.left=Math.min(maxLeft,Math.max(b.left+6,rect.left))+'px';
+ panel.style.top=Math.min(Math.max(b.top+6,b.bottom-46),Math.max(b.top+6,rect.top))+'px';
+ panel.style.right='auto';panel.style.bottom='auto';panel.style.transform='none';
+}
 // ===== THEME =====
 var BG       = '#102031';
 var BG2      = '#13283a';
@@ -504,7 +518,7 @@ function createMainInterface(){
     try{saved=JSON.parse(localStorage.getItem(game_data.world+'_alg_bal_v1')||'{}');}catch(e){}
 
     var w='55%',minW='480px';
-    var html='<div id="alg-window" style="position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:99999;background:'+BG+';border:2px solid '+BORDER+';border-radius:8px;box-shadow:0 6px 30px rgba(0,0,0,0.8);width:'+w+';min-width:'+minW+';max-width:94vw;">'+
+    var html='<div id="alg-window" style="position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:99999;background:'+BG+';border:2px solid '+BORDER+';border-radius:8px;box-shadow:0 6px 30px rgba(0,0,0,0.8);width:'+w+';min-width:min(480px,calc(100vw - 12px));max-width:94vw;">'+
         // HEADER
         '<div id="alg-hdr" style="background:linear-gradient(to bottom,'+HDR+','+BG2+');padding:10px 14px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid '+BORDER+';">'+
             '<span style="color:'+GOLD+';font-weight:bold;font-size:15px;">&#9878; AlGzawy &mdash; موازنة الموارد</span>'+
@@ -543,6 +557,7 @@ function createMainInterface(){
 
     document.body.insertAdjacentHTML('beforeend', html);
     statusEl=document.getElementById('alg-status');
+    constrainBalancePanel(document.getElementById('alg-window'));
 
     try{if(['pt_PT','de_DE'].includes(game_data.locale)){document.getElementById('alg-cap-row').style.display='';}}catch(e){}
 
@@ -555,8 +570,8 @@ function createMainInterface(){
         var r=el.getBoundingClientRect();sL=r.left;sT=r.top;
         el.style.left=sL+'px';el.style.top=sT+'px';el.style.transform='none';
     };
-    document.addEventListener('mousemove',function(e){if(!drag)return;el.style.left=(sL+e.clientX-sX)+'px';el.style.top=(sT+e.clientY-sY)+'px';});
-    document.addEventListener('mouseup',function(){drag=false;});
+    document.addEventListener('mousemove',function(e){if(!drag)return;el.style.left=(sL+e.clientX-sX)+'px';el.style.top=(sT+e.clientY-sY)+'px';constrainBalancePanel(el);});
+    document.addEventListener('mouseup',function(){if(drag)constrainBalancePanel(el);drag=false;});
     enableMobileTouchDrag(el,hdr,()=>{});
 
     document.getElementById('alg-min-btn').onclick=function(){
@@ -727,6 +742,7 @@ function buildMiniPanel(){
         '</div>';
 
     document.body.appendChild(p);
+    constrainBalancePanel(p);
 
     // Drag
     var drag=false,sX,sY,sL,sT;
@@ -741,6 +757,7 @@ function buildMiniPanel(){
         if(!drag)return;
         p.style.left=(sL+e.clientX-sX)+'px';
         p.style.top=(sT+e.clientY-sY)+'px';
+        constrainBalancePanel(p);
     });
     document.addEventListener('mouseup',function(){
         if(!drag)return;
