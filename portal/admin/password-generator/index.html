@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1727">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>AlG | إنشاء بصمة كلمة مرور الإدارة</title>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <main class="card">
+    <div class="top"><span class="logo">AlG</span><span class="tag">أداة خاصة بالإدارة</span></div>
+    <h1>إنشاء بصمة كلمة مرور الإدارة</h1>
+    <p class="desc">هذه الصفحة تعمل مباشرة في <strong>Safari</strong> على الآيفون. إنشاء البصمة يتم في جهازك باستخدام Web Crypto ولا تُرسل كلمة المرور إلى الموقع.</p>
+    <div class="security">🔒 أدخل الكود الطويل الذي اخترته كلمةً للمرور، ثم انسخ <b>البصمة الناتجة فقط</b> إلى Cloudflare. احتفظ بالكود الأصلي للدخول إلى الإدارة.</div>
+    <label for="password">الكود الطويل / كلمة مرور الإدارة</label>
+    <input id="password" type="password" minlength="12" maxlength="256" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="أدخل كلمة مرور من 12 إلى 256 حرفًا" dir="ltr">
+    <button id="generate" class="primary" type="button">إنشاء البصمة الآمنة</button>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="resultArea" hidden>
+      <label for="result">القيمة المطلوبة لـ <code>ALG_ADMIN_PASSWORD_HASH</code></label>
+      <textarea id="result" rows="4" dir="ltr" readonly spellcheck="false" aria-label="بصمة كلمة مرور الإدارة"></textarea>
+      <div class="actions"><button id="copy" class="primary" type="button">نسخ البصمة</button><button id="clear" class="secondary" type="button">حذف البصمة</button></div>
+      <p class="note">في Cloudflare، اختر <strong>Production</strong> واحفظ الناتج كـ <strong>Encrypted Secret</strong> باسم <code>ALG_ADMIN_PASSWORD_HASH</code>. أضف أيضًا <code>ALG_ADMIN_USERNAME</code> كمتغير Text.</p>
+    </section>
+    <p class="note">لا تشارك كلمة المرور أو البصمة في محادثة. لا تستخدم كلمة المرور نفسها في أي خدمة أخرى.</p>
+    <a class="back" href="../">العودة إلى صفحة الإدارة</a>
+  </main>
+</body>
+</html>
