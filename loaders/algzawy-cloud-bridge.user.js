@@ -1576,6 +1576,12 @@ for(const design of designs){
  skin.push(root+' '+design.handle+'{background:'+design.header+
    '!important;color:'+design.color+'!important;border-bottom-color:'+design.color+'!important}');
  skin.push(root+' '+design.handle+' strong,'+root+' '+design.handle+' b{color:'+design.color+'!important}');
+ // These are neutral input/secondary surfaces. Leave run/stop controls'
+ // safety-critical active/paused indicators as managed by each game engine.
+ skin.push(root+' input:not([type="checkbox"]),'+root+' select{border-color:'+design.color+
+   '99!important;background:#0A1925!important;color:#F5FFFF!important}');
+ skin.push(root+' input[type="checkbox"]{accent-color:'+design.color+'!important}');
+ skin.push(root+' button:not([id*="run"]):not([id*="toggle"]):not([id*="stop"]):not([id*="cancel"]):not([class*="danger"]){border-color:'+design.color+'88!important}');
 }
 // Only style stable primary action surfaces. Do not recolor stop/pause buttons
 // whose colors convey operational state.
