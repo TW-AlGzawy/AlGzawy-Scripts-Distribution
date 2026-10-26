@@ -1,15 +1,17 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.9
+// @version      2.4.10
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
+// @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-start
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        unsafeWindow
 // @connect      algzawy-cloud-control.pages.dev
+// @connect      raw.githubusercontent.com
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-cloud-bridge.user.js
 // ==/UserScript==
@@ -19,8 +21,85 @@
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
+  const BRIDGE_VERSION='2.4.10';
+  // UI-only version proof inside the logged-in portal; never run the game's
+  // bridge coordinator on the portal domain.
+  if(location.origin===PORTAL_ORIGIN){
+    const report=nonce=>{
+      if(typeof nonce!=='string'||nonce.length>80)return;
+      const data={scope:'algzawy-installation-v1',type:'report',
+        id:'algzawy-cloud-bridge',version:BRIDGE_VERSION,nonce};
+      window.postMessage(data,location.origin);
+    };
+    window.addEventListener('message',e=>{
+      if(e.source!==window||e.origin!==location.origin)return;
+      const msg=e.data;
+      if(msg?.scope==='algzawy-installation-v1'&&msg.type==='probe'&&
+         typeof msg.nonce==='string')report(msg.nonce);
+    });
+    setTimeout(()=>report(''),200);
+    return;
+  }
   const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
   const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper"];
+  // Notify only: all install/update actions are performed on the subscriber
+  // portal. This never upgrades, injects or restarts live game scripts.
+  const RELEASES_URL='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/catalog.json';
+  const UPDATE_PORTAL=PORTAL_ORIGIN+'/v2/';
+  const cmpVersion=(a,b)=>{
+    const x=String(a||'').split('.').map(Number),y=String(b||'').split('.').map(Number);
+    if(!/^\d+(?:\.\d+){1,3}$/.test(a||'')||!/^\d+(?:\.\d+){1,3}$/.test(b||''))return 0;
+    for(let i=0;i<Math.max(x.length,y.length);i++)
+      if(x[i]!==y[i]&&(x[i]||0)!==(y[i]||0))return (x[i]||0)>(y[i]||0)?1:-1;
+    return 0;
+  };
+  let availableReleases=[],newBridgeVersion=null,updateNotices=null;
+  function paintUpdateNotices(){
+    if(!document.body)return;
+    const list=[];
+    if(newBridgeVersion&&cmpVersion(newBridgeVersion,BRIDGE_VERSION)>0)
+      list.push({title:'الجسر السحابي: v'+BRIDGE_VERSION+' ← v'+newBridgeVersion,section:'connect'});
+    for(const item of availableReleases){
+      const installed=localStorage.getItem('algzawy_installed_loader_version_'+item.id);
+      if(installed&&cmpVersion(item.version,installed)>0)
+        list.push({title:(scriptLabels[item.id]||item.id)+': v'+installed+' ← v'+item.version,section:'scripts'});
+    }
+    if(!list.length){updateNotices?.remove();updateNotices=null;return;}
+    if(!updateNotices){
+      updateNotices=document.createElement('aside');
+      updateNotices.id='algzawy-available-update-notice';
+      updateNotices.style.cssText='position:fixed;bottom:10px;left:10px;z-index:2147483400;max-width:min(320px,calc(100vw - 20px));max-height:35vh;overflow:auto;padding:10px;direction:rtl;text-align:right;background:#132838;color:#e3fff4;border:2px solid #47d6af;border-radius:10px;box-shadow:0 8px 22px #0009;font:12px/1.65 Tahoma,Arial';
+      document.body.appendChild(updateNotices);
+    }
+    updateNotices.replaceChildren();
+    const heading=document.createElement('strong');heading.textContent='🔄 يوجد تحديث جديد — افتح بوابة AlGzawy';
+    updateNotices.appendChild(heading);
+    for(const entry of list){
+      const row=document.createElement('div');row.textContent=entry.title;
+      const link=document.createElement('a');link.href=UPDATE_PORTAL+'#'+entry.section;
+      link.textContent=' تحديث من الموقع';link.target='_blank';link.rel='noopener noreferrer';
+      link.style.color='#66e9cf';row.append(link);updateNotices.append(row);
+    }
+  }
+  function pollReleaseUpdates(){
+    const fetchJSON=(url,done)=>GM_xmlhttpRequest({
+      method:'GET',url,timeout:9000,
+      onload:r=>{if(r.status===200)try{done(JSON.parse(r.responseText));}catch(_){}},
+      onerror:()=>{},ontimeout:()=>{}
+    });
+    fetchJSON(PORTAL_ORIGIN+'/api/bridge-version',x=>{
+      if(x?.ok===true&&/^\d+(?:\.\d+){1,3}$/.test(x.version)){
+        newBridgeVersion=x.version;paintUpdateNotices();
+      }
+    });
+    fetchJSON(RELEASES_URL,x=>{
+      if(x?.schema===1&&Array.isArray(x.published_candidates)){
+        availableReleases=x.published_candidates.filter(x=>known.includes(x?.id)&&
+          /^\d+(?:\.\d+){1,3}$/.test(x.version||''));
+        paintUpdateNotices();
+      }
+    });
+  }
   const retiredIds=["training-edition","light","train-master-b","holy-grail","market-bot-v7","polish-all-in-one","professional-training","reserve-correct-v2","reserve-smart-v4","reserve-smart-v5","auto-reserve-barbarians","attack-renamer"];
   // Fail closed for licenses cached by previously installed scripts.
   for(const oldId of retiredIds){
@@ -978,6 +1057,8 @@
   function start(){
     render();
     setupHumanGuard();
+    pollReleaseUpdates();
+    setInterval(()=>{if(document.visibilityState==='visible')pollReleaseUpdates();},300000);
     if(connection.device){void synchronize(true);checkPublisher();}
     timer=setInterval(()=>{if(document.visibilityState==='visible')void synchronize();},30000);
     setInterval(checkPublisher,15000);
