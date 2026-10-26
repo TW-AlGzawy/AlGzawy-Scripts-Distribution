@@ -619,7 +619,7 @@
     const head=node('header','alg-head');
     const logo=node('span','alg-logo','AlG');
     const title=node('span','alg-title','الغزااوي | البناء المتطور');
-    title.append(node('small','alg-subtitle','BETA · v1.0.3'));
+    title.append(node('small','alg-subtitle','v1.0.3'));
     elements.min=button('−','alg-min',()=>setMinimized(!layout.minimized),'تصغير / تكبير');
     head.append(logo,title,elements.min);
     body=node('div','alg-body');
@@ -758,7 +758,7 @@
     queueCard.append(queueHeader,queueScroll);
     elements.note=node('div','alg-note');
     body.append(stats,actions,elements.resume,elements.instant,templateCard,addCard,settings,queueCard,elements.note,
-      node('div','alg-footer','AlGzawy Scripts · BETA · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+      node('div','alg-footer','AlGzawy Scripts · © 2026 الغزااوي — جميع الحقوق محفوظة'));
     const grip=node('div','alg-resize-grip','◢');
     grip.setAttribute('role','separator');grip.setAttribute('aria-label','اسحب الزاوية اليسرى لتغيير الحجم');
     panel.append(head,body,grip);
