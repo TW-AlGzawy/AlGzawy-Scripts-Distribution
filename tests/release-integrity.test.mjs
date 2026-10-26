@@ -5,14 +5,14 @@ import {readFileSync, existsSync} from 'node:fs';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const manifest=JSON.parse(read('catalog.json'));
 const api=read('portal/functions/api/[[path]].js');
-const EXPECTED=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1','professional-training-v2','send-automation','alg-attacks','alg-coins','tribal-wars-helper'];
+const EXPECTED=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1','professional-training-v2','send-automation','alg-attacks','warehouse-alert-safe','alg-coins','tribal-wars-helper'];
 const DIST='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main';
 
 function metadata(js,key){
   return [...js.matchAll(new RegExp('^//\\s*@'+key+'\\s+(\\S+)$','gm'))].map(m=>m[1]);
 }
 
-test('public manifest matches the nine server licensed script IDs exactly',()=>{
+test('public manifest matches the ten production licensed script IDs exactly',()=>{
   assert.equal(manifest.schema,1);
   assert.equal(manifest.published_candidates.length,EXPECTED.length);
   const actual=manifest.published_candidates.map(item=>item.id);
@@ -28,11 +28,11 @@ test('all published installers have coherent versions and immutable identity',()
     assert.deepEqual(metadata(js,'version'),[item.version],item.id+' metadata version');
     assert.deepEqual(metadata(js,'updateURL'),[DIST+'/'+path],item.id+' update origin');
     assert.deepEqual(metadata(js,'downloadURL'),[DIST+'/'+path],item.id+' download origin');
-    assert.deepEqual(
-      metadata(js,'match').concat(metadata(js,'include')).filter(url=>url.includes('algzawy-cloud-control.pages.dev/')).sort(),
-      ['https://algzawy-cloud-control.pages.dev/v2/*','https://*.algzawy-cloud-control.pages.dev/v2/*'].sort(),
-      item.id+' only official and QA portal probe URLs'
-    );
+    const portals=metadata(js,'match').concat(metadata(js,'include')).filter(url=>url.includes('algzawy-cloud-control.pages.dev/')).sort();
+    assert.deepEqual(portals,item.id==='warehouse-alert-safe'
+      ?['https://algzawy-cloud-control.pages.dev/v2/*']
+      :['https://algzawy-cloud-control.pages.dev/v2/*','https://*.algzawy-cloud-control.pages.dev/v2/*'].sort(),
+      item.id+' explicit portal installation proof origins');
     assert.ok(js.includes(DIST+'/scripts/'+item.id+'.js'),item.id+' canonical source address');
     assert.ok(existsSync(new URL('../scripts/'+item.id+'.js',import.meta.url)),item.id+' published engine exists');
     assert.equal(typeof item.approved_for_final,'boolean',item.id+' explicit release approval');
