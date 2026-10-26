@@ -1,5 +1,5 @@
 // @name         الغزااوي | البناء المتطور
-// @version      1.0.4
+// @version      1.0.5
 // Licensed AlG Builder v1.0. The browser receives executable source: public JS is inspectable.
 (function () {
   'use strict';
@@ -249,11 +249,15 @@
     layout={...layout,...safe};
     localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
   }
-  function dockEdgeForRect(rect,bounds,dx){
-    // Dock only after an intentional drag towards the visible screen edge.
-    if(dx<=-18&&rect.left<=bounds.left+12)return 'left';
-    if(dx>=18&&rect.right>=bounds.right-12)return 'right';
-    return null;
+  function dockEdgeForRect(rect,bounds,dx,dy=0){
+    // Only a deliberate outward drag causes the UI to tuck away.
+    const candidates=[];
+    if(dx<=-18&&rect.left<=bounds.left+12)candidates.push(['left',Math.abs(dx)]);
+    if(dx>=18&&rect.right>=bounds.right-12)candidates.push(['right',Math.abs(dx)]);
+    if(dy<=-18&&rect.top<=bounds.top+12)candidates.push(['top',Math.abs(dy)]);
+    if(dy>=18&&rect.top>=bounds.bottom-55)
+      candidates.push(['bottom',Math.abs(dy)]);
+    return candidates.sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
   }
   function restorePosition(){
     if (!panel)return;
@@ -337,6 +341,8 @@
     '#'+DOCK_ID+'{position:fixed;z-index:2147481002;display:none;place-items:center;width:35px;height:72px;min-width:35px;min-height:56px;padding:0;border:1px solid #38af96;background:#123e3b;color:#e8fff8;box-shadow:0 8px 20px #0008;cursor:pointer;touch-action:manipulation;font:900 21px Arial;line-height:1}',
     '#'+DOCK_ID+'[data-side="left"]{border-radius:0 12px 12px 0;border-left:0}',
     '#'+DOCK_ID+'[data-side="right"]{border-radius:12px 0 0 12px;border-right:0}',
+    '#'+DOCK_ID+'[data-side="top"]{border-radius:0 0 12px 12px;border-top:0}',
+    '#'+DOCK_ID+'[data-side="bottom"]{border-radius:12px 12px 0 0;border-bottom:0}',
     '#'+DOCK_ID+':focus-visible{outline:2px solid #56edbc;outline-offset:-3px}',
     '@media(max-width:480px){#'+ROOT_ID+'{max-width:calc(100vw - 8px)}#'+ROOT_ID+' .alg-body{padding:8px;gap:7px}}'
   ].join('\n');
@@ -551,47 +557,59 @@
     }else if(isRunning&&buildingQueue.length===0)status('القائمة اليدوية فارغة؛ التشغيل محفوظ في انتظار إضافة مبنى.','warn');
     else status(isRunning?'المحرك يعمل؛ يتحقق من البناء والموارد تلقائيًا.':'المحرك متوقف؛ يمكنك ترتيب المهام بأمان.','normal');
   }
+  const DOCK_SIDES=['left','right','top','bottom'];
   function syncDockTab(){
     if(!panel||!dockTab)return;
-    const side=layout.dockSide==='left'||layout.dockSide==='right'?layout.dockSide:null;
+    const side=DOCK_SIDES.includes(layout.dockSide)?layout.dockSide:null;
     const docked=!!side;
-    // Keep the DOM and running construction jobs; hide only the floating UI.
     panel.style.visibility=docked?'hidden':'visible';
     panel.style.pointerEvents=docked?'none':'auto';
     dockTab.style.display=docked?'grid':'none';
     if(!docked)return;
-    const bounds=visibleMobileBounds();
-    const rawTop=Number(layout.dockTop);
-    dockTab.style.top=clamp(Number.isFinite(rawTop)?rawTop:bounds.top+36,
-      bounds.top+8,Math.max(bounds.top+8,bounds.bottom-72-8))+'px';
+    const bounds=visibleMobileBounds(),vertical=side==='left'||side==='right';
+    const width=vertical?35:72,height=vertical?72:35;
+    const position=vertical?Number(layout.dockTop):Number(layout.dockLeft);
+    const raw=Number.isFinite(position)?position:(vertical?bounds.top+35:bounds.left+35);
+    const min=vertical?bounds.top+6:bounds.left+6;
+    const max=vertical?bounds.bottom-height-6:bounds.right-width-6;
+    dockTab.style.width=width+'px';dockTab.style.height=height+'px';
+    dockTab.style.left='auto';dockTab.style.right='auto';dockTab.style.top='auto';dockTab.style.bottom='auto';
+    const fitted=clamp(raw,min,Math.max(min,max));
+    if(vertical){
+      dockTab.style.top=fitted+'px';
+      if(side==='left')dockTab.style.left=bounds.left+'px';
+      else dockTab.style.right=Math.max(0,innerWidth-bounds.right)+'px';
+    }else{
+      dockTab.style.left=fitted+'px';
+      if(side==='top')dockTab.style.top=bounds.top+'px';
+      else dockTab.style.bottom=Math.max(0,innerHeight-bounds.bottom)+'px';
+    }
     dockTab.dataset.side=side;
-    dockTab.textContent=side==='left'?'❯':'❮';
-    dockTab.style.left=side==='left'?bounds.left+'px':'auto';
-    dockTab.style.right=side==='right'?Math.max(0,innerWidth-bounds.right)+'px':'auto';
-    dockTab.setAttribute('aria-label',side==='left'?'إظهار نافذة البناء من الحافة اليسرى':'إظهار نافذة البناء من الحافة اليمنى');
+    dockTab.textContent=({left:'❯',right:'❮',top:'▼',bottom:'▲'})[side];
+    dockTab.setAttribute('aria-label','إظهار البناء المتطور من الحافة '+({left:'اليسرى',right:'اليمنى',top:'العلوية',bottom:'السفلية'})[side]);
   }
   function dockPanel(side){
-    if(!panel||!['left','right'].includes(side)||layout.dockSide)return;
+    if(!panel||!DOCK_SIDES.includes(side)||layout.dockSide)return;
     persistLayout();
-    layout.dockTop=panel.getBoundingClientRect().top;
-    layout.dockSide=side;
+    const rect=panel.getBoundingClientRect();
+    layout.dockTop=rect.top;layout.dockLeft=rect.left;layout.dockSide=side;
     localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
     syncDockTab();
   }
   function releaseDock(){
     const side=layout.dockSide;
-    if(!panel||!['left','right'].includes(side))return;
+    if(!panel||!DOCK_SIDES.includes(side))return;
     layout.dockSide=null;
-    const bounds=visibleMobileBounds();
-    const x=side==='left'?bounds.left+12:bounds.right-panel.offsetWidth-12;
-    panel.style.left=clamp(x,bounds.left+4,
-      Math.max(bounds.left+4,bounds.right-panel.offsetWidth-4))+'px';
-    const top=Number(layout.dockTop);
-    panel.style.top=clamp(Number.isFinite(top)?top:bounds.top+8,bounds.top+4,
-      Math.max(bounds.top+4,bounds.bottom-49))+'px';
-    panel.style.bottom='auto';
-    syncDockTab();
-    persistLayout();
+    const bounds=visibleMobileBounds(),width=panel.offsetWidth,height=panel.offsetHeight;
+    const dockTop=Number(layout.dockTop),dockLeft=Number(layout.dockLeft);
+    const x=side==='left'?bounds.left+12:side==='right'?bounds.right-width-12:
+      Number.isFinite(dockLeft)?dockLeft:bounds.left+12;
+    const y=side==='top'?bounds.top+12:side==='bottom'?bounds.bottom-height-12:
+      Number.isFinite(dockTop)?dockTop:bounds.top+12;
+    panel.style.left=clamp(x,bounds.left+4,Math.max(bounds.left+4,bounds.right-width-4))+'px';
+    panel.style.top=clamp(y,bounds.top+4,Math.max(bounds.top+4,bounds.bottom-49))+'px';
+    panel.style.bottom='auto';panel.style.right='auto';
+    syncDockTab();persistLayout();
   }
   function saveSizeAfterResize(){
     if(!layout.minimized&&!drag&&!layout.dockSide)persistLayout();
@@ -656,13 +674,13 @@
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==0||event.target.closest('button,input,select'))return;
       const box=panel.getBoundingClientRect();
-      drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,left:box.left,top:box.top,lastDx:0};
+      drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,left:box.left,top:box.top,lastDx:0,lastDy:0};
       handle.setPointerCapture?.(event.pointerId);
     });
     handle.addEventListener('pointermove',event=>{
       if(!drag||event.pointerId!==drag.pointer)return;
-      drag.lastDx=event.clientX-drag.x;
-      const nx=drag.left+drag.lastDx,ny=drag.top+event.clientY-drag.y;
+      drag.lastDx=event.clientX-drag.x;drag.lastDy=event.clientY-drag.y;
+      const nx=drag.left+drag.lastDx,ny=drag.top+drag.lastDy;
       const bounds=visibleMobileBounds();
       panel.style.left=clamp(nx,bounds.left+4,Math.max(bounds.left+4,bounds.right-panel.offsetWidth-4))+'px';
       panel.style.top=clamp(ny,bounds.top+4,Math.max(bounds.top+4,bounds.bottom-49))+'px';
@@ -670,11 +688,11 @@
     });
     const finish=event=>{
       if(!drag||event.pointerId!==drag.pointer)return;
-      const deltaX=drag.lastDx;
+      const deltaX=drag.lastDx,deltaY=drag.lastDy;
       drag=null;
       // A cancelled touch gesture must never hide the panel.
       const side=event.type==='pointerup'
-        ?dockEdgeForRect(panel.getBoundingClientRect(),visibleMobileBounds(),deltaX):null;
+        ?dockEdgeForRect(panel.getBoundingClientRect(),visibleMobileBounds(),deltaX,deltaY):null;
       if(side)dockPanel(side);
       else persistLayout();
     };
@@ -687,7 +705,7 @@
     const head=node('header','alg-head');
     const logo=node('span','alg-logo','AlG');
     const title=node('span','alg-title','الغزااوي | البناء المتطور');
-    title.append(node('small','alg-subtitle','v1.0.4'));
+    title.append(node('small','alg-subtitle','v1.0.5'));
     elements.min=button('−','alg-min',()=>setMinimized(!layout.minimized),'تصغير / تكبير');
     head.append(logo,title,elements.min);
     body=node('div','alg-body');
@@ -835,6 +853,47 @@
     dockTab.id=DOCK_ID;
     dockTab.setAttribute('aria-expanded','false');
     dockTab.setAttribute('aria-controls',ROOT_ID);
+    let tabGesture=null,skipClickUntil=0;
+    dockTab.addEventListener('click',event=>{
+      if(Date.now()<skipClickUntil){event.preventDefault();event.stopImmediatePropagation();}
+    },true);
+    dockTab.addEventListener('pointerdown',event=>{
+      if(event.button!==0||!DOCK_SIDES.includes(layout.dockSide))return;
+      tabGesture={id:event.pointerId,x:event.clientX,y:event.clientY,
+        top:Number(layout.dockTop)||0,left:Number(layout.dockLeft)||0,
+        side:layout.dockSide,moved:false};
+      dockTab.setPointerCapture?.(event.pointerId);
+    });
+    dockTab.addEventListener('pointermove',event=>{
+      if(!tabGesture||tabGesture.id!==event.pointerId)return;
+      const dx=event.clientX-tabGesture.x,dy=event.clientY-tabGesture.y;
+      if(Math.hypot(dx,dy)>7)tabGesture.moved=true;
+      if(!tabGesture.moved)return;
+      if(tabGesture.side==='left'||tabGesture.side==='right')layout.dockTop=tabGesture.top+dy;
+      else layout.dockLeft=tabGesture.left+dx;
+      syncDockTab();
+      if(event.cancelable)event.preventDefault();
+    });
+    const endTab=event=>{
+      if(!tabGesture||tabGesture.id!==event.pointerId)return;
+      const gesture=tabGesture;tabGesture=null;
+      if(dockTab.hasPointerCapture?.(event.pointerId))dockTab.releasePointerCapture(event.pointerId);
+      if(!gesture.moved)return;
+      skipClickUntil=Date.now()+500;
+      if(event.type==='pointerup'){
+        const b=visibleMobileBounds();
+        const distances={left:Math.abs(event.clientX-b.left),right:Math.abs(event.clientX-b.right),
+          top:Math.abs(event.clientY-b.top),bottom:Math.abs(event.clientY-b.bottom)};
+        const [nearest,distance]=Object.entries(distances).sort((a,z)=>a[1]-z[1])[0];
+        if(distance<=34)layout.dockSide=nearest;
+        if(layout.dockSide==='left'||layout.dockSide==='right')layout.dockTop=event.clientY;
+        else layout.dockLeft=event.clientX;
+        localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
+      }
+      syncDockTab();
+    };
+    dockTab.addEventListener('pointerup',endTab);
+    dockTab.addEventListener('pointercancel',endTab);
     document.body.append(dockTab);
     restorePosition();
     installDrag(head);

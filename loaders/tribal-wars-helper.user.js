@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.2.1
+// @version      1.2.2
 // @description  AlGzawy Cloud — اشتراك وجهاز معتمد
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.tribalwars.ae/game.php*
@@ -27,7 +27,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.2.1';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.2.2';
 
     // QA-only transient diagnostics for the install handshake; not a license or execution authorization.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -62,7 +62,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.2.1');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.2.2');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
