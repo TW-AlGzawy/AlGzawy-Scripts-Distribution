@@ -21,7 +21,9 @@ for(const item of published) {
     new vm.Script(engine,{filename:item.id+'.js'});
     new vm.Script(loader,{filename:item.id+'.user.js'});
     assert.match(loader,new RegExp('const ID = "'+item.id+'";'));
-    assert.ok(loader.includes('algzawy-control-api.karm-saleh-usa2.workers.dev/status'));
+    assert.ok(loader.includes(item.id==='warehouse-alert-safe'
+      ?'https://algzawy-cloud-control.pages.dev/api/status'
+      :'algzawy-control-api.karm-saleh-usa2.workers.dev/status'));
     assert.match(loader,/localStorage\.getItem\(LOCAL_KEY\)\s*===\s*'false'/);
     assert.match(loader,/localStorage\.getItem\(HUMAN_KEY\)\s*===\s*'1'/);
     assert.ok(loader.includes("const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;"));
@@ -48,7 +50,8 @@ test('attack alert settings object is available to its source',()=>{
 test('local control center contains every published bot',()=>{
   const src=read('loaders/algzawy-control-center.user.js');
   const ids=[...src.matchAll(/\['([a-z0-9-]+)','[^']+'\]/g)].map(m=>m[1]);
-  assert.deepEqual(new Set(ids),new Set(published.map(x=>x.id)));
+  assert.deepEqual(new Set(ids),new Set(published.filter(x=>x.id!=='warehouse-alert-safe').map(x=>x.id)));
+ assert.ok(published.some(x=>x.id==='warehouse-alert-safe'),'warehouse independently licensed');
 });
 
 test('retired attack rename does not ship an executable engine',()=>{
