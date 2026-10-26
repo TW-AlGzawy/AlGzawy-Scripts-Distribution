@@ -8,7 +8,7 @@ let toastTimer=null;
 const toast=(msg,error=false)=>{const el=$('toast');el.textContent=msg;el.classList.toggle('error',error);el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},4400);};
 const h=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=String(text);return el;};
 
-const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"],"telegram":["إعداد Telegram","إدارة Webhook وأوامر البوت التجريبي"]};
+const ownerTitles={"overview":["نظرة عامة","عرض الأقسام الرئيسية للوصول السريع"],"users":["الحسابات والأجهزة","العملاء والاشتراكات والصلاحيات"],"create":["إضافة مشترك","إنشاء حساب ومفتاح وصول"],"archive":["الأرشيف","الحسابات المؤرشفة والاستعادة"],"global":["التشغيل المركزي","تشغيل وإيقاف المنظومة"],"scripts":["السكربتات","تفعيل كل سكربت بشكل فردي"],"session":["جلسة الإدارة","أدوات الإدارة والنظام"],"telegram":["إعداد Telegram","إدارة Webhook وأوامر البوت"]};
 const ownerPanels=[...document.querySelectorAll('[data-owner-view]')];
 const ownerLinks=[...document.querySelectorAll('[data-owner-page]')];
 const ownerSidebar=$('ownerSidebar'),ownerBackdrop=$('ownerSidebarBackdrop'),ownerToggle=$('ownerMenuToggle');
@@ -419,12 +419,12 @@ function showTelegramAdmin(data){
   $('adminTelegramWebhook').disabled=!data?.configured;
   $('adminTelegramCommands').disabled=!data?.configured;
   if(!data?.configured){
-    holder.textContent='الإعدادات غير مكتملة أو تعذّر التحقق من BotFather. تأكد من إعداد Preview والأسرار ثم أعد النشر.';
+    holder.textContent='الإعدادات غير مكتملة أو تعذّر التحقق من BotFather. تأكد من إعداد الموقع الرسمي والأسرار ثم أعد النشر.';
     return;
   }
   const w=data.webhook||{};
   holder.textContent='البوت: @'+data.botUsername
-    +' | Webhook: '+(w.forPreview?'✅ مربوط بـPreview':w.registered?'⚠️ يعمل على '+(w.existingHost||'موقع آخر'):'غير مسجل')
+    +' | Webhook: '+(w.forOfficial?'✅ مربوط بـالموقع الرسمي':w.registered?'⚠️ يعمل على '+(w.existingHost||'موقع آخر'):'غير مسجل')
     +' | الأوامر: '+(data.commandsConfigured?'✅ منشورة':'لم تُنشر بعد')
     +' | انتظار Telegram: '+String(w.pending||0)
     +(w.error?' | آخر خطأ: '+w.error:'');
@@ -446,16 +446,16 @@ $('adminTelegramWebhook').addEventListener('click',async()=>{
   if(!telegramAdminState?.configured)return;
   const webhook=telegramAdminState.webhook||{};
   let replaceExisting=false;
-  if(webhook.registered&&!webhook.forPreview){
+  if(webhook.registered&&!webhook.forOfficial){
     replaceExisting=confirm('بوت AlGzawy يستخدم حاليًا Webhook على '+(webhook.existingHost||'عنوان مختلف')
-      +'. استبداله سيوقف التنبيهات القادمة من التكامل القديم. هل تأكدت أن التكامل القديم لم يعد مطلوبًا، وتريد التحويل إلى Preview؟');
+      +'. استبداله سيوقف التنبيهات القادمة من التكامل القديم. هل تأكدت أن التكامل القديم لم يعد مطلوبًا، وتريد التحويل إلى الموقع الرسمي؟');
     if(!replaceExisting)return;
-  }else if(!confirm('هل استبدلت المفتاح القديم المكشوف، وأعددت سر Webhook الجديد في Cloudflare Preview؟\nسيتم توجيه الرسائل الجديدة إلى Preview فقط.'))return;
+  }else if(!confirm('هل استبدلت المفتاح القديم المكشوف، وأعددت سر Webhook الجديد في Cloudflare الموقع الرسمي؟\nسيتم توجيه الرسائل الجديدة إلى الموقع الرسمي فقط.'))return;
   const btn=$('adminTelegramWebhook');btn.disabled=true;
   try{
     const result=await api('admin/telegram/webhook',{method:'POST',body:{replaceExisting}});
     if(!result.webhookConfigured)throw Error('telegram_webhook_not_verified');
-    toast('تم توجيه Telegram إلى Webhook الخاص ببيئة Preview');
+    toast('تم توجيه Telegram إلى Webhook الخاص ببيئة الموقع الرسمي');
     await loadTelegramAdmin();
   }catch(err){toast(errorArabic(err),true);await loadTelegramAdmin();}
   finally{btn.disabled=false;}
