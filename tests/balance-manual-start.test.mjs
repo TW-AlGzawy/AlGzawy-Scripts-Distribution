@@ -31,10 +31,10 @@ test('opening mini panel ignores persisted autoEnabled=true until user explicitl
       return nodes.get(id);}
  };
  const build=new Function('document','GM_getValue','GM_setValue','stopAutoRun','startAutoRun','constrainBalancePanel',
-   'enableMobileTouchDrag','BG','BORDER','CREAM','HDR','BG2','GOLD','DIM',
+   'enableMobileTouchDrag','setMiniStatus','createMainInterface','BG','BORDER','CREAM','HDR','BG2','GOLD','DIM',
    'var autoEnabled=false;'+buildCode+'return {buildMiniPanel,getActive:()=>autoEnabled};')(
     document,(key,def)=>key in stored?stored[key]:def,(key,value)=>{stored[key]=value;},
-    ()=>{stopped++;},()=>{started++;},()=>{},()=>{},
+    ()=>{stopped++;},()=>{started++;},()=>{},()=>{},()=>{},()=>{},
     '#000','#abc','#fff','#111','#222','#ccc','#ddd'
    );
  build.buildMiniPanel();
