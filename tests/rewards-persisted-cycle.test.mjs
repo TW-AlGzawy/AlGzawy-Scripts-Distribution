@@ -47,11 +47,11 @@ function harness(shared,clock,challenge=()=>false){
    timers.delete(first[0]);return first[1].fn();
   }};
 }
-test('collector engine / official installer / catalog agree on version 1.2.3',()=>{
+test('collector engine / official installer / catalog agree on version 1.2.4',()=>{
  new vm.Script(engine);new vm.Script(loader);
- assert.match(engine,/^\/\/ @version\s+1\.2\.3$/m);
- assert.match(loader,/^\/\/ @version\s+1\.2\.3$/m);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='tribal-wars-helper').version,'1.2.3');
+ assert.match(engine,/^\/\/ @version\s+1\.2\.4$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.2\.4$/m);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='tribal-wars-helper').version,'1.2.4');
 });
 test('refresh resumes remaining 360-second deadline, never starts at 2 seconds',async()=>{
  const clock={now:1000000},session=makeStore(),local=makeStore(new Map([
