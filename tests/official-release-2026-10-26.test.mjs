@@ -7,7 +7,7 @@ const read = path => readFileSync(new URL('../'+path,import.meta.url),'utf8');
 test('official bridge keeps production device identity and exact Pages host',()=>{
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.5$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.6$/m);
  assert.match(bridge,/const PORTAL_ORIGIN='https:\/\/algzawy-cloud-control\.pages\.dev'/);
  assert.doesNotMatch(bridge,/algzawy_preview_/);
  assert.doesNotMatch(bridge,/feature-algzawy-quality-hard/);
