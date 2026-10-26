@@ -1,4 +1,4 @@
-// @version      1.0.3
+// @version      1.0.4
 // @name         الغزااوي | موازنة الموارد
 // ============================================================
 //  AlGzawy - موازنة الموارد v1.0
@@ -707,7 +707,7 @@ function buildClustersDialog(list_clusters_stats){
 }
 
 // ===== MINI PANEL (auto-run) =====
-var autoTimer=null,countdownTimer=null,autoEnabled=false;
+var autoTimer=null,countdownTimer=null,autoEnabled=false,autoEpoch=0;
 
 function buildMiniPanel(){
     var _ex=document.getElementById('alg-mini-panel');if(_ex)_ex.parentNode.removeChild(_ex);
@@ -716,7 +716,11 @@ function buildMiniPanel(){
     var left=GM_getValue('alg_bal_miniLeft','8px');
     var minimized=GM_getValue('alg_bal_miniMin',false);
     var interval=GM_getValue('alg_bal_interval',7200);
-    autoEnabled=GM_getValue('alg_bal_autoEnabled',false);
+    // A persisted ON state from older versions must never authorize
+    // automatic resource transfers after page refresh or new tab load.
+    stopAutoRun();
+    autoEnabled=false;
+    GM_setValue('alg_bal_autoEnabled',false);
 
     var p=document.createElement('div');
     p.id='alg-mini-panel';
@@ -789,7 +793,8 @@ function buildMiniPanel(){
         var iv=parseInt(document.getElementById('alg-mini-interval').value)||7200;
         GM_setValue('alg_bal_interval',iv);
         autoEnabled=!autoEnabled;
-        GM_setValue('alg_bal_autoEnabled',autoEnabled);
+        // Only the user's explicit click starts an automatic cycle.
+        // Do not persist an active state across page loads.
         if(autoEnabled){
             this.style.background='linear-gradient(to bottom,#392532,#372330)';
             this.style.color='#f2abb1';
@@ -804,10 +809,7 @@ function buildMiniPanel(){
         }
     };
 
-    if(autoEnabled){
-        var iv=parseInt(GM_getValue('alg_bal_interval',7200))||7200;
-        startAutoRun(iv);
-    }
+    // Always remain stopped until the user presses "تشغيل تلقائي".
 }
 
 function setMiniStatus(msg){
@@ -815,7 +817,7 @@ function setMiniStatus(msg){
     if(el)el.textContent=msg;
 }
 
-function autoSendAll(onComplete,closeAfter){
+function autoSendAll(onComplete,closeAfter,shouldContinue){
     var allBtns=$('.alg-SEND-BTN:not(:disabled)');
     var total=allBtns.length,sent=0;
     var sendBtn=document.getElementById('alg-send-all-btn');
@@ -828,6 +830,11 @@ function autoSendAll(onComplete,closeAfter){
     if(sendBtn){sendBtn.disabled=true;sendBtn.style.opacity='0.6';}
     if(statusEl)statusEl.textContent='0 / '+total;
     function sendNext(idx){
+        // Stopping automation also stops a batch already between villages.
+        if(shouldContinue&&!shouldContinue()){
+            if(sendBtn){sendBtn.disabled=false;sendBtn.style.opacity='1';}
+            return;
+        }
         if(idx>=total){
             if(statusEl)statusEl.textContent='تم إرسال '+sent+' طلب';
             if(sendBtn){sendBtn.disabled=false;sendBtn.style.opacity='1';}
@@ -862,25 +869,34 @@ function autoSendAll(onComplete,closeAfter){
 }
 
 function stopAutoRun(){
+    autoEpoch++; // Invalidate callbacks already waiting on promises or short delays.
     if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
     if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
 }
 
 function startAutoRun(intervalSec){
     stopAutoRun();
+    if(!autoEnabled)return;
+    var runEpoch=autoEpoch;
+    function stillActive(){return autoEnabled&&runEpoch===autoEpoch;}
     function runCycle(){
+        if(!stillActive())return;
         setMiniStatus('جاري تحضير النافذة...');
         createMainInterface();
         window.setTimeout(function(){
+            if(!stillActive())return;
             setMiniStatus('جاري الموازنة...');
             balancingResources().then(function(){
+                if(!stillActive())return;
                 setMiniStatus('جاري الإرسال...');
                 window.setTimeout(function(){
+                    if(!stillActive())return;
                     autoSendAll(function(){
-                        scheduleNext(intervalSec);
-                    },true);
+                        if(stillActive())scheduleNext(intervalSec);
+                    },true,stillActive);
                 },500);
             }).catch(function(e){
+                if(!stillActive())return;
                 console.error('[AlGzawy Balance] خطأ في الموازنة التلقائية:',e);
                 var w=document.getElementById('alg-window');
                 if(w)w.parentNode.removeChild(w);
@@ -890,15 +906,18 @@ function startAutoRun(intervalSec){
         },800);
     }
     function scheduleNext(sec){
+        if(!stillActive())return;
         var end=Date.now()+sec*1000;
         countdownTimer=setInterval(function(){
+            if(!stillActive()){clearInterval(countdownTimer);countdownTimer=null;return;}
             var rem=Math.max(0,Math.round((end-Date.now())/1000));
             var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
             setMiniStatus('التالي: '+h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s);
             if(rem<=0){clearInterval(countdownTimer);}
         },1000);
         autoTimer=setTimeout(function(){
-            clearInterval(countdownTimer);
+            if(!stillActive())return;
+            clearInterval(countdownTimer);countdownTimer=null;
             runCycle();
         },sec*1000);
     }
