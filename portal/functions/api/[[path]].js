@@ -210,7 +210,7 @@ function validateSettings(id,raw){
 async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
-  // Preview-only Telegram endpoints: never expose the bot token to clients.
+  // Restricted Telegram endpoints: never expose the bot token to clients.
   if(path[0]==='telegram'&&!telegramPreviewHost(req))return bad('not_found',404);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
   if(path[0]==='telegram'&&path[1]==='webhook'&&path.length===2){
@@ -249,7 +249,7 @@ async function handler(req,env){
         .map(({id,version})=>({id,version}));
       if(items.length!==GROUPS.length-1)return bad('release_manifest_incomplete',503);
       // QA-only standalone warehouse pilot has a separate version channel.
-      if(telegramPreviewHost(req))items.push({id:'warehouse-alert-safe',version:'1.1.0'});
+      items.push({id:'warehouse-alert-safe',version:'1.1.2'});
       return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
     }catch(e){console.warn('[installer-releases]',e);return bad('release_manifest_unavailable',503);}
   }
@@ -260,7 +260,7 @@ async function handler(req,env){
     if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
     if(currentUser&&!(await subscriptionOK(env,currentUser.id)))return bad('subscription_inactive',403);
     const licensed=hasAdmin?new Set(GROUPS.map(([id])=>id)):await allowedSet(env,currentUser.id);
-    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:id==='warehouse-alert-safe'&&telegramPreviewHost(req)?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:id==='warehouse-alert-safe'?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
   }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
@@ -317,7 +317,7 @@ async function handler(req,env){
     }
     if(path[1]==='telegram'&&path.length===3){
       // Protected by existing owner session/Bearer and per-session CSRF,
-      // Preview host guard and encrypted Telegram API credentials.
+      // Exact host allowlist and encrypted Telegram API credentials.
       return telegramOwner(req,env,path[2],{reply,bad});
     }
     // Existing audit table; owner-only read with no migration or IP in response.
@@ -338,7 +338,7 @@ async function handler(req,env){
     if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
       return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
         id,name,category,description,featured:FAV.has(id),
-        installer:id==='warehouse-alert-safe'&&telegramPreviewHost(req)?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
+        installer:id==='warehouse-alert-safe'?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
       }))});
     }
     if(path[1]==='scripts'&&path.length===2){

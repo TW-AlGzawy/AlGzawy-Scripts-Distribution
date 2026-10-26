@@ -1,15 +1,16 @@
-// AlGzawy Preview Telegram binding & delivery.
+// AlGzawy Cloud Telegram binding & delivery.
 // Bot token MUST be a Cloudflare Preview secret, never client code or Git.
 // Disabled unless the explicit QA feature flag, token, username, webhook secret
 // and the Preview-only D1 tables are all configured.
 const USERNAME=/^[A-Za-z][A-Za-z0-9_]{4,31}$/;
 const QA_HOST='feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
-export const telegramPreviewHost=request=>new URL(request.url).hostname===QA_HOST;
+const MAIN_HOST='algzawy-cloud-control.pages.dev';
+export const telegramPreviewHost=request=>[QA_HOST,MAIN_HOST].includes(new URL(request.url).hostname);
 // QA exposes strictly boolean readiness for authenticated subscribers.
 // Never report values, lengths, prefixes, suffixes, or the Bot API token.
 export function telegramConfigChecks(env){
   return {
-    mode:env.ALG_TELEGRAM_QA_MODE==='enabled',
+    mode:env.ALG_TELEGRAM_MODE==='enabled'||env.ALG_TELEGRAM_QA_MODE==='enabled',
     botToken:typeof env.ALG_TELEGRAM_BOT_TOKEN==='string'&&/^\d{6,15}:[A-Za-z0-9_-]{20,}$/.test(env.ALG_TELEGRAM_BOT_TOKEN),
     botUsername:typeof env.ALG_TELEGRAM_BOT_USERNAME==='string'&&USERNAME.test(env.ALG_TELEGRAM_BOT_USERNAME),
     webhookSecret:typeof env.ALG_TELEGRAM_WEBHOOK_SECRET==='string'&&/^[A-Za-z0-9_-]{32,128}$/.test(env.ALG_TELEGRAM_WEBHOOK_SECRET)
@@ -175,7 +176,7 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
     try{link=await dbLink(env,user.id);}catch(_){return bad('telegram_storage_not_ready',503);}
     if(!link)return bad('telegram_not_linked',409);
     if(!(await limitedEvent(env,user.id,'test',120)))return bad('telegram_test_rate_limited',429);
-    if(!(await send(env,link.chat_id,'✅ اختبار AlGzawy Preview ناجح.\nستصلك إشعارات الهجمات عند تشغيل سكربت التنبيه وربطه بالمتصفح، وبعد تفعيل الإشعارات.')))
+    if(!(await send(env,link.chat_id,'✅ اختبار AlGzawy Cloud ناجح.\nستصلك إشعارات الهجمات عند تشغيل سكربت التنبيه وربطه بالمتصفح، وبعد تفعيل الإشعارات.')))
       return bad('telegram_delivery_failed',502);
     return reply({ok:true,sent:true});
   }
@@ -210,10 +211,10 @@ export const telegramBotCommands=[
   {command:'warehouse_off',description:'إيقاف تنبيهات امتلاء المخازن'},
   {command:'unlink',description:'إلغاء ربط حساب Telegram'}
 ];
-const PREVIEW_PORTAL='https://'+QA_HOST+'/v2/#telegram';
+const PREVIEW_PORTAL='https://'+MAIN_HOST+'/v2/#telegram';
 const PREVIEW_WEBHOOK='https://'+QA_HOST+'/api/telegram/webhook';
 const HELP_TEXT='🤖 AlGzawy | TW Scripts Bot\n'
-  +'بوت التنبيهات الخاص بمشتركي AlGzawy (نسخة Preview).\n\n'
+  +'بوت التنبيهات الخاص بمشتركي AlGzawy (منصة AlGzawy).\n\n'
   +'الأوامر:\n'
   +'/start — بدء الاستخدام وربط البوت\n'
   +'/help — شرح الأوامر\n'
@@ -267,23 +268,23 @@ async function handleBotCommand(env,chatId,text,helpers){
         }
       }catch(_){return false;} // Telegram retries on storage failures; never log a token.
       await send(env,chatId,row
-        ?'✅ تم ربط محادثتك بحساب AlGzawy Preview.\nتنبيهات الهجمات مفعّلة لهذا الاشتراك. استخدم /status لفحص حالتها أو /off لتعطيلها.'
+        ?'✅ تم ربط محادثتك بحساب AlGzawy Cloud.\nتنبيهات الهجمات مفعّلة لهذا الاشتراك. استخدم /status لفحص حالتها أو /off لتعطيلها.'
         :'رمز الربط غير صالح أو منتهي الصلاحية. ارجع إلى مركز Telegram واطلب رابطًا جديدًا:\n'+PREVIEW_PORTAL);
       return true;
     }
     await send(env,chatId,linked
-      ?'👋 أهلًا بعودتك إلى AlGzawy.\nمحادثتك مرتبطة بالفعل بحساب Preview.\nاستخدم /status لحالة الاشتراك والتنبيهات أو /help لعرض الأوامر.'
-      :'👋 مرحبًا بك في AlGzawy | TW Scripts Bot.\nلتفعيل إشعارات الهجمات، افتح حسابك في موقع AlGzawy Preview، ثم اضغط «ربط البوت» و«Start» من رابط الربط الخاص بك.\n'+PREVIEW_PORTAL+'\n\nاستخدم /help لمعرفة الأوامر.');
+      ?'👋 أهلًا بعودتك إلى AlGzawy.\nمحادثتك مرتبطة بالفعل بحساب AlGzawy.\nاستخدم /status لحالة الاشتراك والتنبيهات أو /help لعرض الأوامر.'
+      :'👋 مرحبًا بك في AlGzawy | TW Scripts Bot.\nلتفعيل إشعارات الهجمات، افتح حسابك في موقع AlGzawy Cloud، ثم اضغط «ربط البوت» و«Start» من رابط الربط الخاص بك.\n'+PREVIEW_PORTAL+'\n\nاستخدم /help لمعرفة الأوامر.');
     return true;
   }
   if(!linked){
-    await send(env,chatId,'🔒 هذا الحساب غير مربوط بمشترك AlGzawy Preview.\nافتح الموقع واضغط «ربط البوت»:\n'+PREVIEW_PORTAL);
+    await send(env,chatId,'🔒 هذا الحساب غير مربوط بمشترك AlGzawy Cloud.\nافتح الموقع واضغط «ربط البوت»:\n'+PREVIEW_PORTAL);
     return true;
   }
   if(action==='status'){
     const available=await warehouseTableReady(env);
     const pref=available?await warehousePreference(env,chat.user_id):null;
-    await send(env,chatId,'📊 حالة Telegram في AlGzawy Preview\n'
+    await send(env,chatId,'📊 حالة Telegram في AlGzawy Cloud\n'
       +'✅ محادثتك مرتبطة بحساب مشترك.\n'
       +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')+'\n'
       +(available?(pref?.enabled===1?'🟢 تنبيهات المخازن: مفعّلة حسب نسبة السكربت':'🔴 تنبيهات المخازن: متوقفة')
@@ -385,7 +386,7 @@ export async function telegramOwner(req,env,action,{reply,bad}){
       let host='';
       try{host=existing?new URL(existing).hostname:'';}catch(_){}
       return reply({ok:true,configured:true,botUsername:me.username,
-        webhook:{registered:!!existing,forPreview:existing===PREVIEW_WEBHOOK,
+        webhook:{registered:!!existing,forPreview:existing===new URL('/api/telegram/webhook',req.url).href,
           existingHost:host,pending:Number.isSafeInteger(webhook.pending_update_count)?webhook.pending_update_count:0,
           error:typeof webhook.last_error_message==='string'?webhook.last_error_message.slice(0,160):null},
         commandsConfigured:Array.isArray(commands)&&telegramBotCommands.every(item=>
@@ -398,15 +399,15 @@ export async function telegramOwner(req,env,action,{reply,bad}){
       webhook=await telegramAPI(env,'getWebhookInfo',{});
       const existing=typeof webhook.url==='string'?webhook.url:'';
       // Never hijack another Telegram integration without explicit owner approval.
-      if(existing&&existing!==PREVIEW_WEBHOOK&&!body.replaceExisting)
+      if(existing&&existing!==new URL('/api/telegram/webhook',req.url).href&&!body.replaceExisting)
         return reply({ok:false,error:'telegram_existing_webhook_requires_confirmation',
           existingHost:(()=>{try{return new URL(existing).hostname;}catch(_){return 'unknown';}})()},409);
       await telegramAPI(env,'setWebhook',{
-        url:PREVIEW_WEBHOOK,secret_token:env.ALG_TELEGRAM_WEBHOOK_SECRET,
+        url:new URL('/api/telegram/webhook',req.url).href,secret_token:env.ALG_TELEGRAM_WEBHOOK_SECRET,
         allowed_updates:['message'],drop_pending_updates:false,max_connections:10
       });
       webhook=await telegramAPI(env,'getWebhookInfo',{});
-      return reply({ok:true,webhookConfigured:webhook?.url===PREVIEW_WEBHOOK});
+      return reply({ok:true,webhookConfigured:webhook?.url===new URL('/api/telegram/webhook',req.url).href});
     }
     if(action==='commands'&&req.method==='POST'){
       await telegramAPI(env,'setMyCommands',{commands:telegramBotCommands});
