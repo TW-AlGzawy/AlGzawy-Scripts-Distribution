@@ -25,6 +25,7 @@ test('opening mini panel ignores persisted autoEnabled=true until user explicitl
  const body={appendChild(node){nodes.set(node.id,node);}};
  const document={
    body,
+   addEventListener(){},
    createElement(){return {id:'',style:{},innerHTML:'',parentNode:null};},
    getElementById(id){if(id==='alg-mini-panel')return nodes.get(id)||null;
       if(!nodes.has(id))nodes.set(id,{id,style:{},value:id==='alg-mini-interval'?'90':null});
