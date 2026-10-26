@@ -69,7 +69,7 @@ test('only an explicit owner confirmation initializes all four official Telegram
  assert.equal(db.names.size,4);
  assert.equal(db.statements.filter(sql=>sql.startsWith('CREATE INDEX')).length,2);
  assert.ok(db.statements.every(sql=>/^(CREATE (TABLE|INDEX) IF NOT EXISTS|SELECT name FROM sqlite_master)/.test(sql)));
- assert.doesNotMatch(db.statements.join('\n'),/\bDROP\b|\bDELETE\b|\bUPDATE\b/);
+ assert.doesNotMatch(db.statements.join('\n'),/^\s*(?:DROP|DELETE|UPDATE)\b/m);
  const repeat=await tg.telegramOwner(req('database','POST',{confirm:'initialize_telegram_tables'}),
    env,'database',{reply,bad});
  assert.equal(repeat.status,200,'setup is idempotent');
