@@ -40,7 +40,8 @@ test('official routes and subscriber content do not advertise test-only game run
  const app=read('portal/v2/app.js');
  const html=read('portal/v2/index.html');
  assert.match(bridge,/game\.php\?\*mode=scavenge_mass\*/);
- assert.match(app,/const qaPreviewHost=\/\^/);
+ assert.doesNotMatch(app,/qaPreviewHost|qaInstallDiagnosticsInit|feature-algzawy-quality-hard|preview-rc1/);
+ assert.match(app,/function installerUrlFor\(item\)\{return item\.installer;\}/);
  assert.doesNotMatch(html,/ALGZAWY ALERT CENTER — PREVIEW|الجسر التجريبي/);
  assert.match(app,/installerUrlFor\(item\)/);
 });
