@@ -674,10 +674,12 @@
   else start();
 })();
 
-/* Official launcher companion — existing linked Bridge owns permissions and per-tab pin changes.
-   No code here grants a license or executes an engine. */
+/* Historical launcher companion kept for compatibility review.
+   The new official Bridge owns the entire floating UI, as in the accepted Preview.
+   Never render a second launcher that would cover the resizable Bridge. */
 (function(){
  'use strict';
+ if(window.__algzawyCloudBridge)return;
  const ID='algzawy-smart-launcher-qa', URL='https://algzawy-cloud-control.pages.dev/v2/';
  if(window.__AlGSmartLauncherQA||document.getElementById(ID))return;
  window.__AlGSmartLauncherQA=true;
