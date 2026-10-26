@@ -29,7 +29,9 @@ function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='f
 function envOK(env){return setupMissing(env).length===0;}
 
 const ADMIN_USERNAME_RE=/^[A-Za-z][A-Za-z0-9_.-]{2,31}$/;
-const ADMIN_PASSWORD_RE=/^pbkdf2-sha256\$210000\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
+// Cloudflare production Workers reject PBKDF2 operations above 100,000 iterations.
+// Keep this record format synchronized with both first-party hash generators.
+const ADMIN_PASSWORD_RE=/^pbkdf2-sha256\$100000\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
 function adminLoginMode(env){
   const user=env.ALG_ADMIN_USERNAME,record=env.ALG_ADMIN_PASSWORD_HASH;
   if(user===undefined&&record===undefined)return 'legacy';
@@ -48,7 +50,7 @@ async function verifyAdminPassword(env,username,password){
   const salt=new Uint8Array(match[1].match(/../g).map(x=>parseInt(x,16)));
   const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
   const result=new Uint8Array(await crypto.subtle.deriveBits(
-    {name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},key,256));
+    {name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},key,256));
   const hex=[...result].map(x=>x.toString(16).padStart(2,'0')).join('');
   const passwordMatches=constantEqual(hex,match[2]);
   const category=userMatches?(passwordMatches?'accepted':'password_mismatch')
