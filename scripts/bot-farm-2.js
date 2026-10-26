@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.0.2
+// @version      1.0.3
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -30,10 +30,16 @@
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { saved = null; }
   let settings = Object.assign({},defaults,saved || {});
+  // Saved ON from any earlier run is never authorization to farm on load.
+  // Keep template/delays/preferences, but require an explicit click every time.
+  settings.enabled=false;
+  try { localStorage.setItem(KEY,JSON.stringify(settings)); } catch (_) {}
   let timer = null;
   let actions = 0;
   const attempted = new Set();
-  const cols = {A:8,B:9,C:10};
+  const attemptedRows = new WeakSet();
+  // Select Tribal Wars' actual farm actions by type, not fragile table columns.
+  const cols = {A:'farm_icon_a',B:'farm_icon_b',C:'farm_icon_c'};
   const panel = document.createElement('section');
   panel.id = 'algzawy-bot2-panel';
   panel.setAttribute('dir','rtl');
@@ -99,7 +105,7 @@
     const next=document.querySelector('#village_switch_right');
     const href=next&&(next.getAttribute('href')||next.href);
     if(href && href!=='#' && (/^https?:/.test(href) || href.startsWith('/'))){
-      status('الانتقال إلى القرية التالية...');
+      status('الانتقال إلى القرية التالية... (يتوقف النهب عند فتحها)');
       timer=setTimeout(()=>{if(settings.enabled&&!challengeDetected())location.href=href;},Math.max(2000,settings.minDelay));
     }else retryLater('لا تتوفر قرية تالية الآن');
   }
@@ -112,24 +118,31 @@
       return;
     }
     const trs = Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
-    const col = cols[settings.template];
-    let found = null, key = '';
+    const targetClass = cols[settings.template];
+    let found = null, key = '',selectedRow=null;
     for (let i=0;i<trs.length;i++) {
       const row = trs[i];
-      const cells = row.querySelectorAll('td');
-      const link = cells[col] && cells[col].querySelector('a');
-      if (!link || link.classList.contains('disabled') || link.getAttribute('aria-disabled') === 'true') continue;
-      const id = row.getAttribute('data-id') || row.id || String(i);
-      const fingerprint = id+'|'+(row.textContent || '').trim().slice(0,80);
-      if (attempted.has(fingerprint)) continue;
-      found = link; key = fingerprint; break;
+      const link = targetClass&&row.querySelector('a.'+targetClass);
+      if (!link || !link.isConnected ||
+          link.classList.contains('disabled') || link.classList.contains('farm_icon_disabled') ||
+          link.getAttribute('aria-disabled') === 'true') continue;
+      const id = row.getAttribute('data-id') || row.id || '';
+      const fingerprint = id ? 'id:'+id : 'row:'+i;
+      if (attempted.has(fingerprint)||attemptedRows.has(row)) continue;
+      found=link; key=fingerprint; selectedRow=row; break;
     }
     if (!found) return nextVillage();
-    attempted.add(key);
+    if (challengeDetected()) return stop('تم إيقاف النهب بسبب التحقق البشري');
     try {
+      // Clicking the game's own farm action is only a *request*. It does
+      // not prove a troop dispatch was accepted, much less a successful haul.
       found.click();
+      attempted.add(key);
+      attemptedRows.add(selectedRow);
       actions++;
-      status('القالب '+settings.template+' | عمليات النهب: '+actions);
+      status('القالب '+settings.template+' | محاولات الإرسال: '+actions+' (غير مؤكدة من الخادم)');
+      // Keep every village row visible until the game itself changes it.
+      // Do not fake a success by deleting/hiding the target row.
     } catch (e) {
       status('تعذر الضغط: '+String(e.message || e));
       return retryLater('تعذر الضغط على القالب المختار');
@@ -139,7 +152,7 @@
   q('toggle').addEventListener('click',function(){
     saveInputs();
     if (settings.enabled) return stop('أوقفه المستخدم');
-    settings.enabled=true;store();updateButton();attempted.clear();actions=0;status('جاري النهب...');
+    settings.enabled=true;updateButton();attempted.clear();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
     schedule();
   });
   ['template','min-delay','max-delay','switch'].forEach(id => q(id).addEventListener('change',saveInputs));
@@ -166,6 +179,5 @@
   } catch (_) {}
   document.addEventListener('algzawy-human-verification',()=>stop('توقف بسبب التحقق البشري'));
   updateButton();
-  status(settings.enabled ? 'استعادة التشغيل...' : 'متوقف — اختر الإعدادات ثم تشغيل');
-  if (settings.enabled) schedule();
+  status('متوقف — اختر الإعدادات ثم اضغط تشغيل النهب');
 })();
