@@ -169,12 +169,20 @@ async function send(env,chatId,text,{html=false}={}){
   finally{clearTimeout(timeout);}
 }
 async function limitedEvent(env,userId,key,periodSec){
-  const current=now();
-  // Unique pair = one Telegram delivery attempt per event window, also guards
-  // against accidental recursive retries and repeated visibility/focus polls.
+  const current=now(),eventKey=key+':'+Math.floor(current/periodSec);
+  // Reserve the event before sending to prevent concurrent duplicate deliveries.
   const result=await env.DB.prepare('INSERT OR IGNORE INTO portal_telegram_alert_events(user_id,event_key,sent_at) VALUES(?,?,?)')
-    .bind(userId,key+':'+Math.floor(current/periodSec),current).run();
-  return (result.meta?.changes||0)>0;
+    .bind(userId,eventKey,current).run();
+  return (result.meta?.changes||0)>0?{eventKey,sentAt:current}:null;
+}
+// A confirmed failed delivery must not suppress every retry until the next
+// six-hour bucket. Release ONLY our own reservation (CAS by sent_at).
+async function releaseUndelivered(env,userId,reservation){
+  if(!reservation)return;
+  try{
+    await env.DB.prepare('DELETE FROM portal_telegram_alert_events WHERE user_id=? AND event_key=? AND sent_at=?')
+      .bind(userId,reservation.eventKey,reservation.sentAt).run();
+  }catch(_){console.warn('[AlG Telegram] could not release undelivered alert reservation');}
 }
 export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,bytes}){
   if(!telegramPreviewHost(req))return bad('not_found',404);
@@ -218,9 +226,12 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
     let link;
     try{link=await dbLink(env,user.id);}catch(_){return bad('telegram_storage_not_ready',503);}
     if(!link)return bad('telegram_not_linked',409);
-    if(!(await limitedEvent(env,user.id,'test',120)))return bad('telegram_test_rate_limited',429);
-    if(!(await send(env,link.chat_id,'✅ اختبار AlGzawy Cloud ناجح.\nستصلك إشعارات الهجمات عند تشغيل سكربت التنبيه وربطه بالمتصفح، وبعد تفعيل الإشعارات.')))
+    const reservation=await limitedEvent(env,user.id,'test',120);
+    if(!reservation)return bad('telegram_test_rate_limited',429);
+    if(!(await send(env,link.chat_id,'✅ اختبار AlGzawy Cloud ناجح.\nستصلك إشعارات الهجمات عند تشغيل سكربت التنبيه وربطه بالمتصفح، وبعد تفعيل الإشعارات.'))){
+      await releaseUndelivered(env,user.id,reservation);
       return bad('telegram_delivery_failed',502);
+    }
     return reply({ok:true,sent:true});
   }
   if(action==='preferences'&&req.method==='POST'){
@@ -549,21 +560,28 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
     if(setting?.enabled!==1)return bad('warehouse_not_enabled',409);
   }
   if(event.type==='warehouse-batch'){
-    const eligible=[];
+    const eligible=[],reservations=[];
     for(const village of event.villages){
-      if(await limitedEvent(env,device.user_id,'warehouse:'+String(village.world||'world')+':'+village.villageId+':level:'+Math.floor(village.percent/5)+':threshold:'+event.threshold,21600))
-        eligible.push(village);
+      const reservation=await limitedEvent(env,device.user_id,'warehouse:'+String(village.world||'world')+':'+village.villageId+':level:'+Math.floor(village.percent/5)+':threshold:'+event.threshold,21600);
+      if(reservation){eligible.push(village);reservations.push(reservation);}
     }
     if(!eligible.length)return reply({ok:true,sent:false,rateLimited:true});
     const message=formatTelegramAlert({...event,villages:eligible});
-    if(!(await send(env,link.chat_id,message,{html:true})))return bad('telegram_delivery_failed',502);
+    if(!(await send(env,link.chat_id,message,{html:true}))){
+      for(const reservation of reservations)await releaseUndelivered(env,device.user_id,reservation);
+      return bad('telegram_delivery_failed',502);
+    }
     return reply({ok:true,sent:true,deliveredVillages:eligible.length});
   }
   const key=event.type==='attack'
     ?'attack:'+event.villageId+':'+(event.attackId||event.count)
     :'warehouse:'+String(event.world||'world')+':'+event.villageId+':level:'+Math.floor(event.percent/5)+':threshold:'+event.threshold;
-  if(!(await limitedEvent(env,device.user_id,key,21600)))return reply({ok:true,sent:false,rateLimited:true});
+  const reservation=await limitedEvent(env,device.user_id,key,21600);
+  if(!reservation)return reply({ok:true,sent:false,rateLimited:true});
   const message=formatTelegramAlert(event);
-  if(!(await send(env,link.chat_id,message,{html:true})))return bad('telegram_delivery_failed',502);
+  if(!(await send(env,link.chat_id,message,{html:true}))){
+    await releaseUndelivered(env,device.user_id,reservation);
+    return bad('telegram_delivery_failed',502);
+  }
   return reply({ok:true,sent:true});
 }
