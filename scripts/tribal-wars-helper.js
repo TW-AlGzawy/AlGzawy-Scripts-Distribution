@@ -134,6 +134,22 @@
             panel.style.top=Math.max(0,Math.min(innerHeight-40,pos.top))+'px';
           }
         }catch(_){}
+  // Position floating controls within the Safari visual viewport during pinch zoom.
+  function algMobileBounds(){
+    const v=window.visualViewport;
+    const left=v?.offsetLeft||0,top=v?.offsetTop||0;
+    return {left,top,right:left+(v?.width||innerWidth),bottom:top+(v?.height||innerHeight)};
+  }
+  function algClampVisible(panel,x,y,visibleHeader=40){
+    const b=algMobileBounds(),margin=6;
+    const minX=b.left+margin,minY=b.top+margin;
+    const maxX=Math.max(minX,b.right-panel.offsetWidth-margin);
+    const maxY=Math.max(minY,b.bottom-visibleHeader);
+    panel.style.left=Math.min(maxX,Math.max(minX,x))+'px';
+    panel.style.top=Math.min(maxY,Math.max(minY,y))+'px';
+    panel.style.right='auto';
+    panel.style.bottom='auto';
+  }
         let dragging=null;
         top.addEventListener('pointerdown',event=>{
           if(event.button!==0||event.target.closest('button,input'))return;
@@ -143,9 +159,7 @@
         });
         top.addEventListener('pointermove',event=>{
           if(!dragging||event.pointerId!==dragging.id)return;
-          panel.style.left=Math.round(Math.max(0,Math.min(innerWidth-panel.offsetWidth,dragging.left+event.clientX-dragging.x)))+'px';
-          panel.style.top=Math.round(Math.max(0,Math.min(innerHeight-40,dragging.top+event.clientY-dragging.y)))+'px';
-          panel.style.right='auto';panel.style.bottom='auto';
+          algClampVisible(panel,dragging.left+event.clientX-dragging.x,dragging.top+event.clientY-drag.y,40);
         });
         const finish=event=>{
           if(!dragging||event.pointerId!==dragging.id)return;
