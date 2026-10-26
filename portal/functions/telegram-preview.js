@@ -16,6 +16,49 @@ export function telegramConfigChecks(env){
     webhookSecret:typeof env.ALG_TELEGRAM_WEBHOOK_SECRET==='string'&&/^[A-Za-z0-9_-]{32,128}$/.test(env.ALG_TELEGRAM_WEBHOOK_SECRET)
   };
 }
+// The owner may initialize only these additive official D1 tables. Never run
+// schema creation from a subscriber request or as a side effect of page visits.
+const TELEGRAM_TABLES=[
+ 'portal_telegram_links','portal_telegram_pair_codes',
+ 'portal_telegram_alert_events','portal_telegram_warehouse_preferences'
+];
+const TELEGRAM_SCHEMA=[
+ `CREATE TABLE IF NOT EXISTS portal_telegram_links (
+  user_id TEXT PRIMARY KEY REFERENCES portal_users(id) ON DELETE CASCADE,
+  chat_id TEXT NOT NULL UNIQUE, linked_at INTEGER NOT NULL,
+  attack_alerts INTEGER NOT NULL DEFAULT 1 CHECK(attack_alerts IN (0,1)),
+  warehouse_alerts INTEGER NOT NULL DEFAULT 0 CHECK(warehouse_alerts=0)
+ )`,
+ `CREATE TABLE IF NOT EXISTS portal_telegram_pair_codes (
+  code_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES portal_users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+ )`,
+ 'CREATE INDEX IF NOT EXISTS portal_telegram_pending_user ON portal_telegram_pair_codes(user_id)',
+ `CREATE TABLE IF NOT EXISTS portal_telegram_alert_events (
+  user_id TEXT NOT NULL REFERENCES portal_users(id) ON DELETE CASCADE,
+  event_key TEXT NOT NULL, sent_at INTEGER NOT NULL,
+  PRIMARY KEY(user_id,event_key)
+ )`,
+ 'CREATE INDEX IF NOT EXISTS portal_telegram_alert_age ON portal_telegram_alert_events(sent_at)',
+ `CREATE TABLE IF NOT EXISTS portal_telegram_warehouse_preferences (
+  user_id TEXT PRIMARY KEY REFERENCES portal_users(id) ON DELETE CASCADE,
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+  threshold INTEGER NOT NULL DEFAULT 90 CHECK(threshold=90)
+ )`
+];
+async function telegramDbReadiness(env){
+ const tables=Object.fromEntries(TELEGRAM_TABLES.map(name=>[name,false]));
+ if(!env.DB||typeof env.DB.prepare!=='function')return {ready:false,tables};
+ try{
+   const rows=await env.DB.prepare(
+     "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('portal_telegram_links','portal_telegram_pair_codes','portal_telegram_alert_events','portal_telegram_warehouse_preferences')"
+   ).all();
+   const available=new Set((rows.results||[]).map(row=>row.name));
+   for(const name of TELEGRAM_TABLES)tables[name]=available.has(name);
+   return {ready:TELEGRAM_TABLES.every(name=>tables[name]),tables};
+ }catch(_){return {ready:false,tables};}
+}
 export function telegramReady(env){
   return Object.values(telegramConfigChecks(env)).every(Boolean);
 }
@@ -373,6 +416,26 @@ async function telegramAPI(env,method,payload){
 }
 export async function telegramOwner(req,env,action,{reply,bad}){
   if(!telegramPreviewHost(req))return bad('not_found',404);
+  // These two actions are reachable only behind the existing owner session/
+  // CSRF guard in api/[[path]].js; neither exposes tokens or credentials.
+  if(action==='setup-status'&&req.method==='GET'){
+    const database=await telegramDbReadiness(env);
+    return reply({ok:true,configured:telegramReady(env)&&database.ready,
+      checks:{...telegramConfigChecks(env),database:database.ready},
+      tables:database.tables});
+  }
+  if(action==='database'&&req.method==='POST'){
+    const input=await req.json().catch(()=>null);
+    if(!input||Object.keys(input).length!==1||input.confirm!=='initialize_telegram_tables')
+      return bad('invalid_request',400);
+    if(!env.DB||typeof env.DB.prepare!=='function')return bad('telegram_storage_not_ready',503);
+    try{
+      for(const sql of TELEGRAM_SCHEMA)await env.DB.prepare(sql).run();
+      const database=await telegramDbReadiness(env);
+      if(!database.ready)return bad('telegram_storage_not_ready',503);
+      return reply({ok:true,databaseReady:true,tables:database.tables});
+    }catch(_){return bad('telegram_database_setup_failed',503);}
+  }
   if(!telegramReady(env))return bad('telegram_not_configured',503);
   let me,webhook,commands;
   try{
