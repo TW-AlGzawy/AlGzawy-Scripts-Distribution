@@ -99,6 +99,16 @@ export function formatTelegramAlert(event){
   const world=niceText(event.details?.world||event.world);
   const account=niceText(event.details?.account||event.account);
   const bar='━━━━━━━━━━━━━━━━━━';
+  if(event.type==='human-verification'){
+    return ['🚨 <b>AlGzawy Cloud — فحص بشري مطلوب</b>','',
+      '🔐 <b>تم إيقاف أتمتة جميع السكربتات.</b>',
+      '🌍 <b>العالم:</b> '+world,
+      '🏘️ <b>القرية:</b> '+niceText(event.villageName),
+      '🗺️ <b>الإحداثيات:</b> '+niceText(event.coords),
+      '⚠️ افتح اللعبة وأكمل CAPTCHA يدويًا.',
+      '🛑 لن يُستأنف العمل تلقائيًا بعد اختفاء الفحص.',
+      '','🚀 <b>AlGzawy Cloud Control</b>'].join('\n');
+  }
   if(event.type==='attack'){
     const d=event.details||{};
     let lines=['⚔️ <b>هجوم وارد على Tribal Wars!</b>','',
@@ -502,9 +512,9 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
     if(raw.length>6000)return bad('payload_too_large',413);
     event=JSON.parse(raw);
   }catch(_){return bad('invalid_json');}
-  if(!event||!['attack','warehouse','warehouse-batch'].includes(event.type))
+  if(!event||!['attack','warehouse','warehouse-batch','human-verification'].includes(event.type))
     return bad('invalid_telegram_event',400);
-  if(event.type!=='warehouse-batch'&&!safeInt(event.villageId,1,9999999999))
+  if(event.type!=='warehouse-batch'&&event.type!=='human-verification'&&!safeInt(event.villageId,1,9999999999))
     return bad('invalid_telegram_event',400);
   const validateWarehouse=v=>{
     if(!v||!safeInt(v.villageId,1,9999999999)||
@@ -515,7 +525,12 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
       ['world','account','villageName','coords'].every(k=>v[k]===undefined||
          (typeof v[k]==='string'&&v[k].length<=120));
   };
-  if(event.type==='attack'){
+  if(event.type==='human-verification'){
+    if(typeof event.incidentId!=='string'||!/^[0-9a-fA-F-]{36}$/.test(event.incidentId)
+       ||['world','villageName','coords'].some(k=>
+          event[k]!==undefined&&(typeof event[k]!=='string'||event[k].length>120)))
+      return bad('invalid_human_verification_event',400);
+  }else if(event.type==='attack'){
     if(!safeInt(event.count,1,500))return bad('invalid_telegram_event',400);
     if(event.attackId!==undefined&&!/^\d{1,18}$/.test(String(event.attackId)))return bad('invalid_attack_id',400);
     if(event.details!==undefined&&(
@@ -540,13 +555,16 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
   if(global.enabled!==true)return bad('global_disabled',403);
   const allowed=await allowedSet(env,device.user_id);
   const disabled=await globallyDisabledScripts(env);
+  const isHuman=event.type==='human-verification';
   const requiredId=event.type==='attack'?'alg-attacks':'warehouse-alert-safe';
-  // Independent Preview entitlement: disabling attacks does not disable
-  // the warehouse observer, and vice versa.
-  if(!allowed.has(requiredId)||disabled.has(requiredId))return bad('script_not_licensed',403);
-  const pref=await env.DB.prepare('SELECT enabled FROM portal_preferences WHERE user_id=? AND script_id=?')
-    .bind(device.user_id,requiredId).first();
-  if(pref?.enabled!==1)return bad('script_disabled',403);
+  // A safety warning requires a signed approved subscription and linked
+  // Telegram account, not an entitlement to a particular script.
+  if(!isHuman){
+    if(!allowed.has(requiredId)||disabled.has(requiredId))return bad('script_not_licensed',403);
+    const pref=await env.DB.prepare('SELECT enabled FROM portal_preferences WHERE user_id=? AND script_id=?')
+      .bind(device.user_id,requiredId).first();
+    if(pref?.enabled!==1)return bad('script_disabled',403);
+  }
   // A signed, licensed warehouse runner can set a local threshold in 1–100%.
   // Independently re-check observed resource values against that threshold,
   // rather than silently forcing a stale website-level setting.
@@ -554,10 +572,19 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
   try{link=await dbLink(env,device.user_id);}catch(_){return bad('telegram_storage_not_ready',503);}
   if(!link)return bad('telegram_not_linked',409);
   if(event.type==='attack'&&link.attack_alerts!==1)return bad('telegram_not_enabled',409);
-  if(event.type!=='attack'){
+  if(!isHuman&&event.type!=='attack'){
     if(!(await warehouseTableReady(env)))return bad('warehouse_storage_not_ready',503);
     const setting=await warehousePreference(env,device.user_id);
     if(setting?.enabled!==1)return bad('warehouse_not_enabled',409);
+  }
+  if(isHuman){
+    const reservation=await limitedEvent(env,device.user_id,'human-verification:'+event.incidentId,86400);
+    if(!reservation)return reply({ok:true,sent:false,rateLimited:true});
+    if(!(await send(env,link.chat_id,formatTelegramAlert(event),{html:true}))){
+      await releaseUndelivered(env,device.user_id,reservation);
+      return bad('telegram_delivery_failed',502);
+    }
+    return reply({ok:true,sent:true});
   }
   if(event.type==='warehouse-batch'){
     const eligible=[],reservations=[];
