@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.5
+// @version      2.4.6
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -565,6 +565,12 @@
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
       '<p style="font-size:10px;color:#86a8b9">يلزم تثبيت السكربتات المرخّصة وتثبيتها بهذا التبويب قبل التشغيل.</p></div>';
     document.body.appendChild(card);
+    // Invisible hit targets; show a focus indicator only when using a keyboard.
+    // Do not draw corner boxes, side rails or bottom bars over the game UI.
+    const resizeFocusStyle=document.createElement('style');
+    resizeFocusStyle.textContent='#algzawy-cloud-pair-panel [class^="algzawy-cloud-resize-"]:focus:not(:focus-visible){outline:none}'+
+      '#algzawy-cloud-pair-panel [class^="algzawy-cloud-resize-"]:focus-visible{outline:2px solid #49d6af;outline-offset:-2px}';
+    card.appendChild(resizeFocusStyle);
     const q=id=>document.getElementById('algzawy-cloud-'+id);
     q('script-refresh').addEventListener('click',async()=>{
       q('script-refresh').disabled=true;
@@ -671,7 +677,7 @@
       grip.setAttribute('aria-orientation','vertical');
       grip.setAttribute('aria-label',edge==='left'?'سحب طرف الجسر الأيسر لتغيير عرضه':'سحب طرف الجسر الأيمن لتغيير عرضه');
       grip.tabIndex=0;
-      grip.style.cssText='position:absolute;top:40px;bottom:15px;'+edge+':0;width:18px;z-index:5;cursor:ew-resize;touch-action:none;-webkit-user-select:none;user-select:none;border-'+edge+':2px solid #2d8576';
+      grip.style.cssText='position:absolute;top:40px;bottom:15px;'+edge+':0;width:18px;z-index:5;cursor:ew-resize;touch-action:none;-webkit-user-select:none;user-select:none;background:transparent;border:0;-webkit-tap-highlight-color:transparent';
       card.appendChild(grip);
       resizeGrips.push(grip);
       let sizing=null;
@@ -712,7 +718,7 @@
     heightGrip.setAttribute('aria-orientation','horizontal');
     heightGrip.setAttribute('aria-label','سحب أسفل الجسر لتغيير الارتفاع');
     heightGrip.tabIndex=0;
-    heightGrip.style.cssText='position:absolute;bottom:0;left:18px;right:18px;height:18px;z-index:5;cursor:ns-resize;touch-action:none;user-select:none;background:linear-gradient(90deg,transparent 35%,#378a7f 35%,#378a7f 65%,transparent 65%) center bottom 5px/48px 2px no-repeat';
+    heightGrip.style.cssText='position:absolute;bottom:0;left:18px;right:18px;height:18px;z-index:5;cursor:ns-resize;touch-action:none;user-select:none;background:transparent;border:0;-webkit-tap-highlight-color:transparent';
     card.appendChild(heightGrip);
     resizeGrips.push(heightGrip);
     let sizingHeight=null;
@@ -766,8 +772,7 @@
         ';width:26px;height:26px;z-index:7;cursor:'+
         ((corner==='top-left'||corner==='bottom-right')?'nwse-resize':'nesw-resize')+
         ';touch-action:none;-webkit-user-select:none;user-select:none;box-sizing:border-box;'+
-        'border-'+vertical+':3px solid #49d6af;border-'+side+':3px solid #49d6af;'+
-        'border-radius:5px;background:#153f41a6';
+        'background:transparent;border:0;-webkit-tap-highlight-color:transparent';
       card.appendChild(grip);
       resizeGrips.push(grip);
       let sizingCorner=null;
