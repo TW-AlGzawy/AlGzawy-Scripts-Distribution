@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | جامع الجوائز
 // @namespace    http://tampermonkey.net/
-// @version      1.2.1
+// @version      1.2.2
 // @description  أداة مخصصة لجمع جوائز المهام تلقائياً في حرب القبائل مع ميزة "القفل المستقر" للتحكم في النافذة النشطة وعلامة مائية متحركة لغزااوي.
 // @author       AlGzawy
 // @match        https://*.tribalwars.net/game.php*
@@ -119,7 +119,7 @@
           void this.checkAndClaimRewards(true);
         });
         body.append(run,create('div','alg-reward-note','يعمل فقط داخل التبويب المعتمد في الجسر السحابي'));
-        body.append(create('footer','alg-reward-footer','BETA · v1.2.1 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+        body.append(create('footer','alg-reward-footer','BETA · v1.2.2 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
         box.append(body);
         const draw=()=>{
           body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';
@@ -150,24 +150,34 @@
     panel.style.right='auto';
     panel.style.bottom='auto';
   }
+        // The header is re-created by timingPanel(); capture on the stable
+        // outer panel and detach the previous listeners before rebinding.
+        panel.__algRewardDragAbort?.abort();
+        const dragAbort=new AbortController();
+        panel.__algRewardDragAbort=dragAbort;
+        const dragOptions={signal:dragAbort.signal};
         let dragging=null;
         top.addEventListener('pointerdown',event=>{
-          if(event.button!==0||event.target.closest('button,input'))return;
+          if(event.button!==0||event.target.closest('button,input,select,a'))return;
           const rect=panel.getBoundingClientRect();
           dragging={id:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};
-          top.setPointerCapture?.(event.pointerId);
-        });
-        top.addEventListener('pointermove',event=>{
+          panel.setPointerCapture?.(event.pointerId);
+          if(event.cancelable)event.preventDefault();
+        },dragOptions);
+        panel.addEventListener('pointermove',event=>{
           if(!dragging||event.pointerId!==dragging.id)return;
           algClampVisible(panel,dragging.left+event.clientX-dragging.x,dragging.top+event.clientY-drag.y,40);
-        });
+          if(event.cancelable)event.preventDefault();
+        },dragOptions);
         const finish=event=>{
           if(!dragging||event.pointerId!==dragging.id)return;
           dragging=null;
-          try{localStorage.setItem(positionKey,JSON.stringify({left:panel.offsetLeft,top:panel.offsetTop}));}catch(_){}
-          if(top.hasPointerCapture?.(event.pointerId))top.releasePointerCapture(event.pointerId);
+          const r=panel.getBoundingClientRect();
+          try{localStorage.setItem(positionKey,JSON.stringify({left:r.left,top:r.top}));}catch(_){}
+          if(panel.hasPointerCapture?.(event.pointerId))panel.releasePointerCapture(event.pointerId);
         };
-        top.addEventListener('pointerup',finish);top.addEventListener('pointercancel',finish);
+        panel.addEventListener('pointerup',finish,dragOptions);
+        panel.addEventListener('pointercancel',finish,dragOptions);
         setInterval(()=>{
           const next=document.getElementById('alg-reward-next');
           if(next)next.textContent=cfg.enabled&&this.nextCycleAt?
