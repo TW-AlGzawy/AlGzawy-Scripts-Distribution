@@ -1,5 +1,5 @@
 // @name         الغزااوي | البناء المتطور
-// @version      1.0.3
+// @version      1.0.4
 // Licensed AlG Builder v1.0. The browser receives executable source: public JS is inspectable.
 (function () {
   'use strict';
@@ -10,6 +10,7 @@
   const ID=String(gd.village.id);
   const SCRIPT_ID='algzawy-builder-v1';
   const ROOT_ID='algzawy-traditional-builder-v2';
+  const DOCK_ID='algzawy-builder-edge-tab-v1';
   if (document.getElementById(ROOT_ID) || window.__AlGTraditionalBuilderV2) return;
   window.__AlGTraditionalBuilderV2=true;
 
@@ -94,7 +95,7 @@
   let lastRefreshOk=false,refreshInFlight=null,noticeOnce=false;
   // Validated read-only snapshots: never transplant remote game-owned DOM.
   let observedLevels=new Map(),observedBuildCount=null;
-  let resizeObserver=null,drag=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
+  let resizeObserver=null,drag=null,dockTab=null,layout=readJSON(localStorage.getItem(LAYOUT_KEY)||'{}',{});
   if (!layout||typeof layout!=='object')layout={};
   const elements={};
   const clamp=(n,lo,hi)=>Math.min(Math.max(n,lo),Math.max(lo,hi));
@@ -248,6 +249,12 @@
     layout={...layout,...safe};
     localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
   }
+  function dockEdgeForRect(rect,bounds,dx){
+    // Dock only after an intentional drag towards the visible screen edge.
+    if(dx<=-18&&rect.left<=bounds.left+12)return 'left';
+    if(dx>=18&&rect.right>=bounds.right-12)return 'right';
+    return null;
+  }
   function restorePosition(){
     if (!panel)return;
     const w=clamp(Number(layout.width)||365,300,Math.max(300,innerWidth-12));
@@ -327,6 +334,10 @@
     '#'+ROOT_ID+' .alg-footer{color:#779ba6;font-size:9px;text-align:center}',
     '#'+ROOT_ID+'.alg-collapsed{resize:none!important;min-width:220px!important;height:49px!important;min-height:49px!important;width:min(250px,calc(100vw - 12px))!important}',
     '#'+ROOT_ID+'.alg-collapsed .alg-body{display:none!important}',
+    '#'+DOCK_ID+'{position:fixed;z-index:2147481002;display:none;place-items:center;width:35px;height:72px;min-width:35px;min-height:56px;padding:0;border:1px solid #38af96;background:#123e3b;color:#e8fff8;box-shadow:0 8px 20px #0008;cursor:pointer;touch-action:manipulation;font:900 21px Arial;line-height:1}',
+    '#'+DOCK_ID+'[data-side="left"]{border-radius:0 12px 12px 0;border-left:0}',
+    '#'+DOCK_ID+'[data-side="right"]{border-radius:12px 0 0 12px;border-right:0}',
+    '#'+DOCK_ID+':focus-visible{outline:2px solid #56edbc;outline-offset:-3px}',
     '@media(max-width:480px){#'+ROOT_ID+'{max-width:calc(100vw - 8px)}#'+ROOT_ID+' .alg-body{padding:8px;gap:7px}}'
   ].join('\n');
   document.head.appendChild(style);
@@ -540,8 +551,50 @@
     }else if(isRunning&&buildingQueue.length===0)status('القائمة اليدوية فارغة؛ التشغيل محفوظ في انتظار إضافة مبنى.','warn');
     else status(isRunning?'المحرك يعمل؛ يتحقق من البناء والموارد تلقائيًا.':'المحرك متوقف؛ يمكنك ترتيب المهام بأمان.','normal');
   }
+  function syncDockTab(){
+    if(!panel||!dockTab)return;
+    const side=layout.dockSide==='left'||layout.dockSide==='right'?layout.dockSide:null;
+    const docked=!!side;
+    // Keep the DOM and running construction jobs; hide only the floating UI.
+    panel.style.visibility=docked?'hidden':'visible';
+    panel.style.pointerEvents=docked?'none':'auto';
+    dockTab.style.display=docked?'grid':'none';
+    if(!docked)return;
+    const bounds=visibleMobileBounds();
+    const rawTop=Number(layout.dockTop);
+    dockTab.style.top=clamp(Number.isFinite(rawTop)?rawTop:bounds.top+36,
+      bounds.top+8,Math.max(bounds.top+8,bounds.bottom-72-8))+'px';
+    dockTab.dataset.side=side;
+    dockTab.textContent=side==='left'?'❯':'❮';
+    dockTab.style.left=side==='left'?bounds.left+'px':'auto';
+    dockTab.style.right=side==='right'?Math.max(0,innerWidth-bounds.right)+'px':'auto';
+    dockTab.setAttribute('aria-label',side==='left'?'إظهار نافذة البناء من الحافة اليسرى':'إظهار نافذة البناء من الحافة اليمنى');
+  }
+  function dockPanel(side){
+    if(!panel||!['left','right'].includes(side)||layout.dockSide)return;
+    persistLayout();
+    layout.dockTop=panel.getBoundingClientRect().top;
+    layout.dockSide=side;
+    localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
+    syncDockTab();
+  }
+  function releaseDock(){
+    const side=layout.dockSide;
+    if(!panel||!['left','right'].includes(side))return;
+    layout.dockSide=null;
+    const bounds=visibleMobileBounds();
+    const x=side==='left'?bounds.left+12:bounds.right-panel.offsetWidth-12;
+    panel.style.left=clamp(x,bounds.left+4,
+      Math.max(bounds.left+4,bounds.right-panel.offsetWidth-4))+'px';
+    const top=Number(layout.dockTop);
+    panel.style.top=clamp(Number.isFinite(top)?top:bounds.top+8,bounds.top+4,
+      Math.max(bounds.top+4,bounds.bottom-49))+'px';
+    panel.style.bottom='auto';
+    syncDockTab();
+    persistLayout();
+  }
   function saveSizeAfterResize(){
-    if(!layout.minimized&&!drag)persistLayout();
+    if(!layout.minimized&&!drag&&!layout.dockSide)persistLayout();
   }
   function setMinimized(value){
     if(value===!!layout.minimized)return;
@@ -603,12 +656,13 @@
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==0||event.target.closest('button,input,select'))return;
       const box=panel.getBoundingClientRect();
-      drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,left:box.left,top:box.top};
+      drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,left:box.left,top:box.top,lastDx:0};
       handle.setPointerCapture?.(event.pointerId);
     });
     handle.addEventListener('pointermove',event=>{
       if(!drag||event.pointerId!==drag.pointer)return;
-      const nx=drag.left+event.clientX-drag.x,ny=drag.top+event.clientY-drag.y;
+      drag.lastDx=event.clientX-drag.x;
+      const nx=drag.left+drag.lastDx,ny=drag.top+event.clientY-drag.y;
       const bounds=visibleMobileBounds();
       panel.style.left=clamp(nx,bounds.left+4,Math.max(bounds.left+4,bounds.right-panel.offsetWidth-4))+'px';
       panel.style.top=clamp(ny,bounds.top+4,Math.max(bounds.top+4,bounds.bottom-49))+'px';
@@ -616,7 +670,13 @@
     });
     const finish=event=>{
       if(!drag||event.pointerId!==drag.pointer)return;
-      drag=null;persistLayout();
+      const deltaX=drag.lastDx;
+      drag=null;
+      // A cancelled touch gesture must never hide the panel.
+      const side=event.type==='pointerup'
+        ?dockEdgeForRect(panel.getBoundingClientRect(),visibleMobileBounds(),deltaX):null;
+      if(side)dockPanel(side);
+      else persistLayout();
     };
     handle.addEventListener('pointerup',finish);
     handle.addEventListener('pointercancel',finish);
@@ -627,7 +687,7 @@
     const head=node('header','alg-head');
     const logo=node('span','alg-logo','AlG');
     const title=node('span','alg-title','الغزااوي | البناء المتطور');
-    title.append(node('small','alg-subtitle','v1.0.3'));
+    title.append(node('small','alg-subtitle','v1.0.4'));
     elements.min=button('−','alg-min',()=>setMinimized(!layout.minimized),'تصغير / تكبير');
     head.append(logo,title,elements.min);
     body=node('div','alg-body');
@@ -771,12 +831,19 @@
     grip.setAttribute('role','separator');grip.setAttribute('aria-label','اسحب الزاوية اليسرى لتغيير الحجم');
     panel.append(head,body,grip);
     document.body.append(panel);
+    dockTab=button('❮','alg-edge-tab',releaseDock,'إظهار نافذة البناء المتطور');
+    dockTab.id=DOCK_ID;
+    dockTab.setAttribute('aria-expanded','false');
+    dockTab.setAttribute('aria-controls',ROOT_ID);
+    document.body.append(dockTab);
     restorePosition();
     installDrag(head);
     installResize(grip);
     resizeObserver=typeof ResizeObserver==='function'?new ResizeObserver(saveSizeAfterResize):null;
     resizeObserver?.observe(panel);
     window.addEventListener('resize',onViewportResize);
+    window.visualViewport?.addEventListener('resize',syncDockTab);
+    window.visualViewport?.addEventListener('scroll',syncDockTab);
     body.hidden=!!layout.minimized;
     panel.classList.toggle('alg-collapsed',!!layout.minimized);
     if(layout.minimized){
@@ -785,10 +852,11 @@
       const right=Number(layout.anchorRight)||innerWidth-8;
       panel.style.left=clamp(right-panel.offsetWidth,0,Math.max(0,innerWidth-panel.offsetWidth))+'px';
     }
+    syncDockTab();
     elements.min.textContent=layout.minimized?'+':'−';
     renderQueue();renderStatus();
   }
-  function onViewportResize(){restorePosition();}
+  function onViewportResize(){restorePosition();syncDockTab();}
 
   // Poll to verify current levels/queue only. The game owns #buildqueue,
   // timers, widths and event handlers: never replace that DOM with fetched HTML.
@@ -1123,10 +1191,12 @@
     if(instantTimer){clearTimeout(instantTimer);instantTimer=null;}instantPending=false;
     document.removeEventListener('click',onCancelClick);
     window.removeEventListener('resize',onViewportResize);
+    window.visualViewport?.removeEventListener('resize',syncDockTab);
+    window.visualViewport?.removeEventListener('scroll',syncDockTab);
     window.removeEventListener('online',onConnectionRestored);
     window.removeEventListener('focus',onConnectionRestored);
     resizeObserver?.disconnect();
-    panel?.remove();style.remove();
+    dockTab?.remove();panel?.remove();style.remove();
     window.__AlGTraditionalBuilderV2=false;
   }
   document.addEventListener(STOP_EVENT,onRevoked,{once:true});

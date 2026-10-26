@@ -29,7 +29,7 @@ test('builder QA release advertises matching Cloud Bridge versions and no obsole
  const engine=read('scripts/algzawy-builder-v1.js');
  assert.ok(bridge.includes('@version      2.4.6'));
  assert.ok(center.includes('@version      1.1.0'));
- assert.ok(engine.includes("'v1.0.3'"));
+ assert.ok(engine.includes("'v1.0.4'"));
   assert.ok(!engine.includes('AlGzawy Scripts · BETA'));
  assert.ok(!engine.includes('TRADITIONAL BUILDER · V2'));
 });

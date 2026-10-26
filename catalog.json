@@ -36,7 +36,7 @@
     {
       "id": "algzawy-builder-v1",
       "name": "الغزااوي | البناء المتطور",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-builder-v1.user.js",
       "approved_for_final": false,
