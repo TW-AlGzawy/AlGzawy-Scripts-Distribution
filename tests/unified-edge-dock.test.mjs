@@ -70,7 +70,7 @@ test('the shelf positions each group without overlap and reuses builder native a
  const document={getElementById:()=>native};
  const vertical=side=>side==='left'||side==='right';
  const clamp=(n,lo,hi)=>Math.max(lo,Math.min(n,Math.max(lo,hi)));
- const place=new Function('vertical',shelf.slice(placeStart,placeEnd)+';return tabAxisPlacement;')(vertical);
+ const place=new Function('vertical','innerWidth','innerHeight',shelf.slice(placeStart,placeEnd)+';return tabAxisPlacement;')(vertical,b.width,b.height);
  const run=new Function('managed','viewport','document','innerWidth','innerHeight','vertical',
   'tabAxisPlacement','GAP','clamp',shelf.slice(start,end)+';return arrange;')(
   managed,()=>b,document,b.width,b.height,vertical,place,4,clamp);
