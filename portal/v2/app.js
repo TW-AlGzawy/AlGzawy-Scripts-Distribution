@@ -127,34 +127,22 @@ async function fetchReleaseVersions(){
   }catch(error){state.releaseError=true;/* Installed-script proof is independent of GitHub availability. */}
   if(state.user)renderScripts();
 }
-// UI-only proof: an installed, enabled loader must respond to the current nonce.
-// Chrome isolated worlds can delay @require or message bridging; listen on BOTH
-// page messages and the document event bus. Neither is a licensing authority.
+// Installation proof is UI-only: an enabled userscript must answer a fresh nonce.
+// It never grants a license or proves the game engine is running.
 function probeInstalledScripts(targetId=null){
   if(!state.user||document.visibilityState==='hidden')return;
   if(targetId&&state.catalog.some(item=>item.id===targetId))state.probeTarget=targetId;
   state.probing=Boolean(state.probeTarget);
-  // Focus, visibilitychange and refresh may fire together. Never invalidate
-  // a live challenge by replacing its nonce during an overlapping probe.
-  if(state.probeInFlight){
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-coalesced','portal');
-    renderScripts();
-    return;
-  }
+  if(state.probeInFlight){renderScripts();return;}
   state.probeInFlight=true;
-  state.probeNonce=crypto.randomUUID();
-  state.probeResponders=new Set();
-  const nonce=state.probeNonce;
-  for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-sent','portal','target='+(targetId||'all'));
+  const nonce=crypto.randomUUID();
+  state.probeNonce=nonce;state.probeResponders=new Set();
   const ask={scope:'algzawy-installation-v1',type:'probe',nonce};
-  // The document event works across injected content worlds without network calls.
   document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
   window.postMessage(ask,location.origin);
   renderScripts();
-  // Some Tampermonkey loaders wait for @require, so retry before declaring no proof.
   setTimeout(()=>{
     if(state.probeNonce!==nonce||!state.user)return;
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-retry','portal');
     document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
     window.postMessage(ask,location.origin);
   },2600);
@@ -162,56 +150,32 @@ function probeInstalledScripts(targetId=null){
     if(state.probeNonce!==nonce||!state.user)return;
     for(const id of state.installed.keys())
       if(!state.probeResponders.has(id))state.installed.delete(id);
-    for(const id of qaInstallProbeIds)qaInstallLog(id,state.probeResponders.has(id)?'probe-complete':'probe-timeout','portal');
-    state.probeInFlight=false;
-    state.probing=false;state.probeTarget=null;
+    state.probeInFlight=false;state.probing=false;state.probeTarget=null;
     renderScripts();
   },6500);
 }
-function receiveInstallationReport(message,channel='unknown'){
-  if(qaInstallIds.has(message?.id)&&message?.scope==='algzawy-installation-v1'){
-    qaInstallLog(message.id,'report-received',channel);
-  }
+function receiveInstallationReport(message){
   if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
-  if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
-  // A loader initialized AFTER the probe (for example due to @require) may send
-  // an unsolicited hello. Never call that installation proof; challenge it afresh.
+  if(typeof message.version!=='string'||!/^\\d+(?:\\.\\d+){1,3}$/.test(message.version))return;
   if(message.nonce===''){
-    qaInstallLog(message.id,'hello-received',channel);
     if(!state.helloProbed.has(message.id)){
       state.helloProbed.add(message.id);
       probeInstalledScripts(message.id);
     }
     return;
   }
-  if(message.nonce!==state.probeNonce){
-    qaInstallLog(message.id,'report-rejected',channel,'nonce-mismatch');
-    return;
-  }
-  qaInstallLog(message.id,'report-accepted',channel,'v'+message.version);
+  if(message.nonce!==state.probeNonce)return;
   state.installed.set(message.id,message.version);
   state.probeResponders.add(message.id);
   if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
   renderScripts();
 }
 window.addEventListener('message',event=>{
-  if(event.data?.scope==='algzawy-installation-v1'&&event.data.type==='report'
-     &&qaInstallIds.has(event.data.id)){
-    const source=event.source===window?'source=window':event.source===null?'source=null':'source=other';
-    qaInstallLog(event.data.id,'postmessage-seen','window.message',
-      source+(event.origin===location.origin?' origin=ok':' origin=other'));
-  }
   if(event.source!==window||event.origin!==location.origin)return;
-  receiveInstallationReport(event.data,'window.message');
+  receiveInstallationReport(event.data);
 });
-document.addEventListener('algzawy-installation-report-v1',event=>{
-  if(event.detail===null||event.detail===undefined){
-    // Cannot attribute an empty payload to a particular loader.
-    for(const id of qaInstallProbeIds)qaInstallLog(id,'empty-event-detail','document.CustomEvent');
-  }
-  receiveInstallationReport(event.detail,'document.CustomEvent');
-});
+document.addEventListener('algzawy-installation-report-v1',event=>receiveInstallationReport(event.detail));
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
   const raw=new URLSearchParams(location.search).get('alg_auto');
