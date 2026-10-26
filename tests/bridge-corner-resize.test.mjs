@@ -13,9 +13,9 @@ function geometry(){
  return new Function('window',functions+
    ';return {visibleBounds,nextEdgeGeometry,nextVerticalGeometry,nextCornerGeometry};')(window);
 }
-test('Bridge 2.4.6 corners support two-axis resize in all four directions',()=>{
+test('Bridge 2.4.7 corners support two-axis resize in all four directions',()=>{
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.6$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.7$/m);
  const {visibleBounds,nextCornerGeometry}=geometry();
  const bounds=visibleBounds();
  const start={left:180,top:100,width:260,height:300};
