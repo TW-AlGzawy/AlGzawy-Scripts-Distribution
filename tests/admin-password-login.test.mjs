@@ -85,11 +85,11 @@ test('password mode authenticates exclusively with PBKDF2 username and password'
  x=await request(env,'admin/session','GET',null,undefined,{cookie});
  assert.equal(x.res.status,200);
  assert.match(x.json.csrfToken,/^[a-f0-9]{64}$/);
- x=await request(env,'admin/users','GET',null,undefined,{});
+ x=await request(env,'admin/catalog','GET',null,undefined,{});
  assert.equal(x.res.status,401);
- x=await request(env,'admin/users','GET',null,undefined,{cookie});
+ x=await request(env,'admin/catalog','GET',null,undefined,{cookie});
  assert.equal(x.res.status,200);
- x=await request(env,'admin/users','GET',null,undefined,{});
+ x=await request(env,'admin/catalog','GET',null,undefined,{});
  assert.equal(x.res.status,401);
 });
 test('wrong credentials are denied, and 8 failures cause a 15-minute lockout by hashed IP',async()=>{
