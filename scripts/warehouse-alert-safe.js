@@ -38,6 +38,31 @@ function config(){
  return {enabled:v.enabled!==false,threshold:Number.isInteger(percent)&&percent>=1&&percent<=100?percent:90,
   intervalSeconds:Number.isInteger(seconds)&&seconds>=10&&seconds<=300?seconds:10};
 }
+function settingInteger(value){
+ const arabic='٠١٢٣٤٥٦٧٨٩',persian='۰۱۲۳۴۵۶۷۸۹';
+ const raw=String(value??'').trim()
+  .replace(/[٠-٩]/g,d=>String(arabic.indexOf(d)))
+  .replace(/[۰-۹]/g,d=>String(persian.indexOf(d)))
+  .replace(/[\s%٪]/g,'');
+ return /^\d{1,3}$/.test(raw)?Number(raw):NaN;
+}
+function saveWarehouseSettings(percentText,secondsText){
+ const percent=settingInteger(percentText),intervalSeconds=settingInteger(secondsText);
+ if(!Number.isInteger(percent)||percent<1||percent>100||
+    !Number.isInteger(intervalSeconds)||intervalSeconds<10||intervalSeconds>300)
+   return {ok:false,message:'⚠ النسبة يجب أن تكون 1–100 والفحص كل 10–300 ثانية'};
+ try{
+   const stored=JSON.parse(localStorage.getItem(PREF)||'{}');
+   const current=stored&&typeof stored==='object'&&!Array.isArray(stored)?stored:{};
+   localStorage.setItem(PREF,JSON.stringify({...current,percent,intervalSeconds}));
+   const confirmed=JSON.parse(localStorage.getItem(PREF)||'{}');
+   if(confirmed.percent!==percent||confirmed.intervalSeconds!==intervalSeconds)
+     throw Error('storage_mismatch');
+   return {ok:true,threshold:percent,intervalSeconds};
+ }catch(_){
+   return {ok:false,message:'⚠ تعذر حفظ الإعدادات في المتصفح. تحقق من السماح بتخزين بيانات الموقع.'};
+ }
+}
 function digits(value){
  if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?value:null;
  const alphabet='٠١٢٣٤٥٦٧٨٩',persian='۰۱۲۳۴۵۶۷۸۹';
@@ -161,6 +186,8 @@ function draw(panel,items,opts,invalid=false){
  if(!allowed()){stop();return;}
  const state=panel.querySelector('[data-wh-status]');
  const stats=panel.querySelector('[data-wh-totals]');
+ const applied=panel.querySelector('[data-wh-applied]');
+ if(applied)applied.textContent='الحد المعتمد الآن: '+opts.threshold+'% · الفحص كل '+opts.intervalSeconds+' ثوانٍ';
  if(!opts.enabled){state.textContent='متوقف من مركز البوتات';return;}
  if(invalid||!items.length){
   state.textContent=invalid?'تعذرت قراءة الموارد — لا إرسال':'لا توجد قرى صالحة للفحص';
@@ -170,7 +197,7 @@ function draw(panel,items,opts,invalid=false){
  const warned=items.filter(v=>v.percent>=opts.threshold);
  const overview=productionMode();
  state.textContent=overview?'🗂 الإنتاج: '+warned.length+' من '+items.length+' قرية تجاوزت '+opts.threshold+'%'
-  :(warned.length?'⚠ المخزن فوق الحد':'✓ المخزن ضمن الحد')+' · '+items[0].percent+'%';
+  :(warned.length?'⚠ المخزن فوق الحد':'✓ المخزن ضمن الحد')+' · '+items[0].percent+'% (الحد '+opts.threshold+'%)';
  stats.textContent=overview
   ?'آخر فحص: '+new Date().toLocaleTimeString('ar')+' · كل '+opts.intervalSeconds+' ثوانٍ'
   :'🪵 '+items[0].wood.toLocaleString('en-US')+' · 🧱 '+items[0].stone.toLocaleString('en-US')
@@ -197,12 +224,20 @@ function schedule(){
  if(interval!==null)clearInterval(interval);
  interval=setInterval(watch,config().intervalSeconds*1000);
 }
-if(document.getElementById(PANEL))return;
+// If an obsolete QA warehouse runner created this same panel first, stop that
+// runner before replacing its outdated 90% settings with the official UI.
+const oldPanel=document.getElementById(PANEL);
+if(oldPanel){
+ if(oldPanel.dataset.algWarehouseOfficial==='1')return;
+ document.dispatchEvent(new Event('__algzawy'+'_preview_stop_'+ID));
+ oldPanel.remove();
+}
 const style=document.createElement('style');
 style.textContent='#'+PANEL+'{position:fixed;top:120px;left:12px;z-index:2147483000;direction:rtl;width:263px;max-width:calc(100vw - 14px);border:1px solid #2f8b78;border-radius:11px;background:#0d1c2c;color:#edfff8;box-shadow:0 10px 28px #0009;font:11px/1.7 Tahoma,Arial,sans-serif;overflow:hidden}#'+PANEL+' *{box-sizing:border-box}#'+PANEL+' header{display:flex;align-items:center;gap:6px;padding:6px 8px;background:linear-gradient(110deg,#12514a,#153246);cursor:move;user-select:none;touch-action:none}#'+PANEL+' strong{flex:1}#'+PANEL+' .logo{color:#063d2e;background:#4ee8b3;font-weight:900;border-radius:7px;padding:5px}#'+PANEL+' button{cursor:pointer;background:#164844;border:1px solid #36796a;color:#d3fff4;border-radius:6px;padding:4px 7px;font:inherit}#'+PANEL+' .body{padding:8px}#'+PANEL+' .stats{font-size:10px;color:#c1d9e0;border:1px solid #32546b;border-radius:6px;padding:6px;margin-top:6px}#'+PANEL+' .buttons{display:flex;gap:5px;margin-top:8px}#'+PANEL+' .buttons button{flex:1}#'+PANEL+'[data-fold="1"] .body{display:none}';
 document.head?.appendChild(style);
 const panel=document.createElement('section');panel.id=PANEL;
-panel.innerHTML='<header data-drag><span class="logo">AlG</span><strong>الغزااوي | تنبيه المخازن</strong><button type="button" data-fold aria-label="طي النافذة">−</button></header><div class="body"><div data-wh-status>قراءة الموارد…</div><div class="stats" data-wh-totals>—</div><details data-wh-settings style="margin-top:6px;border-top:1px solid #31546a;padding-top:4px"><summary style="cursor:pointer">⚙ إعدادات الفحص</summary><div style="display:grid;grid-template-columns:1fr 68px;gap:5px;align-items:center;margin:6px 0"><label for="alg-wh-threshold">نسبة التنبيه %</label><input id="alg-wh-threshold" type="number" min="1" max="100" step="1" style="width:66px" /><label for="alg-wh-seconds">فحص كل (ثانية)</label><input id="alg-wh-seconds" type="number" min="10" max="300" step="1" style="width:66px" /></div><button data-save type="button" style="width:100%">✓ حفظ الإعدادات</button></details><div class="buttons"><button data-refresh type="button">🔄 فحص الآن</button><button data-telegram type="button">✉ Telegram</button></div><small>القرية الحالية أو قرى الإنتاج المعروضة · تلقائيًا كل 10 ثوانٍ</small></div>';
+panel.dataset.algWarehouseOfficial='1';
+panel.innerHTML='<header data-drag><span class="logo">AlG</span><strong>الغزااوي | تنبيه المخازن</strong><button type="button" data-fold aria-label="طي النافذة">−</button></header><div class="body"><div data-wh-status>قراءة الموارد…</div><div class="stats" data-wh-totals>—</div><div data-wh-applied aria-live="polite" style="font-size:11px;color:#5ee9c1;margin:5px 0">الحد المعتمد الآن: جارٍ القراءة…</div><details data-wh-settings style="margin-top:6px;border-top:1px solid #31546a;padding-top:4px"><summary style="cursor:pointer">⚙ إعدادات الفحص</summary><div style="display:grid;grid-template-columns:1fr 68px;gap:5px;align-items:center;margin:6px 0"><label for="alg-wh-threshold">نسبة التنبيه %</label><input id="alg-wh-threshold" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="نسبة تنبيه المخازن" style="width:66px;background:#fff;color:#111" /><label for="alg-wh-seconds">فحص كل (ثانية)</label><input id="alg-wh-seconds" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="مدة الفحص بالثواني" style="width:66px;background:#fff;color:#111" /></div><button data-save type="button" style="width:100%">✓ حفظ وتطبيق الإعدادات</button><div data-wh-save-status role="status" aria-live="polite" style="font-size:11px;margin-top:5px;color:#5ee9c1">الإعدادات الحالية مطبّقة.</div></details><div class="buttons"><button data-refresh type="button">🔄 فحص الآن</button><button data-telegram type="button">✉ Telegram</button></div><small>القرية الحالية أو قرى الإنتاج المعروضة · تلقائيًا كل 10 ثوانٍ</small></div>';
 (document.body||document.documentElement).appendChild(panel);
 panel.querySelector('[data-fold]').addEventListener('click',()=>{
  const collapsed=panel.dataset.fold==='1';panel.dataset.fold=collapsed?'0':'1';
@@ -213,19 +248,27 @@ const updateInputs=()=>{
  panel.querySelector('#alg-wh-seconds').value=opts.intervalSeconds;
 };
 updateInputs();
-panel.querySelector('[data-save]').addEventListener('click',()=>{
- const percent=Number(panel.querySelector('#alg-wh-threshold').value);
- const intervalSeconds=Number(panel.querySelector('#alg-wh-seconds').value);
- if(!Number.isInteger(percent)||percent<1||percent>100||
-    !Number.isInteger(intervalSeconds)||intervalSeconds<10||intervalSeconds>300){
-  panel.querySelector('[data-wh-status]').textContent='⚠ النسبة 1–100 والفترة 10–300 ثانية';
-  return;
- }
- let current={};try{current=JSON.parse(localStorage.getItem(PREF)||'{}');}catch(_){}
- localStorage.setItem(PREF,JSON.stringify({...current,percent,intervalSeconds}));
- panel.querySelector('[data-wh-settings]').open=false;
+function applyWarehouseSettings(closeAfterSave){
+ const result=saveWarehouseSettings(
+  panel.querySelector('#alg-wh-threshold').value,
+  panel.querySelector('#alg-wh-seconds').value);
+ const feedback=panel.querySelector('[data-wh-save-status]');
+ feedback.textContent=result.ok
+  ?'✓ تم الحفظ والتطبيق: تنبيه عند '+result.threshold+'%، فحص كل '+result.intervalSeconds+' ثوانٍ'
+  :result.message;
+ feedback.style.color=result.ok?'#5ee9c1':'#ffb7a8';
+ if(!result.ok)return false;
+ updateInputs();
+ if(closeAfterSave)panel.querySelector('[data-wh-settings]').open=false;
  watch();schedule();
-});
+ return true;
+}
+// Safari may finalize its on-screen number keyboard on blur rather than on a
+// button click; change applies a valid completed value even without Save.
+for(const input of [panel.querySelector('#alg-wh-threshold'),panel.querySelector('#alg-wh-seconds')]){
+ input.addEventListener('change',()=>applyWarehouseSettings(false));
+}
+panel.querySelector('[data-save]').addEventListener('click',()=>applyWarehouseSettings(true));
 panel.querySelector('[data-refresh]').addEventListener('click',watch);
 panel.querySelector('[data-telegram]').addEventListener('click',()=>{
  window.open('https://algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');

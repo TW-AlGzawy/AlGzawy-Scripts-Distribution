@@ -24,7 +24,7 @@ test('production warehouse loader updates from main and never consumes isolated 
  const engine=read('scripts/warehouse-alert-safe.js');
  new vm.Script(loader);
  new vm.Script(engine);
- assert.match(loader,/^\/\/ @version\s+1\.1\.2$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.1\.3$/m);
  assert.match(loader,/AlGzawy-Scripts-Distribution\/main/);
  assert.match(loader,/\/scripts\/warehouse-alert-safe\.js/);
  assert.match(loader,/algzawy_portal_grant_/);

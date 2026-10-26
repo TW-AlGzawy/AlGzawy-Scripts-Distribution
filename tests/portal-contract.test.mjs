@@ -410,7 +410,7 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
 });
 test('Official warehouse is independently licensed and points to the main engine',()=>{
  const installed=read('loaders/warehouse-alert-safe.user.js');
- assert.match(installed,/@version\s+1\.1\.2/);
+ assert.match(installed,/@version\s+1\.1\.3/);
  assert.match(installed,/scripts\/warehouse-alert-safe\.js/);
  assert.match(installed,/algzawy_portal_grant_/);
  assert.doesNotMatch(installed,/feature\/algzawy-quality-hardening/);

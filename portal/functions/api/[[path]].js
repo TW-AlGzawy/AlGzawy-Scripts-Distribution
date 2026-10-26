@@ -249,7 +249,7 @@ async function handler(req,env){
         .map(({id,version})=>({id,version}));
       if(items.length!==GROUPS.length-1)return bad('release_manifest_incomplete',503);
       // QA-only standalone warehouse pilot has a separate version channel.
-      items.push({id:'warehouse-alert-safe',version:'1.1.2'});
+      items.push({id:'warehouse-alert-safe',version:'1.1.3'});
       return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
     }catch(e){console.warn('[installer-releases]',e);return bad('release_manifest_unavailable',503);}
   }
