@@ -1,7 +1,7 @@
 // AlGzawy Cloud Telegram binding & delivery.
-// Bot token MUST be a Cloudflare Preview secret, never client code or Git.
+// Bot token MUST be a Cloudflare encrypted secret, never client code or Git.
 // Disabled unless the explicit QA feature flag, token, username, webhook secret
-// and the Preview-only D1 tables are all configured.
+// and the Telegram D1 tables are all configured.
 const USERNAME=/^[A-Za-z][A-Za-z0-9_]{4,31}$/;
 const QA_HOST='feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
 const MAIN_HOST='algzawy-cloud-control.pages.dev';
@@ -144,7 +144,7 @@ export async function telegramSubscriber(req,env,user,action,{reply,bad,digest,b
       schemaReady=new Set((tableSet.results||[]).map(row=>row.name)).size===3;
       if(schemaReady)link=await dbLink(env,user.id);
     }catch(_){schemaReady=false;link=null;}
-    // Authenticated Preview-only setup health; never expose a secret value.
+    // Authenticated authenticated setup health; never expose a secret value.
     if(schemaReady){
       warehouseAvailable=await warehouseTableReady(env);
       if(warehouseAvailable&&link)try{warehouse=await warehousePreference(env,user.id);}catch(_){}
@@ -288,7 +288,7 @@ async function handleBotCommand(env,chatId,text,helpers){
       +'✅ محادثتك مرتبطة بحساب مشترك.\n'
       +(chat.attack_alerts===1?'🟢 تنبيهات الهجمات: مفعّلة':'🔴 تنبيهات الهجمات: متوقفة')+'\n'
       +(available?(pref?.enabled===1?'🟢 تنبيهات المخازن: مفعّلة حسب نسبة السكربت':'🔴 تنبيهات المخازن: متوقفة')
-        :'ℹ️ تنبيهات المخازن تحتاج إعداد قاعدة Preview')
+        :'ℹ️ تنبيهات المخازن تحتاج تهيئة قاعدة البيانات')
       +'\n⚠️ تحتاج الإشعارات تشغيل اللعبة والجسر وسكربت التنبيه. المخازن للقرية المفتوحة أو القرى المعروضة في الإنتاج.');
     return true;
   }
@@ -303,7 +303,7 @@ async function handleBotCommand(env,chatId,text,helpers){
   }
   if(action==='warehouse_on'||action==='warehouse_off'){
     if(!(await warehouseTableReady(env))){
-      await send(env,chatId,'⚠️ لا يمكن تفعيل تنبيهات المخازن قبل تهيئة قاعدة Preview.');return true;
+      await send(env,chatId,'⚠️ لا يمكن تفعيل تنبيهات المخازن قبل تهيئة قاعدة البيانات.');return true;
     }
     const enabled=action==='warehouse_on'?1:0;
     await env.DB.prepare('INSERT INTO portal_telegram_warehouse_preferences(user_id,enabled,threshold) VALUES(?,?,90) ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled')
