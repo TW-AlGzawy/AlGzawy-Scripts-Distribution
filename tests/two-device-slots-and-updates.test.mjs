@@ -30,7 +30,7 @@ test('version notices are UI-only and use official portal for bridge and script 
  assert.doesNotMatch(bridge,/eval\(.*availableReleases|new Function\(.*availableReleases/);
 });
 test('registered slots are limited by a D1 unique expression across approved and pending keys',()=>{
- assert.match(migration,/BEGIN TRANSACTION;/);
+ assert.doesNotMatch(migration,/^BEGIN TRANSACTION;|^COMMIT;/m);
  assert.match(migration,/DROP INDEX IF EXISTS portal_one_approved_device_per_user;/);
  assert.match(migration,/CREATE UNIQUE INDEX IF NOT EXISTS portal_one_device_per_user_kind/);
  assert.doesNotMatch(migration,/WHERE approved=1/);
