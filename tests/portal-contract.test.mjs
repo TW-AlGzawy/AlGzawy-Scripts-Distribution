@@ -118,14 +118,14 @@ async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={})
  const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json(),setCookie:r.headers.get('Set-Cookie')};
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
-test('No content before login and 9 catalog script IDs match the bridge',async()=>{
+test('No content before login and 10 catalog script IDs match the bridge',async()=>{
  assert.match(html,/<div class="app-shell" hidden>/);
  assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
  assert.equal(catalog.length,10);
- for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
+ for(const x of catalog)assert.ok(bridge.includes('"'+x.id+'"')||bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
 });
 test('V3 encryption secret is required before Production reports readiness',async()=>{
@@ -394,7 +394,8 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
    assert.match(engine,/^\/\/ @name\s+الغزااوي \| /m,id+' engine name');
    assert.equal(item.version,src.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/loader version');
    assert.equal(item.version,engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/engine version');
-   assert.match(src,/algzawy_installed_loader_version_/);
+   if(id==='warehouse-alert-safe')assert.match(src,/algzawy-installation-report-v1/);
+    else assert.match(src,/algzawy_installed_loader_version_/);
    assert.equal(item.name,src.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/loader names match');
    assert.equal(item.name,engine.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/engine names match');
  }
@@ -434,7 +435,7 @@ test('22 loaders reject startup before tab pin but check cloud license once pinn
      location:{reload(){throw Error('unexpected page reload')}}
    };
    const context={
-     window:win,location:{origin:'https://world.tribalwars.net',pathname:'/game.php'},console:{warn(){},error(){}},Date,
+     window:win,location:{origin:'https://world.tribalwars.net',hostname:'world.tribalwars.net',pathname:'/game.php'},console:{warn(){},error(){}},Date,
      localStorage:{getItem:key=>localValues.get(key)??null,setItem:(key,value)=>localValues.set(key,value)},
      sessionStorage:{getItem:key=>sessionValues.get(key)??null,setItem:(key,value)=>sessionValues.set(key,value),removeItem:key=>sessionValues.delete(key)},
      document:{getElementById:()=>null,dispatchEvent(){},addEventListener(){}},
