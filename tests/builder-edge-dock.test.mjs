@@ -15,7 +15,7 @@ function dockEdge(){
  return new Function(engine.slice(start,end)+';return dockEdgeForRect;')();
 }
 function mockDock(initialSide=null){
- const start=engine.indexOf('  function syncDockTab(){');
+ const start=engine.indexOf('  const DOCK_SIDES=');
  const end=engine.indexOf('  function saveSizeAfterResize(){',start);
  assert.ok(start>0&&end>start);
  const layout={width:300,height:360,left:440,top:105,anchorRight:740,
@@ -47,12 +47,12 @@ function mockDock(initialSide=null){
  return {panel,dockTab,layout,saved,...controls};
 }
 
-test('official builder installer and catalog advertise v1.0.4 without changing script identity',()=>{
+test('official builder installer and catalog advertise v1.0.5 without changing script identity',()=>{
  new vm.Script(engine);new vm.Script(loader);
- assert.match(engine,/^\/\/ @version\s+1\.0\.4$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.4$/m);
+ assert.match(engine,/^\/\/ @version\s+1\.0\.5$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.5$/m);
  const item=catalog.published_candidates.find(x=>x.id==='algzawy-builder-v1');
- assert.equal(item.version,'1.0.4');
+ assert.equal(item.version,'1.0.5');
  assert.equal(item.installer,
    'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-builder-v1.user.js');
  assert.match(engine,/const LAYOUT_KEY='algzawy_traditional_layout_v2_'\+ID/);
