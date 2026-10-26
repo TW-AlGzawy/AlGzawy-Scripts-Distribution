@@ -580,8 +580,13 @@ export async function telegramNotify(req,env,device,{reply,bad,allowedSet,global
   if(isHuman){
     const reservation=await limitedEvent(env,device.user_id,'human-verification:'+event.incidentId,86400);
     if(!reservation)return reply({ok:true,sent:false,rateLimited:true});
+    // Safety alert spam guard, independent of subscriber preference toggles.
+    const cooldown=await limitedEvent(env,device.user_id,'human-verification:cooldown',300);
+    if(!cooldown){await releaseUndelivered(env,device.user_id,reservation);
+      return reply({ok:true,sent:false,rateLimited:true});}
     if(!(await send(env,link.chat_id,formatTelegramAlert(event),{html:true}))){
       await releaseUndelivered(env,device.user_id,reservation);
+      await releaseUndelivered(env,device.user_id,cooldown);
       return bad('telegram_delivery_failed',502);
     }
     return reply({ok:true,sent:true});
