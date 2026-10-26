@@ -62,6 +62,7 @@
   const q = id => document.getElementById('algzawy-bot2-'+id);
   const status = msg => { q('status').textContent = msg; };
   const store = () => localStorage.setItem(KEY,JSON.stringify({...settings,enabled:false}));
+  store(); // retire legacy persisted ON flags without erasing settings
   const rememberRun=()=>{
     if(settings.enabled)sessionStorage.setItem(RUN_KEY,'1');
     else{sessionStorage.removeItem(RUN_KEY);sessionStorage.removeItem(NEXT_KEY);}
@@ -208,5 +209,4 @@
     status('استعادة النهب في هذا التبويب — سيتم الإرسال حسب التأخير المحفوظ');
   }else status(humanLocked()?'متوقف بسبب الفحص البشري':'متوقف — اضغط تشغيل النهب');
   updateButton();
-  status('متوقف — اختر الإعدادات ثم اضغط تشغيل النهب');
 })();
