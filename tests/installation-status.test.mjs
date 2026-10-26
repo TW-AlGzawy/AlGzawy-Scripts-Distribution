@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const catalog=JSON.parse(read('catalog.json')).published_candidates;
 test('All nine installed Tampermonkey loaders respond with their actual versions on the subscriber portal',()=>{
- assert.equal(catalog.length,9);
+ assert.equal(catalog.length,10);
  for(const entry of catalog){
    const file=read('loaders/'+entry.id+'.user.js');
    assert.match(file,/^\/\/ @match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
