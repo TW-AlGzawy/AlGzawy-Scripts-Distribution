@@ -34,7 +34,10 @@ ownerBackdrop.addEventListener('click',closeOwnerSidebar);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOwnerSidebar();});
 navigateOwner('overview');
 const errorArabic=err=>({
- unauthorized:'رمز الإدارة غير صحيح أو انتهت صلاحية الجلسة.',
+ unauthorized:'بيانات الدخول غير صحيحة أو انتهت صلاحية الجلسة.',
+ too_many_login_attempts:'محاولات دخول كثيرة. حاول بعد 15 دقيقة.',
+ admin_login_storage_not_ready:'حماية محاولات الدخول في قاعدة البيانات غير متاحة. تحقق من إعدادات D1.',
+ admin_credentials_not_configured:'إعدادات اسم المستخدم وكلمة المرور غير مكتملة في Cloudflare Production.',
  csrf_invalid:'جلسة الإدارة غير صالحة؛ سجّل الدخول من جديد.',
  portal_not_configured:'إعدادات Cloudflare غير مكتملة.',
  service_unavailable:'خدمة الإدارة غير متاحة حاليًا.',
@@ -48,6 +51,7 @@ const errorArabic=err=>({
 function lockOwner(){
  csrfToken='';
  $('ownerToken').value='';
+ $('ownerPassword').value='';
  document.getElementById('subscriptionEditor')?.remove();
  $('adminShell').hidden=true;
  $('adminLogin').hidden=false;
@@ -85,6 +89,7 @@ async function openOwner(data){
  if(typeof data?.csrfToken!=='string'||!/^[a-f0-9]{64}$/.test(data.csrfToken))throw Error('invalid_session_response');
  csrfToken=data.csrfToken;
  $('ownerToken').value='';
+ $('ownerPassword').value='';
  $('loginMessage').textContent='';
  $('adminLogin').hidden=true;
  $('adminShell').hidden=false;
@@ -95,17 +100,59 @@ async function openOwner(data){
    await loadScriptControls();
  }catch(err){toast(errorArabic(err),true);}
 }
+let ownerLoginMode='loading';
+async function loadOwnerLoginMode(){
+  const button=$('ownerAuthSubmit');
+  button.disabled=true;
+  try{
+    const info=await api('admin/login-mode');
+    ownerLoginMode=info.mode;
+    const isPassword=info.mode==='password',legacy=info.mode==='legacy';
+    $('ownerPasswordFields').hidden=!isPassword;
+    $('ownerLegacyFields').hidden=!legacy;
+    $('ownerUsername').disabled=!isPassword;
+    $('ownerPassword').disabled=!isPassword;
+    $('ownerToken').disabled=!legacy;
+    button.disabled=!isPassword&&!legacy;
+    $('ownerLoginModeStatus').textContent=isPassword
+      ?'تسجيل دخول آمن باسم المستخدم وكلمة المرور.'
+      :legacy?'طريقة الدخول القديمة مؤقتة حتى يتم إعداد حساب الإدارة الجديد.'
+      :'لم يتم تفعيل حساب الإدارة الجديد بعد. أضف متغيرات ALG_ADMIN_USERNAME وALG_ADMIN_PASSWORD_HASH في Cloudflare Production.';
+  }catch(_){
+    ownerLoginMode='unavailable';
+    $('ownerPasswordFields').hidden=true;
+    $('ownerLegacyFields').hidden=true;
+    $('ownerLoginModeStatus').textContent='تعذر التحقق من إعدادات الدخول. أعد تحميل الصفحة.';
+    button.disabled=true;
+  }
+}
+$('ownerPasswordVisibility').addEventListener('click',()=>{
+  const field=$('ownerPassword'),button=$('ownerPasswordVisibility');
+  const reveal=field.type==='password';field.type=reveal?'text':'password';
+  button.textContent=reveal?'إخفاء':'إظهار';
+  button.setAttribute('aria-pressed',String(reveal));
+  button.setAttribute('aria-label',reveal?'إخفاء كلمة المرور':'إظهار كلمة المرور');
+});
 $('ownerLoginForm').addEventListener('submit',async e=>{
  e.preventDefault();
- const token=$('ownerToken').value;
- if(token.length<32){$('loginMessage').textContent='أدخل رمز الإدارة الصحيح.';return;}
+ const mode=ownerLoginMode;
+ if(mode!=='password'&&mode!=='legacy')return;
+ const body=mode==='password'?{username:$('ownerUsername').value.trim(),password:$('ownerPassword').value}
+    :{token:$('ownerToken').value};
+ if(mode==='password'&&(!body.username||body.password.length<12)){
+   $('loginMessage').textContent='أدخل اسم المستخدم وكلمة مرور لا تقل عن 12 حرفًا.';return;
+ }
+ if(mode==='legacy'&&body.token.length<32){
+   $('loginMessage').textContent='أدخل رمز الإدارة القديم.';return;
+ }
  const btn=$('ownerAuthSubmit');btn.disabled=true;
  try{
-   const session=await api('admin/session',{method:'POST',body:{token}});
+   const session=await api('admin/session',{method:'POST',body});
    await openOwner(session);
  }catch(err){$('loginMessage').textContent=errorArabic(err);}
- finally{btn.disabled=false;}
+ finally{btn.disabled=false;$('ownerPassword').value='';}
 });
+void loadOwnerLoginMode();
 $('ownerLogout').addEventListener('click',async()=>{
  try{
    await api('admin/session',{method:'DELETE',headers:{'X-ALG-ADMIN-CSRF':csrfToken}});
