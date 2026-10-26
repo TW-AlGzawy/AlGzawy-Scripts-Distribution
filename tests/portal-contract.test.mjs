@@ -408,12 +408,12 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
  assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);
 });
-test('retired warehouse alerts are excluded from published catalog and their installer is inert',()=>{
- const catalogIds=catalog.map(x=>x.id);
- assert.ok(!catalogIds.includes('warehouse-alert-safe'));
- const old=read('loaders/warehouse-alert-safe.user.js');
- assert.match(old,/@version\s+99\.0\.0/);
- assert.doesNotMatch(old,/SOURCE_URL/);
+test('Official warehouse is independently licensed and points to the main engine',()=>{
+ const installed=read('loaders/warehouse-alert-safe.user.js');
+ assert.match(installed,/@version\s+1\.1\.2/);
+ assert.match(installed,/scripts\/warehouse-alert-safe\.js/);
+ assert.match(installed,/algzawy_portal_grant_/);
+ assert.doesNotMatch(installed,/feature\/algzawy-quality-hardening/);
 });
 test('22 loaders reject startup before tab pin but check cloud license once pinned',()=>{
  for(const item of catalog){
