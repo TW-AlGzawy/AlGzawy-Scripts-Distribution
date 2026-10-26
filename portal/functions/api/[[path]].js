@@ -194,6 +194,15 @@ async function subscriptionOK(env,userId){
   return !!row&&row.active===1&&(row.expires_at===null||Number.isSafeInteger(row.expires_at)&&row.expires_at>Math.floor(Date.now()/1000));
 }
 function requesterIP(req){return (req.headers.get('CF-Connecting-IP')||'').slice(0,64);}
+// Only device possession + owner approval authenticate a device. User-Agent
+// classifies its dedicated desktop/phone slot; IP is never an identity key.
+const deviceKind=ua=>/(?:iphone|ipad|ipod|android|mobile)/i.test(String(ua||''))?'phone':'desktop';
+async function registeredDeviceSlots(env,userId){
+  const response=await env.DB.prepare(
+    'SELECT k.device_id,k.approved,k.user_agent FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1'
+  ).bind(userId).all();
+  return (response.results||[]).map(row=>({...row,kind:deviceKind(row.user_agent)}));
+}
 async function accessEvent(env,req,userId,deviceId,type){
   try{await env.DB.prepare('INSERT INTO portal_access_events(id,user_id,device_id,event_type,ip) VALUES (?,?,?,?,?)')
     .bind(crypto.randomUUID(),userId,deviceId||null,type,requesterIP(req)).run();}
@@ -482,7 +491,7 @@ async function handler(req,env){
         +'FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? ORDER BY k.first_seen DESC').bind(uid).all();
         const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(uid).first();
         const events=await env.DB.prepare('SELECT event_type,ip,occurred_at FROM portal_access_events WHERE user_id=? ORDER BY occurred_at DESC LIMIT 30').bind(uid).all();
-        return reply({ok:true,user:owner,allowedIds:[...access],devices:devices.results||[],subscription:sub||{active:0,expires_at:null},events:events.results||[]});
+        return reply({ok:true,user:owner,allowedIds:[...access],devices:(devices.results||[]).map(d=>({...d,deviceKind:deviceKind(d.user_agent)})),deviceLimit:2,subscription:sub||{active:0,expires_at:null},events:events.results||[]});
       }
       if(req.method==='PUT'){
         let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
@@ -511,12 +520,22 @@ async function handler(req,env){
       const owned=await env.DB.prepare('SELECT device_id FROM portal_device_keys WHERE device_id=? AND user_id=?').bind(deviceId,uid).first();
       if(!owned)return bad('not_found',404);
       if(path[5]==='approve'){
-        // Explicit approval automatically revokes the previously approved device.
-        await env.DB.batch([
-          env.DB.prepare('UPDATE portal_device_keys SET approved=0 WHERE user_id=?').bind(uid),
-          env.DB.prepare('UPDATE portal_devices SET active=1 WHERE id=?').bind(deviceId),
-          env.DB.prepare('UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=?').bind(deviceId,uid)
-        ]);
+        const slots=await registeredDeviceSlots(env,uid);
+        const target=slots.find(d=>d.device_id===deviceId);
+        if(!target)return bad('device_inactive',409);
+        if(target.approved===1)return reply({ok:true,approved:true,deviceKind:target.kind});
+        if(slots.some(d=>d.approved===1&&d.kind===target.kind))return bad('device_slot_occupied',409);
+        // Unique index additionally prevents concurrent approval of two phones
+        // or two computers. Never silently revoke a subscriber's other device.
+        try{
+          const result=await env.DB.prepare(
+            'UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=? AND approved=0'
+          ).bind(deviceId,uid).run();
+          if(!result.meta?.changes)return bad('device_inactive',409);
+        }catch(error){
+          if(/UNIQUE constraint failed/i.test(String(error)))return bad('device_slot_occupied',409);
+          throw error;
+        }
       }else{
         // A revoked device must no longer have an approved or pending pairing.
         // Delete both linked rows, retaining portal_access_events as an audit trail.
@@ -631,7 +650,11 @@ async function handler(req,env){
     if(existing?.approved===1)return reply({ok:true,deviceId:existing.device_id,status:'approved',nonce});
     // Reuse a pending request without creating duplicate rows or audit events.
     if(existing)return reply({ok:true,deviceId:existing.device_id,status:'pending_approval',nonce},202);
-    const id=existing?.device_id||crypto.randomUUID();
+    // Max two active keys, including pending. To replace a key, owner revokes it first.
+    if(rows.length>=2)return bad('device_limit_reached',409);
+    if(rows.some(d=>deviceKind(d.user_agent)===deviceKind(req.headers.get('User-Agent'))))
+      return bad('device_slot_occupied',409);
+    const id=crypto.randomUUID();
     if(!existing){
       const inertHash=await digest('auto-device-'+bytes(32),env.PORTAL_HASH_PEPPER);
       await env.DB.batch([
@@ -652,7 +675,18 @@ async function handler(req,env){
     try{await crypto.subtle.importKey('jwk',pub,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);}catch(_){return bad('invalid_public_key');}
     const now=Math.floor(Date.now()/1000);
     const codeHash=await digest(data.code,env.PORTAL_HASH_PEPPER);
-    const claim=await env.DB.prepare('UPDATE portal_pair_codes SET consumed_at=? WHERE code_hash=? AND consumed_at IS NULL AND expires_at>? RETURNING user_id').bind(now,codeHash,now).first();
+    // A full account must not consume a one-use code just to reject the device.
+    const pending=await env.DB.prepare(
+      'SELECT user_id FROM portal_pair_codes WHERE code_hash=? AND consumed_at IS NULL AND expires_at>?'
+    ).bind(codeHash,now).first();
+    if(!pending)return bad('expired_or_used_code',401);
+    const slots=await registeredDeviceSlots(env,pending.user_id);
+    if(slots.length>=2)return bad('device_limit_reached',409);
+    if(slots.some(d=>d.kind===deviceKind(req.headers.get('User-Agent'))))
+      return bad('device_slot_occupied',409);
+    const claim=await env.DB.prepare(
+      'UPDATE portal_pair_codes SET consumed_at=? WHERE code_hash=? AND consumed_at IS NULL AND expires_at>? RETURNING user_id'
+    ).bind(now,codeHash,now).first();
     if(!claim)return bad('expired_or_used_code',401);
     const id=crypto.randomUUID();
     // Legacy NOT NULL device_hash column gets a random value, but no copyable
