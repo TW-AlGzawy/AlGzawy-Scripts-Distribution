@@ -18,7 +18,7 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
