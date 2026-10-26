@@ -228,7 +228,7 @@ panel.querySelector('[data-save]').addEventListener('click',()=>{
 });
 panel.querySelector('[data-refresh]').addEventListener('click',watch);
 panel.querySelector('[data-telegram]').addEventListener('click',()=>{
- window.open('https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');
+ window.open('https://algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');
 });
 let drag=null;const head=panel.querySelector('header');
 head.addEventListener('pointerdown',e=>{
