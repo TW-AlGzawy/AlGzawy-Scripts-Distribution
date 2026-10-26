@@ -6,8 +6,8 @@ import vm from 'node:vm';
 globalThis.crypto ??= webcrypto;
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const source=read('portal/functions/api/[[path]].js').replace(
-  "from '../telegram-preview.js'",
-  "from 'data:text/javascript;base64,"+Buffer.from(read('portal/functions/telegram-preview.js')).toString('base64')+"'"
+  "from '../telegram-production.js'",
+  "from 'data:text/javascript;base64,"+Buffer.from(read('portal/functions/telegram-production.js')).toString('base64')+"'"
 );
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const ui=read('portal/assets/app.js'),html=read('portal/index.html');
@@ -124,7 +124,7 @@ test('No content before login and 9 catalog script IDs match the bridge',async()
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
- assert.equal(catalog.length,9);
+ assert.equal(catalog.length,10);
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
 });
@@ -381,7 +381,7 @@ test('Only disabled accounts can be archived or deleted, and restore leaves them
 });
 test('Tab pinning must gate all 9 loaders before source execution',()=>{
  const ids=catalog.map(x=>x.id);
- assert.equal(ids.length,9);
+ assert.equal(ids.length,10);
  for(const id of ids){
    const src=read('loaders/'+id+'.user.js');
    assert.match(src,/const hasTabPin=/);
@@ -408,12 +408,13 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
  assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);
 });
-test('retired warehouse alerts are excluded from published catalog and their installer is inert',()=>{
- const catalogIds=catalog.map(x=>x.id);
- assert.ok(!catalogIds.includes('warehouse-alert-safe'));
- const old=read('loaders/warehouse-alert-safe.user.js');
- assert.match(old,/@version\s+99\.0\.0/);
- assert.doesNotMatch(old,/SOURCE_URL/);
+test('production warehouse bot is published, uses signed per-tab licensing and a real source',()=>{
+ assert.ok(catalog.some(x=>x.id==='warehouse-alert-safe'));
+ const src=read('loaders/warehouse-alert-safe.user.js');
+ assert.match(src,/^\/\/ @version\s+1\.2\.0$/m);
+ assert.match(src,/algzawy_portal_grant_/);
+ assert.match(src,/\/scripts\/warehouse-alert-safe\.js/);
+ assert.doesNotMatch(src,/preview-rc1/);
 });
 test('22 loaders reject startup before tab pin but check cloud license once pinned',()=>{
  for(const item of catalog){
