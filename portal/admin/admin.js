@@ -418,8 +418,19 @@ function showTelegramAdmin(data){
   const holder=$('adminTelegramStatus');
   $('adminTelegramWebhook').disabled=!data?.configured;
   $('adminTelegramCommands').disabled=!data?.configured;
+  const checks=data?.checks;
+  $('adminTelegramDatabase').disabled=!checks||checks.database===true;
   if(!data?.configured){
-    holder.textContent='الإعدادات غير مكتملة أو تعذّر التحقق من BotFather. تأكد من إعداد Telegram والأسرار ثم أعد النشر.';
+    const names={
+      mode:'ALG_TELEGRAM_MODE = enabled (Production)',
+      botToken:'ALG_TELEGRAM_BOT_TOKEN (Secret جديد من BotFather)',
+      botUsername:'ALG_TELEGRAM_BOT_USERNAME (اسم البوت بدون @)',
+      webhookSecret:'ALG_TELEGRAM_WEBHOOK_SECRET (Secret عشوائي)',
+      database:'جداول Telegram في D1'
+    };
+    const missing=checks?Object.entries(names).filter(([key])=>checks[key]!==true).map(([,name])=>name):[];
+    holder.textContent=missing.length?'المطلوب لإكمال التشغيل: '+missing.join('، ')+'.'
+      :'تعذر التحقق من جاهزية Telegram. اضبط المتغيرات في Cloudflare Production وأعد النشر.';
     return;
   }
   const w=data.webhook||{};
@@ -432,16 +443,30 @@ function showTelegramAdmin(data){
 async function loadTelegramAdmin(){
   const el=$('adminTelegramStatus');el.textContent='جارٍ فحص BotFather وWebhook...';
   try{
+    const readiness=await api('admin/telegram/setup-status');
+    if(!readiness.configured){showTelegramAdmin(readiness);return;}
     const result=await api('admin/telegram/status');
-    showTelegramAdmin(result);
+    showTelegramAdmin({...result,checks:readiness.checks,tables:readiness.tables});
   }catch(err){
     telegramAdminState=null;
     $('adminTelegramWebhook').disabled=true;
     $('adminTelegramCommands').disabled=true;
+    $('adminTelegramDatabase').disabled=true;
     el.textContent='تعذّر فحص Telegram: '+errorArabic(err);
   }
 }
 $('adminTelegramRefresh').addEventListener('click',()=>void loadTelegramAdmin());
+$('adminTelegramDatabase').addEventListener('click',async()=>{
+  if(!telegramAdminState?.checks||telegramAdminState.checks.database)return;
+  if(!confirm('سيتم إنشاء جداول Telegram الأربعة وفهارسها في قاعدة D1 المرتبطة بالموقع الرسمي. العملية إضافية ولا تحذف بيانات المشتركين أو التراخيص. هل تريد المتابعة؟'))return;
+  const button=$('adminTelegramDatabase');button.disabled=true;
+  try{
+    const result=await api('admin/telegram/database',{method:'POST',body:{confirm:'initialize_telegram_tables'}});
+    if(result.databaseReady!==true)throw Error('telegram_database_setup_failed');
+    toast('✓ اكتملت تهيئة جداول Telegram الأربعة في قاعدة البيانات الرسمية.');
+  }catch(err){toast('تعذرت تهيئة قاعدة بيانات Telegram: '+errorArabic(err),true);}
+  finally{await loadTelegramAdmin();}
+});
 $('adminTelegramWebhook').addEventListener('click',async()=>{
   if(!telegramAdminState?.configured)return;
   const webhook=telegramAdminState.webhook||{};

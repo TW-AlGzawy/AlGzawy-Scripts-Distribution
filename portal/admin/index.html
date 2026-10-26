@@ -63,9 +63,11 @@
     <div id="adminTelegramStatus" class="field-note" role="status" aria-live="polite">اضغط «فحص حالة Telegram» لقراءة حالة البوت وWebhook.</div>
     <div class="bulk-controls">
       <button type="button" id="adminTelegramRefresh" class="button button-outline">فحص حالة Telegram</button>
+      <button type="button" id="adminTelegramDatabase" class="button button-outline" disabled>تهيئة جداول Telegram في قاعدة البيانات</button>
       <button type="button" id="adminTelegramWebhook" class="button button-primary" disabled>تسجيل Webhook على الموقع الرسمي</button>
       <button type="button" id="adminTelegramCommands" class="button button-outline" disabled>نشر قائمة الأوامر</button>
     </div>
+    <p class="field-note">للتشغيل لأول مرة: أضف متغير <code>ALG_TELEGRAM_MODE=enabled</code> في Cloudflare Production، واضبط <code>ALG_TELEGRAM_BOT_USERNAME</code>، ثم خزّن مفتاح BotFather الجديد و<code>ALG_TELEGRAM_WEBHOOK_SECRET</code> من نوع Secret. لا تُرسل المفاتيح هنا. أنشئ جداول قاعدة البيانات من الزر أعلاه، ثم حدّث حالة Telegram. <a href="https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/blob/main/portal/TELEGRAM-PRODUCTION-SETUP-AR.md" target="_blank" rel="noopener noreferrer">دليل الإعداد الآمن</a>.</p>
     <p class="field-note">إذا كان للبوت Webhook على موقع آخر، ستظهر مطالبة تأكيد قبل استبداله؛ فقد يؤدي الاستبدال إلى إيقاف تكامل Telegram القديم. لا تُسجل Webhook قبل تدوير المفتاح المكشوف.</p>
     <p class="field-note">بعد التسجيل يمكنك إرسال /start أو /help للبوت، ثم من موقع المشترك الضغط على «ربط البوت» لإرسال رمز الربط الخاص بحسابك.</p>
   </div>
