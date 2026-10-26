@@ -27,7 +27,7 @@
     {
       "id": "alg-balance",
       "name": "الغزااوي | موازنة الموارد",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-balance.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
@@ -36,7 +36,7 @@
     {
       "id": "algzawy-builder-v1",
       "name": "الغزااوي | البناء المتطور",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-builder-v1.user.js",
       "approved_for_final": false,
@@ -64,7 +64,7 @@
     {
       "id": "alg-attacks",
       "name": "الغزااوي | تنبيه الهجمات",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js",
       "approved_for_final": true
@@ -80,7 +80,7 @@
     {
       "id": "tribal-wars-helper",
       "name": "الغزااوي | جامع الجوائز",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js",
       "approved_for_final": true
