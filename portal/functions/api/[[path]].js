@@ -27,6 +27,50 @@ async function digest(value,secret){
 }
 function setupMissing(env){const items=[];if(!env.DB||typeof env.DB.prepare!=='function')items.push('DB');if(typeof env.PORTAL_HASH_PEPPER!=='string'||env.PORTAL_HASH_PEPPER.length<32)items.push('PORTAL_HASH_PEPPER');if(typeof env.PORTAL_ADMIN_TOKEN!=='string'||env.PORTAL_ADMIN_TOKEN.length<32)items.push('PORTAL_ADMIN_TOKEN');if(typeof env.PORTAL_ACCESS_ENCRYPTION_KEY!=='string'||!/^[a-f0-9]{64}$/i.test(env.PORTAL_ACCESS_ENCRYPTION_KEY))items.push('PORTAL_ACCESS_ENCRYPTION_KEY');return items;}
 function envOK(env){return setupMissing(env).length===0;}
+
+const ADMIN_USERNAME_RE=/^[A-Za-z][A-Za-z0-9_.-]{2,31}$/;
+const ADMIN_PASSWORD_RE=/^pbkdf2-sha256\$210000\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
+function adminLoginMode(env){
+  const user=env.ALG_ADMIN_USERNAME,record=env.ALG_ADMIN_PASSWORD_HASH;
+  if(user===undefined&&record===undefined)return 'legacy';
+  return typeof user==='string'&&ADMIN_USERNAME_RE.test(user)&&
+    typeof record==='string'&&ADMIN_PASSWORD_RE.test(record)?'password':'setup_required';
+}
+async function verifyAdminPassword(env,username,password){
+  const match=env.ALG_ADMIN_PASSWORD_HASH.match(ADMIN_PASSWORD_RE);
+  if(!match||typeof username!=='string'||typeof password!=='string'||
+    password.length<12||password.length>256||username.length>80)return false;
+  const userMatches=constantEqual(username.toLowerCase(),env.ALG_ADMIN_USERNAME.toLowerCase());
+  const salt=new Uint8Array(match[1].match(/../g).map(x=>parseInt(x,16)));
+  const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
+  const result=new Uint8Array(await crypto.subtle.deriveBits(
+    {name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},key,256));
+  const hex=[...result].map(x=>x.toString(16).padStart(2,'0')).join('');
+  return userMatches&&constantEqual(hex,match[2]);
+}
+// D1-backed, per-IP login throttling. IPs are never stored: only a keyed digest.
+// The additive table is initialized on the first password login attempt.
+async function adminLoginLimiter(env,req){
+  const rawIP=(req.headers.get('CF-Connecting-IP')||'unknown').slice(0,128);
+  const scope=await digest('admin-login-ip:'+rawIP,env.PORTAL_HASH_PEPPER);
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS portal_admin_login_limits (scope TEXT PRIMARY KEY,failures INTEGER NOT NULL DEFAULT 0,locked_until INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL DEFAULT 0)').run();
+  const now=Math.floor(Date.now()/1000);
+  const row=await env.DB.prepare('SELECT failures,locked_until,updated_at FROM portal_admin_login_limits WHERE scope=?').bind(scope).first();
+  return {scope,now,locked:!!row&&Number(row.locked_until)>now};
+}
+async function adminRecordFailure(env,{scope,now}){
+  await env.DB.prepare(
+    'INSERT INTO portal_admin_login_limits(scope,failures,locked_until,updated_at) VALUES(?,1,0,?) '+
+    'ON CONFLICT(scope) DO UPDATE SET '+
+    'failures=CASE WHEN updated_at<? THEN 1 ELSE failures+1 END,'+
+    'locked_until=CASE WHEN updated_at<? THEN 0 WHEN failures>=7 THEN ? ELSE 0 END,'+
+    'updated_at=?'
+  ).bind(scope,now,now-900,now-900,now+900,now).run();
+}
+async function adminClearFailures(env,{scope}){
+  await env.DB.prepare('DELETE FROM portal_admin_login_limits WHERE scope=?').bind(scope).run();
+}
+
 function adminOK(req,env){const auth=req.headers.get('Authorization')||'';return typeof env.PORTAL_ADMIN_TOKEN==='string'&&env.PORTAL_ADMIN_TOKEN.length>=32&&auth==='Bearer '+env.PORTAL_ADMIN_TOKEN;}
 
 const ADMIN_COOKIE='algzawy_admin_session';
@@ -38,7 +82,8 @@ function constantEqual(a,b){
   return diff===0;
 }
 async function adminMac(env,message){
-  const secret=encoder.encode(env.PORTAL_HASH_PEPPER+':'+env.PORTAL_ADMIN_TOKEN);
+  const secret=encoder.encode(env.PORTAL_HASH_PEPPER+':'+env.PORTAL_ADMIN_TOKEN+':'+
+    (adminLoginMode(env)==='password'?env.ALG_ADMIN_PASSWORD_HASH:'legacy'));
   const key=await crypto.subtle.importKey('raw',secret,{name:'HMAC',hash:'SHA-256'},false,['sign']);
   const value=await crypto.subtle.sign('HMAC',key,encoder.encode(message));
   return [...new Uint8Array(value)].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -287,14 +332,35 @@ async function handler(req,env){
     return bad('method_not_allowed',405);
   }
   if(path[0]==='admin'){
+    if(path[1]==='login-mode'&&path.length===2&&req.method==='GET'){
+      return reply({ok:true,mode:adminLoginMode(env)});
+    }
     if(path[1]==='session'&&path.length===2){
       if(req.method==='POST'){
         if(!sameOrigin(req))return bad('origin_invalid',403);
         let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
-        if(typeof data?.token!=='string'||data.token.length<32||data.token.length>1024)return bad('unauthorized',401);
-        const supplied=await digest(data.token,env.PORTAL_HASH_PEPPER);
-        const expected=await digest(env.PORTAL_ADMIN_TOKEN,env.PORTAL_HASH_PEPPER);
-        if(!constantEqual(supplied,expected))return bad('unauthorized',401);
+        const mode=adminLoginMode(env);
+        if(mode==='setup_required')return bad('admin_credentials_not_configured',503);
+        if(mode==='password'){
+          if(!data||Object.keys(data).sort().join(',')!=='password,username')return bad('unauthorized',401);
+          let limiter;
+          try{limiter=await adminLoginLimiter(env,req);}catch(_){return bad('admin_login_storage_not_ready',503);}
+          if(limiter.locked)return bad('too_many_login_attempts',429);
+          let accepted=false;
+          try{accepted=await verifyAdminPassword(env,data.username,data.password);}catch(_){}
+          if(!accepted){
+            try{await adminRecordFailure(env,limiter);}catch(_){return bad('admin_login_storage_not_ready',503);}
+            return bad('unauthorized',401);
+          }
+          try{await adminClearFailures(env,limiter);}catch(_){return bad('admin_login_storage_not_ready',503);}
+        }else{
+          // Transition only: old token login closes automatically when new
+          // username/password settings become active in Production.
+          if(typeof data?.token!=='string'||data.token.length<32||data.token.length>1024)return bad('unauthorized',401);
+          const supplied=await digest(data.token,env.PORTAL_HASH_PEPPER);
+          const expected=await digest(env.PORTAL_ADMIN_TOKEN,env.PORTAL_HASH_PEPPER);
+          if(!constantEqual(supplied,expected))return bad('unauthorized',401);
+        }
         const session=await newAdminSession(env);
         return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt},200,{'Set-Cookie':session.cookie});
       }
