@@ -43,6 +43,9 @@ test('official routes and subscriber content do not advertise test-only game run
  assert.doesNotMatch(app,/qaPreviewHost|qaInstallDiagnosticsInit|feature-algzawy-quality-hard|preview-rc1/);
  assert.match(app,/function installerUrlFor\(item\)\{return item\.installer;\}/);
  assert.doesNotMatch(html,/ALGZAWY ALERT CENTER — PREVIEW|الجسر التجريبي/);
+ const admin=read('portal/admin/index.html');
+ assert.doesNotMatch(admin,/Preview فقط|Cloudflare Preview|Webhook على Preview/);
+ assert.match(admin,/تسجيل Webhook على الموقع الرسمي/);
  assert.match(app,/installerUrlFor\(item\)/);
 });
 
