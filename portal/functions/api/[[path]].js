@@ -639,7 +639,7 @@ async function handler(req,env){
     try{await crypto.subtle.importKey('jwk',pub,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);}
     catch(_){return bad('invalid_public_key');}
     const userId=session.user.id;
-    const devices=await env.DB.prepare('SELECT k.device_id,k.public_key_json,k.approved FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1').bind(userId).all();
+    const devices=await env.DB.prepare('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1').bind(userId).all();
     const rows=devices.results||[];
     // Identical key: recover a previously approved enrollment, without
     // creating another active device. The frontend then proves key possession.
