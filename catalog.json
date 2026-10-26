@@ -45,7 +45,7 @@
     {
       "id": "professional-training-v2",
       "name": "الغزااوي | بوت التدريب",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/professional-training-v2.user.js",
       "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
@@ -64,10 +64,19 @@
     {
       "id": "alg-attacks",
       "name": "الغزااوي | تنبيه الهجمات",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/alg-attacks.user.js",
       "approved_for_final": true
+    },
+    {
+      "id": "warehouse-alert-safe",
+      "name": "الغزااوي | تنبيه المخازن",
+      "version": "1.2.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js",
+      "approved_for_final": true,
+      "note": "Independent licensed capacity alerts and Telegram summary, open village and production overview; game-browser validation pending."
     },
     {
       "id": "alg-coins",
@@ -90,10 +99,6 @@
     {
       "id": "attack-alert-legacy-loader",
       "name": "AlGzawy - تنبيه الهجمات (Telegram)"
-    },
-    {
-      "id": "warehouse-alert",
-      "name": "Bot-تنبيه المخزن - AlGzawy Edition (الإصدار النهائي 1.7)"
     },
     {
       "id": "captcha-solver",
@@ -120,8 +125,8 @@
     }
   ],
   "control_center_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-control-center.user.js",
-  "audit_date": "2026-10-21",
-  "last_release_type": "beta-code-only-no-live-game-certification",
+  "audit_date": "2026-10-26",
+  "last_release_type": "production-cutover-pending-live-game-validation",
   "superseded_raid_engines": "only 9.2.1 active in distribution; older raid engine copies archived privately",
   "safety_guard_installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-human-guard.user.js",
   "group_scavenge_note": "v9.2.2 fixes external UI repeated id=sendMass, walks sendRowN 0..4, mock dispatch test passed; real game test outstanding",
