@@ -2,7 +2,7 @@
 // @name         الغزااوي | موازنة الموارد
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.0.2
-// @description  AlGzawy BETA — اشتراك وجهاز معتمد
+// @description  AlGzawy Cloud — اشتراك وجهاز معتمد
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @match        https://*.algzawy-cloud-control.pages.dev/v2/*
