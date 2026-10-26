@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.2
+// @version      2.4.3
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @run-at       document-start
@@ -503,26 +503,38 @@
     document.getElementById('algzawy-cloud-script-name').textContent=lastBlockedDetail.name;
     document.getElementById('algzawy-cloud-script-note').textContent=lastBlockedDetail.message;
   });
-  function nextEdgeGeometry(edge,origin,dx,viewportWidth){
-    const margin=8,min=Math.min(255,Math.max(180,viewportWidth-2*margin));
+  // Safari zoom changes the visual viewport without changing window.innerWidth.
+  // Keep floating controls inside the actually visible (pinch-zoomed) region.
+  function visibleBounds(){
+    const visual=window.visualViewport;
+    const width=visual?.width>0?visual.width:window.innerWidth;
+    const height=visual?.height>0?visual.height:window.innerHeight;
+    const left=visual?.offsetLeft||0,top=visual?.offsetTop||0;
+    return {left,top,right:left+width,bottom:top+height,width,height};
+  }
+  function nextEdgeGeometry(edge,origin,dx,bounds){
+    const margin=8;
+    const min=Math.min(230,Math.max(120,bounds.width-2*margin));
+    const rightEdge=bounds.right-margin,leftEdge=bounds.left+margin;
     if(edge==='left'){
-      const right=origin.left+origin.width;
-      const left=Math.max(margin,Math.min(right-min,origin.left+dx));
+      const right=Math.min(rightEdge,origin.left+origin.width);
+      const left=Math.max(leftEdge,Math.min(right-min,origin.left+dx));
       return {left,width:right-left};
     }
-    return {left:origin.left,width:Math.max(min,Math.min(viewportWidth-origin.left-margin,origin.width+dx))};
+    const max=Math.max(min,rightEdge-origin.left);
+    return {left:origin.left,width:Math.max(min,Math.min(max,origin.width+dx))};
   }
   function render(){
     if(card||!document.body)return;
     card=document.createElement('section');
     card.id='algzawy-cloud-pair-panel';card.dir='rtl';
-    card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;width:285px;height:355px;min-width:255px;min-height:170px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);resize:both;overflow:auto;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial';
-    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none"><strong style="min-width:0;flex:1">☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
-      '<div id="algzawy-cloud-body" style="padding:10px"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
+    card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;display:flex;flex-direction:column;box-sizing:border-box;width:300px;height:auto;min-width:0;min-height:0;max-width:none;max-height:none;resize:none;overflow:hidden;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial';
+    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none;-webkit-user-select:none;user-select:none;flex:0 0 auto;min-height:39px;box-sizing:border-box"><strong style="min-width:0;flex:1">☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
+      '<div id="algzawy-cloud-body" style="padding:10px 10px 23px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;box-sizing:border-box"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
       '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">التحقق من الموقع والترخيص يتم تلقائيًا بعد الربط الأول.</p>'+
       '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
-      '<details style="margin-top:8px;border-top:1px solid #29565f;padding-top:6px"><summary style="cursor:pointer;font-weight:bold">📌 تثبيت السكربتات في هذا التبويب</summary><p style="font-size:10px;color:#adced4">بدون علامة التثبيت لا يبدأ السكربت هنا. يبقى التثبيت عند تحديث الصفحة فقط في هذا التبويب.</p><div id="algzawy-cloud-tab-list" style="max-height:200px;min-height:65px;overflow-y:auto;overflow-x:hidden"></div></details>'+
+      '<div id="algzawy-cloud-pins" style="margin-top:8px;border-top:1px solid #29565f;padding-top:7px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0"><strong style="font-size:12px;flex:0 0 auto">📌 تثبيت السكربتات في هذا التبويب</strong><div id="algzawy-cloud-tab-list" style="flex:1 1 auto;min-height:65px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch"></div></div>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
       '<div style="flex:1"><strong id="algzawy-cloud-script-name"></strong><div id="algzawy-cloud-script-note" style="font-size:10px;color:#d4bfc5"></div></div>'+
       '<button id="algzawy-cloud-script-refresh" type="button" title="إعادة التحقق" aria-label="إعادة التحقق" style="background:#194f4c;color:#d5fff7;border:1px solid #2ebbaa;border-radius:6px;font-size:18px">🔄</button></div>'+
@@ -553,59 +565,96 @@
       GM_setValue(keys.device,'');GM_setValue(keys.last,0);GM_setValue('algzawy_cloud_counter',0);
       stopAll();renderLinked();
     });
-    const geometryKey='algzawy-bridge-panel-geometry-v1';
-    let saved={};try{saved=JSON.parse(localStorage.getItem(geometryKey)||'{}');}catch(_){}
-    const clamp=(n,min,max)=>Math.min(max,Math.max(min,n)),margin=8;
-    const maxWidth=()=>Math.max(180,window.innerWidth-16);
-    const minWidth=()=>Math.min(255,maxWidth());
-    const maxHeight=()=>Math.max(70,window.innerHeight-16);
-    const minHeight=()=>Math.min(170,maxHeight());
-    if(Number.isFinite(saved.width))card.style.width=clamp(saved.width,minWidth(),maxWidth())+'px';
-    if(Number.isFinite(saved.height))card.style.height=clamp(saved.height,minHeight(),maxHeight())+'px';
-    let expandedHeight=card.offsetHeight;
+    // v2 discards the old fixed-height layout while retaining the prior position.
+    const geometryKey='algzawy-bridge-panel-geometry-v2';
+    const oldGeometryKey='algzawy-bridge-panel-geometry-v1';
+    const readGeometry=key=>{try{return JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_){return {};}};
+    const saved=readGeometry(geometryKey),prior=readGeometry(oldGeometryKey);
+    const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
+    const margin=8;
+    const minWidth=b=>Math.min(230,Math.max(120,b.width-2*margin));
+    const maxWidth=b=>Math.max(minWidth(b),b.width-2*margin);
+    const minHeight=b=>Math.min(140,Math.max(55,b.height-2*margin));
+    const maxHeight=b=>Math.max(minHeight(b),b.height-2*margin);
+    let collapsed=saved.collapsed===true,expandedHeight=Number.isFinite(saved.height)?saved.height:null;
+    const initialBounds=visibleBounds();
     const initial=card.getBoundingClientRect();
-    card.style.left=clamp(Number.isFinite(saved.left)?saved.left:initial.left,margin,
-      Math.max(margin,window.innerWidth-card.offsetWidth-margin))+'px';
-    card.style.top=clamp(Number.isFinite(saved.top)?saved.top:initial.top,margin,
-      Math.max(margin,window.innerHeight-card.offsetHeight-margin))+'px';
+    const requestedWidth=Number.isFinite(saved.width)?saved.width:prior.width;
+    card.style.width=clamp(Number.isFinite(requestedWidth)?requestedWidth:300,minWidth(initialBounds),maxWidth(initialBounds))+'px';
+    if(Number.isFinite(expandedHeight)&&!collapsed)card.style.height=clamp(expandedHeight,minHeight(initialBounds),maxHeight(initialBounds))+'px';
+    card.style.maxWidth=maxWidth(initialBounds)+'px';
+    card.style.maxHeight=maxHeight(initialBounds)+'px';
+    const initialLeft=Number.isFinite(saved.left)?saved.left:prior.left;
+    const initialTop=Number.isFinite(saved.top)?saved.top:prior.top;
+    card.style.left=clamp(Number.isFinite(initialLeft)?initialLeft:initial.left,
+      initialBounds.left+margin,Math.max(initialBounds.left+margin,initialBounds.right-card.offsetWidth-margin))+'px';
+    card.style.top=clamp(Number.isFinite(initialTop)?initialTop:initialBounds.bottom-16-card.offsetHeight,
+      initialBounds.top+margin,Math.max(initialBounds.top+margin,initialBounds.bottom-card.offsetHeight-margin))+'px';
     card.style.bottom='auto';
+    const mini=q('min');
+    function setCollapsed(next){
+      if(!next&&collapsed===next)return;
+      if(next&&!collapsed)expandedHeight=card.getBoundingClientRect().height;
+      collapsed=next;
+      q('body').style.display=collapsed?'none':'flex';
+      mini.textContent=collapsed?'+':'−';
+      mini.setAttribute('aria-expanded',String(!collapsed));
+      if(collapsed)card.style.height='auto';
+      else card.style.height=Number.isFinite(expandedHeight)?expandedHeight+'px':'auto';
+    }
     function persistGeometry(){
-      if(q('body').style.display!=='none')expandedHeight=card.offsetHeight;
+      const rect=card.getBoundingClientRect();
+      if(!collapsed)expandedHeight=rect.height;
       try{localStorage.setItem(geometryKey,JSON.stringify({
-        width:card.offsetWidth,height:expandedHeight,
-        left:card.getBoundingClientRect().left,top:card.getBoundingClientRect().top
+        width:rect.width,height:expandedHeight,left:rect.left,top:rect.top,collapsed
       }));}catch(_){}
     }
     function constrainGeometry(){
-      const width=clamp(card.offsetWidth,minWidth(),maxWidth());
-      card.style.width=width+'px';
-      if(q('body').style.display!=='none')card.style.height=clamp(card.offsetHeight,minHeight(),maxHeight())+'px';
+      const bounds=visibleBounds();
       const rect=card.getBoundingClientRect();
-      card.style.left=clamp(rect.left,margin,Math.max(margin,window.innerWidth-width-margin))+'px';
-      card.style.top=clamp(rect.top,margin,Math.max(margin,window.innerHeight-card.offsetHeight-margin))+'px';
+      const width=clamp(rect.width,minWidth(bounds),maxWidth(bounds));
+      card.style.maxWidth=maxWidth(bounds)+'px';
+      card.style.maxHeight=maxHeight(bounds)+'px';
+      card.style.width=width+'px';
+      if(!collapsed&&card.style.height!=='auto')
+        card.style.height=clamp(rect.height,minHeight(bounds),maxHeight(bounds))+'px';
+      const after=card.getBoundingClientRect();
+      card.style.left=clamp(after.left,bounds.left+margin,
+        Math.max(bounds.left+margin,bounds.right-after.width-margin))+'px';
+      card.style.top=clamp(after.top,bounds.top+margin,
+        Math.max(bounds.top+margin,bounds.bottom-after.height-margin))+'px';
       card.style.bottom='auto';
     }
-    // Full-height 12px side edges, separate from the draggable title bar.
+    if(collapsed){q('body').style.display='none';card.style.height='auto';mini.textContent='+';}
+    mini.setAttribute('aria-expanded',String(!collapsed));
+    mini.style.touchAction='manipulation';
+    mini.addEventListener('click',()=>{
+      setCollapsed(!collapsed);
+      constrainGeometry();persistGeometry();
+    });
+    // Independent left/right touch grips resize in both directions on iOS Safari.
     for(const edge of ['left','right']){
       const grip=document.createElement('div');
       grip.className='algzawy-cloud-resize-'+edge;
       grip.setAttribute('role','separator');
       grip.setAttribute('aria-orientation','vertical');
-      grip.setAttribute('aria-label',edge==='left'?'تغيير عرض الجسر من اليسار':'تغيير عرض الجسر من اليمين');
+      grip.setAttribute('aria-label',edge==='left'?'سحب طرف الجسر الأيسر لتغيير عرضه':'سحب طرف الجسر الأيمن لتغيير عرضه');
       grip.tabIndex=0;
-      grip.style.cssText='position:absolute;top:0;bottom:0;'+edge+':0;width:12px;z-index:4;cursor:ew-resize;touch-action:none;user-select:none';
+      grip.style.cssText='position:absolute;top:40px;bottom:15px;'+edge+':0;width:18px;z-index:5;cursor:ew-resize;touch-action:none;-webkit-user-select:none;user-select:none;border-'+edge+':2px solid #2d8576';
       card.appendChild(grip);
       let sizing=null;
       grip.addEventListener('pointerdown',e=>{
-        if(e.button!==0)return;
+        if(e.button!==0||sizing)return;
         const rect=card.getBoundingClientRect();
         sizing={id:e.pointerId,x:e.clientX,left:rect.left,width:rect.width};
-        grip.setPointerCapture?.(e.pointerId);e.preventDefault();
+        grip.setPointerCapture?.(e.pointerId);
+        if(e.cancelable)e.preventDefault();
       });
       grip.addEventListener('pointermove',e=>{
         if(!sizing||sizing.id!==e.pointerId)return;
-        const next=nextEdgeGeometry(edge,sizing,e.clientX-sizing.x,window.innerWidth);
-        card.style.left=next.left+'px';card.style.width=next.width+'px';card.style.bottom='auto';
+        const next=nextEdgeGeometry(edge,sizing,e.clientX-sizing.x,visibleBounds());
+        card.style.left=next.left+'px';card.style.width=next.width+'px';
+        if(e.cancelable)e.preventDefault();
       });
       const finish=e=>{
         if(!sizing||sizing.id!==e.pointerId)return;
@@ -619,50 +668,95 @@
         if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
         e.preventDefault();
         const rect=card.getBoundingClientRect();
-        const next=nextEdgeGeometry(edge,{left:rect.left,width:rect.width},e.key==='ArrowRight'?10:-10,window.innerWidth);
+        const next=nextEdgeGeometry(edge,{left:rect.left,width:rect.width},e.key==='ArrowRight'?12:-12,visibleBounds());
         card.style.left=next.left+'px';card.style.width=next.width+'px';
         constrainGeometry();persistGeometry();
       });
     }
-    // The native bottom corner still supports height adjustment.
-    card.addEventListener('pointerup',persistGeometry);
-    const mini=q('min');
-    mini.addEventListener('click',()=>{
-      const body=q('body'),opening=body.style.display==='none';
-      if(opening){
-        body.style.display='';card.style.minHeight=minHeight()+'px';
-        card.style.height=clamp(expandedHeight,minHeight(),maxHeight())+'px';card.style.resize='both';
-      }else{
-        expandedHeight=card.offsetHeight;body.style.display='none';
-        card.style.minHeight='0';card.style.height='auto';card.style.resize='horizontal';
-      }
-      mini.textContent=opening?'−':'+';
+    // Native CSS resize does not reliably work with fingers in Safari.
+    const heightGrip=document.createElement('div');
+    heightGrip.className='algzawy-cloud-resize-bottom';
+    heightGrip.setAttribute('role','separator');
+    heightGrip.setAttribute('aria-orientation','horizontal');
+    heightGrip.setAttribute('aria-label','سحب أسفل الجسر لتغيير الارتفاع');
+    heightGrip.tabIndex=0;
+    heightGrip.style.cssText='position:absolute;bottom:0;left:18px;right:18px;height:18px;z-index:5;cursor:ns-resize;touch-action:none;user-select:none;background:linear-gradient(90deg,transparent 35%,#378a7f 35%,#378a7f 65%,transparent 65%) center bottom 5px/48px 2px no-repeat';
+    card.appendChild(heightGrip);
+    let sizingHeight=null;
+    heightGrip.addEventListener('pointerdown',e=>{
+      if(e.button!==0||collapsed)return;
+      const rect=card.getBoundingClientRect();
+      sizingHeight={id:e.pointerId,y:e.clientY,top:rect.top,height:rect.height};
+      heightGrip.setPointerCapture?.(e.pointerId);
+      if(e.cancelable)e.preventDefault();
+    });
+    heightGrip.addEventListener('pointermove',e=>{
+      if(!sizingHeight||sizingHeight.id!==e.pointerId)return;
+      const bounds=visibleBounds();
+      const wanted=clamp(sizingHeight.height+e.clientY-sizingHeight.y,minHeight(bounds),maxHeight(bounds));
+      const top=clamp(sizingHeight.top,bounds.top+margin,
+        Math.max(bounds.top+margin,bounds.bottom-wanted-margin));
+      card.style.top=top+'px';
+      card.style.height=clamp(wanted,minHeight(bounds),bounds.bottom-top-margin)+'px';
+      if(e.cancelable)e.preventDefault();
+    });
+    const finishHeight=e=>{
+      if(!sizingHeight||sizingHeight.id!==e.pointerId)return;
+      sizingHeight=null;
+      if(heightGrip.hasPointerCapture?.(e.pointerId))heightGrip.releasePointerCapture(e.pointerId);
+      constrainGeometry();persistGeometry();
+    };
+    heightGrip.addEventListener('pointerup',finishHeight);
+    heightGrip.addEventListener('pointercancel',finishHeight);
+    heightGrip.addEventListener('keydown',e=>{
+      if(collapsed||!['ArrowUp','ArrowDown'].includes(e.key))return;
+      e.preventDefault();
+      const bounds=visibleBounds(),rect=card.getBoundingClientRect();
+      const wanted=clamp(rect.height+(e.key==='ArrowDown'?12:-12),minHeight(bounds),maxHeight(bounds));
+      const top=clamp(rect.top,bounds.top+margin,Math.max(bounds.top+margin,bounds.bottom-wanted-margin));
+      card.style.top=top+'px';
+      card.style.height=clamp(wanted,minHeight(bounds),bounds.bottom-top-margin)+'px';
       constrainGeometry();persistGeometry();
     });
-    const hdr=q('hdr');let drag=null;
+    const hdr=q('hdr');
+    let drag=null;
     hdr.addEventListener('pointerdown',e=>{
-      if(e.button!==0||e.target.closest('button'))return;
+      if(e.button!==0||e.target.closest('button')||drag)return;
       const rect=card.getBoundingClientRect();
       drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
       hdr.setPointerCapture?.(e.pointerId);
+      if(e.cancelable)e.preventDefault();
     });
     hdr.addEventListener('pointermove',e=>{
       if(!drag||drag.id!==e.pointerId)return;
-      card.style.left=clamp(drag.left+e.clientX-drag.x,margin,Math.max(margin,window.innerWidth-card.offsetWidth-margin))+'px';
-      card.style.top=clamp(drag.top+e.clientY-drag.y,margin,Math.max(margin,window.innerHeight-card.offsetHeight-margin))+'px';
+      const bounds=visibleBounds();
+      card.style.left=clamp(drag.left+e.clientX-drag.x,bounds.left+margin,
+        Math.max(bounds.left+margin,bounds.right-card.offsetWidth-margin))+'px';
+      card.style.top=clamp(drag.top+e.clientY-drag.y,bounds.top+margin,
+        Math.max(bounds.top+margin,bounds.bottom-card.offsetHeight-margin))+'px';
       card.style.bottom='auto';
+      if(e.cancelable)e.preventDefault();
     });
     const finishDrag=e=>{
       if(!drag||drag.id!==e.pointerId)return;
       drag=null;
       if(hdr.hasPointerCapture?.(e.pointerId))hdr.releasePointerCapture(e.pointerId);
-      persistGeometry();
+      constrainGeometry();persistGeometry();
     };
     hdr.addEventListener('pointerup',finishDrag);
     hdr.addEventListener('pointercancel',finishDrag);
-    window.addEventListener('resize',()=>{constrainGeometry();persistGeometry();});
+    window.addEventListener('resize',()=>{constrainGeometry();});
+    // Pinch zoom and scrolling can change this independently of window.resize.
+    window.visualViewport?.addEventListener('resize',constrainGeometry);
+    window.visualViewport?.addEventListener('scroll',constrainGeometry);
+    // A later license sync adds/removes pins: keep the growing panel on screen.
+    const pinListObserver=new MutationObserver(()=>{
+      if(!collapsed)requestAnimationFrame(constrainGeometry);
+    });
+    pinListObserver.observe(q('tab-list'),{childList:true});
     renderLinked();
     renderPinControls();
+    constrainGeometry();
   }
   function start(){
     render();

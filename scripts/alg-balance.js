@@ -9,6 +9,44 @@
 (function () {
 'use strict';
 
+// Touch-only drag for Safari; keep the existing desktop mouse implementation.
+function enableMobileTouchDrag(panel,handle,onDone){
+    if(!panel||!handle)return;
+    handle.style.touchAction='none';
+    let gesture=null;
+    const visible=()=>{
+        const v=window.visualViewport;
+        const left=v?.offsetLeft||0,top=v?.offsetTop||0;
+        return {left,top,right:left+(v?.width||window.innerWidth),bottom:top+(v?.height||window.innerHeight)};
+    };
+    const clamp=(x,a,b)=>Math.min(Math.max(a,b),Math.max(a,x));
+    handle.addEventListener('pointerdown',e=>{
+        if(e.pointerType!=='touch'||e.button!==0||gesture||
+           e.target.closest('button,input,select,textarea,a,#alg-refine-min-btn,#panel-controls'))return;
+        const rect=panel.getBoundingClientRect();
+        gesture={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
+        panel.style.transform='none';
+        panel.style.left=rect.left+'px';panel.style.top=rect.top+'px';panel.style.right='auto';
+        handle.setPointerCapture?.(e.pointerId);
+        if(e.cancelable)e.preventDefault();
+    });
+    handle.addEventListener('pointermove',e=>{
+        if(!gesture||e.pointerId!==gesture.id)return;
+        const b=visible(),margin=8;
+        panel.style.left=clamp(gesture.left+e.clientX-gesture.x,b.left+margin,b.right-panel.offsetWidth-margin)+'px';
+        panel.style.top=clamp(gesture.top+e.clientY-gesture.y,b.top+margin,b.bottom-panel.offsetHeight-margin)+'px';
+        if(e.cancelable)e.preventDefault();
+    });
+    const finish=e=>{
+        if(!gesture||e.pointerId!==gesture.id)return;
+        gesture=null;
+        if(handle.hasPointerCapture?.(e.pointerId))handle.releasePointerCapture(e.pointerId);
+        onDone?.();
+    };
+    handle.addEventListener('pointerup',finish);
+    handle.addEventListener('pointercancel',finish);
+}
+
 // ===== THEME =====
 var BG       = '#102031';
 var BG2      = '#13283a';
@@ -519,6 +557,7 @@ function createMainInterface(){
     };
     document.addEventListener('mousemove',function(e){if(!drag)return;el.style.left=(sL+e.clientX-sX)+'px';el.style.top=(sT+e.clientY-sY)+'px';});
     document.addEventListener('mouseup',function(){drag=false;});
+    enableMobileTouchDrag(el,hdr,()=>{});
 
     document.getElementById('alg-min-btn').onclick=function(){
         var b=document.getElementById('alg-body');
@@ -706,6 +745,10 @@ function buildMiniPanel(){
     document.addEventListener('mouseup',function(){
         if(!drag)return;
         drag=false;
+        GM_setValue('alg_bal_miniTop',p.style.top);
+        GM_setValue('alg_bal_miniLeft',p.style.left);
+    });
+    enableMobileTouchDrag(p,hdrEl,()=>{
         GM_setValue('alg_bal_miniTop',p.style.top);
         GM_setValue('alg_bal_miniLeft',p.style.left);
     });
