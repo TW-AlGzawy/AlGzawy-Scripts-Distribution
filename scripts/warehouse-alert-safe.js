@@ -230,6 +230,22 @@ panel.querySelector('[data-refresh]').addEventListener('click',watch);
 panel.querySelector('[data-telegram]').addEventListener('click',()=>{
  window.open('https://algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');
 });
+  // Position floating controls within the Safari visual viewport during pinch zoom.
+  function algMobileBounds(){
+    const v=window.visualViewport;
+    const left=v?.offsetLeft||0,top=v?.offsetTop||0;
+    return {left,top,right:left+(v?.width||innerWidth),bottom:top+(v?.height||innerHeight)};
+  }
+  function algClampVisible(panel,x,y,visibleHeader=40){
+    const b=algMobileBounds(),margin=6;
+    const minX=b.left+margin,minY=b.top+margin;
+    const maxX=Math.max(minX,b.right-panel.offsetWidth-margin);
+    const maxY=Math.max(minY,b.bottom-visibleHeader);
+    panel.style.left=Math.min(maxX,Math.max(minX,x))+'px';
+    panel.style.top=Math.min(maxY,Math.max(minY,y))+'px';
+    panel.style.right='auto';
+    panel.style.bottom='auto';
+  }
 let drag=null;const head=panel.querySelector('header');
 head.addEventListener('pointerdown',e=>{
  if(e.button!==0||e.target.closest('button'))return;
@@ -238,8 +254,7 @@ head.addEventListener('pointerdown',e=>{
 });
 head.addEventListener('pointermove',e=>{
  if(!drag||e.pointerId!==drag.id)return;
- panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,drag.left+e.clientX-drag.x))+'px';
- panel.style.top=Math.max(0,Math.min(innerHeight-35,drag.top+e.clientY-drag.y))+'px';
+ algClampVisible(panel,drag.left+e.clientX-drag.x,drag.top+e.clientY-drag.y,35);
 });
 const end=e=>{
  if(!drag||e.pointerId!==drag.id)return;

@@ -44,7 +44,7 @@ test('Floating rewards panel contains compact header, saved position and one foo
  for(const value of ['alg-reward-head','alg-reward-fields','alg-reward-counters','alg-reward-enabled','alg-reward-brand','© 2026 الغزااوي']) assert.ok(source.includes(value));
  assert.ok(source.includes("fold.addEventListener('click'"));
  assert.ok(source.includes("body.style.display=cfg.collapsed?'none':'grid'"));
- assert.ok(source.includes("panel.style.left=Math.round"));
+ assert.ok(source.includes("algClampVisible(panel,dragging.left+"));
 });
 
 test('Licensed collector clicks claimable reward once even if obsolete standalone tab-lock is enabled',async()=>{
