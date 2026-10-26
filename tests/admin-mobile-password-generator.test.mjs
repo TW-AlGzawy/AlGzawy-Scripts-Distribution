@@ -33,7 +33,7 @@ test('Safari tool is first-party static, with no forms, remote scripts or persis
  assert.match(headers,/connect-src 'none'/);
  assert.match(read('portal/admin/index.html'),/href="\.\/password-generator\/"/);
 });
-test('generated hash matches production PBKDF2-SHA256 210000 on iPhone',async()=>{
+test('generated hash matches Workers-compatible PBKDF2-SHA256 100000 on iPhone',async()=>{
  const {controls,writes}=createPage();
  const input='StrongLocalOwnerPassword2026!ForSafari';
  controls.password.value=input;
@@ -43,9 +43,9 @@ test('generated hash matches production PBKDF2-SHA256 210000 on iPhone',async()=
  assert.equal(controls.password.value,'','clear original secret after derivation');
  assert.equal(controls.confirmPassword.value,'','clear confirmation after derivation');
  assert.equal(controls.copy.disabled,false);
- const match=/^pbkdf2-sha256\$210000\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(controls.result.value);
+ const match=/^pbkdf2-sha256\$100000\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(controls.result.value);
  assert.ok(match,'match production expected record encoding');
- assert.equal(pbkdf2Sync(input,Buffer.from(match[1],'hex'),210000,32,'sha256').toString('hex'),match[2]);
+ assert.equal(pbkdf2Sync(input,Buffer.from(match[1],'hex'),100000,32,'sha256').toString('hex'),match[2]);
  await controls.copy.listeners.click();
  assert.equal(writes[0],controls.result.value);
  controls.clear.listeners.click();

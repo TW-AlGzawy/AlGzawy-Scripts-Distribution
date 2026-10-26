@@ -11,8 +11,8 @@ const source=read('portal/functions/api/[[path]].js').replace(
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const owner='ALG_admin',secret='DiagnosticTestPassword_2026_NotARealCredential';
 const salt=randomBytes(16);
-const record='pbkdf2-sha256$210000$'+salt.toString('hex')+'$'+
-  pbkdf2Sync(secret,salt,210000,32,'sha256').toString('hex');
+const record='pbkdf2-sha256$100000$'+salt.toString('hex')+'$'+
+  pbkdf2Sync(secret,salt,100000,32,'sha256').toString('hex');
 const url='https://algzawy-cloud-control.pages.dev/api/admin/session';
 class MockDB {
  constructor(){this.fails=new Map();}

@@ -14,9 +14,9 @@ async function hashPassword(value){
  if(!crypto?.subtle||typeof crypto.getRandomValues!=='function')throw Error('browser_unsupported');
  const salt=crypto.getRandomValues(new Uint8Array(16));
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(value),'PBKDF2',false,['deriveBits']);
- const settings={name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'};
+ const settings={name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'};
  const digest=await crypto.subtle.deriveBits(settings,key,256);
- const record='pbkdf2-sha256$210000$'+hex(salt)+'$'+hex(digest);
+ const record='pbkdf2-sha256$100000$'+hex(salt)+'$'+hex(digest);
  // Round-trip check uses exactly the same salt, password, iterations and digest
  // as the server; prevent copying a malformed or inconsistent record.
  const verified=await crypto.subtle.deriveBits(settings,key,256);
