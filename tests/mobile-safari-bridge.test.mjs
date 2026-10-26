@@ -6,7 +6,7 @@ const bridge=readFileSync(new URL('../loaders/algzawy-cloud-bridge.user.js',impo
 
 test('production Safari bridge keeps script pins permanently visible and stretches the list',()=>{
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.3$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.4$/m);
  assert.match(bridge,/id="algzawy-cloud-pins"/);
  assert.match(bridge,/id="algzawy-cloud-tab-list"[^\n]+flex:1 1 auto/);
  assert.doesNotMatch(bridge,/<details[^>]+[\s\S]*?algzawy-cloud-tab-list/);
@@ -62,4 +62,28 @@ test('legacy desktop mouse panels support touch-only drag without disturbing the
   assert.match(code,/handle\.setPointerCapture\?\./,path);
   assert.equal(code.split('enableMobileTouchDrag(').length-2,requiredCalls,path+' touch adapters');
  }
+});
+
+test('licensed pin list keeps its scroll position across synchronizations',()=>{
+ assert.match(bridge,/const previousScroll=holder\.scrollTop/);
+ assert.match(bridge,/holder\.scrollTop=previousScroll/);
+});
+
+test('all independently floating official engines constrain iOS zoomed drags',()=>{
+ for(const path of [
+  'scripts/bot-farm-2.js','scripts/professional-training-v2.js',
+  'scripts/send-automation.js','scripts/tribal-wars-helper.js','scripts/warehouse-alert-safe.js'
+ ]){
+  const source=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+  new vm.Script(source);
+  assert.match(source,/function algMobileBounds\(\)/,path);
+  assert.match(source,/visualViewport/,path);
+  assert.match(source,/function algClampVisible\(panel,x,y,visibleHeader=40\)/,path);
+  assert.match(source,/algClampVisible\(panel,drag/,path);
+ }
+ const builder=readFileSync(new URL('../scripts/algzawy-builder-v1.js',import.meta.url),'utf8');
+ new vm.Script(builder);
+ assert.match(builder,/function visibleMobileBounds\(\)/);
+ assert.match(builder,/const bounds=visibleMobileBounds\(\)/);
+ assert.match(builder,/panel\.style\.left=clamp\(nx,bounds\.left\+4/);
 });
