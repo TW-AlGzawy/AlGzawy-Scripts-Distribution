@@ -157,7 +157,7 @@ function probeInstalledScripts(targetId=null){
 function receiveInstallationReport(message){
   if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
-  if(typeof message.version!=='string'||!/^\\d+(?:\\.\\d+){1,3}$/.test(message.version))return;
+  if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
   if(message.nonce===''){
     if(!state.helloProbed.has(message.id)){
       state.helloProbed.add(message.id);
