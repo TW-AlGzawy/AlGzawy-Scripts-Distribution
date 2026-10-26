@@ -45,7 +45,7 @@ test('opening mini panel ignores persisted autoEnabled=true until user explicitl
  assert.equal(started,0,'no automatic cycle on mounting, even with legacy stored ON');
  assert.equal(document.getElementById('alg-mini-status').textContent,undefined);
  const run=document.getElementById('alg-mini-run');
- assert.match(run.innerHTML,/تشغيل تلقائي|^$/, 'status is controlled by script markup');
+ assert.match(document.getElementById('alg-mini-panel').innerHTML,/تشغيل تلقائي/, 'default markup must offer manual start');
  run.onclick();
  assert.equal(started,1,'only a manual click may start');
  assert.equal(build.getActive(),true);
