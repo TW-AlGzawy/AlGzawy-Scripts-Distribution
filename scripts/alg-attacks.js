@@ -292,7 +292,7 @@
     }
 
     function sendTelegramCountAlert(count) {
-      emitPreviewAlert(count);
+      emitTelegramAlert(count);
     }
 
     function extractIncomingsCount(html) {
@@ -427,7 +427,7 @@
         return msg;
     }
 
-    function emitPreviewAlert(count,row) {
+    function emitTelegramAlert(count,row) {
       const g=getGameData();
       const vid=Number(g?.village?.id||getCurrentVillageId());
       const amount=Number(count);
@@ -450,7 +450,7 @@
     function sendTelegramAlerts(attacks) {
       if(!Array.isArray(attacks)||!attacks.length)return;
       attacks.slice(0,12).forEach(function(row,i){
-        setTimeout(function(){if(isRunning)emitPreviewAlert(1,row);},i*900);
+        setTimeout(function(){if(isRunning)emitTelegramAlert(1,row);},i*900);
       });
     }
     function simulateFakeAttack() {
@@ -478,7 +478,7 @@
     }
 
     function testTelegram() {
-      window.open('https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');
+      window.open('https://algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');
     }
 
     function playAlertSound() {
