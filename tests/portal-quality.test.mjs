@@ -29,9 +29,9 @@ function buildHandler(){
   // This legacy VM harness tests owner auditing only; new Telegram routes are
   // exercised in their own module tests. VM.Script cannot parse import syntax.
   const src=api.replace(
-    "import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost,telegramOwner} from '../telegram-preview.js';",
+    "import {telegramSubscriber,telegramWebhook,telegramNotify,telegramOfficialHost,telegramOwner} from '../telegram-production.js';",
     [
-      'const telegramPreviewHost=()=>false;',
+      'const telegramOfficialHost=()=>false;',
       'const telegramSubscriber=()=>null;',
       'const telegramWebhook=()=>null;',
       'const telegramNotify=()=>null;',
