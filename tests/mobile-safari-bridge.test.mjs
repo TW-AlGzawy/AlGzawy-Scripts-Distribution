@@ -6,7 +6,7 @@ const bridge=readFileSync(new URL('../loaders/algzawy-cloud-bridge.user.js',impo
 
 test('production Safari bridge keeps script pins permanently visible and stretches the list',()=>{
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.6$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.7$/m);
  assert.match(bridge,/id="algzawy-cloud-pins"/);
  assert.match(bridge,/id="algzawy-cloud-tab-list"[^\n]+flex:1 1 auto/);
  assert.doesNotMatch(bridge,/<details[^>]+[\s\S]*?algzawy-cloud-tab-list/);
