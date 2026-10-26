@@ -81,3 +81,20 @@ test('folding hides every resize grip, reopening restores saved height and grips
  assert.match(bridge,/const geometryKey='algzawy-bridge-panel-geometry-v2'/);
  assert.match(bridge,/width:rect\.width,height:expandedHeight,left:rect\.left,top:rect\.top,collapsed/);
 });
+
+
+test('all bridge resize handles are transparent at rest without losing touch or keyboard affordances',()=>{
+ const side=bridge.match(/grip\.style\.cssText='position:absolute;top:40px;bottom:15px;'[\s\S]*?card\.appendChild\(grip\);/)?.[0];
+ const bottom=bridge.match(/heightGrip\.style\.cssText=[^\n]+/)?.[0];
+ const corners=bridge.match(/grip\.style\.cssText='position:absolute;'\+side[\s\S]*?card\.appendChild\(grip\);/)?.[0];
+ for(const [name,part] of [['left-right edge',side],['bottom edge',bottom],['four corners',corners]]){
+   assert.ok(part,name+' control must exist');
+   assert.match(part,/background:transparent;border:0;-webkit-tap-highlight-color:transparent/,name+' is not visually opaque');
+   assert.match(part,/touch-action:none/,name+' retains finger drag');
+   assert.doesNotMatch(part,/background:#|background:linear-gradient|border-[a-z'"+ ]+:?[0-9]+px solid/i,name+' must not draw a visible bar');
+ }
+ assert.match(bridge,/\[class\^="algzawy-cloud-resize-"\]:focus-visible\{outline:2px solid #49d6af/);
+ assert.match(bridge,/\[class\^="algzawy-cloud-resize-"\]:focus:not\(:focus-visible\)\{outline:none\}/);
+ assert.match(bridge,/for\(const grip of resizeGrips\)grip\.style\.display=collapsed\?'none':'block'/);
+ assert.match(bridge,/grip\.setPointerCapture\?\.\(e\.pointerId\)/);
+});
