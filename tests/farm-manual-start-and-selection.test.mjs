@@ -178,5 +178,5 @@ test('CAPTCHA or central verification lock cancels saved running state after nav
  paused.run();
  assert.equal(paused.timers.size,0);
  assert.equal(tab.has('algzawy_bot2_running_tab_v1'),false,'human-check stop invalidates restart consent');
- assert.match(paused.q('status').textContent,/فحص بشري/);
+ assert.match(paused.q('status').textContent,/الفحص البشري/);
 });
