@@ -17,7 +17,7 @@ test('all 10 production loaders require a fresh specific license grant',()=>{
     assert.ok(src.includes("'algzawy_portal_grant_'+ID"),'missing per-script grant: '+id);
     assert.match(src,/POLL_MS\s*=\s*120000/,'excessive Worker polling: '+id);
     assert.ok(src.includes("if(!hasPortalLicense()){stopCore('license');return;}"),'missing license preflight: '+id);
-    assert.ok(bridge.includes("'"+id+"'"),'cloud bridge ignores script: '+id);
+    assert.ok(bridge.includes('"'+id+'"')||bridge.includes("'"+id+"'"),'cloud bridge ignores script: '+id);
   }
 });
 test('public portal has no administration controls or account self-registration',()=>{
