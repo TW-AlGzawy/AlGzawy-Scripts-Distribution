@@ -2,9 +2,11 @@
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.0.2
-// @description  AlGzawy BETA — اشتراك وجهاز معتمد
-// @include      https://*/*=scavenge_mass*
+// @description  AlGzawy Cloud — اشتراك وجهاز معتمد
+// @include      https://*.tribalwars.*/game.php?*screen=scavenge_mass*
+// @include      https://*.tribalwars.*/game.php?*mode=scavenge_mass*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
+// @match        https://*.algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
@@ -25,15 +27,41 @@
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "mass-scavenge-v1";
   // Portal presence report is UI-only. Never run the game engine on the portal.
-  if(location.origin==='https://algzawy-cloud-control.pages.dev'&&location.pathname.startsWith('/v2/')){
+  if((location.origin==='https://algzawy-cloud-control.pages.dev'||
+     /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
+     &&location.pathname.startsWith('/v2/')){
+     // Installation metadata only: never execute the game engine on Preview or Production portal.
     const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.2';
-    const report=nonce=>window.postMessage({scope:'algzawy-installation-v1',type:'report',
-      id:ID,version:String(version),nonce},location.origin);
+
+    // QA-only, in-memory trace. Does not authenticate the loader or authorize engines.
+    const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
+    const qaTrace=stage=>{
+      if(!qaDiagnostics)return;
+      const trace={scope:'algzawy-installation-debug-v1',id:ID,stage,version:String(version)};
+      console.info('[AlG QA loader]',ID,stage);
+      window.postMessage(trace,location.origin);
+      document.dispatchEvent(new CustomEvent('algzawy-installation-debug-v1',{detail:JSON.stringify(trace)}));
+    };
+    qaTrace('loader-start');
+    const report=nonce=>{
+      qaTrace('report-sent');
+      const payload={scope:'algzawy-installation-v1',type:'report',
+        id:ID,version:String(version),nonce};
+      window.postMessage(payload,location.origin);
+      // Tampermonkey may run in a Chrome isolated world. A DOM CustomEvent
+      // provides a second UI-only route without granting engine permissions.
+      document.dispatchEvent(new CustomEvent('algzawy-installation-report-v1',{detail:payload}));
+    };
+    const acceptProbe=m=>{
+      if(m?.scope==='algzawy-installation-v1'&&m.type==='probe'
+        &&typeof m.nonce==='string'&&m.nonce.length<=100){qaTrace('probe-received');report(m.nonce);}
+    };
     window.addEventListener('message',event=>{
       if(event.source!==window||event.origin!==location.origin)return;
-      const m=event.data;
-      if(m?.scope==='algzawy-installation-v1'&&m.type==='probe'&&typeof m.nonce==='string'&&m.nonce.length<=100)report(m.nonce);
+      acceptProbe(event.data);
     });
+    document.addEventListener('algzawy-installation-probe-v1',event=>acceptProbe(event.detail));
+    qaTrace('listener-ready');
     report('');
     return;
   }

@@ -5,7 +5,10 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 globalThis.crypto ??= webcrypto;
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const source=read('portal/functions/api/[[path]].js');
+const source=read('portal/functions/api/[[path]].js').replace(
+  "from '../telegram-preview.js'",
+  "from 'data:text/javascript;base64,"+Buffer.from(read('portal/functions/telegram-preview.js')).toString('base64')+"'"
+);
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const ui=read('portal/assets/app.js'),html=read('portal/index.html');
 const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.html');
@@ -23,6 +26,10 @@ class DB{
        if(sql.includes('SELECT encrypted_key,iv FROM portal_access_key_vault'))return db.vault.find(x=>x.user_id===a[0])||null;
        if(sql.includes('SELECT id,label,active FROM portal_users'))return db.users.find(x=>x.id===a[0])||null;
       if(sql.includes('SELECT active,expires_at FROM portal_subscriptions'))return db.subs.find(x=>x.user_id===a[0])||null;
+       if(sql.includes('SELECT last_seen FROM portal_device_keys WHERE user_id=? AND approved=1 LIMIT 1')){
+         const approved=db.keys.find(x=>x.user_id===a[0]&&x.approved===1);
+         return approved?{last_seen:approved.last_seen||null}:null;
+       }
       if(sql.includes('SELECT settings_json FROM portal_preferences')){const x=db.prefs.find(v=>v.user_id===a[0]&&v.script_id===a[1]);return x?{settings_json:x.settings_json}:null;}
       if(sql.includes('FROM portal_device_keys k JOIN portal_users u')){
         const k=db.keys.find(x=>x.device_id===a[0]);const u=db.users.find(x=>x.id===k?.user_id);const d=db.devices.find(x=>x.id===k?.device_id);
@@ -271,7 +278,7 @@ test('Admin per-script OFF overrides grants and preferences without changing glo
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2','alg-balance']}});
  assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,200);
  const baseline=db.global.revision;
- assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,9);
+ assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,10);
  const off=await api(db,'admin/scripts',{token:admin,method:'PUT',body:{id:'bot-farm-2',enabled:false}});
  assert.equal(off.status,200);
  const status=await api(db,'me',{token});
@@ -316,7 +323,7 @@ test('Catalog is private and subscriber-visible entries come solely from per-use
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
  list=await api(db,'catalog',{token:userToken});
  assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
- assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,9);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,10);
  await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
  assert.equal((await api(db,'catalog',{token:userToken})).status,403);
 });
@@ -401,12 +408,12 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
  assert.match(bridge,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
  assert.match(bridge,/sessionStorage\.setItem\(TAB_PIN_PREFIX\+id,tabId\)/);
 });
-test('retired warehouse alerts are excluded from published catalog and their installer is inert',()=>{
- const catalogIds=catalog.map(x=>x.id);
- assert.ok(!catalogIds.includes('warehouse-alert-safe'));
- const old=read('loaders/warehouse-alert-safe.user.js');
- assert.match(old,/@version\s+99\.0\.0/);
- assert.doesNotMatch(old,/SOURCE_URL/);
+test('Official warehouse is independently licensed and points to the main engine',()=>{
+ const installed=read('loaders/warehouse-alert-safe.user.js');
+ assert.match(installed,/@version\s+1\.1\.2/);
+ assert.match(installed,/scripts\/warehouse-alert-safe\.js/);
+ assert.match(installed,/algzawy_portal_grant_/);
+ assert.doesNotMatch(installed,/feature\/algzawy-quality-hardening/);
 });
 test('22 loaders reject startup before tab pin but check cloud license once pinned',()=>{
  for(const item of catalog){

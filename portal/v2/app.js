@@ -7,6 +7,10 @@ const $=id=>document.getElementById(id);
 const q=selector=>document.querySelector(selector);
 const qa=selector=>[...document.querySelectorAll(selector)];
 async function syncBridgeVersion(){
+  if(qaPreviewHost){
+    document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='v2.4.1.7 QA';});
+    return;
+  }
   try{
     const response=await fetch('/api/bridge-version',{credentials:'same-origin',cache:'no-store'});
     const release=await response.json();
@@ -16,13 +20,17 @@ async function syncBridgeVersion(){
     document.querySelectorAll('[data-bridge-version]').forEach(node=>{node.textContent='(أحدث إصدار متاح)';});
   }
 }
-const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probing:false,releaseError:false};
+const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subscription:null,clockDeltaMs:0,view:'dashboard',category:'all',search:'',activities:[],pair:null,pairExpires:0,loading:false,working:new Set(),releases:new Map(),installed:new Map(),probeNonce:'',probeInFlight:false,probing:false,probeTarget:null,probeResponders:new Set(),helloProbed:new Set(),releaseError:false};
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
  military:{title:'الهجمات والإرسال',symbol:'➤'},tools:{title:'أدوات إضافية',symbol:'✧'}
 };
-const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك'};
+const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك',telegram:'تنبيهات Telegram'};
+const routeFromHash=()=>{
+  const route=location.hash.slice(1);
+  return Object.prototype.hasOwnProperty.call(names,route)?route:'dashboard';
+};
 function el(tag,className,text){
   const node=document.createElement(tag);
   if(className)node.className=className;
@@ -72,15 +80,32 @@ function compareVersion(left,right){
 function installationState(item){
   const installed=state.installed.get(item.id),latest=state.releases.get(item.id);
   if(!installed){
-    return {kind:state.probing?'checking':'install',
-      label:state.probing?'جارٍ التحقق…':'تثبيت السكربت',
-      note:state.probing?'جارٍ البحث عن تأكيد Tampermonkey':
-        'لم يصل تأكيد التثبيت؛ قد يكون السكربت غير مثبت أو معطّلًا'};
+    const checking=state.probing&&state.probeTarget===item.id;
+    return {kind:checking?'checking':'install',
+      label:checking?'جارٍ التحقق…':'تثبيت السكربت',
+      note:checking?'جارٍ البحث عن تأكيد هذا السكربت فقط':
+        'لم يصل تأكيد التثبيت؛ بعد التثبيت فعّل السكربت وحدّث صفحة الموقع ليبدأ Tampermonkey الرد'};
   }
   const note='المثبّت v'+installed+(latest?' · المتاح v'+latest:' · تعذر فحص أحدث إصدار');
   if(latest&&compareVersion(installed,latest)<0)
     return {kind:'update',label:'تحديث السكربت',note};
   return {kind:'installed',label:'✓ مثبّت',note};
+}
+// QA previews require a loader which explicitly matches the Cloudflare preview hostname.
+ // The public API continues to provide production URLs and never authorizes game execution.
+const qaPreviewHost=/^[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.hostname);
+
+
+if(qaPreviewHost){
+  const help=document.querySelector('.scripts-summary span:last-child');
+  if(help)help.textContent='معاينة QA: زر التثبيت يفتح نسخة متوافقة مع Preview. بعد تأكيد Tampermonkey حدّث صفحة الموقع لتظهر ✓ مثبّت. استخدم متصفح اختبار فقط.';
+}
+function installerUrlFor(item){
+  if(qaPreviewHost&&item.id==='warehouse-alert-safe')
+    return 'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js';
+  return qaPreviewHost
+    ?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/loaders/'+encodeURIComponent(item.id)+'.user.js'
+    :item.installer;
 }
 function installationControl(item){
   const result=installationState(item);
@@ -93,11 +118,125 @@ function installationControl(item){
     checking.title=result.note;return checking;
   }
   const link=el('a','btn '+(result.kind==='update'?'install-update':'subtle'),result.label+' ↗');
-  link.href=item.installer;link.rel='noopener noreferrer';link.target='_blank';
-  link.title=result.note;
-  link.addEventListener('click',()=>{setTimeout(()=>{if(state.user)probeInstalledScripts();},4500);});
+  link.href=installerUrlFor(item);link.rel='noopener noreferrer';link.target='_blank';
+  link.title=result.note+(qaPreviewHost?' (نسخة اختبار من فرع RC1؛ ليست إصدار Production)':'');
+  link.addEventListener('click',()=>{
+    // Do not synchronously remove the clicked anchor before the browser opens it.
+    setTimeout(()=>{
+      if(!state.user)return;
+      // Never put unrelated script cards in the checking state.
+      state.probeTarget=item.id;
+      state.probing=true;
+      renderScripts();
+    },0);
+    // A new Tampermonkey script usually needs a portal tab reload to inject.
+    setTimeout(()=>{if(state.user)probeInstalledScripts(item.id);},4500);
+  });
   return link;
 }
+// QA-only in-memory diagnostic. This is a UI trace, NOT a proof of installation or authorization.
+// Never collect nonce values, access keys, user IDs, IPs, cookies or game data.
+// The Preview catalog includes a separately licensed warehouse script.
+// QA traces are limited to these IDs and never imply an installation.
+const qaInstallProbeIds=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
+  'professional-training-v2','send-automation','alg-attacks','warehouse-alert-safe','alg-coins','tribal-wars-helper'];
+const qaInstallIds=new Set([...qaInstallProbeIds,'qa-smoke']);
+const qaInstallStages=new Set(['loader-start','listener-ready','probe-received','report-sent','smoke-ready']);
+const qaInstallTrace=[];
+let qaInstallTraceList=null;
+let qaInstallProgress=null;
+function qaInstallLog(id,stage,channel='',note=''){
+  if(!qaPreviewHost||!qaInstallIds.has(id))return;
+  // All fields stored/exported are chosen locally from finite diagnostic categories.
+  const entry={time:new Date().toLocaleTimeString('ar-BE',{hour12:false}),id,stage,channel,note};
+  qaInstallTrace.unshift(entry);
+  if(qaInstallTrace.length>200)qaInstallTrace.length=200;
+  if(qaInstallTraceList){
+    qaInstallTraceList.replaceChildren();
+    for(const x of qaInstallTrace){
+      const node=el('li','qa-probe-item');
+      node.append(el('strong','',x.time+' · '+x.id),el('span','',x.stage+' · '+x.channel+(x.note?' · '+x.note:'')));
+      qaInstallTraceList.append(node);
+    }
+  }
+}
+function qaInstallReceiveDebug(payload,channel){
+  if(!qaPreviewHost)return;
+  const data=typeof payload==='string'?(()=>{try{return JSON.parse(payload);}catch(_){return null;}})():payload;
+  if(!data||data.scope!=='algzawy-installation-debug-v1'
+     ||!qaInstallIds.has(data.id)||!qaInstallStages.has(data.stage))return;
+  qaInstallLog(data.id,data.stage,channel,typeof data.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(data.version)?'v'+data.version:'');
+}
+function qaInstallDiagnosticsInit(){
+  if(!qaPreviewHost)return;
+  const grid=$('scriptsGrid');
+  if(!grid||!grid.parentNode)return;
+  const panel=el('section','panel qa-probe-panel');
+  panel.setAttribute('aria-labelledby','qaProbeTitle');
+  const h=el('h3','', 'تشخيص تأكيد التثبيت — Preview فقط');
+  h.id='qaProbeTitle';
+  const info=el('p','small-muted','فحص تجريبي للسكربتات التسعة، مع سكربت مستقل للتأكد من تشغيل Tampermonkey. لإظهار «✓ مثبّت» يجب تثبيت كل سكربت فعليًا داخل Tampermonkey، ثم تحديث صفحة Preview. سجلات التشخيص تبقى محلية دون أسرار أو بيانات اشتراك.');
+  const progress=el('p','qa-install-progress','جارٍ فحص السكربتات المرخّصة…');
+  progress.setAttribute('role','status');
+  qaInstallProgress=progress;
+  const actions=el('div','qa-probe-actions');
+  const start=el('button','btn outline','فحص جميع السكربتات الآن');
+  start.type='button';
+  start.addEventListener('click',()=>{
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'manual-check','portal');
+    probeInstalledScripts();
+  });
+  const copy=el('button','btn subtle','نسخ سجل التشخيص');
+  copy.type='button';
+  copy.addEventListener('click',async()=>{
+    const header='AlGzawy QA installation trace (not proof of Tampermonkey execution). Entries: '+qaInstallTrace.length;
+    const text=[header,...[...qaInstallTrace].reverse().map(x=>[x.time,x.id,x.stage,x.channel,x.note].filter(Boolean).join(' | '))].join('\n');
+    try{await navigator.clipboard.writeText(text);toast('تم نسخ سجل التشخيص دون بيانات حساسة');}
+    catch(_){toast('لم يسمح المتصفح بالنسخ. صوّر سجل التشخيص الظاهر.',true);}
+  });
+  const clear=el('button','btn outline','مسح السجل');
+  clear.type='button';
+  clear.addEventListener('click',()=>{qaInstallTrace.length=0;qaInstallTraceList?.replaceChildren();});
+  actions.append(start,copy,clear);
+  qaInstallTraceList=el('ol','qa-probe-trace');
+  qaInstallTraceList.setAttribute('aria-label','سجل مراحل التحقق');
+  // QA game-only launchers. Their presence is distinct from website-installed checkmarks.
+  const qaLaunchers=[
+    ['mass-scavenge-v1','الإغارات الجماعية','1.0.2.2'],
+    ['bot-farm-2','بوت النهب','1.0.2.1'],
+    ['alg-balance','موازنة الموارد','1.0.2.1'],
+    ['algzawy-builder-v1','البناء المتطور','1.0.3.1'],
+    ['professional-training-v2','بوت التدريب','1.0.3.2'],
+    ['send-automation','الإرساليات الدقيقة','1.5.3.1'],
+    ['alg-attacks','تنبيه الهجمات','1.0.3.4'],
+    ['warehouse-alert-safe','تنبيه المخازن','1.1.2'],
+    ['alg-coins','الصقل المتطور','1.0.2.1'],
+    ['tribal-wars-helper','جامع الجوائز','1.2.1.1']
+  ];
+  const qaTitle=el('h4','', 'مشغّلات اللعبة التجريبية — تثبيت منفصل');
+  const qaHelp=el('p','small-muted',
+    'هذه الملفات لتشغيل المحركات داخل اللعبة عبر الجسر التجريبي. لا تغيّر حالة «✓ مثبّت» للـLoader العادي. ثبّت المشغّل الذي تريد تجربته فقط، وعطّل نظيره الرسمي داخل متصفح الاختبار.');
+  const qaLinks=el('div','qa-game-links');
+  for(const [id,label,version] of qaLaunchers){
+    const link=el('a','btn subtle','تثبيت '+label+' · v'+version+' ↗');
+    link.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-'+id+'-preview-rc1.user.js';
+    link.target='_blank';link.rel='noopener noreferrer';
+    qaLinks.append(link);
+  }
+  const warning=el('p','small-muted','تنبيه: هذه مشغّلات QA مستقلة. قد تنفّذ أوامر فعلية داخل حرب القبائل عند تشغيل Preview، ولا ينبغي اختبارها كلها في الوقت نفسه. فعّل صلاحية سكربت واحد ثم تحقّق من توقفه عند OFF. لا تستخدمها إلا ضمن قواعد اللعبة.');
+  panel.append(h,info,progress,qaTitle,qaHelp,qaLinks,warning,actions,qaInstallTraceList);
+  grid.parentNode.insertBefore(panel,grid);
+}
+if(qaPreviewHost){
+  window.addEventListener('message',event=>{
+    if(event.data?.scope==='algzawy-installation-debug-v1'){
+      const channel=event.origin===location.origin?'window.message same-origin':'window.message other-origin';
+      if(event.origin===location.origin)qaInstallReceiveDebug(event.data,channel);
+    }
+  });
+  document.addEventListener('algzawy-installation-debug-v1',event=>qaInstallReceiveDebug(event.detail,'document.CustomEvent'));
+}
+
 async function fetchReleaseVersions(){
   if(!state.user)return;
   try{
@@ -110,25 +249,90 @@ async function fetchReleaseVersions(){
   }catch(error){state.releaseError=true;/* Installed-script proof is independent of GitHub availability. */}
   if(state.user)renderScripts();
 }
-function probeInstalledScripts(){
+// UI-only proof: an installed, enabled loader must respond to the current nonce.
+// Chrome isolated worlds can delay @require or message bridging; listen on BOTH
+// page messages and the document event bus. Neither is a licensing authority.
+function probeInstalledScripts(targetId=null){
   if(!state.user||document.visibilityState==='hidden')return;
+  if(targetId&&state.catalog.some(item=>item.id===targetId))state.probeTarget=targetId;
+  state.probing=Boolean(state.probeTarget);
+  // Focus, visibilitychange and refresh may fire together. Never invalidate
+  // a live challenge by replacing its nonce during an overlapping probe.
+  if(state.probeInFlight){
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-coalesced','portal');
+    renderScripts();
+    return;
+  }
+  state.probeInFlight=true;
   state.probeNonce=crypto.randomUUID();
-  state.installed=new Map();state.probing=true;
+  state.probeResponders=new Set();
   const nonce=state.probeNonce;
-  window.postMessage({scope:'algzawy-installation-v1',type:'probe',nonce},location.origin);
+  for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-sent','portal','target='+(targetId||'all'));
+  const ask={scope:'algzawy-installation-v1',type:'probe',nonce};
+  // The document event works across injected content worlds without network calls.
+  document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
+  window.postMessage(ask,location.origin);
   renderScripts();
+  // Some Tampermonkey loaders wait for @require, so retry before declaring no proof.
   setTimeout(()=>{
-    if(state.probeNonce===nonce&&state.user){state.probing=false;renderScripts();}
-  },2200);
+    if(state.probeNonce!==nonce||!state.user)return;
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'probe-retry','portal');
+    document.dispatchEvent(new CustomEvent('algzawy-installation-probe-v1',{detail:ask}));
+    window.postMessage(ask,location.origin);
+  },2600);
+  setTimeout(()=>{
+    if(state.probeNonce!==nonce||!state.user)return;
+    for(const id of state.installed.keys())
+      if(!state.probeResponders.has(id))state.installed.delete(id);
+    for(const id of qaInstallProbeIds)qaInstallLog(id,state.probeResponders.has(id)?'probe-complete':'probe-timeout','portal');
+    state.probeInFlight=false;
+    state.probing=false;state.probeTarget=null;
+    renderScripts();
+  },6500);
 }
-window.addEventListener('message',event=>{
-  if(event.source!==window||event.origin!==location.origin||!state.user)return;
-  const message=event.data;
-  if(message?.scope!=='algzawy-installation-v1'||message.type!=='report'||message.nonce!==state.probeNonce)return;
+function receiveInstallationReport(message,channel='unknown'){
+  if(qaInstallIds.has(message?.id)&&message?.scope==='algzawy-installation-v1'){
+    qaInstallLog(message.id,'report-received',channel);
+  }
+  if(!state.user||message?.scope!=='algzawy-installation-v1'||message.type!=='report')return;
   if(typeof message.id!=='string'||!state.catalog.some(item=>item.id===message.id))return;
   if(typeof message.version!=='string'||!/^\d+(?:\.\d+){1,3}$/.test(message.version))return;
+  // A loader initialized AFTER the probe (for example due to @require) may send
+  // an unsolicited hello. Never call that installation proof; challenge it afresh.
+  if(message.nonce===''){
+    qaInstallLog(message.id,'hello-received',channel);
+    if(!state.helloProbed.has(message.id)){
+      state.helloProbed.add(message.id);
+      probeInstalledScripts(message.id);
+    }
+    return;
+  }
+  if(message.nonce!==state.probeNonce){
+    qaInstallLog(message.id,'report-rejected',channel,'nonce-mismatch');
+    return;
+  }
+  qaInstallLog(message.id,'report-accepted',channel,'v'+message.version);
   state.installed.set(message.id,message.version);
-  if(!state.probing)renderScripts();
+  state.probeResponders.add(message.id);
+  if(message.id===state.probeTarget){state.probing=false;state.probeTarget=null;}
+  renderScripts();
+}
+window.addEventListener('message',event=>{
+  if(event.data?.scope==='algzawy-installation-v1'&&event.data.type==='report'
+     &&qaInstallIds.has(event.data.id)){
+    const source=event.source===window?'source=window':event.source===null?'source=null':'source=other';
+    qaInstallLog(event.data.id,'postmessage-seen','window.message',
+      source+(event.origin===location.origin?' origin=ok':' origin=other'));
+  }
+  if(event.source!==window||event.origin!==location.origin)return;
+  receiveInstallationReport(event.data,'window.message');
+});
+document.addEventListener('algzawy-installation-report-v1',event=>{
+  if(event.detail===null||event.detail===undefined){
+    // Cannot attribute an empty payload to a particular loader.
+    for(const id of qaInstallProbeIds)qaInstallLog(id,'empty-event-detail','document.CustomEvent');
+  }
+  receiveInstallationReport(event.detail,'document.CustomEvent');
 });
 const allowedOrigin=/^https:\/\/(?:[a-z0-9-]+\.)?tribalwars\.(?:ae|net|com|de|nl|fr|pl|cz|it|es|pt|br|ru|gr|ro|hu|tr|uk|dk|no|se|fi|ch|at|be)$/i;
 function readAutoLink(){
@@ -180,6 +384,7 @@ function showAuth(){
   state.user=null;state.csrf='';state.prefs={};state.catalog=[];
   $('boot').hidden=true;$('shell').hidden=true;$('login').hidden=false;
   $('accessKey').value='';
+  $('diagnosticsResult').textContent='لم يتم إجراء فحص بعد.';
 }
 function showShell(){
   $('boot').hidden=true;$('login').hidden=true;$('shell').hidden=false;
@@ -219,7 +424,7 @@ async function loadMe(){
   state.user=data.user;state.prefs=data.scripts||{};state.global=data.global;readSubscription(data);
   const catalog=await api('catalog');
   state.catalog=Array.isArray(catalog.items)?catalog.items.filter(x=>state.prefs[x.id]?.allowed===true):[];
-  showShell();render();showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
+  showShell();render();view(routeFromHash(),false);if(routeFromHash()==='telegram')void refreshTelegram();showAutoApproval();void fetchReleaseVersions();probeInstalledScripts();
 }
 async function init(){
   try{
@@ -234,8 +439,8 @@ async function init(){
   }
   void refreshCloud();
 }
-function view(name){
-  if(!names[name]||!state.user)return;
+function view(name,updateUrl=true){
+  if(!Object.prototype.hasOwnProperty.call(names,name)||!state.user)return;
   state.view=name;
   qa('.view').forEach(item=>item.classList.toggle('active',item.dataset.panel===name));
   qa('.nav-item').forEach(item=>item.classList.toggle('active',item.dataset.view===name));
@@ -243,6 +448,10 @@ function view(name){
   $('breadcrumb').textContent='الرئيسية / '+names[name];
   $('sidebar').classList.remove('open');
   $('mobileBackdrop').hidden=true;
+  // A URL fragment survives Ctrl+R and carries no account data or secret.
+  // Preserve the query string, which is needed by device auto-enrollment.
+  if(updateUrl&&location.hash!=='#'+name)
+    history.replaceState(null,'',location.pathname+location.search+'#'+name);
   window.scrollTo({top:0,behavior:'instant'});
 }
 function logAction(label){
@@ -333,6 +542,15 @@ function renderScripts(){
   const items=allowed().filter(x=>(state.category==='all'||state.category===x.category)&&
     (!query||(x.name+' '+x.description).toLocaleLowerCase().includes(query)));
   $('resultsCount').textContent='عرض '+items.length+' من '+allowed().length+' سكربت مرخص';
+  if(qaPreviewHost){
+    const progress=qaInstallProgress;
+    if(progress){
+      const all=allowed(),confirmed=all.filter(x=>state.installed.has(x.id)).length;
+      progress.textContent='تم تأكيد تثبيت '+confirmed+' من '+all.length+' سكربت مرخّص في هذا المتصفح. '
+        +(confirmed===all.length?'جميع الملفات المرخّصة ردّت على الفحص.':
+          'البقية: اضغط «تثبيت السكربت» على بطاقتها وأكّد التثبيت في Tampermonkey، ثم حدّث الصفحة.');
+    }
+  }
   if(!items.length){root.append(el('div','empty',allowed().length?'لا توجد نتائج مطابقة للبحث.':'لا توجد سكربتات مرخصة لهذا الاشتراك.'));return;}
   for(const item of items){
     const pref=state.prefs[item.id]||{};
@@ -415,12 +633,12 @@ function openScript(id){
   actions.append(toggle,link);root.append(actions);
   if(id==='warehouse-alert-safe'){
     const pref=state.prefs[id]||{},wrap=el('div','dialog-setting');
-    const label=el('label','','نسبة امتلاء المخزن لإظهار التنبيه (50–100%)');
-    const inp=el('input');inp.type='number';inp.min='50';inp.max='100';inp.step='1';inp.value=String(pref.settings?.percent??90);
+    const label=el('label','','نسبة التنبيه (1–100%) — يمكنك تغييرها أيضًا من نافذة السكربت داخل اللعبة');
+    const inp=el('input');inp.type='number';inp.min='1';inp.max='100';inp.step='1';inp.value=String(pref.settings?.percent??90);
     const save=el('button','btn subtle','حفظ نسبة التنبيه');save.style.marginTop='11px';
     save.addEventListener('click',async()=>{
       const percent=Number(inp.value);
-      if(!Number.isInteger(percent)||percent<50||percent>100)return toast('أدخل نسبة صحيحة بين 50 و100',true);
+      if(!Number.isInteger(percent)||percent<1||percent>100)return toast('أدخل نسبة صحيحة بين 1 و100',true);
       save.disabled=true;
       try{
         const r=await api('scripts/'+encodeURIComponent(id),{method:'PUT',body:{enabled:!!pref.enabled,settings:{percent}}});
@@ -451,6 +669,142 @@ async function refresh(){
     }else toast(errText(err),true);
   }finally{state.loading=false;$('refreshButton').disabled=false;}
 }
+async function runDiagnostics(){
+  if(!state.user)return;
+  const button=$('runDiagnostics'),root=$('diagnosticsResult');
+  if(button.disabled)return;
+  button.disabled=true;
+  root.replaceChildren(el('p','','جارٍ فحص الخدمات المسموح بها…'));
+  const checks=[
+    {label:'الجلسة الآمنة',path:'session',check:data=>data.expiresAt>Math.floor(Date.now()/1000)?'جلسة صالحة':'تحتاج إعادة تسجيل الدخول'},
+    {label:'الاشتراك والصلاحيات',path:'me',check:data=>data.subscription?.active===true?'نشط · '+Object.values(data.scripts||{}).filter(x=>x?.allowed===true).length+' سكربت مرخص':'الاشتراك غير نشط'},
+    {label:'التحكم المركزي',path:'status',check:data=>data.global?.enabled===true?'متاح (ON)':'متوقف من الإدارة (OFF)'},
+    {label:'إصدار Cloud Bridge',path:'bridge-version',check:data=>/^\d+(?:\.\d+){1,3}$/.test(data.version||'')?'الإصدار المتاح v'+data.version:'الإصدار غير متاح'},
+    {label:'فهرس تحديثات السكربتات',path:'installer-releases',check:data=>Array.isArray(data.items)?'متاح · '+data.items.length+' إصدارات':'لا يمكن قراءة الفهرس'}
+  ];
+  try{
+    const results=await Promise.allSettled(checks.map(x=>api(x.path)));
+    root.replaceChildren(el('strong','','نتائج الفحص — '+new Date().toLocaleString('ar-BE')));
+    for(let i=0;i<checks.length;i++){
+      const result=results[i];
+      const description=result.status==='fulfilled'
+        ?checks[i].check(result.value)
+        :'تعذر التحقق: '+errText(result.reason);
+      const row=el('p','diagnostic-row');
+      row.append(el('strong','',checks[i].label+' — '),el('span','',description));
+      root.append(row);
+    }
+    const account=results[1].status==='fulfilled'?results[1].value:null;
+    let deviceSummary='تعذر التحقق من الجهاز المعتمد';
+    if(account?.deviceHealth){
+      if(!account.deviceHealth.approved)deviceSummary='لا يوجد جهاز معتمد لهذا الاشتراك';
+      else if(!account.deviceHealth.lastSeen)deviceSummary='جهاز معتمد — لم يسجّل اتصالًا موقّعًا بعد';
+      else{
+        const raw=String(account.deviceHealth.lastSeen).replace(' ','T');
+        const last=Date.parse(raw.endsWith('Z')?raw:raw+'Z');
+        const seconds=Math.max(0,Math.floor(Number(account.serverNow||0)-last/1000));
+        deviceSummary=Number.isFinite(seconds)&&Number.isSafeInteger(seconds)
+          ?'آخر تحقق موقّع منذ '+seconds+' ثانية'+(seconds>120?' — الاتصال غير حديث':'')
+          :'جهاز معتمد — وقت آخر الاتصال غير متاح';
+      }
+    }
+    const deviceRow=el('p','diagnostic-row');
+    deviceRow.append(el('strong','','الجهاز المعتمد — '),el('span','',deviceSummary));
+    root.append(deviceRow);
+    root.append(el('p','diagnostic-caveat','آخر اتصال موقّع يثبت وصول الجسر فقط، ولا يثبت تنفيذ أي محرك داخل اللعبة.'));
+  }finally{button.disabled=false;}
+}
+
+let telegramCurrent=null;
+function updateTelegramUI(data){
+  telegramCurrent=data;
+  const linked=!!data?.linked,ready=!!data?.configured;
+  $('telegramState').textContent=!ready?'قيد الإعداد':linked?'✓ مربوط':'غير مربوط';
+  $('telegramState').className='pill '+(ready&&linked?'positive':'neutral');
+  $('telegramLink').disabled=!ready||linked;
+  $('telegramUnlink').disabled=!linked||!ready;
+  $('telegramTest').disabled=!linked||!ready;
+  $('telegramAttacks').disabled=!linked||!ready;
+  $('telegramAttacks').checked=!!data?.preferences?.attacks;
+  $('telegramWarehouse').disabled=!linked||!ready||!data?.warehouseAvailable;
+  $('telegramWarehouse').checked=!!data?.preferences?.warehouse;
+  $('telegramWarehouseState').textContent=data?.warehouseAvailable
+    ?'النسبة والمدة قابلة للتعديل من نافذة سكربت تنبيه المخازن داخل اللعبة؛ ويشمل الفحص قرى جدول الإنتاج المعروضة.'
+    :'لم تُجهز جداول تنبيه المخازن في قاعدة البيانات بعد.';
+  const names={
+    mode:'ALG_TELEGRAM_MODE (القيمة المطلوبة: enabled)',
+    botToken:'ALG_TELEGRAM_BOT_TOKEN (مفتاح BotFather الجديد)',
+    botUsername:'ALG_TELEGRAM_BOT_USERNAME (اسم البوت دون @)',
+    webhookSecret:'ALG_TELEGRAM_WEBHOOK_SECRET (رمز سري من 32 إلى 128 حرفًا)',
+    database:'DB / جداول portal_telegram_* في قاعدة البيانات'
+  };
+  const checks=data?.checks;
+  const missing=checks&&typeof checks==='object'
+    ?Object.keys(names).filter(key=>checks[key]!==true).map(key=>names[key]):[];
+  $('telegramStatusText').textContent=!ready
+    ?missing.length
+      ?'السبب الذي يمنع الربط: '+missing.join('، ')+'. راجع إعدادات النظام ثم أعد المحاولة. لا تُرسل أي قيمة سرية هنا.'
+      :'حالة Telegram غير جاهزة. اضغط «تحديث حالة الربط» للتحقق، ولا تضع المفتاح في المحادثة.'
+    :linked
+      ?'تم ربط محادثتك الخاصة. استخدم زر إرسال الاختبار للتحقق، ثم فعّل تنبيه الهجمات داخل اللعبة والجسر.'
+      :'إعدادات الخادم وقاعدة البيانات جاهزة. قبل ربط البوت تأكد من تسجيل Telegram Webhook على الموقع الرسمي، ثم اضغط «ربط البوت» وStart داخل المحادثة.';
+}
+async function refreshTelegram(){
+  if(!state.user)return;
+  try{updateTelegramUI(await api('telegram/status'));}
+  catch(_){updateTelegramUI(null);$('telegramStatusText').textContent='تعذر قراءة حالة ربط Telegram. لم تتغير إعداداتك.';}
+}
+$('telegramRefresh').addEventListener('click',()=>void refreshTelegram());
+$('telegramLink').addEventListener('click',()=>{
+  if(!state.user||!telegramCurrent?.configured||telegramCurrent.linked)return;
+  // Open the tab directly on the click; do not wait for an async request.
+  const tab=window.open('about:blank','_blank');
+  const btn=$('telegramLink');btn.disabled=true;
+  void (async()=>{
+    try{
+      const info=await api('telegram/link',{method:'POST'});
+      if(!/^https:\/\/t\.me\/[A-Za-z][A-Za-z0-9_]{4,31}\?start=alg_[a-f0-9]{48}$/.test(info.url))
+        throw Error('invalid_link');
+      if(tab)tab.location.href=info.url;
+      else{$('telegramStatusText').textContent='سمح الموقع بإنشاء رابط الربط. فعّل النوافذ المنبثقة لفتح Telegram.';}
+      toast('افتح Telegram واضغط Start، ثم حدّث حالة الربط.');
+    }catch(error){tab?.close();toast(errText(error),true);}
+    finally{btn.disabled=false;}
+  })();
+});
+$('telegramTest').addEventListener('click',async()=>{
+  const btn=$('telegramTest');btn.disabled=true;
+  try{await api('telegram/test',{method:'POST'});toast('تم طلب إرسال اختبار إلى محادثتك الخاصة');}
+  catch(err){toast(errText(err),true);}
+  finally{btn.disabled=!telegramCurrent?.linked;}
+});
+$('telegramAttacks').addEventListener('change',async event=>{
+  const checked=event.target.checked;
+  event.target.disabled=true;
+  try{await api('telegram/preferences',{method:'POST',body:{attacks:checked}});
+    toast(checked?'تم تفعيل تنبيهات الهجمات':'تم تعطيل تنبيهات الهجمات');
+    await refreshTelegram();
+  }catch(err){event.target.checked=!checked;toast(errText(err),true);}
+  finally{event.target.disabled=!telegramCurrent?.linked;}
+});
+$('telegramWarehouse').addEventListener('change',async event=>{
+  const checked=event.target.checked;
+  event.target.disabled=true;
+  try{
+    await api('telegram/preferences',{method:'POST',body:{warehouse:checked}});
+    toast(checked?'تم تفعيل تنبيهات المخازن للقرية المفتوحة':'تم تعطيل تنبيهات المخازن');
+    await refreshTelegram();
+  }catch(err){event.target.checked=!checked;toast(errText(err),true);}
+  finally{event.target.disabled=!telegramCurrent?.linked||!telegramCurrent?.warehouseAvailable;}
+});
+$('telegramUnlink').addEventListener('click',async()=>{
+  const btn=$('telegramUnlink');btn.disabled=true;
+  try{await api('telegram/unlink',{method:'POST'});await refreshTelegram();toast('أُلغي ربط Telegram بهذا الاشتراك');}
+  catch(err){toast(errText(err),true);}
+  finally{btn.disabled=!telegramCurrent?.linked;}
+});
+
+$('runDiagnostics').addEventListener('click',()=>void runDiagnostics());
 $('loginForm').addEventListener('submit',async event=>{
   event.preventDefault();
   const key=$('accessKey').value.trim();
@@ -465,8 +819,10 @@ $('loginForm').addEventListener('submit',async event=>{
   }catch(err){state.csrf='';$('loginError').textContent=errText(err);}
   finally{button.disabled=false;}
 });
-qa('[data-view]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.view)));
-qa('[data-go]').forEach(button=>button.addEventListener('click',()=>view(button.dataset.go)));
+// Support direct links and manual fragment navigation as well as normal sidebar clicks.
+window.addEventListener('hashchange',()=>{if(state.user){view(routeFromHash(),false);if(routeFromHash()==='telegram')void refreshTelegram();}});
+qa('[data-view]').forEach(button=>button.addEventListener('click',()=>{view(button.dataset.view);if(button.dataset.view==='telegram')void refreshTelegram();}));
+qa('[data-go]').forEach(button=>button.addEventListener('click',()=>{view(button.dataset.go);if(button.dataset.go==='telegram')void refreshTelegram();}));
 $('menuToggle').addEventListener('click',()=>{$('sidebar').classList.toggle('open');$('mobileBackdrop').hidden=!$('sidebar').classList.contains('open');});
 $('mobileBackdrop').addEventListener('click',()=>{$('sidebar').classList.remove('open');$('mobileBackdrop').hidden=true;});
 $('scriptSearch').addEventListener('input',event=>{state.search=event.target.value;renderScripts();});
@@ -479,8 +835,9 @@ $('clearActivity').addEventListener('click',()=>{state.activities=[];renderActiv
 $('refreshButton').addEventListener('click',()=>void refresh());
 async function logoutSubscriber(){
   try{await api('session',{method:'DELETE'});}catch(err){return toast(errText(err),true);}
-  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';
+  state.activities=[];state.user=null;state.subscription=null;state.catalog=[];state.installed.clear();state.releases.clear();state.probeNonce='';state.probeInFlight=false;state.probeTarget=null;state.probing=false;state.probeResponders.clear();state.helloProbed.clear();
   state.prefs={};state.csrf='';state.expiresAt=0;
+  history.replaceState(null,'',location.pathname+location.search);
   showAuth();renderSubscriberHeader();toast('تم تسجيل الخروج');
 }
 $('logoutButton').addEventListener('click',()=>void logoutSubscriber());
@@ -494,6 +851,14 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refresh();},5*60*1000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')void refreshCloud();},90000);
 setInterval(()=>{if(state.user&&document.visibilityState==='visible'){probeInstalledScripts();void fetchReleaseVersions();}},5*60*1000);
+qaInstallDiagnosticsInit();
+if(qaPreviewHost){
+  const officialLink=q('a[href$="/loaders/algzawy-cloud-bridge.user.js"]');
+  if(officialLink){
+    officialLink.href='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/algzawy-quality-hardening-2026-10-25/pilots/algzawy-cloud-bridge-preview-rc1.user.js';
+    officialLink.title='الجسر التجريبي فقط — معزول عن Production';
+  }
+}
 void syncBridgeVersion();
 setInterval(()=>{if(document.visibilityState==='visible')void syncBridgeVersion();},300000);
 void init();

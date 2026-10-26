@@ -48,6 +48,7 @@
         <div class="side-label side-label-secondary">الحساب والأمان</div>
         <button class="nav-item" data-view="connect"><span class="nav-icon">⌁</span><span>ربط اللعبة</span></button>
         <button class="nav-item" data-view="account"><span class="nav-icon">♙</span><span>حسابي والاشتراك</span></button>
+        <button class="nav-item" data-view="telegram"><span class="nav-icon">✉</span><span>تنبيهات Telegram</span></button>
       </nav>
       <div class="sidebar-bottom">
         <div class="side-notice"><span>✧</span><strong>تحكمك محمي</strong><p>التشغيل يعتمد على ترخيص الحساب والجهاز وإذن كل سكربت.</p></div>
@@ -91,6 +92,12 @@
             <article class="metric"><span class="metric-icon gold">⊘</span><div><small>موقوفة</small><strong id="dashboardDisabled">—</strong><span>يمكن تشغيل المسموح منها</span></div></article>
             <article class="metric"><span class="metric-icon blue">⌁</span><div><small>الاتصال المركزي</small><strong id="dashboardCloud" class="metric-word">جارٍ الفحص</strong><span>حالة مفتاح المنظومة العام</span></div></article>
           </div>
+          <section class="telegram-teaser" aria-labelledby="telegramTeaserTitle">
+            <div class="telegram-teaser-symbol">✉</div>
+            <div><span class="kicker">ALGZAWY × TELEGRAM</span><h3 id="telegramTeaserTitle">تنبيه مهم، في الوقت المناسب</h3>
+              <p>تعرّف على طريقة استقبال تنبيهات الهجمات الواردة في محادثتك الخاصة، وتنبيهات اقتراب المخزن من الامتلاء عندما تكون صفحة القرية وسكربت التنبيه قيد التشغيل، دون مشاركة بيانات دخول اللعبة.</p></div>
+            <div class="telegram-teaser-links"><button type="button" class="btn primary" data-go="telegram">كيف تعمل التنبيهات؟ ←</button><a class="btn outline" href="https://t.me/AlG_Reserve_bot" target="_blank" rel="noopener noreferrer">عرض بوت AlGzawy في Telegram ↗</a></div>
+          </section>
           <div class="dashboard-grid">
             <section class="panel">
               <div class="panel-head"><div><span class="kicker">السكربتات</span><h3>التحكم السريع</h3></div><button class="text-link" data-go="scripts">عرض الكل ←</button></div>
@@ -134,10 +141,46 @@
           <div class="info-note"><strong>04 — التشغيل داخل اللعبة:</strong> فعّل السكربت من مركز البوتات، وحدّث اللعبة بعد التثبيت، ثم اضغط «تشغيل هنا» للسكربت و«مزامنة الآن» في الجسر. يكفي جهاز واحد معتمد لكل اشتراك.</div>
           <div class="info-note">لا يلزم إبقاء موقع AlGzawy مفتوحًا. حالة ON/OFF تُستمد من الخادم. عند رفض الجهاز أو انقطاع التحقق يتوقف السماح بالتشغيل. يظل تثبيت سكربتات اللعبة وعلامة التثبيت في التبويب مطلوبين حسب إعدادات الأمان الحالية.</div>
         </section>
+        <section class="view" data-panel="telegram">
+          <div class="page-head"><div><span class="kicker">ALGZAWY ALERT CENTER</span><h2>تنبيهات Telegram</h2><p>اعرف ما يستحق انتباهك من حرب القبائل من خلال إشعارات تصل إلى محادثتك الخاصة.</p></div></div>
+          <section class="telegram-hero">
+            <div class="telegram-hero-icon">✉</div>
+            <div><span class="kicker">AlGzawy × Telegram</span><h3>AlGzawy | TW Scripts Bot</h3><p class="telegram-bot-handle">@AlG_Reserve_bot</p>
+              <p>عندما يكتشف سكربت تنبيه الهجمات نشاطًا واردًا، يمكن للجسر التجريبي إرسال ملخص إلى Telegram عبر خادم AlGzawy الآمن؛ بدون وضع مفتاح البوت داخل اللعبة.</p>
+              <span class="telegram-fineprint">الإشعارات تعتمد على تشغيل اللعبة وسكربت التنبيه والجسر والترخيص. ليست مراقبة مستقلة للخادم أثناء إغلاق اللعبة.</span>
+              <a class="btn outline" href="https://t.me/AlG_Reserve_bot" target="_blank" rel="noopener noreferrer">زيارة البوت في Telegram ↗</a>
+            </div>
+          </section>
+          <div class="telegram-benefits">
+            <article><span>⚔️</span><strong>تنبيهات الهجمات</strong><p>عدد الهجمات الواردة ورقم القرية، لتعرف أن عليك مراجعة اللعبة بسرعة.</p><small class="telegram-ready-label">متاح بعد الربط والتفعيل</small></article>
+            <article><span>◈</span><strong>تنبيهات المخازن</strong><p>رسائل منظمة عن مخزن القرية الحالية أو قرى جدول الإنتاج عند تجاوز النسبة التي تحددها داخل السكربت.</p><small>متاح بعد تفعيل إعدادات المخازن وتشغيل اللعبة</small></article>
+            <article><span>◷</span><strong>تنبيهات تستحق انتباهك</strong><p>إشعار مختصر بدل البقاء على الشاشة باستمرار، مع تحكم منفصل لكل نوع مستقبلاً.</p><small>الإرسال من سكربت مرخّص ومفعّل فقط</small></article>
+          </div>
+          <section class="panel telegram-setup">
+            <div class="panel-head"><div><span class="kicker">SECURE PAIRING</span><h3>ربط Telegram بحسابك</h3></div><span id="telegramState" class="pill neutral">جارٍ التحقق...</span></div>
+            <p>الربط يتم بنقرة واحدة، ثم الضغط على «Start» داخل محادثة البوت الخاصة. لا تطلب منك المنصة إدخال Bot Token أو Chat ID أو كلمة مرور حرب القبائل.</p>
+            <div id="telegramStatusText" class="telegram-description" role="status">افتح هذا القسم بعد الدخول إلى حساب المشترك لقراءة حالة الخدمة.</div>
+            <div class="telegram-controls">
+              <button type="button" class="btn primary" id="telegramLink" disabled>ربط البوت</button>
+              <button type="button" class="btn outline" id="telegramRefresh">تحديث حالة الربط</button>
+              <button type="button" class="btn outline" id="telegramTest" disabled>إرسال رسالة اختبار</button>
+              <button type="button" class="btn danger" id="telegramUnlink" disabled>إلغاء الربط</button>
+            </div>
+            <label class="telegram-opt"><input id="telegramAttacks" type="checkbox" disabled> استقبال تنبيهات الهجمات الواردة</label>
+            <label class="telegram-opt"><input id="telegramWarehouse" type="checkbox" disabled> استقبال تنبيهات المخازن (النسبة من السكربت)</label><small id="telegramWarehouseState" class="telegram-fineprint">يتطلب تهيئة جدول تفضيلات المخازن في قاعدة Preview.</small>
+            <p class="telegram-fineprint">كل سكربت يعمل بترخيص مستقل، وتتطلب الإشعارات تشغيل اللعبة والجسر. فحص المخازن يشمل القرية الحالية أو قرى جدول الإنتاج المعروضة ولا يعمل أثناء إغلاق اللعبة.</p>
+          </section>
+        </section>
         <section class="view" data-panel="account">
           <div class="page-head"><div><span class="kicker">SUBSCRIPTION</span><h2>الحساب والأمان</h2><p>إدارة الهوية والجلسة والصلاحيات دون تخزين مفتاح الوصول داخل المتصفح.</p></div></div>
           <div class="account-panel panel"><div class="account-identity"><span class="avatar-large">AlG</span><div><small>المشترك</small><h3 id="accountLabel">—</h3><span class="pill positive">الحساب متصل</span></div></div><div class="account-fields"><div><small>مدة الجلسة</small><strong>7 أيام</strong></div><div><small>انتهاء الجلسة الحالية</small><strong id="sessionExpiry">—</strong></div><div><small>السكربتات المرخصة</small><strong id="accountLicensed">—</strong></div></div><button id="logoutButton" class="btn danger">تسجيل الخروج من هذا المتصفح</button></div>
           <div class="info-note">يتم التحقق من الصلاحيات والاشتراك والجهاز على الخادم. لا يملك المشترك إمكانية إنشاء حساب بنفسه أو الحصول على سكربت غير مشمول بترخيصه.</div>
+          <section class="panel subscriber-diagnostics" aria-labelledby="diagnosticsTitle">
+            <h3 id="diagnosticsTitle">تشخيص حالة الحساب والاتصال</h3>
+            <p>فحص مباشر للخادم والإصدارات. لا يمكن لهذه الصفحة إثبات أن بوتًا يعمل داخل اللعبة؛ استخدم الجسر للتحقق من حالة التنفيذ.</p>
+            <button class="btn outline" type="button" id="runDiagnostics">فحص الآن</button>
+            <div id="diagnosticsResult" class="diagnostics-result" role="status" aria-live="polite">لم يتم إجراء فحص بعد.</div>
+          </section>
         </section>
       </main>
       <footer class="footer">© 2026 الغزااوي — جميع الحقوق محفوظة · AlGzawy Cloud Control</footer>

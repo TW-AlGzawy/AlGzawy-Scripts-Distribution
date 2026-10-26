@@ -63,7 +63,7 @@ test('V2 never pretends to execute cloud tasks or fetch unauthorized village sec
 test('Farm bot has no misleading portal settings and warehouse editor stays constrained',()=>{
   assert.match(js,/if\(item\.id==='bot-farm-2'\)return \{\};/);
   assert.match(js,/id==='bot-farm-2'\?'إعدادات النهب A\/B\/C/);
-  assert.match(js,/Number\.isInteger\(percent\)\|\|percent<50\|\|percent>100/);
+  assert.match(js,/Number\.isInteger\(percent\)\|\|percent<1\|\|percent>100/);
   assert.match(js,/if\(item\.id==='warehouse-alert-safe'\)/);
   assert.match(js,/role.*switch/);
   assert.match(html,/id="scriptDialog"/);

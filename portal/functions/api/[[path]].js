@@ -1,4 +1,5 @@
 // Cloudflare Pages Functions — AlGzawy Cloud Portal (Free / D1)
+import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost,telegramOwner} from '../telegram-preview.js';
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
@@ -9,6 +10,7 @@ const GROUPS = [
   ['professional-training-v2','الغزااوي | بوت التدريب','training','التدريب المتقدم'],
   ['send-automation','الغزااوي | الإرساليات الدقيقة','military','جدولة الإرسال والوصول'],
   ['alg-attacks','الغزااوي | تنبيه الهجمات','military','تنبيه الهجمات الواردة'],
+  ['warehouse-alert-safe','الغزااوي | تنبيه المخازن','resources','تنبيه المخازن عند اقتراب الامتلاء وإرساله إلى Telegram'],
   ['alg-coins','الغزااوي | الصقل المتطور','resources','الصقل المتطور'],
   ['tribal-wars-helper','الغزااوي | جامع الجوائز','tools','جمع جوائز المهمات']
 ];
@@ -143,7 +145,7 @@ async function accessEvent(env,req,userId,deviceId,type){
     .bind(crypto.randomUUID(),userId,deviceId||null,type,requesterIP(req)).run();}
   catch(err){console.error('[AlGzawy] event audit write failed',err);}
 }
-async function signatureAuth(req,env){
+async function signatureAuth(req,env,proofPath='/api/device/state'){
   const id=req.headers.get('X-ALG-DEVICE-ID')||'';
   const timestamp=Number(req.headers.get('X-ALG-TIMESTAMP')||0);
   const counter=Number(req.headers.get('X-ALG-COUNTER')||0);
@@ -163,7 +165,7 @@ async function signatureAuth(req,env){
     const normalized=sig.replace(/-/g,'+').replace(/_/g,'/');
     const binary=atob(normalized+'='.repeat((4-normalized.length%4)%4));
     const raw=Uint8Array.from(binary,c=>c.charCodeAt(0));
-    const statement=id+'|'+timestamp+'|'+counter+'|/api/device/state';
+    const statement=id+'|'+timestamp+'|'+counter+'|'+proofPath;
     verified=await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,raw,encoder.encode(statement));
   }catch(_){return null;}
   if(!verified||record.last_counter>=counter)return null;
@@ -200,7 +202,7 @@ function validateSettings(id,raw){
     return {};
   }
   if(id==='warehouse-alert-safe'){
-    if(Object.keys(raw).some(x=>x!=='percent')||!Number.isInteger(raw.percent)||raw.percent<50||raw.percent>100)return undefined;
+    if(Object.keys(raw).some(x=>x!=='percent')||!Number.isInteger(raw.percent)||raw.percent<1||raw.percent>100)return undefined;
     return {percent:raw.percent};
   }
   return Object.keys(raw).length===0?{}:undefined;
@@ -208,7 +210,20 @@ function validateSettings(id,raw){
 async function handler(req,env){
   const url=new URL(req.url);
   const path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean);
+  // Restricted Telegram endpoints: never expose the bot token to clients.
+  if(path[0]==='telegram'&&!telegramPreviewHost(req))return bad('not_found',404);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
+  if(path[0]==='telegram'&&path[1]==='webhook'&&path.length===2){
+    return telegramWebhook(req,env,{reply,bad,digest});
+  }
+  if(path[0]==='telegram'&&path[1]==='notify'&&path.length===2){
+    // Device signature binds precisely to this path, not a reusable state proof.
+    const device=await signatureAuth(req,env,'/api/telegram/notify');
+    if(!device)return bad('device_proof_invalid',401);
+    if(device.approved!==1)return bad('device_pending_approval',403);
+    return telegramNotify(req,env,device,
+      {reply,bad,allowedSet,globallyDisabledScripts,subscriptionOK,globalState});
+  }
   if(req.method==='GET'&&path[0]==='bridge-version'&&path.length===1){
     try{
       // Public version-only metadata: never return grants or credentials.
@@ -229,10 +244,12 @@ async function handler(req,env){
       if(!response.ok)return bad('release_manifest_unavailable',503);
       const manifest=await response.json();
       if(manifest?.schema!==1||!Array.isArray(manifest.published_candidates))return bad('release_manifest_invalid',503);
-      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&
+      const items=manifest.published_candidates.filter(item=>IDS.has(item?.id)&&item.id!=='warehouse-alert-safe'&&
         typeof item.version==='string'&&/^\d+(?:\.\d+){1,3}$/.test(item.version))
         .map(({id,version})=>({id,version}));
-      if(items.length!==GROUPS.length)return bad('release_manifest_incomplete',503);
+      if(items.length!==GROUPS.length-1)return bad('release_manifest_incomplete',503);
+      // QA-only standalone warehouse pilot has a separate version channel.
+      items.push({id:'warehouse-alert-safe',version:'1.1.2'});
       return reply({ok:true,items},200,{'Cache-Control':'private, no-store'});
     }catch(e){console.warn('[installer-releases]',e);return bad('release_manifest_unavailable',503);}
   }
@@ -243,7 +260,7 @@ async function handler(req,env){
     if(!hasAdmin&&!currentUser)return bad('unauthorized',401);
     if(currentUser&&!(await subscriptionOK(env,currentUser.id)))return bad('subscription_inactive',403);
     const licensed=hasAdmin?new Set(GROUPS.map(([id])=>id)):await allowedSet(env,currentUser.id);
-    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
+    return reply({ok:true,items:GROUPS.filter(([id])=>licensed.has(id)).map(([id,name,category,description])=>({id,name,category,description,featured:FAV.has(id),installer:id==='warehouse-alert-safe'?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'}))});
   }
   if(req.method==='GET'&&path[0]==='status'&&path.length===1){
     try{return reply({ok:true,global:await globalState(env)});}catch(e){console.error(e);return bad('global_status_unavailable',503);}
@@ -298,10 +315,30 @@ async function handler(req,env){
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
     }
+    if(path[1]==='telegram'&&path.length===3){
+      // Protected by existing owner session/Bearer and per-session CSRF,
+      // Exact host allowlist and encrypted Telegram API credentials.
+      return telegramOwner(req,env,path[2],{reply,bad});
+    }
+    // Existing audit table; owner-only read with no migration or IP in response.
+    // These are recorded licensing events, NOT verified game-engine telemetry.
+    if(path[1]==='audit'&&path.length===2&&req.method==='GET'){
+      const records=await env.DB.prepare(
+        "SELECT e.event_type,e.occurred_at,COALESCE(u.label,'—') AS user_label "+
+        "FROM portal_access_events e LEFT JOIN portal_users u ON u.id=e.user_id "+
+        "ORDER BY e.occurred_at DESC,e.id DESC LIMIT 40"
+      ).all();
+      const events=(records.results||[]).map(row=>({
+        type:String(row.event_type||'').slice(0,100),
+        at:String(row.occurred_at||'').slice(0,32),
+        user:String(row.user_label||'—').slice(0,80)
+      }));
+      return reply({ok:true,scope:'recorded_license_and_device_events',events});
+    }
     if(path[1]==='catalog'&&path.length===2&&req.method==='GET'){
       return reply({ok:true,items:GROUPS.map(([id,name,category,description])=>({
         id,name,category,description,featured:FAV.has(id),
-        installer:'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
+        installer:id==='warehouse-alert-safe'?'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/warehouse-alert-safe.user.js':'https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/'+id+'.user.js'
       }))});
     }
     if(path[1]==='scripts'&&path.length===2){
@@ -568,11 +605,16 @@ async function handler(req,env){
       return bad('csrf_invalid',403);
   }
   if(!(await subscriptionOK(env,user.id)))return bad('subscription_inactive',403);
+  if(path[0]==='telegram'&&path.length===2){
+    return telegramSubscriber(req,env,user,path[1],{reply,bad,digest,bytes});
+  }
   if(path[0]==='me'&&path.length===1&&req.method==='GET'){
     let global;try{global=await globalState(env);}catch(_){return bad('global_status_unavailable',503);}
     const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(user.id).first();
+    const approvedDevice=await env.DB.prepare('SELECT last_seen FROM portal_device_keys WHERE user_id=? AND approved=1 LIMIT 1').bind(user.id).first();
     return reply({ok:true,user,global,scripts:await settingsFor(env,user.id),
       subscription:{active:sub?.active===1,expiresAt:Number.isSafeInteger(sub?.expires_at)?sub.expires_at:null},
+      deviceHealth:{approved:!!approvedDevice,lastSeen:approvedDevice?.last_seen||null},
       serverNow:Math.floor(Date.now()/1000)});
   }
   if(path[0]==='scripts'&&path[1]==='bulk'&&path.length===2&&req.method==='POST'){

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | بوت التدريب
 // @namespace    http://tampermonkey.net/
-// @version      1.0.3
+// @version      1.0.4
 // @description  تحكم ذكي في تدريب جميع الوحدات - نسخة محسّنة لا تستهلك الذاكرة
 // @match        https://*/*=train*
 // @grant        GM_setValue
@@ -82,8 +82,7 @@
             },
             archer: { enabled: false, targetCount: 0, priority: 9, name: 'رامي السهام' },
             marcher: { enabled: false, targetCount: 0, priority: 9, name: 'رامي سهام على الحصان' },
-            snob: { enabled: false, targetCount: 0, priority: 10, name: 'نبيل (إن أتيح في صفحة التدريب)' },
-            militia: { enabled: false, targetCount: 0, priority: 10, name: 'ميليشيا (إن أتيح)' }
+            snob: { enabled: false, targetCount: 0, priority: 10, name: 'نبيل (إن أتيح في صفحة التدريب)' }
         }
     };
 
@@ -162,183 +161,129 @@
 
     let panelUpdateInterval = null;
 
-    function createControlPanel() {
-        // حذف اللوحة القديمة إن وجدت
-        const oldPanel = document.getElementById('training-bot-panel');
-        if (oldPanel) {
-            oldPanel.remove();
-        }
 
-        const panel = document.createElement('div');
-        panel.id = 'training-bot-panel';
-        panel.style.cssText = `
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: linear-gradient(135deg, #13283a 0%, #102031 100%);
-            color: #eaf3f8;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 2147483001;
-            font-family: Arial, sans-serif;
-            min-width: 300px;
-            max-width: 350px;
-            max-height: 80vh;
-            overflow-y: auto;
-            direction: rtl;
-        `;
-
-        panel.dataset.collapsed=localStorage.getItem('algzawy_training_collapsed_'+VILLAGE)==='1'?'1':'0';
-        const posKey='algzawy_training_position_'+VILLAGE;
-        try{
-          const p=JSON.parse(localStorage.getItem(posKey)||'null');
-          if(p&&Number.isFinite(p.left)&&Number.isFinite(p.top)){
-            panel.style.left=Math.max(0,Math.min(innerWidth-300,p.left))+'px';
-            panel.style.top=Math.max(0,Math.min(innerHeight-45,p.top))+'px';
-          }
-        }catch(_){}
+    // QA UI-only state; village training preferences stay on the existing keys.
+    const UI_KEY='algzawy_training_qa_ui_'+VILLAGE;
+    let ui={all:false,advanced:false};
+    try{const old=JSON.parse(localStorage.getItem(UI_KEY)||'null');if(old&&typeof old==='object')ui={all:old.all===true,advanced:old.advanced===true};}catch(_){}
+    const saveUI=()=>{try{localStorage.setItem(UI_KEY,JSON.stringify(ui));}catch(_){}};
+    function createControlPanel(){
+      document.getElementById('training-bot-panel')?.remove();
+      if(!document.getElementById('alg-training-qa-css')){
+        const css=document.createElement('style');css.id='alg-training-qa-css';
+        css.textContent=[
+          '#training-bot-panel{position:fixed;top:8px;left:8px;z-index:2147483001;direction:rtl;width:308px;min-width:0;max-width:calc(100vw - 12px);max-height:70vh;overflow:hidden;background:#0b1724;border:1px solid #2a8677;border-radius:12px;box-shadow:0 12px 28px #0009;color:#edfdfc;font:11px/1.55 Tahoma,Arial,sans-serif;box-sizing:border-box;color-scheme:dark}',
+          '#training-bot-panel *{box-sizing:border-box}',
+          '#training-bot-panel .tr-head{display:flex;align-items:center;gap:7px;min-height:44px;padding:6px 8px;background:linear-gradient(110deg,#15433e,#143347);touch-action:none;cursor:move;user-select:none}',
+          '#training-bot-panel .tr-logo{background:#56edbc;color:#05372d;border-radius:8px;width:33px;height:33px;display:grid;place-items:center;font-weight:900}',
+          '#training-bot-panel .tr-title{flex:1;min-width:0;font-weight:800;font-size:11px}',
+          '#training-bot-panel .tr-title small{display:block;color:#b0d9cd;font-weight:400;font-size:9px}',
+          '#training-bot-panel button{cursor:pointer;background:#19413f;border:1px solid #388e78;border-radius:7px;color:#dffff4;font:inherit;padding:5px 7px}',
+          '#training-bot-panel .tr-fold{min-width:28px;min-height:27px;font-size:15px}',
+          '#training-bot-panel .tr-body{max-height:calc(70vh - 44px);overflow-y:auto;padding:8px;overscroll-behavior:contain}',
+          '#training-bot-panel[data-collapsed="1"]{width:244px}',
+          '#training-bot-panel[data-collapsed="1"] .tr-body{display:none}',
+          '#training-bot-panel .tr-actions{display:flex;gap:5px;margin:7px 0}',
+          '#training-bot-panel .tr-actions button{flex:1;font-size:10px;min-height:27px}',
+          '#training-bot-panel .tr-actions button[aria-pressed="true"]{background:#206052;border-color:#57dcb7}',
+          '#training-bot-panel .tr-status{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#103038;border:1px solid #265655;border-radius:8px;padding:7px}',
+          '#training-bot-panel .tr-status label{display:flex;align-items:center;gap:5px;font-weight:700}',
+          '#training-bot-panel #bot-status{color:#56edbc;font-weight:700;font-size:10px}',
+          '#training-bot-panel input[type="checkbox"]{accent-color:#56edbc}',
+          '#training-bot-panel .tr-headings,#training-bot-panel .tr-unit{display:grid;grid-template-columns:minmax(82px,1fr) 47px 39px 44px;gap:3px;align-items:center}',
+          '#training-bot-panel .tr-headings{font-size:9px;color:#b6d0d4;padding:5px 3px;text-align:center}',
+          '#training-bot-panel .tr-headings span:first-child{text-align:right}',
+          '#training-bot-panel .tr-rows{display:grid;gap:4px;max-height:185px;overflow-y:auto}',
+          '#training-bot-panel .tr-unit{background:#102631;border:1px solid #264956;border-radius:7px;padding:5px 4px}',
+          '#training-bot-panel .tr-unit label{min-width:0;display:flex;align-items:center;gap:2px;overflow:hidden;font-size:9px}',
+          '#training-bot-panel .tr-unit label span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}',
+          '#training-bot-panel input[type="number"]{background:#071b27;color:#edfdfc;border:1px solid #315b69;border-radius:5px;width:100%;min-width:0;text-align:center;padding:5px 1px;font:10px Tahoma}',
+          '#training-bot-panel .tr-total{grid-column:1/-1;font-size:9px;color:#91ccb9;padding-inline:4px}',
+          '#training-bot-panel .tr-extra{margin-top:8px;padding-top:8px;border-top:1px solid #31505a;font-size:10px}',
+          '#training-bot-panel .tr-extra label{display:flex;gap:8px;align-items:center;justify-content:space-between}',
+          '#training-bot-panel .tr-extra input{max-width:75px}',
+          '#training-bot-panel .tr-info{font-size:9px;color:#91b8bb;padding:6px 0 2px}',
+          '#training-bot-panel button:focus-visible,#training-bot-panel input:focus-visible{outline:2px solid #56edbc;outline-offset:2px}'
+        ].join('');
+        (document.head||document.documentElement).appendChild(css);
+      }
+      const panel=document.createElement('section');panel.id='training-bot-panel';
+      panel.setAttribute('aria-label','الغزااوي | بوت التدريب');
+      panel.dataset.collapsed=localStorage.getItem('algzawy_training_collapsed_'+VILLAGE)==='1'?'1':'0';
+      const posKey='algzawy_training_position_'+VILLAGE;
+      try{const xy=JSON.parse(localStorage.getItem(posKey)||'null');if(xy&&Number.isFinite(xy.left)&&Number.isFinite(xy.top)){
+        panel.style.left=Math.max(0,Math.min(innerWidth-260,xy.left))+'px';
+        panel.style.top=Math.max(0,Math.min(innerHeight-44,xy.top))+'px';
+      }}catch(_){}
+      document.body.appendChild(panel);updatePanelContent(panel);
+      panel.addEventListener('click',event=>{
+        const action=event.target.closest('[data-training-action]')?.dataset.trainingAction;
+        if(!action)return;
+        if(action==='fold'){panel.dataset.collapsed=panel.dataset.collapsed==='1'?'0':'1';localStorage.setItem('algzawy_training_collapsed_'+VILLAGE,panel.dataset.collapsed);}
+        else if(action==='all'){ui.all=!ui.all;saveUI();}
+        else if(action==='advanced'){ui.advanced=!ui.advanced;saveUI();}
+        else return;
         updatePanelContent(panel);
-        panel.addEventListener('click',event=>{
-            if(event.target.id!=='algzawy-training-collapse')return;
-            panel.dataset.collapsed=panel.dataset.collapsed==='1'?'0':'1';
-            localStorage.setItem('algzawy_training_collapsed_'+VILLAGE,panel.dataset.collapsed);
-            updatePanelContent(panel);
-        });
-        panel.addEventListener('change', event => {
-            const el = event.target;
-            if(el.id==='algzawy-training-refresh')CONFIG.AUTO_REFRESH_MINUTES=Math.max(0,Math.min(1440,Number(el.value)||0));
-            else if (el.id === 'algzawy-training-enabled') CONFIG.AUTO_TRAIN = el.checked;
-            else if (el.dataset.unit && CONFIG.units[el.dataset.unit]) {
-                const unit = CONFIG.units[el.dataset.unit];
-                if (el.dataset.field === 'enabled') unit.enabled = el.checked;
-                if (el.dataset.field === 'targetCount') unit.targetCount = Math.max(0,Math.min(1000000,Number(el.value)||0));
-                if (el.dataset.field === 'priority') unit.priority = Math.max(1,Math.min(20,Number(el.value)||1));
-                if (el.dataset.field === 'maxBatch') unit.maxBatch = Math.max(0,Math.min(10000,Number(el.value)||0));
-            }
-            saveUserSettings();
-            stopTrainingCycle();
-            if (refreshTimeout) { clearTimeout(refreshTimeout); refreshTimeout = null; }
-            if (CONFIG.AUTO_TRAIN) { startTrainingCycle(); setupAutoRefresh(); }
-            updatePanelContent(panel);
-        });
-        document.body.appendChild(panel);
-        let drag=null;
-        panel.addEventListener('pointerdown',event=>{
-          if(event.button!==0||!event.target.closest('[data-training-drag]')||
-            event.target.closest('button,input,textarea,select'))return;
-          const r=panel.getBoundingClientRect();
-          drag={id:event.pointerId,x:event.clientX,y:event.clientY,left:r.left,top:r.top};
-          panel.setPointerCapture?.(event.pointerId);
-        });
-        panel.addEventListener('pointermove',event=>{
-          if(!drag||event.pointerId!==drag.id)return;
-          panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,drag.left+event.clientX-drag.x))+'px';
-          panel.style.top=Math.max(0,Math.min(innerHeight-40,drag.top+event.clientY-drag.y))+'px';
-        });
-        function endDrag(event){
-          if(!drag||event.pointerId!==drag.id)return;
-          drag=null;
-          try{localStorage.setItem(posKey,JSON.stringify({left:panel.offsetLeft,top:panel.offsetTop}));}catch(_){}
-          if(panel.hasPointerCapture?.(event.pointerId))panel.releasePointerCapture(event.pointerId);
-        }
-        panel.addEventListener('pointerup',endDrag);
-        panel.addEventListener('pointercancel',endDrag);
+      });
+      panel.addEventListener('change',event=>{
+        const input=event.target;
+        if(input.id==='algzawy-training-enabled')CONFIG.AUTO_TRAIN=input.checked;
+        else if(input.id==='algzawy-training-refresh')CONFIG.AUTO_REFRESH_MINUTES=Math.max(0,Math.min(1440,Number(input.value)||0));
+        else if(input.dataset.unit&&CONFIG.units[input.dataset.unit]){
+          const unit=CONFIG.units[input.dataset.unit];
+          if(input.dataset.field==='enabled')unit.enabled=input.checked;
+          if(input.dataset.field==='targetCount')unit.targetCount=Math.max(0,Math.min(1000000,Number(input.value)||0));
+          if(input.dataset.field==='priority')unit.priority=Math.max(1,Math.min(20,Number(input.value)||1));
+          if(input.dataset.field==='maxBatch')unit.maxBatch=Math.max(0,Math.min(10000,Number(input.value)||0));
+        }else return;
+        saveUserSettings();stopTrainingCycle();
+        if(refreshTimeout){clearTimeout(refreshTimeout);refreshTimeout=null;}
+        if(CONFIG.AUTO_TRAIN){startTrainingCycle();setupAutoRefresh();}
+        updatePanelContent(panel);
+      });
+      let drag=null;
+      panel.addEventListener('pointerdown',ev=>{
+        if(ev.button!==0||!ev.target.closest('[data-training-drag]')||ev.target.closest('button,input,select,textarea'))return;
+        const rect=panel.getBoundingClientRect();drag={id:ev.pointerId,x:ev.clientX,y:ev.clientY,left:rect.left,top:rect.top};
+        panel.setPointerCapture?.(ev.pointerId);
+      });
+      panel.addEventListener('pointermove',ev=>{
+        if(!drag||drag.id!==ev.pointerId)return;
+        panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,drag.left+ev.clientX-drag.x))+'px';
+        panel.style.top=Math.max(0,Math.min(innerHeight-44,drag.top+ev.clientY-drag.y))+'px';
+      });
+      const end=ev=>{if(!drag||drag.id!==ev.pointerId)return;drag=null;
+        try{localStorage.setItem(posKey,JSON.stringify({left:panel.offsetLeft,top:panel.offsetTop}));}catch(_){}
+        if(panel.hasPointerCapture?.(ev.pointerId))panel.releasePointerCapture(ev.pointerId);
+      };
+      panel.addEventListener('pointerup',end);panel.addEventListener('pointercancel',end);
     }
-
-    function updatePanelContent(panel) {
-        const stats = getStats();
-
-        let html = `
-            <div style="border-bottom: 2px solid rgba(255,255,255,0.3); padding-bottom: 10px; margin-bottom: 10px;">
-                <div data-training-drag style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:move;touch-action:none;user-select:none">
-                    <h3 style="margin:0;font-size:14px">🤖 الغزااوي | بوت التدريب</h3>
-                    <button id="algzawy-training-collapse" type="button" aria-label="تصغير أو تكبير نافذة التدريب" style="border:1px solid #263c4f;background:#123e3d;color:#eaf3f8;border-radius:5px;cursor:pointer">${panel.dataset.collapsed==='1'?'＋':'−'}</button>
-                </div>
-                <div data-training-body style="display:${panel.dataset.collapsed==='1'?'none':'block'}">
-                <label style="display:block;margin-top:6px"><input id="algzawy-training-enabled" type="checkbox" ${CONFIG.AUTO_TRAIN ? 'checked':''}> تشغيل التدريب التلقائي</label>
-                <div style="font-size: 11px; opacity: 0.8; margin-top: 5px;">
-                    التحديث بالدقائق (0 = معطل): <input id="algzawy-training-refresh" type="number" min="0" max="1440" style="width:66px" value="${CONFIG.AUTO_REFRESH_MINUTES}">
-                </div>
-
-            <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 5px; margin-bottom: 10px; font-size: 12px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>⏱️ الفاصل:</span>
-                    <span style="font-weight: bold;">${CONFIG.GLOBAL_INTERVAL_SECONDS}ث</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span>🔄 الحالة:</span>
-                    <span id="bot-status" style="font-weight: bold; color: #40e1bf;">نشط</span>
-                </div>
-            </div>
-
-            <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px; opacity: 0.9;">
-                📋 إعدادات الوحدات (تُحفظ تلقائيًا):
-            </div>
-            <div style="max-height:200px;overflow:auto;background:#13283a;padding:5px">
-            <div style="display:grid;grid-template-columns:1fr 55px 40px 55px;gap:3px;align-items:center;font-size:10px;font-weight:bold">
-               <span>الوحدة</span><span>الهدف</span><span>الأولوية</span><span>الحد الأقصى</span>
-            </div>
-            ${Object.entries(CONFIG.units).map(([id,u])=>
-              '<div style="display:grid;grid-template-columns:1fr 55px 40px 55px;gap:3px;align-items:center;margin:3px 0">'+
-              '<label><input type="checkbox" data-unit="'+id+'" data-field="enabled" '+(u.enabled?'checked':'')+'>'+u.name+'</label>'+
-              '<input type="number" min="0" title="الهدف" data-unit="'+id+'" data-field="targetCount" value="'+u.targetCount+'" style="width:50px">'+
-              '<input type="number" min="1" max="20" title="الأولوية" data-unit="'+id+'" data-field="priority" value="'+u.priority+'" style="width:35px">'+
-              '<input type="number" min="0" title="حد أقصى للدفعة؛ 0 = المتاح" data-unit="'+id+'" data-field="maxBatch" value="'+(u.maxBatch||0)+'" style="width:50px">'+
-              '</div>').join('')}
-            </div>
-            <div style="font-size:10px">الحقول: الهدف | الأولوية | أقصى دفعة (0 = المتاح)</div>
-        `;
-
-        // ترتيب الوحدات حسب الأولوية
-        const sortedUnits = Object.entries(CONFIG.units)
-            .filter(([_, config]) => config.enabled)
-            .sort((a, b) => a[1].priority - b[1].priority);
-
-        if (sortedUnits.length === 0) {
-            html += `
-                <div style="background: rgba(255,255,255,0.15); padding: 10px; border-radius: 5px; text-align: center; font-size: 11px;">
-                    ⚠️ لا توجد وحدات مفعلة
-                </div>
-            `;
-        } else {
-            sortedUnits.forEach(([unitId, config]) => {
-                const unitStats = stats[unitId] || { trained: 0, attempts: 0 };
-                const targetText = config.targetCount > 0 ? `/${config.targetCount}` : '/∞';
-                const progress = config.targetCount > 0
-                    ? Math.min(100, (unitStats.trained / config.targetCount) * 100).toFixed(0)
-                    : 0;
-
-                html += `
-                    <div style="background: rgba(255,255,255,0.15); padding: 8px; border-radius: 5px; margin-bottom: 6px; font-size: 11px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <span style="font-weight: bold;">${config.name}</span>
-                            <span style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px; font-size: 10px;">
-                                أولوية ${config.priority}
-                            </span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 10px; opacity: 0.9;">
-                            <span>طلبات إرسال: <strong>${unitStats.trained}${targetText}</strong></span>
-                            <span>محاولات: ${unitStats.attempts}</span>
-                        </div>
-                        ${config.targetCount > 0 ? `
-                            <div style="background: rgba(0,0,0,0.2); height: 4px; border-radius: 2px; margin-top: 4px; overflow: hidden;">
-                                <div style="background: #40e1bf; height: 100%; width: ${progress}%;"></div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
-        }
-
-        html += `
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 10px; opacity: 0.7; text-align: center;">
-                آخر تحديث: ${new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}
-            </div>
-            <div style="margin-top:8px;text-align:center;color:#a6cdcc;font-size:10px">BETA · V1.0 · © 2026 الغزااوي — جميع الحقوق محفوظة</div></div>
-        `;
-
-        panel.innerHTML = html;
+    function updatePanelContent(panel){
+      const active=Object.entries(CONFIG.units).filter(([,v])=>v.enabled);
+      const shown=ui.all?Object.entries(CONFIG.units):active;
+      const safe=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+      const rows=shown.map(([id,u])=>{
+        const data=readTrainingTotals(id);
+        const total=data?'الموجود '+data.owned+' + قيد التدريب '+data.queued+' = '+data.total
+          :'عدد الجنود غير متاح — لن يرسل البوت طلب تدريب لهذه الوحدة';
+        return '<div class="tr-unit"><label title="'+safe(u.name)+'"><input type="checkbox" data-unit="'+id+'" data-field="enabled" '+(u.enabled?'checked':'')+'><span>'+safe(u.name)+'</span></label>'
+          +'<input type="number" min="0" title="الهدف" data-unit="'+id+'" data-field="targetCount" value="'+u.targetCount+'">'
+          +'<input type="number" min="1" max="20" title="الأولوية" data-unit="'+id+'" data-field="priority" value="'+u.priority+'">'
+          +'<input type="number" min="0" title="أقصى دفعة (0=المتاح)" data-unit="'+id+'" data-field="maxBatch" value="'+(u.maxBatch||0)+'">'
+          +'<span class="tr-total">'+safe(total)+'</span></div>';
+      }).join('');
+      panel.innerHTML=
+        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>v1.0.4 · قرية '+safe(VILLAGE)+'</small></span>'
+        +'<button class="tr-fold" type="button" data-training-action="fold" aria-label="طي أو فتح النافذة">'+(panel.dataset.collapsed==='1'?'＋':'−')+'</button></header>'
+        +'<div class="tr-body"><div class="tr-status"><label><input id="algzawy-training-enabled" type="checkbox" '+(CONFIG.AUTO_TRAIN?'checked':'')+'>تدريب تلقائي</label>'
+        +'<strong id="bot-status">'+(CONFIG.AUTO_TRAIN?'نشط':'متوقف')+'</strong></div>'
+        +'<div class="tr-actions"><button type="button" data-training-action="all" aria-pressed="'+ui.all+'">'+(ui.all?'الوحدات المفعّلة':'كل الوحدات')+' ('+active.length+'/'+Object.keys(CONFIG.units).length+')</button>'
+        +'<button type="button" data-training-action="advanced" aria-pressed="'+ui.advanced+'">'+(ui.advanced?'إخفاء الخيارات':'خيارات إضافية')+'</button></div>'
+        +'<div class="tr-headings"><span>الوحدة</span><span>الهدف</span><span>الأولوية</span><span>الأقصى</span></div>'
+        +'<div class="tr-rows">'+(rows||'<p class="tr-info">لا توجد وحدات مفعلة. اختر «كل الوحدات» لتفعيل المطلوب.</p>')+'</div>'
+        +(ui.advanced?'<div class="tr-extra"><label>تحديث الصفحة تلقائيًا (دقائق)<input type="number" min="0" max="1440" id="algzawy-training-refresh" value="'+CONFIG.AUTO_REFRESH_MINUTES+'"></label><p class="tr-info">0 = إيقاف التحديث · الفاصل بين المحاولات '+CONFIG.GLOBAL_INTERVAL_SECONDS+' ثانية · الحد الأقصى 0 = المتاح</p></div>':'')
+        +'<p class="tr-info">الهدف يُحسب من الجنود الموجودين وقيد التدريب. لن يرسل البوت عند تعذّر قراءة العدد.</p>'
+        +'<div class="tr-info" style="text-align:center;border-top:1px solid #274b55">AlG · جميع الحقوق محفوظة للغزااوي</div></div>';
     }
 
     function setupPanelUpdates() {
@@ -361,74 +306,86 @@
     // 🎯 دالة التدريب الذكية المحسّنة
     // ═══════════════════════════════════════════════════════════════
 
-    function trainUnit(unitId, config) {
-        if (!CONFIG.AUTO_TRAIN || localStorage.getItem('algzawy_human_verification_pause')==='1') return false;
-        const stats = getStats();
-        const unitStats = stats[unitId] || { trained: 0 };
-
-        // التحقق من الوصول للهدف
-        if (config.targetCount > 0 && unitStats.trained >= config.targetCount) {
-            console.log(`✅ ${config.name}: وصل للهدف (${unitStats.trained}/${config.targetCount})`);
-            return false;
-        }
-
-        const unitMax = document.querySelector(`#${unitId}_0_a`);
-        const unitInput = document.querySelector(`#${unitId}_0`);
-        // Restrict submissions to the form that owns this unit.
-        const trainBtn = unitInput && unitInput.closest('form')?.querySelector('input.btn-recruit[type="submit"], button.btn-recruit[type="submit"], input[type="submit"].btn');
-
-        if (!trainBtn) {
-            console.log(`❌ ${config.name}: زر التدريب غير موجود`);
-            return false;
-        }
-
-        if (trainBtn.disabled) {
-            console.log(`⚠️ ${config.name}: الموارد غير كافية`);
-            updateStats(unitId, false);
-            return false;
-        }
-
-        if (unitMax && unitInput) {
-            unitMax.click();
-
-            setTimeout(() => {
-                const inputValue = parseInt(unitInput.value) || 0;
-
-                if (!CONFIG.AUTO_TRAIN || localStorage.getItem('algzawy_human_verification_pause')==='1') return;
-                const remaining = config.targetCount > 0 ? config.targetCount-(getStats()[unitId]?.trained||0) : inputValue;
-                const desired = Math.min(inputValue, Math.max(0,remaining), config.maxBatch>0 ? config.maxBatch : inputValue);
-                if (desired >= 1 && !trainBtn.disabled) {
-                    unitInput.value = String(desired);
-                    unitInput.dispatchEvent(new Event('input',{bubbles:true}));
-                    unitInput.dispatchEvent(new Event('change',{bubbles:true}));
-                    trainBtn.click();
-                    console.log(`[AlGzawy] Training request sent ${config.name} x${desired} (server confirmation not verified)`);
-                    updateStats(unitId, true, desired);
-
-                    // تحديث الحالة في اللوحة
-                    const statusEl = document.getElementById('bot-status');
-                    if (statusEl) {
-                        statusEl.textContent = `تدريب ${config.name}`;
-                        statusEl.style.color = '#dfb677';
-                        setTimeout(() => {
-                            if (statusEl) {
-                                statusEl.textContent = 'نشط';
-                                statusEl.style.color = '#40e1bf';
-                            }
-                        }, 2000);
-                    }
-
-                    return true;
-                } else {
-                    console.log(`⚠️ ${config.name}: لا توجد وحدات متاحة`);
-                    updateStats(unitId, false);
-                    return false;
-                }
-            }, 500 + Math.random() * 500);
-        }
-
-        return false;
+    function readTrainingTotals(unitId){
+  const unitInput=document.getElementById(unitId+'_0');
+  const trainForm=unitInput?.closest('form');
+  const tr=unitInput?.closest('tr');
+  if(!trainForm||!tr||!trainForm.contains(unitInput))return null;
+  const arabicDigits='٠١٢٣٤٥٦٧٨٩';
+  const persianDigits='۰۱۲۳۴۵۶۷۸۹';
+  const numeric=text=>{
+    const value=String(text||'').replace(/[٠-٩]/g,x=>String(arabicDigits.indexOf(x)))
+      .replace(/[۰-۹]/g,x=>String(persianDigits.indexOf(x)));
+    if(!/^\s*[\d][\d.,\s]*\s*$/.test(value))return null;
+    const parsed=Number(value.replace(/[^\d]/g,''));
+    return Number.isSafeInteger(parsed)&&parsed>=0?parsed:null;
+  };
+  // "In village / total" game cell: the second value is the total belonging
+  // to the village (including troops deployed elsewhere), not just home.
+  const cells=[...tr.querySelectorAll('td')];
+  let owned=null;
+  for(const td of cells){
+    const raw=td.textContent?.trim()||'';
+    const match=raw.match(/^([\d٠-٩۰-۹][\d٠-٩۰-۹.,\s]*)\s*\/\s*([\d٠-٩۰-۹][\d٠-٩۰-۹.,\s]*)$/);
+    if(match){owned=numeric(match[2]);break;}
+  }
+  if(owned===null)return null;
+  const queueWrappers=[...document.querySelectorAll('.trainqueue_wrap')];
+  // When the game hasn't exposed the recruitment queue yet, treat it as
+  // unknown. Never assume 0 and silently exceed the configured troop goal.
+  if(!queueWrappers.length)return null;
+  let queued=0;
+  for(const wrap of queueWrappers){
+    for(const tr of wrap.querySelectorAll('tr')){
+      const sprite=tr.querySelector('.unit_sprite.'+unitId);
+      if(!sprite)continue;
+      const td=tr.querySelector('td');
+      if(!td)continue;
+      const raw=td.textContent?.trim()||'';
+      const count=raw.match(/^([\d٠-٩۰-۹][\d٠-٩۰-۹.,\s]*)\s+\S/);
+      if(!count)return null;
+      const n=numeric(count[1]);
+      if(n===null)return null;
+      queued+=n;
+      if(!Number.isSafeInteger(queued))return null;
     }
+  }
+  return {owned,queued,total:owned+queued};
+}
+
+    function trainUnit(unitId,config){
+  if(!CONFIG.AUTO_TRAIN||localStorage.getItem('algzawy_human_verification_pause')==='1')return false;
+  const attemptKey='algzawy_qa_training_attempt_'+VILLAGE+'_'+unitId;
+  const lastAttempt=Number(sessionStorage.getItem(attemptKey)||0);
+  // Prevent duplicate submissions while the game's queue updates/reloads.
+  if(lastAttempt>Date.now()-90000 && lastAttempt<=Date.now())return false;
+  const input=document.getElementById(unitId+'_0');
+  const maxLink=document.getElementById(unitId+'_0_a');
+  const btn=input?.closest('form')?.querySelector('input.btn-recruit[type="submit"],button.btn-recruit[type="submit"],input[type="submit"].btn');
+  if(!input||!maxLink||!btn||btn.disabled)return false;
+  let totals=readTrainingTotals(unitId);
+  if(!totals){console.warn('[AlG Training QA] game unit/queue count unavailable: skip',unitId);return false;}
+  if(config.targetCount>0 && totals.total>=config.targetCount)return false;
+  maxLink.click();
+  setTimeout(()=>{
+    if(!CONFIG.AUTO_TRAIN||localStorage.getItem('algzawy_human_verification_pause')==='1'||btn.disabled)return;
+    totals=readTrainingTotals(unitId);
+    if(!totals){console.warn('[AlG Training QA] totals changed or unavailable; no submission',unitId);return;}
+    const maxAvailable=Number.parseInt(String(input.value||''),10);
+    if(!Number.isSafeInteger(maxAvailable)||maxAvailable<1)return;
+    const remaining=config.targetCount>0?Math.max(0,config.targetCount-totals.total):maxAvailable;
+    const desired=Math.min(maxAvailable,remaining,config.maxBatch>0?config.maxBatch:maxAvailable);
+    if(desired<1)return;
+    sessionStorage.setItem(attemptKey,String(Date.now()));
+    input.value=String(desired);
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+    btn.click();
+    console.info('[AlG Training QA] submitted recruiting request (server not yet confirmed)',unitId,desired,totals.total);
+    updateStats(unitId,true,desired); // diagnostic submissions only, never used as village troop totals
+  },500+Math.random()*500);
+  return true;
+}
 
     // ═══════════════════════════════════════════════════════════════
     // 🔄 نظام التدريب الدوري المحسّن
@@ -555,12 +512,3 @@
 
 })();
 
-// Portal palette: scoped presentation only; no engine settings or scheduling changes.
-(function () {
-  const id='alg-portal-colors-professional-training-v2';
-  if(document.getElementById(id))return;
-  const style=document.createElement('style');
-  style.id=id;
-  style.textContent=":is(#training-bot-panel){background-color:#102031;color:#eaf3f8;border-color:#263c4f;color-scheme:dark}\n:is(#training-bot-panel) :is(input,select,textarea){background-color:#07111c;color:#eaf3f8;border-color:#263c4f;accent-color:#40e1bf;color-scheme:dark}\n:is(#training-bot-panel) :is(button,.btn){background-color:#143e3a;background-image:none;color:#eaf3f8;border-color:#286459}\n:is(#training-bot-panel) :is(button,a,input,select,textarea):focus-visible{outline-color:#40e1bf}\n:is(#training-bot-panel) :is(th,td){border-color:#263c4f}\n:is(#training-bot-panel) option{background-color:#07111c;color:#eaf3f8}";
-  (document.head||document.documentElement).appendChild(style);
-})();
