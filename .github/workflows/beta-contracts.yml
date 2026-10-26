@@ -1,7 +1,7 @@
 name: AlGzawy BETA static contracts
 on:
   push:
-    branches: [main]
+    branches: [main, 'release/algzawy-cloud-control-2026-10-26']
     paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
   pull_request:
     paths: ['scripts/**', 'loaders/**', 'catalog.json', 'tests/**', '.github/workflows/beta-contracts.yml']
