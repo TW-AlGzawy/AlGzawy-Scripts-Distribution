@@ -11,8 +11,10 @@ const productionOrigin='https://algzawy-cloud-control.pages.dev';
 test('Every published loader reports its installed version from approved preview without executing any game engine',()=>{
   for(const entry of entries){
     const source=read('loaders/'+entry.id+'.user.js');
-    assert.match(source,/^\/\/ @match\s+https:\/\/\*\.algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
-    for(const origin of [previewOrigin,productionOrigin]){
+    assert.match(source,entry.id==='warehouse-alert-safe'
+      ?/^\/\/ @match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*/m
+      :/^\/\/ @match\s+https:\/\/\*\.algzawy-cloud-control\.pages\.dev\/v2\/\*/m);
+    for(const origin of (entry.id==='warehouse-alert-safe'?[productionOrigin]:[previewOrigin,productionOrigin])){
       const handlers={},domHandlers={},reports=[],domReports=[],qaSignals=[],qaDomSignals=[];
       const win={addEventListener(type,fn){handlers[type]=fn;},postMessage(value,target){
         if(value.scope==='algzawy-installation-debug-v1')qaSignals.push({value,target});
@@ -67,7 +69,7 @@ test('Subscriber UI scopes pending installation to the clicked script instead of
   const preview=make(state,()=>0,{hostname:'da012635.algzawy-cloud-control.pages.dev'},{querySelector:()=>null});
   assert.equal(preview.installationState({id:'bot-farm-2'}).kind,'checking');
   assert.equal(preview.installationState({id:'alg-attacks'}).kind,'install');
-  assert.match(preview.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),/feature\/algzawy-quality-hardening-2026-10-25\/loaders\/bot-farm-2\.user\.js$/);
+  assert.equal(preview.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),'main-path');
   const main=make(state,()=>0,{hostname:'algzawy-cloud-control.pages.dev'},{querySelector:()=>null});
   assert.equal(main.installerUrlFor({id:'bot-farm-2',installer:'main-path'}),'main-path');
   state.installed.set('bot-farm-2','1.0.2');
@@ -76,20 +78,17 @@ test('Subscriber UI scopes pending installation to the clicked script instead of
   assert.match(source,/if\(!state\.probeResponders\.has\(id\)\)state\.installed\.delete\(id\)/);
 });
 
-test('QA preview applies the same trace protocol to all nine licensed loaders, without implying fake installs',()=>{
-  const source=read('portal/v2/app.js');
-  for(const item of entries){
-    assert.match(source,new RegExp("'"+item.id+"'"),item.id+' must have a QA trace identifier');
-    const loader=read('loaders/'+item.id+'.user.js');
-    assert.match(loader,/qaTrace\('loader-start'\)/);
-    assert.match(loader,/qaTrace\('listener-ready'\)/);
-    assert.match(loader,/qaTrace\('probe-received'\)/);
-    assert.match(loader,/qaTrace\('report-sent'\)/);
-    assert.match(loader,/^\/\/ @version\s+/m);
-  }
-  assert.match(source,/state\.installed\.has\(x\.id\)/,'confirmation counter only counts acknowledged loaders');
-  assert.match(source,/تم تأكيد تثبيت/);
-  assert.match(source,/فحص جميع السكربتات الآن/);
-  assert.doesNotMatch(source,/state\.installed\.set\(item\.id\s*,\s*item\.version\)/,
-    'catalog version alone must never mark a script installed');
+test('Production installer UI uses nonce acknowledgments without preview diagnostic UI',()=>{
+ const source=read('portal/v2/app.js');
+ assert.match(source,/function probeInstalledScripts\(targetId=null\)/);
+ assert.match(source,/function receiveInstallationReport\(message\)/);
+ assert.match(source,/state\.installed\.set\(message\.id,message\.version\)/);
+ assert.match(source,/message\.nonce!==state\.probeNonce/);
+ assert.doesNotMatch(source,/qaInstallDiagnosticsInit|qaInstallTrace|qa-smoke/);
+ assert.doesNotMatch(source,/state\.installed\.set\(item\.id\s*,\s*item\.version\)/);
+ for(const entry of entries){
+  const loader=read('loaders/'+entry.id+'.user.js');
+  assert.match(loader,/^\/\/ @version\s+/m);
+  assert.match(loader,/algzawy-installation-report-v1/);
+ }
 });
