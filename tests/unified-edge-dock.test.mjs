@@ -16,9 +16,9 @@ function extracted(name,to,args=[]){
  assert.ok(first>=0&&last>first,name+' is present');
  return new Function(...args,shelf.slice(first,last)+';return '+name.replace('function ','').split('(')[0]+';');
 }
-test('production bridge v2.4.9 has a complete, unique approved theme palette with a distinctive bridge',()=>{
+test('production bridge v2.4.10 has a complete, unique approved theme palette with a distinctive bridge',()=>{
  new vm.Script(bridge);new vm.Script(builder);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.9$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.10$/m);
  assert.equal(palettes.length,12);
  assert.equal(new Set(palettes.map(x=>x[1])).size,12);
  assert.equal(new Set(palettes.map(x=>x[5])).size,12);
