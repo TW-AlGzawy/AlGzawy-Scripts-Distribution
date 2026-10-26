@@ -44,3 +44,22 @@ test('touch movement uses pointer capture, bottom height grip and re-constrains 
  assert.match(bridge,/window\.visualViewport\?\.addEventListener\('scroll',constrainGeometry\)/);
  assert.doesNotMatch(bridge,/resize:both/);
 });
+
+
+test('legacy desktop mouse panels support touch-only drag without disturbing their controls',()=>{
+ const sources=[
+  ['scripts/alg-attacks.js',1],
+  ['scripts/alg-balance.js',2],
+  ['scripts/alg-coins.js',1],
+  ['scripts/mass-scavenge-v1.js',1]
+ ];
+ for(const [path,requiredCalls] of sources){
+  const code=readFileSync(new URL('../'+path,import.meta.url),'utf8');
+  new vm.Script(code);
+  assert.match(code,/function enableMobileTouchDrag\(panel,handle,onDone\)/,path);
+  assert.match(code,/e\.pointerType!=='touch'/,path);
+  assert.match(code,/window\.visualViewport/,path);
+  assert.match(code,/handle\.setPointerCapture\?\./,path);
+  assert.equal(code.split('enableMobileTouchDrag(').length-2,requiredCalls,path+' touch adapters');
+ }
+});
