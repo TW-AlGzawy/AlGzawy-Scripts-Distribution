@@ -1357,6 +1357,7 @@ function positionTabs(){
  const native=document.getElementById('algzawy-builder-edge-tab-v1');
  if(native?.style.display==='grid'&&['left','right'].includes(native.dataset.side)){
   native.classList.add('alg-edge-native-builder');
+  native.title='إظهار البناء المتطور';
   groups[native.dataset.side].push({tab:native,top:parseFloat(native.style.top)||b.top,id:'algzawy-builder-v1'});
  }
  for(const side of ['left','right']){
