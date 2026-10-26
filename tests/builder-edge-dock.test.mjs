@@ -69,6 +69,7 @@ test('edge-docking triggers only after a deliberate outward drag ending at an ed
  assert.equal(choose({left:4,right:300},b,30),null,'inward drag at left edge does not dock');
  assert.equal(choose({left:200,right:500},b,-200),null,'drag in middle does not dock');
  assert.equal(choose({left:4,right:846},b,30),'right','almost full width panel chooses travel direction');
+ assert.equal(choose({left:200,right:490,top:40,bottom:900},b,0,30),null,'a tall window does not bottom-dock unless its header reaches the bottom');
  const zoom={left:145,top:60,right:490,bottom:570};
  assert.equal(choose({left:150,right:450},zoom,-24),'left');
  assert.equal(choose({left:175,right:485},zoom,40),'right');
