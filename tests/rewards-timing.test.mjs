@@ -26,7 +26,7 @@ test('Owner controls, persisted intervals and serialized collections',()=>{
   "algzawy_reward",
   'body.style.display=cfg.collapsed',
   'algzawy_rewards_position_v1',
-  'top.setPointerCapture',
+  'panel.setPointerCapture',
   'جمع الجوائز الآن'
  ])assert.ok(source.includes(text),'missing '+text);
  assert.doesNotMatch(source,/setInterval\(\(\) => \{\s*if \(this\.isLockedToThisTab\(\)\)/);
