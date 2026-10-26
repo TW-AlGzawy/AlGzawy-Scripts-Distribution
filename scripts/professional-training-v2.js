@@ -273,7 +273,7 @@
           +'<span class="tr-total">'+safe(total)+'</span></div>';
       }).join('');
       panel.innerHTML=
-        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>BETA · v1.0.3 · قرية '+safe(VILLAGE)+'</small></span>'
+        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>v1.0.4 · قرية '+safe(VILLAGE)+'</small></span>'
         +'<button class="tr-fold" type="button" data-training-action="fold" aria-label="طي أو فتح النافذة">'+(panel.dataset.collapsed==='1'?'＋':'−')+'</button></header>'
         +'<div class="tr-body"><div class="tr-status"><label><input id="algzawy-training-enabled" type="checkbox" '+(CONFIG.AUTO_TRAIN?'checked':'')+'>تدريب تلقائي</label>'
         +'<strong id="bot-status">'+(CONFIG.AUTO_TRAIN?'نشط':'متوقف')+'</strong></div>'
@@ -283,7 +283,7 @@
         +'<div class="tr-rows">'+(rows||'<p class="tr-info">لا توجد وحدات مفعلة. اختر «كل الوحدات» لتفعيل المطلوب.</p>')+'</div>'
         +(ui.advanced?'<div class="tr-extra"><label>تحديث الصفحة تلقائيًا (دقائق)<input type="number" min="0" max="1440" id="algzawy-training-refresh" value="'+CONFIG.AUTO_REFRESH_MINUTES+'"></label><p class="tr-info">0 = إيقاف التحديث · الفاصل بين المحاولات '+CONFIG.GLOBAL_INTERVAL_SECONDS+' ثانية · الحد الأقصى 0 = المتاح</p></div>':'')
         +'<p class="tr-info">الهدف يُحسب من الجنود الموجودين وقيد التدريب. لن يرسل البوت عند تعذّر قراءة العدد.</p>'
-        +'<div class="tr-info" style="text-align:center;border-top:1px solid #274b55">AlG BETA · جميع الحقوق محفوظة للغزااوي</div></div>';
+        +'<div class="tr-info" style="text-align:center;border-top:1px solid #274b55">AlG · جميع الحقوق محفوظة للغزااوي</div></div>';
     }
 
     function setupPanelUpdates() {
