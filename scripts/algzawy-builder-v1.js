@@ -255,7 +255,7 @@
     if(dx<=-18&&rect.left<=bounds.left+12)candidates.push(['left',Math.abs(dx)]);
     if(dx>=18&&rect.right>=bounds.right-12)candidates.push(['right',Math.abs(dx)]);
     if(dy<=-18&&rect.top<=bounds.top+12)candidates.push(['top',Math.abs(dy)]);
-    if(dy>=18&&(rect.top>=bounds.bottom-55||rect.bottom>=bounds.bottom-12))
+    if(dy>=18&&rect.top>=bounds.bottom-55)
       candidates.push(['bottom',Math.abs(dy)]);
     return candidates.sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
   }
