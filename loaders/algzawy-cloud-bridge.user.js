@@ -1448,7 +1448,7 @@ css.textContent=[
  '.alg-edge-dock-bridge{width:68px;border-width:3px;background:linear-gradient(150deg,#604718,#182b30);box-shadow:0 0 0 2px #f9c24f44,0 8px 24px #000c}',
  '.alg-edge-dock-bridge .alg-edge-icon{font-size:27px}',
  '#algzawy-builder-edge-tab-v1.alg-edge-native-builder{width:56px!important;min-width:56px!important;min-height:20px!important;padding:5px 1px 5px 21px!important;border:2px solid #63dca1!important;background:#102e31!important;color:#fff!important;box-shadow:0 5px 17px #000b!important;font:900 16px Arial!important;box-sizing:border-box!important}',
- '#algzawy-builder-edge-tab-v1.alg-edge-native-builder::before{content:"♜";position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:19px;color:#63dca1}',
+ '#algzawy-builder-edge-tab-v1.alg-edge-native-builder::before{content:"▦";position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:19px;color:#63dca1}',
  'body.algzawy-camouflage .alg-edge-dock-tab,body.algzawy-camouflage #algzawy-builder-edge-tab-v1{visibility:hidden!important;pointer-events:none!important}',
  '@media(max-width:500px){.alg-edge-dock-tab{width:51px}.alg-edge-dock-bridge{width:62px}}'
 ].join('\n');
