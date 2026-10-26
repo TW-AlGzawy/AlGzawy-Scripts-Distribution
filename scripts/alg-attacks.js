@@ -1,4 +1,4 @@
-// @version      1.0.3
+// @version      1.0.4
 // @name         الغزااوي | تنبيه الهجمات
 (function () {
     'use strict';
@@ -31,10 +31,10 @@
     }
 
     var inputStyle = 'padding:3px;border:1px solid #263c4f;background:#07111c;color:#eaf3f8;color-scheme:dark;border-radius:4px;box-sizing:border-box;';
-    var btnStyle = 'width:100%;padding:6px;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;display:block;';
+    var btnStyle = 'width:100%;padding:5px;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:bold;display:block;';
 
     function row(label, inputHtml) {
-        return '<div style="margin-bottom:6px;"><label style="display:block;margin-bottom:2px;font-weight:bold;color:#eaf3f8;">' + label + '</label>' + inputHtml + '</div>';
+        return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 74px;gap:4px;align-items:center;margin-bottom:5px;"><label style="font-weight:bold;color:#eaf3f8;font-size:10px;">' + label + '</label>' + inputHtml + '</div>';
     }
 
     function makeDraggable(el, handle) {
@@ -79,33 +79,31 @@
             'border:2px solid #263c4f',
             'border-radius:8px',
             'font-family:Trebuchet MS,sans-serif',
-            'font-size:13px',
+            'font-size:11px','width:268px','max-width:calc(100vw - 14px)','max-height:72vh','overflow:hidden',
             'color:#eaf3f8',
             'direction:rtl',
-            'min-width:240px',
+            'min-width:0',
             'box-shadow:3px 3px 10px rgba(0,0,0,0.5)',
             'user-select:none'
         ].join(';');
 
         panel.innerHTML =
-            '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#123e3d,#102031);color:#eaf3f8;padding:7px 10px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
+            '<div id="alg-atk-hdr" style="background:linear-gradient(to bottom,#123e3d,#102031);color:#eaf3f8;padding:6px 8px;border-radius:6px 6px 0 0;cursor:move;display:flex;justify-content:space-between;align-items:center;">' +
                 '<b>الغزااوي | تنبيه الهجمات</b>' +
                 '<button id="alg-atk-min" style="background:none;border:none;color:#40e1bf;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;">' + (minimized ? '+' : '−') + '</button>' +
             '</div>' +
-            '<div id="alg-atk-body" style="padding:10px;display:' + (minimized ? 'none' : 'block') + ';">' +
-                row('Telegram Bot Token', '<input id="alg-atk-token" type="text" value="' + botToken + '" placeholder="123456:ABC-..." style="' + inputStyle + 'width:100%;">') +
-                row('Chat ID / Channel ID', '<input id="alg-atk-chatid" type="text" value="' + chatId + '" placeholder="-100123456789" style="' + inputStyle + 'width:100%;">') +
+            '<div id="alg-atk-body" style="padding:7px;max-height:calc(72vh - 37px);overflow-y:auto;display:' + (minimized ? 'none' : 'block') + ';">' +
+                '<p style="font-size:9px;color:#71dfbf;text-align:center;margin:2px 0 6px">🔔 Telegram عبر موقع AlGzawy</p>' +
                 row('فترة الفحص (ثانية)', '<input id="alg-atk-interval" type="number" min="10" value="' + interval + '" style="' + inputStyle + 'width:100%;">') +
                 row('تذكير إذا بقيت الهجمة (دقيقة)', '<input id="alg-atk-reminder" type="number" min="1" value="' + reminderMins + '" style="' + inputStyle + 'width:100%;">') +
-                '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="alg-atk-sound" ' + (alertSound ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">صوت تنبيه</span></label></div>' +
-                '<div style="margin-bottom:6px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="alg-atk-village" ' + (showVillage ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">أرسل تفاصيل القرية</span></label></div>' +
-                '<button id="alg-atk-test" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">اختبار التليجرام</button>' +
-                '<button id="alg-atk-fakeatk" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">اختبار هجوم وهمي</button>' +
+                '<div style="display:inline-block;width:50%;vertical-align:top;margin-bottom:5px;"><label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;"><input type="checkbox" id="alg-atk-sound" ' + (alertSound ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">صوت تنبيه</span></label></div>' +
+                '<div style="display:inline-block;width:50%;vertical-align:top;margin-bottom:5px;"><label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;"><input type="checkbox" id="alg-atk-village" ' + (showVillage ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;"><span style="font-weight:bold;">أرسل تفاصيل القرية</span></label></div>' +
+                '<button id="alg-atk-test" style="' + btnStyle + 'background:#31556a;margin-bottom:6px;">⚙ إعداد Telegram</button>' +
                 '<button id="alg-atk-save" style="' + btnStyle + 'background:#143e3a;margin-bottom:6px;">حفظ</button>' +
                 '<button id="alg-atk-run" style="' + btnStyle + 'background:' + (isRunning ? '#965160' : '#247a68') + ';font-size:14px;margin-bottom:4px;">' + (isRunning ? 'إيقاف' : 'تشغيل') + '</button>' +
                 '<div id="alg-atk-status" style="margin-top:6px;font-size:11px;color:#eaf3f8;text-align:center;min-height:16px;">' + (isRunning ? 'يراقب...' : 'متوقف') + '</div>' +
                 '<div id="alg-atk-lastcheck" style="margin-top:4px;font-size:12px;color:#b1c9d4;text-align:center;min-height:14px;"></div>' +
-                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | BETA · v1.0.2</div>' +
+                '<div style="text-align:center;margin-top:8px;font-size:11px;color:#b1c9d4;border-top:1px solid #123e3d;padding-top:6px;">© 2026 الغزااوي — جميع الحقوق محفوظة | BETA · v1.0.3.3</div>' +
             '</div>';
 
         document.body.appendChild(panel);
@@ -124,14 +122,11 @@
         document.getElementById('alg-atk-save').onclick = saveSettings;
         document.getElementById('alg-atk-run').onclick = toggleBot;
         document.getElementById('alg-atk-test').onclick = testTelegram;
-        document.getElementById('alg-atk-fakeatk').onclick = simulateFakeAttack;
 
         if (isRunning) startBot();
     }
 
     function saveSettings() {
-        saveS('botToken', document.getElementById('alg-atk-token').value.trim());
-        saveS('chatId', document.getElementById('alg-atk-chatid').value.trim());
         saveS('checkInterval', parseInt(document.getElementById('alg-atk-interval').value) || 60);
         saveS('reminderMins', parseInt(document.getElementById('alg-atk-reminder').value) || 60);
         saveS('alertSound', document.getElementById('alg-atk-sound').checked);
@@ -201,6 +196,7 @@
 
     function checkAttacks() {
         if (!isRunning) return;
+        // Independent warehouse monitor lives in its own licensed QA script.
 
         var el = document.getElementById('incomings_amount');
         var count = el ? parseInt(el.textContent.trim(), 10) : 0;
@@ -296,21 +292,7 @@
     }
 
     function sendTelegramCountAlert(count) {
-        var token = getS('botToken', DEFAULT_TOKEN);
-        var chatId = getS('chatId', DEFAULT_CHAT_ID);
-        if (!token || !chatId) return;
-        var base = getGameUrl();
-        var link = base ? base + '?screen=overview_villages&mode=incomings&subtype=attacks' : '';
-
-        var msg = '';
-        msg += '⚔️ <b>هجوم وارد على Tribal Wars!</b>\n\n';
-        msg += '🌍 <b>العالم:</b> ' + getWorldName() + '\n';
-        msg += '👤 <b>الحساب:</b> ' + getAccountName() + '\n';
-        msg += '━━━━━━━━━━━━━━━━━━\n';
-        msg += '⚠️ <b>عدد الهجمات:</b> ' + count + '\n';
-        msg += '📅 <b>الوقت:</b> ' + new Date().toLocaleString('ar') + '\n';
-        msg += '\n🚀 <b>AlGzawy Edition</b>';
-        sendTelegram(token, chatId, msg);
+      emitPreviewAlert(count);
     }
 
     function extractIncomingsCount(html) {
@@ -445,38 +427,32 @@
         return msg;
     }
 
-    function sendTelegramAlerts(attacks) {
-        var token = getS('botToken', DEFAULT_TOKEN);
-        var chatId = getS('chatId', DEFAULT_CHAT_ID);
-        if (!token || !chatId) {
-            setStatus('خطأ: Bot Token أو Chat ID غير محدد');
-            return;
+    function emitPreviewAlert(count,row) {
+      const g=getGameData();
+      const vid=Number(g?.village?.id||getCurrentVillageId());
+      const amount=Number(count);
+      if(!Number.isSafeInteger(vid)||vid<1||!Number.isSafeInteger(amount)||amount<1||amount>500)return;
+      const detail={type:'attack',count:amount,villageId:vid};
+      const fields={world:getWorldName(),account:getAccountName()};
+      if(row){
+        const cells=row.querySelectorAll('td');
+        const map={target:1,origin:2,attacker:3,distance:4,arrival:5,remaining:6};
+        for(const [key,index] of Object.entries(map)){
+          const value=cells[index]?.textContent?.trim();
+          if(value&&value!=='—')fields[key]=value.slice(0,120);
         }
-
-        attacks.forEach(function (row, i) {
-            setTimeout(function () {
-                sendTelegram(token, chatId, buildAttackMessage(row));
-            }, i * 1200);
-        });
+        const attackId=extractAttackId(row);
+        if(attackId&&/^\d{1,18}$/.test(attackId))detail.attackId=attackId;
+      }
+      detail.details=fields;
+      document.dispatchEvent(new CustomEvent('algzawy-telegram-event',{detail}));
     }
-
-    function sendTelegram(token, chatId, text) {
-        GM_xmlhttpRequest({
-            method: 'POST',
-            url: 'https://api.telegram.org/bot' + token + '/sendMessage',
-            headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }),
-            onload: function (resp) {
-                if (resp.status !== 200) {
-                    console.warn('[AlGzawy Attacks] فشل إرسال تليجرام:', resp.status, resp.responseText);
-                }
-            },
-            onerror: function () {
-                console.warn('[AlGzawy Attacks] خطأ في إرسال تليجرام');
-            }
-        });
+    function sendTelegramAlerts(attacks) {
+      if(!Array.isArray(attacks)||!attacks.length)return;
+      attacks.slice(0,12).forEach(function(row,i){
+        setTimeout(function(){if(isRunning)emitPreviewAlert(1,row);},i*900);
+      });
     }
-
     function simulateFakeAttack() {
         var fakeId = '999' + Date.now();
         var fakeHtml = '<!DOCTYPE html><html><body>' +
@@ -502,36 +478,7 @@
     }
 
     function testTelegram() {
-        var token = (document.getElementById('alg-atk-token').value.trim()) || DEFAULT_TOKEN;
-        var chatId = (document.getElementById('alg-atk-chatid').value.trim()) || DEFAULT_CHAT_ID;
-
-        if (!token || !chatId) {
-            alert('الرجاء إدخال Bot Token و Chat ID أولاً.');
-            return;
-        }
-
-        setStatus('جاري اختبار التليجرام...');
-        GM_xmlhttpRequest({
-            method: 'POST',
-            url: 'https://api.telegram.org/bot' + token + '/sendMessage',
-            headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({ chat_id: chatId, text: 'اختبار بوت الغزااوي | تنبيه الهجمات\nالاتصال يعمل بشكل صحيح!' }),
-            onload: function (resp) {
-                if (resp.status === 200) {
-                    setStatus('تم الإرسال بنجاح!');
-                    setTimeout(function () { setStatus(isRunning ? 'يراقب...' : 'متوقف'); }, 2000);
-                } else {
-                    var err = '';
-                    try { err = JSON.parse(resp.responseText).description || ''; } catch (e) {}
-                    alert('فشل الإرسال!\nكود: ' + resp.status + '\n' + err);
-                    setStatus('فشل الاختبار');
-                }
-            },
-            onerror: function () {
-                alert('خطأ في الشبكة أثناء الاختبار.');
-                setStatus('خطأ في الشبكة');
-            }
-        });
+      window.open('https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev/v2/#telegram','_blank','noopener,noreferrer');
     }
 
     function playAlertSound() {

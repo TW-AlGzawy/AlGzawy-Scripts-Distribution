@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | بوت التدريب
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.3
+// @version      1.0.4
 // @description  AlGzawy BETA — اشتراك وجهاز معتمد
 // @include      https://*.tribalwars.*/game.php?*screen=train*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
