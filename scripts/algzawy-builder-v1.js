@@ -565,6 +565,12 @@
     }
     localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout));
   }
+  function visibleMobileBounds(){
+    const visual=window.visualViewport;
+    const left=visual?.offsetLeft||0,top=visual?.offsetTop||0;
+    const width=visual?.width||innerWidth,height=visual?.height||innerHeight;
+    return {left,top,right:left+width,bottom:top+height,width,height};
+  }
   function installResize(grip){
     let resize=null;
     grip.addEventListener('pointerdown',event=>{
@@ -577,13 +583,14 @@
     });
     grip.addEventListener('pointermove',event=>{
       if(!resize||event.pointerId!==resize.pointer)return;
+      const bounds=visibleMobileBounds();
       const width=clamp(resize.width+resize.x-event.clientX,280,
-        Math.max(280,Math.min(innerWidth-12,resize.right-4)));
+        Math.max(280,Math.min(bounds.width-12,resize.right-bounds.left-4)));
       const height=clamp(resize.height+event.clientY-resize.y,185,
-        Math.max(185,innerHeight-Number(panel.style.top.replace('px',''))-8));
+        Math.max(185,bounds.bottom-Number(panel.style.top.replace('px',''))-8));
       panel.style.width=width+'px';
       panel.style.height=height+'px';
-      panel.style.left=clamp(resize.right-width,0,Math.max(0,innerWidth-width))+'px';
+      panel.style.left=clamp(resize.right-width,bounds.left+4,Math.max(bounds.left+4,bounds.right-width-4))+'px';
     });
     const done=event=>{
       if(!resize||event.pointerId!==resize.pointer)return;
@@ -602,8 +609,9 @@
     handle.addEventListener('pointermove',event=>{
       if(!drag||event.pointerId!==drag.pointer)return;
       const nx=drag.left+event.clientX-drag.x,ny=drag.top+event.clientY-drag.y;
-      panel.style.left=clamp(nx,0,Math.max(0,innerWidth-panel.offsetWidth))+'px';
-      panel.style.top=clamp(ny,0,Math.max(0,innerHeight-49))+'px';
+      const bounds=visibleMobileBounds();
+      panel.style.left=clamp(nx,bounds.left+4,Math.max(bounds.left+4,bounds.right-panel.offsetWidth-4))+'px';
+      panel.style.top=clamp(ny,bounds.top+4,Math.max(bounds.top+4,bounds.bottom-49))+'px';
       panel.style.bottom='auto';
     });
     const finish=event=>{
