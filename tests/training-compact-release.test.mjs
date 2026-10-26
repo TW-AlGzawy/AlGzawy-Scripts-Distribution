@@ -33,7 +33,7 @@ test('default production training UI is compact with priority and max batch cont
 });
 test('existing total goal limits and per-village settings are preserved in advanced options',()=>{
  assert.match(engine,/if \(Number\.isFinite\(x\.targetCount\)\)/);
- assert.match(engine,/data-field===\x27targetCount\x27/);
+ assert.match(engine,/input\.dataset\.field===\x27targetCount\x27/);
  assert.match(engine,/const remaining=config\.targetCount>0\?/);
  assert.match(engine,/readTrainingTotals\(id\)/);
  assert.match(engine,/الموجود '\+data\.owned\+' \+ قيد التدريب '\+data\.queued\+' = '\+data\.total/);
