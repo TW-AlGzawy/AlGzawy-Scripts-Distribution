@@ -306,6 +306,22 @@ function show(){
   panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,Number(opts.left)||0))+'px';
   panel.style.top=Math.max(0,Math.min(innerHeight-50,Number(opts.top)||0))+'px';panel.style.right='auto';
  }
+  // Position floating controls within the Safari visual viewport during pinch zoom.
+  function algMobileBounds(){
+    const v=window.visualViewport;
+    const left=v?.offsetLeft||0,top=v?.offsetTop||0;
+    return {left,top,right:left+(v?.width||innerWidth),bottom:top+(v?.height||innerHeight)};
+  }
+  function algClampVisible(panel,x,y,visibleHeader=40){
+    const b=algMobileBounds(),margin=6;
+    const minX=b.left+margin,minY=b.top+margin;
+    const maxX=Math.max(minX,b.right-panel.offsetWidth-margin);
+    const maxY=Math.max(minY,b.bottom-visibleHeader);
+    panel.style.left=Math.min(maxX,Math.max(minX,x))+'px';
+    panel.style.top=Math.min(maxY,Math.max(minY,y))+'px';
+    panel.style.right='auto';
+    panel.style.bottom='auto';
+  }
  head.addEventListener('pointerdown',e=>{
   if(e.button!==0||e.target.closest('button'))return;
   const rect=panel.getBoundingClientRect();drag={id:e.pointerId,x:e.clientX,y:e.clientY,l:rect.left,t:rect.top};
@@ -313,9 +329,7 @@ function show(){
  });
  head.addEventListener('pointermove',e=>{
   if(!drag||e.pointerId!==drag.id)return;
-  panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,drag.l+e.clientX-drag.x))+'px';
-  panel.style.top=Math.max(0,Math.min(innerHeight-50,drag.t+e.clientY-drag.y))+'px';
-  panel.style.right='auto';
+  algClampVisible(panel,drag.l+e.clientX-drag.x,drag.t+e.clientY-drag.y,50);
  });
  const done=e=>{if(drag&&e.pointerId===drag.id){
   drag=null;opts.left=panel.offsetLeft;opts.top=panel.offsetTop;save();}};
