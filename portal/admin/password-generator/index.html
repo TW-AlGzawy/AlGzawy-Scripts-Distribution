@@ -18,12 +18,16 @@
     <div class="security">🔒 أدخل الكود الطويل الذي اخترته كلمةً للمرور، ثم انسخ <b>البصمة الناتجة فقط</b> إلى Cloudflare. احتفظ بالكود الأصلي للدخول إلى الإدارة.</div>
     <label for="password">الكود الطويل / كلمة مرور الإدارة</label>
     <input id="password" type="password" minlength="12" maxlength="256" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="أدخل كلمة مرور من 12 إلى 256 حرفًا" dir="ltr">
-    <button id="generate" class="primary" type="button">إنشاء البصمة الآمنة</button>
+    <label for="confirmPassword">تأكيد الكود الطويل نفسه</label>
+    <input id="confirmPassword" type="password" minlength="12" maxlength="256" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="ألصق الكود الأصلي مرة أخرى" dir="ltr">
+    <p class="note">الأحرف الكبيرة والصغيرة والمسافات في كلمة المرور مهمة. ألصق الكود الأصلي نفسه في الحقلين، ولا تستخدم البصمة بدل كلمة المرور عند تسجيل الدخول.</p>
+    <button id="generate" class="primary" type="button">إنشاء وفحص البصمة الآمنة</button>
     <p id="status" role="status" aria-live="polite"></p>
     <section id="resultArea" hidden>
       <label for="result">القيمة المطلوبة لـ <code>ALG_ADMIN_PASSWORD_HASH</code></label>
       <textarea id="result" rows="4" dir="ltr" readonly spellcheck="false" aria-label="بصمة كلمة مرور الإدارة"></textarea>
       <div class="actions"><button id="copy" class="primary" type="button">نسخ البصمة</button><button id="clear" class="secondary" type="button">حذف البصمة</button></div>
+      <p class="note"><strong>لحل رسالة «بيانات الدخول غير صحيحة»:</strong> استبدل Secret الحالي بالكامل بالبصمة الجديدة، واحفظ وأعد نشر Production. ادخل إلى الإدارة بالكود الأصلي نفسه.</p>
       <p class="note">في Cloudflare، اختر <strong>Production</strong> واحفظ الناتج كـ <strong>Encrypted Secret</strong> باسم <code>ALG_ADMIN_PASSWORD_HASH</code>. أضف أيضًا <code>ALG_ADMIN_USERNAME</code> كمتغير Text.</p>
     </section>
     <p class="note">لا تشارك كلمة المرور أو البصمة في محادثة. لا تستخدم كلمة المرور نفسها في أي خدمة أخرى.</p>
