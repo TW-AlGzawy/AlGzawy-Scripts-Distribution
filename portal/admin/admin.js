@@ -72,7 +72,10 @@ async function api(path,options={}){
  try{data=await response.json();}catch(_){}
  if(!response.ok||data.ok!==true){
    if((response.status===401||data.error==='csrf_invalid')&&path.startsWith('admin/')&&path!=='admin/session')lockOwner();
-   throw Error(data.error||'http_'+response.status);
+   const failure=Error(data.error||'http_'+response.status);
+   if(data.error==='unauthorized'&&typeof data.reference==='string'&&
+     /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(data.reference))failure.reference=data.reference;
+   throw failure;
  }
  return data;
 }
@@ -149,7 +152,10 @@ $('ownerLoginForm').addEventListener('submit',async e=>{
  try{
    const session=await api('admin/session',{method:'POST',body});
    await openOwner(session);
- }catch(err){$('loginMessage').textContent=errorArabic(err);}
+ }catch(err){
+   $('loginMessage').textContent=errorArabic(err)+(err.reference
+     ?' · مرجع الفحص: '+err.reference+' (لا يحتوي على بيانات سرية)':'');
+ }
  finally{btn.disabled=false;$('ownerPassword').value='';}
 });
 void loadOwnerLoginMode();
