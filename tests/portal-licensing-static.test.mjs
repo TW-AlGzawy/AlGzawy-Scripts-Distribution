@@ -8,9 +8,9 @@ const web=read('portal/index.html');
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 const api=read('portal/functions/api/[[path]].js');
 
-test('all 9 distributed beta loaders require a fresh specific license grant',()=>{
-  assert.equal(scripts.length,9);
-  assert.equal(new Set(scripts).size,9);
+test('all 10 production loaders require a fresh specific license grant',()=>{
+  assert.equal(scripts.length,10);
+  assert.equal(new Set(scripts).size,10);
   for(const id of scripts){
     const src=read('loaders/'+id+'.user.js');
     assert.match(src,/const hasPortalLicense/,'no license function: '+id);
