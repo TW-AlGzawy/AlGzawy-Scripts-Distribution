@@ -16,6 +16,7 @@ test('official bridge keeps production device identity and exact Pages host',()=
  assert.match(bridge,/grid-template-columns:minmax\(0,1fr\) 120px/);
  assert.match(bridge,/"alg-attacks","warehouse-alert-safe"/);
  assert.doesNotMatch(bridge,/algzawy-cloud-size-up|algzawy-cloud-size-down/);
+ assert.match(bridge,/if\(window\.__algzawyCloudBridge\)return;/);
 });
 
 test('production warehouse loader updates from main and never consumes isolated QA grants',()=>{
@@ -29,6 +30,7 @@ test('production warehouse loader updates from main and never consumes isolated 
  assert.match(loader,/algzawy_portal_grant_/);
  assert.match(engine,/intervalSeconds\*1000/);
  assert.match(engine,/threshold:Number\.isInteger\(percent\)/);
+ assert.match(engine,/String\(village\.world\|\|location\.hostname\)/);
  assert.doesNotMatch(loader+engine,/algzawy_preview_/);
  assert.doesNotMatch(loader+engine,/feature-algzawy-quality-hard/);
 });
@@ -49,6 +51,7 @@ test('Telegram server accepts only explicitly approved production/QA hostnames',
  assert.match(server,/MAIN_HOST='algzawy-cloud-control\.pages\.dev'/);
  assert.match(server,/\[QA_HOST,MAIN_HOST\]\.includes/);
  assert.match(server,/ALG_TELEGRAM_WEBHOOK_SECRET/);
+ assert.match(server,/'warehouse:'\+String\(village\.world\|\|'world'\)/);
  assert.match(api,/signatureAuth\(req,env,'\/api\/telegram\/notify'\)/);
  assert.match(api,/warehouse-alert-safe/);
 });
