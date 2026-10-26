@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS portal_device_keys (
 CREATE INDEX IF NOT EXISTS portal_device_keys_user ON portal_device_keys(user_id,approved);
 -- New installations: exactly one approved computer and one approved phone.
 -- Existing installations must also run migrations/2026-10-26-two-device-slots.sql.
-CREATE UNIQUE INDEX IF NOT EXISTS portal_one_approved_device_per_user_kind
+CREATE UNIQUE INDEX IF NOT EXISTS portal_one_device_per_user_kind
 ON portal_device_keys(
   user_id,
   CASE WHEN lower(coalesce(user_agent,'')) LIKE '%iphone%'
@@ -37,7 +37,7 @@ ON portal_device_keys(
          OR lower(coalesce(user_agent,'')) LIKE '%android%'
          OR lower(coalesce(user_agent,'')) LIKE '%mobile%'
        THEN 'phone' ELSE 'desktop' END
-) WHERE approved=1;
+);
 CREATE TABLE IF NOT EXISTS portal_access_events (
  id TEXT PRIMARY KEY,
  user_id TEXT REFERENCES portal_users(id) ON DELETE CASCADE,
