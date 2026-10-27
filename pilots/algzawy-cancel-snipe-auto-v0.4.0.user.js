@@ -614,6 +614,26 @@
     if(isConfirm()){
       const target=targetFromConfirm();
       if(target&&!field('acs-target').value.trim())field('acs-target').value=target;
+      // Prefer the native game confirmation's one-way ETA over asking for manual duration.
+      if(!field('acs-travel').value.trim()){
+        const etaNode=doc.querySelector('#date_arrival .relative_time, #date_arrival');
+        const now=serverNow();
+        const eta=now!==null?parseGameArrivalText(etaNode?.textContent,now):null;
+        if(eta&&eta.at-now>5000){
+          // Round down and subtract a 2s guard because the UI may display whole seconds only.
+          const conservativeMs=Math.floor(eta.at-now)-2000;
+          if(conservativeMs>1000){
+            field('acs-travel').value=(Math.floor(conservativeMs/1000)).toString();
+            field('acs-travel').title='تقدير محافظ من موعد الوصول في شاشة التأكيد؛ يُفضّل التحقق منه.';
+          }
+        }
+      }
+    }
+    // World aep14 official settings: attack cancellation window is 10 minutes.
+    // Do not assume this limit for any other world.
+    if(root.location.host==='aep14.tribalwars.ae'&&!field('acs-limit').value.trim()){
+      field('acs-limit').value='600';
+      field('acs-limit').title='10 دقائق بحسب صفحة إعدادات المعمر 14 الرسمية';
     }
     function persistPreferences(){
       const fields={};
