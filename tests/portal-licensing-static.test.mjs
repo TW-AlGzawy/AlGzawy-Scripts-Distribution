@@ -32,7 +32,7 @@ test('public portal has no administration controls or account self-registration'
 test('D1 migration makes device approvals unique and subscription grants explicit',()=>{
   const sql=read('portal/schema-license-v2.sql');
   assert.match(sql,/portal_entitlements/);
-  assert.match(sql,/CREATE UNIQUE INDEX IF NOT EXISTS portal_one_approved_device_per_user/);
+  assert.match(sql,/CREATE UNIQUE INDEX IF NOT EXISTS portal_one_device_per_user_kind/);
   assert.ok(api.includes('script_not_licensed'),'API must fail closed');
   assert.ok(api.includes("subscription_inactive"),'API must reject inactive subscriptions');
   assert.match(bridge,/script\?\.allowed===true&&script\?\.enabled===true/,'Bridge must check both entitlement and enabled');

@@ -23,11 +23,14 @@ CREATE TABLE IF NOT EXISTS portal_device_keys (
  last_ip TEXT,
  first_seen TEXT NOT NULL DEFAULT (datetime('now')),
  last_seen TEXT,
- user_agent TEXT
+ user_agent TEXT,
+ device_kind TEXT NOT NULL DEFAULT 'desktop' CHECK(device_kind IN ('desktop','phone'))
 );
 CREATE INDEX IF NOT EXISTS portal_device_keys_user ON portal_device_keys(user_id,approved);
--- Enforce one approved device per subscriber, even under concurrent admin requests.
-CREATE UNIQUE INDEX IF NOT EXISTS portal_one_approved_device_per_user ON portal_device_keys(user_id) WHERE approved=1;
+-- New installations: exactly one approved computer and one approved phone.
+-- Existing installations must also run migrations/2026-10-26-two-device-slots.sql.
+CREATE UNIQUE INDEX IF NOT EXISTS portal_one_device_per_user_kind
+ON portal_device_keys(user_id,coalesce(device_kind,'desktop'));
 CREATE TABLE IF NOT EXISTS portal_access_events (
  id TEXT PRIMARY KEY,
  user_id TEXT REFERENCES portal_users(id) ON DELETE CASCADE,

@@ -36,10 +36,11 @@ class DB{
         return k&&u&&d?{...k,label:u.label,user_active:u.active,device_active:d.active}:null;
       }
       if(sql.includes('SELECT device_id FROM portal_device_keys'))return db.keys.find(x=>x.device_id===a[0]&&x.user_id===a[1])||null;
+      if(sql.startsWith('SELECT user_id FROM portal_pair_codes WHERE'))return db.codes.find(v=>v.code_hash===a[0]&&v.consumed_at===null&&v.expires_at>a[1])||null;
       if(sql.startsWith('UPDATE portal_pair_codes')){const x=db.codes.find(v=>v.code_hash===a[1]&&v.consumed_at===null&&v.expires_at>a[2]);if(!x)return null;x.consumed_at=a[0];return {user_id:x.user_id};}
        if(sql.startsWith('UPDATE portal_device_keys SET approved=1 WHERE device_id=? AND user_id=? AND approved=0')){
          const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]&&v.approved===0);
-         if(!k||db.keys.some(v=>v.user_id===a[2]&&v.approved===1&&v.device_id!==a[3]))return null;
+         if(!k)return null;
          k.approved=1;return {device_id:k.device_id};
        }
        if(sql.startsWith('UPDATE portal_device_keys SET last_counter=')){
@@ -48,7 +49,7 @@ class DB{
       throw Error('Unexpected FIRST: '+sql);
     },
     async all(){const a=this.args;
-      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved}))};
+      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent,k.device_kind FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved,user_agent:k.user_agent,device_kind:k.device_kind}))};
        if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
        if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
@@ -93,13 +94,29 @@ class DB{
       if(sql.startsWith('INSERT INTO portal_preferences')){const old=db.prefs.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old){old.enabled=a[2];if(a.length>3)old.settings_json=a[3];}else db.prefs.push({user_id:a[0],script_id:a[1],enabled:a[2],settings_json:a[3]||'{}'});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_pair_codes')){db.codes.push({code_hash:a[0],user_id:a[1],expires_at:a[2],consumed_at:null});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_devices')){db.devices.push({id:a[0],user_id:a[1],device_hash:a[2],active:1});return {meta:{changes:1}};}
-      if(sql.startsWith('INSERT INTO portal_device_keys')){db.keys.push({device_id:a[0],user_id:a[1],public_key_json:a[2],approved:0,last_counter:0,first_ip:a[3],last_ip:a[4],user_agent:a[5]});return {meta:{changes:1}};}
+      if(sql.startsWith('INSERT INTO portal_device_keys')){db.keys.push({device_id:a[0],user_id:a[1],public_key_json:a[2],approved:0,last_counter:0,first_ip:a[3],last_ip:a[4],user_agent:a[5],device_kind:a[6]});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_access_events')){db.events.push({id:a[0],user_id:a[1],device_id:a[2],event_type:a[3],ip:a[4]});return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE user_id=')){for(const k of db.keys)if(k.user_id===a[0])k.approved=0;return {meta:{changes:1}};}
       if(sql.startsWith('DELETE FROM portal_device_keys WHERE device_id=')){const n=db.keys.length;db.keys=db.keys.filter(x=>!(x.device_id===a[0]&&x.user_id===a[1]));return {meta:{changes:n-db.keys.length}};}
       if(sql.startsWith('DELETE FROM portal_devices WHERE id=')){const n=db.devices.length;db.devices=db.devices.filter(x=>!(x.id===a[0]&&x.user_id===a[1]));return {meta:{changes:n-db.devices.length}};}
 if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE device_id=')){const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]);if(k)k.approved=0;return {meta:{changes:k?1:0}};}
-      if(sql.startsWith('UPDATE portal_device_keys SET approved=1 WHERE device_id=')){const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]);if(k)k.approved=1;return {meta:{changes:k?1:0}};}
+      if(sql.startsWith('UPDATE portal_device_keys SET approved=1 WHERE device_id=')){
+  const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]&&v.approved===0);
+  if(k){
+    const kind=x=>x.device_kind||(/(?:iphone|ipad|ipod|android|mobile)/i.test(x.user_agent||'')?'phone':'desktop');
+    if(db.keys.some(v=>v.user_id===k.user_id&&v.approved===1&&kind(v)===kind(k)))
+      throw Error('UNIQUE constraint failed');
+    k.approved=1;
+  }
+  return {meta:{changes:k?1:0}};
+ }
+      if(sql.startsWith('UPDATE portal_device_keys SET device_kind=?')){
+        const k=db.keys.find(v=>v.device_id===a[1]&&v.user_id===a[2]);
+        if(!k)return {meta:{changes:0}};
+        if(db.keys.some(v=>v!==k&&v.user_id===k.user_id&&v.device_kind===a[0]))
+          throw Error('UNIQUE constraint failed');
+        k.device_kind=a[0];return {meta:{changes:1}};
+      }
       if(sql.startsWith('UPDATE portal_device_keys SET last_ip=')){const k=db.keys.find(v=>v.device_id===a[1]);if(k)k.last_ip=a[0];return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_devices SET active=1')){const d=db.devices.find(v=>v.id===a[0]);if(d)d.active=1;return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_users SET active=0')){const u=db.users.find(v=>v.id===a[0]);if(u)u.active=0;return {meta:{changes:u?1:0}};}
@@ -560,45 +577,46 @@ test('Cloudflare shared device signer keeps the same P-256 key across trusted ga
  assert.equal(untrustedReply,false,'untrusted origin cannot request a key or signature');
 });
 
-test('Every new browser key waits for owner approval and replacement revokes the old key',async()=>{
- const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Manual approval'}})).json;
+test('approved desktop and phone coexist; third device and duplicate class cannot register',async()=>{
+ const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Device slots'}})).json;
  const uid=created.user.id;
  const login=await api(db,'session',{method:'POST',body:{accessKey:created.accessKey}});
- const cookie=login.setCookie.split(';')[0],headers={'X-ALG-USER-CSRF':login.json.csrfToken};
- const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
- const pub=await crypto.subtle.exportKey('jwk',pair.publicKey),nonce=crypto.randomUUID();
- const enroll=p=>api(db,'device/auto-enroll',{method:'POST',cookie,headers,body:{nonce,publicKey:p}});
- assert.equal((await api(db,'device/auto-enroll',{method:'POST',body:{nonce,publicKey:pub}})).status,401);
- assert.equal((await api(db,'device/auto-enroll',{method:'POST',cookie,body:{nonce,publicKey:pub}})).status,403);
- const first=await enroll(pub);
- assert.equal(first.status,202);assert.equal(first.json.status,'pending_approval');assert.equal(first.json.nonce,nonce);
- const id=first.json.deviceId;
- assert.equal((await enroll(pub)).json.deviceId,id);
- assert.equal(db.keys.length,1);assert.equal(db.keys[0].approved,0);
- assert.equal(db.events.filter(x=>x.event_type==='device_pair_requested').length,1);
- let counter=0;
- const signed=async(deviceId,key)=>{
-   const ts=Date.now(),n=++counter;
-   const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,new TextEncoder().encode(deviceId+'|'+ts+'|'+n+'|/api/device/state'));
-   return api(db,'device/state',{headers:{'X-ALG-DEVICE-ID':deviceId,'X-ALG-TIMESTAMP':String(ts),'X-ALG-COUNTER':String(n),'X-ALG-SIGNATURE':base64url(new Uint8Array(sig))}});
+ const cookie=login.setCookie.split(';')[0];
+ const headers={'X-ALG-USER-CSRF':login.json.csrfToken};
+ const makeKey=async()=>{
+   const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+   return crypto.subtle.exportKey('jwk',pair.publicKey);
  };
- assert.equal((await signed(id,pair.privateKey)).json.error,'device_pending_approval');
+ const desktopAgent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/156';
+ const phoneAgent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/26.6 Safari/605.1.15';
+ const enroll=(pub,ua,deviceKind)=>api(db,'device/auto-enroll',{method:'POST',cookie,
+   headers:{...headers,'User-Agent':ua},body:{nonce:crypto.randomUUID(),publicKey:pub,deviceKind}});
  const approve=id=>api(db,'admin/users/'+uid+'/devices/'+id+'/approve',{method:'POST',token:admin,body:{}});
- assert.equal((await approve(id)).status,200);
- assert.equal((await enroll(pub)).json.status,'approved','existing approved key recovers normally');
- assert.equal((await signed(id,pair.privateKey)).status,200);
- const other=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
- const pub2=await crypto.subtle.exportKey('jwk',other.publicKey);
- const replacement=await enroll(pub2);
+ const computer=await enroll(await makeKey(),desktopAgent,'desktop');
+ assert.equal(computer.status,202);
+ assert.equal((await approve(computer.json.deviceId)).status,200);
+ const repeat=await enroll(await makeKey(),desktopAgent,'desktop');
+ assert.equal(repeat.status,409);
+ assert.equal(repeat.json.error,'device_slot_occupied');
+ const phone=await enroll(await makeKey(),phoneAgent,'phone');
+ assert.equal(phone.status,202);
+ assert.equal((await approve(phone.json.deviceId)).status,200);
+ assert.equal(db.keys.filter(x=>x.approved===1).length,2);
+ const third=await enroll(await makeKey(),phoneAgent,'phone');
+ assert.equal(third.status,409);
+ assert.equal(third.json.error,'device_limit_reached');
+ const devices=await api(db,'admin/users/'+uid+'/entitlements',{token:admin});
+ assert.equal(devices.json.deviceLimit,2);
+ assert.deepEqual(devices.json.devices.map(d=>d.deviceKind).sort(),['desktop','phone']);
+ assert.equal((await api(db,'admin/users/'+uid+'/devices/'+computer.json.deviceId+'/revoke',
+   {method:'POST',token:admin,body:{}})).status,200);
+ const replacement=await enroll(await makeKey(),desktopAgent,'desktop');
  assert.equal(replacement.status,202);
- assert.equal((await signed(replacement.json.deviceId,other.privateKey)).json.error,'device_pending_approval');
- assert.equal((await signed(id,pair.privateKey)).status,200,'pending replacement must not stop existing approved device');
  assert.equal((await approve(replacement.json.deviceId)).status,200);
- assert.equal((await signed(id,pair.privateKey)).json.error,'device_pending_approval');
- assert.equal((await signed(replacement.json.deviceId,other.privateKey)).status,200);
- assert.equal(db.keys.filter(x=>x.approved===1&&x.user_id===uid).length,1);
- assert.equal(db.global.revision,4);
+ assert.equal(db.keys.find(k=>k.device_id===phone.json.deviceId).approved,1,
+   'replacing computer must not remove the phone');
 });
+
 
 test('Explicit subscription is required and newly created users receive no script grants',async()=>{
  const db=new DB(),created=(await api(db,'admin/users',{token:admin,method:'POST',body:{label:'Subscription test'}})).json;

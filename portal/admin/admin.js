@@ -331,7 +331,7 @@ async function editSubscription(user){
    try{await api('admin/users/'+encodeURIComponent(user.id)+'/subscription',{method:'PUT',body:{active:active.checked,expiresAt}});toast('تم تحديث حالة الاشتراك');}
    catch(err){toast(errorArabic(err),true);}
  });sub.append(updateSub);box.append(sub);
- box.append(h('h3','','الأجهزة — اعتماد يدوي فقط'));
+ box.append(h('h3','','الأجهزة — كمبيوتر واحد + هاتف واحد، الاعتماد يدوي فقط'));
  const devices=h('div'),events=h('div','device-detail');
  async function refreshDeviceDetails(){
    // Update this section in place; do not discard unsaved subscription changes.
@@ -354,17 +354,42 @@ async function editSubscription(user){
      item.append(h('div','','المعرف: '+device.device_id));
      item.append(h('div','','أول IP: '+(device.first_ip||'غير متاح')+' | آخر IP: '+(device.last_ip||'غير متاح')));
      item.append(h('div','','آخر اتصال: '+(device.last_seen||'لم يتصل بعد')));
-     item.append(h('div','','المتصفح: '+(device.user_agent||'غير معروف')));
+     item.append(h('div','','الفئة: '+(device.deviceKind==='phone'?'📱 هاتف':'💻 كمبيوتر')+' · المتصفح: '+(device.user_agent||'غير معروف')));
      const row=h('div','owner-actions');
+     const newKind=device.deviceKind==='phone'?'desktop':'phone';
+     const kindButton=h('button','button button-secondary button-sm',
+       newKind==='phone'?'تصنيف الجهاز كهاتف 📱':'تصنيف الجهاز ككمبيوتر 💻');
+     kindButton.type='button';
+     kindButton.disabled=list.some(other=>other.device_id!==device.device_id&&other.deviceKind===newKind);
+     if(kindButton.disabled)kindButton.title='فتحة الجهاز المطلوبة مشغولة بالفعل';
+     kindButton.addEventListener('click',async()=>{
+       if(!confirm('تأكيد تصنيف هذا الجهاز كـ '+(newKind==='phone'?'هاتف':'كمبيوتر')+'؟'))return;
+       row.querySelectorAll('button').forEach(button=>button.disabled=true);
+       try{
+         await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/kind',
+          {method:'POST',body:{deviceKind:newKind}});
+         renderDeviceCards(list.map(entry=>entry.device_id===device.device_id?
+          {...entry,deviceKind:newKind}:entry));
+         toast('تم حفظ نوع الجهاز دون إلغاء اعتماد الأجهزة الأخرى');
+         void refreshDeviceDetails();
+       }catch(err){toast(errorArabic(err),true);void refreshDeviceDetails();}
+     });
+     row.append(kindButton);
      if(!approved){
-       const approve=h('button','button button-primary button-sm','اعتماد هذا الجهاز (وإيقاف الجهاز السابق)');
+       const approve=h('button','button button-primary button-sm','اعتماد هذا الجهاز');
        approve.type='button';
+       const occupied=list.some(other=>
+         (other.approved===1||other.approved===true)&&other.deviceKind===device.deviceKind);
+       if(occupied){
+         approve.disabled=true;
+         approve.title='فتحة هذا النوع مشغولة؛ ألغِ اعتماد الجهاز القديم أولًا.';
+       }
        approve.addEventListener('click',async()=>{
-         if(!confirm('اعتماد هذا الجهاز وإلغاء اعتماد أي جهاز سابق للمشترك؟'))return;
+         if(!confirm('اعتماد هذا الجهاز ضمن الفتحة المتاحة دون إلغاء اعتماد الأجهزة الأخرى؟'))return;
          row.querySelectorAll('button').forEach(button=>button.disabled=true);
          try{
            await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/approve',{method:'POST',body:{}});
-           renderDeviceCards(list.map(entry=>({...entry,approved:entry.device_id===device.device_id?1:0})));
+           renderDeviceCards(list.map(entry=>({...entry,approved:entry.device_id===device.device_id?1:entry.approved})));
            toast('تم اعتماد الجهاز');
            void refreshDeviceDetails();
          }catch(err){
