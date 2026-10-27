@@ -547,6 +547,7 @@
     const trains=readIncoming();const [roster,config,regional]=await Promise.all([
       readVillages(),readConfiguration(),readRegionalThreats().catch(e=>({available:false,reason:e.message,villages:[]}))]);
     const now=nowServer();if(!finite(now))throw Error('ساعة السيرفر انقطعت أثناء الفحص');
+    const scanFingerprint=currentFingerprint();
     const support=[],cancel=[],diagnostics=[];
     for(const train of trains){
       const diagnostic={trainId:train.id};diagnostics.push(diagnostic);
@@ -556,11 +557,13 @@
       cancel.push(...cancelPlanFor(train,roster,Math.round(now)).map(x=>({...x,trainId:train.id})));
     }
     const plans=rankStrategies(support,cancel,Math.round(now),options.maxTeams);
-    scanned={target,roster,config,trains,plans,regional,diagnostics,checkedAt:Math.round(now)};
+    if(scanFingerprint!==currentFingerprint())throw Error('تغيرت الإعدادات أثناء الفحص؛ أعد الفحص للخطة الجديدة');
+    scanned={target,roster,config,trains,plans,regional,diagnostics,
+      settingsFingerprint:scanFingerprint,defenseVillageId:ownId(),checkedAt:Math.round(now)};
     set(root.sessionStorage,TRAIN,{target,trains,checkedAt:scanned.checkedAt});
     chosen=null;lastScannedKey=trains.map(t=>t.id+':'+t.waves.length).join('|');
     log('SCAN',`${trains.length} trains, ${roster.length} villages, ${plans.length} proposals`);
-    renderScan();return scanned;
+    renderScan();publishScanContext();return scanned;
   }
   function missionTasks(selected){
     const tasks=selected.kind==='hybrid'?selected.tasks:[selected];
@@ -573,6 +576,8 @@
   }
   function approvePlan(){
     if(!chosen||!scanned)throw Error('نفذ الفحص ثم اختر خطة أولًا');
+    if(scanned.settingsFingerprint!==currentFingerprint())
+      throw Error('الإعدادات المشتركة تغيرت بعد الفحص؛ أعد الفحص قبل التنفيذ');
     const now=nowServer();if(!finite(now)||!ready())throw Error('ساعة الخادم أو الجلسة غير متاحة');
     if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))
       throw Error('هناك خطة نشطة بالفعل؛ أوقفها قبل اعتماد خطة جديدة');
@@ -986,6 +991,9 @@
 </main>`;
     doc.body.appendChild(panel);
     panelLayout=placePanel(panel);
+    // Restore persisted raw draft before the first browser interaction.
+    const restored=get(root.localStorage,DRAFT);
+    if(restored?.version===1)latestDraftAt=Number(restored.updatedAt)||0;
     uiQuery('sd-reserve').value=options.reserve;
     uiQuery('sd-margin').value=options.margin;
     uiQuery('sd-cancel-target').value=options.cancelTarget;
@@ -993,10 +1001,34 @@
     uiQuery('sd-cancel-limit').value=options.cancelLimit;
     uiQuery('sd-team-count').value=options.maxTeams;
     uiQuery('sd-advanced').open=!!options.advanced;
-    uiQuery('sd-advanced').addEventListener('toggle',()=>{options.advanced=uiQuery('sd-advanced').open;set(root.localStorage,SETTINGS,options);});
-    for(const id of ['sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count']){
-      uiQuery(id).addEventListener('change',()=>{saveSettings();chosen=null;
-        uiQuery('sd-approve').disabled=true;notify('تغيرت الإعدادات. أعد الفحص قبل الاعتماد.');});
+    uiQuery('sd-advanced').addEventListener('toggle',()=>{
+      options.advanced=uiQuery('sd-advanced').open;
+      set(root.localStorage,SETTINGS,options);
+    });
+    applySharedDraft();
+    for(const id of FIELD_IDS){
+      let pending=null;
+      const saveInput=()=>{
+        recordDraft(id,uiQuery(id).value);
+        saveSettings(); // valid values survive tab changes even without blur
+        chosen=null;
+        uiQuery('sd-approve').disabled=true;
+        if(scanned?.settingsFingerprint!==currentFingerprint()){
+          const message=uiQuery('sd-message');
+          if(message)message.textContent='تم حفظ الإعدادات لجميع تبويبات اللعبة. اضغط «فحص شامل» لتحديث الخطة.';
+        }
+      };
+      uiQuery(id).addEventListener('input',()=>{
+        if(pending!==null)clearTimeout(pending);
+        pending=setTimeout(()=>{pending=null;saveInput();},70);
+      });
+      uiQuery(id).addEventListener('change',()=>{
+        if(pending!==null){clearTimeout(pending);pending=null;}
+        saveInput();
+      });
+      uiQuery(id).addEventListener('blur',()=>{
+        if(pending!==null){clearTimeout(pending);pending=null;saveInput();}
+      });
     }
     uiQuery('sd-scan').onclick=async()=>{
       uiQuery('sd-scan').disabled=true;notify('جاري فحص القرى والهجمات وسرعات الوحدات...');
@@ -1004,16 +1036,34 @@
       catch(e){log('SCAN_ERROR',e.message);notify('تعذر الفحص: '+e.message,'error');}
       finally{uiQuery('sd-scan').disabled=false;}
     };
-    uiQuery('sd-select').onclick=()=>{if(!scanned?.plans?.length)return;
+    uiQuery('sd-select').onclick=()=>{
+      if(!scanned?.plans?.length||scanned.settingsFingerprint!==currentFingerprint())return;
       chosen=scanned.plans[0];uiQuery('sd-options').value=chosen.id;
-      renderPlan();notify('تم ترشيح الخطة الأعلى بحسب هامش الأمان والقدرة المتوفرة');};
-    uiQuery('sd-options').onchange=()=>{const id=uiQuery('sd-options').value;
-      chosen=scanned?.plans?.find(x=>x.id===id)||null;renderPlan();};
+      renderPlan();publishSelectedPlan();
+      notify('تم ترشيح الخطة الأعلى؛ ستظهر أيضًا في تبويبات اللعبة الأخرى');
+    };
+    uiQuery('sd-options').onchange=()=>{
+      if(scanned?.settingsFingerprint!==currentFingerprint())return;
+      const id=uiQuery('sd-options').value;
+      chosen=scanned?.plans?.find(x=>x.id===id)||null;renderPlan();publishSelectedPlan();
+    };
     uiQuery('sd-approve').onclick=()=>{
       try{approvePlan();}catch(e){log('APPROVE_BLOCK',e.message);notify('لم يبدأ التنفيذ: '+e.message,'error');}
     };
-    uiQuery('sd-stop').onclick=()=>{if(mission&&['done','stopped','cancel_clicked'].includes(mission.phase))return;
-      stopMission('إيقاف يدوي من المستخدم. الأوامر المرسلة مسبقًا لا تُلغى تلقائيًا بهذا الزر');};
+    uiQuery('sd-stop').onclick=()=>{
+      if(mission&&['done','stopped','cancel_clicked'].includes(mission.phase))return;
+      if(mission){
+        stopMission('إيقاف يدوي من المستخدم. الأوامر المرسلة مسبقًا لا تُلغى تلقائيًا');
+        return;
+      }
+      syncMissionState();
+      if(otherMission&&get(root.localStorage,LOCK)?.tabId===otherMission.owner){
+        const ask={owner:otherMission.owner,id:otherMission.id,initiator:tabId,
+          at:Date.now(),nonce:root.crypto?.randomUUID?.()||String(Math.random())};
+        set(root.localStorage,STOP_REQUEST,ask);
+        notify('تم إرسال طلب إيقاف إلى التبويب المنفِّذ. راجع الأوامر التي سبق إرسالها.','info');
+      }else notify('لا توجد مهمة نشطة لإيقافها','info');
+    };
     uiQuery('sd-export').onclick=()=>{
       const data=JSON.stringify({created:new Date().toISOString(),audit:logRows,metrics:metric},null,2);
       const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
@@ -1029,8 +1079,11 @@
   function renderScan(){
     const radar=uiQuery('sd-radar'),select=uiQuery('sd-options');if(!radar||!select)return;
     if(!scanned)return;
-    const list=[`قرية الدفاع: ${scanned.target.str} | قرى مرصودة: ${scanned.roster.length}`,
-      `قطارات نبلاء: ${scanned.trains.length} | خطط محتملة: ${scanned.plans.length}`];
+    const list=[`قرية الدفاع: ${scanned.target.str} | قرى مرصودة: ${scanned.roster?.length??scanned.rosterCount??0}`,
+      `قطارات نبلاء: ${scanned.trains.length} | خطط محتملة: ${scanned.totalPlans??scanned.plans.length}`];
+    if(scanned.defenseVillageId&&scanned.defenseVillageId!==ownId())
+      list.push('🔄 بيانات محفوظة من تبويب القرية المدافَع عنها '+scanned.target.str+
+        '؛ لست مضطرًا للعودة إلى ذلك التبويب لرؤية الخطة.');
     if(scanned.regional?.available){
       list.push(`🌐 رادار القرى: ${scanned.regional.villages.length} قرية يظهر عليها نشاط هجومي في النظرة العامة`);
       for(const entry of scanned.regional.villages.slice(0,7))
@@ -1053,7 +1106,7 @@
         list.push('🎯 قنص الإلغاء غير محسوب: أدخل هدف هجوم الإلغاء وزمن سير جيشك في الإعدادات المتقدمة، ثم أعد الفحص.');
       list.push('سرعة التشكيلة تُحسب الآن باستخدام أسرع مجموعة مناسبة من كل قرية، وليس بإجبار جميع الوحدات البطيئة على المشاركة.');
     }
-    radar.textContent=list.join('\n\n');select.replaceChildren();
+    select.replaceChildren();
     for(const plan of scanned.plans.slice(0,80)){
       const o=doc.createElement('option');o.value=plan.id;
       o.textContent=(plan.kind==='support'?'🛡️ دعم':plan.kind==='cancel'?'🎯 إلغاء':'🔄 دعم من قريتين')+
@@ -1061,7 +1114,11 @@
         ' | '+(plan.kind==='hybrid'?plan.tasks.map(x=>x.sourceId).join('+'):plan.sourceId);
       select.appendChild(o);
     }
-    uiQuery('sd-select').disabled=!scanned.plans.length;
+    const stale=scanned.settingsFingerprint!==currentFingerprint()||
+      !finite(nowServer())||nowServer()-scanned.checkedAt>120000;
+    if(stale)list.push('⏳ الخطة محفوظة للعرض فقط: انتهت صلاحية الفحص أو تغيرت الإعدادات. أعد الفحص قبل الاعتماد.');
+    radar.textContent=list.join('\n\n');
+    uiQuery('sd-select').disabled=!scanned.plans.length||stale;
     chosen=null;uiQuery('sd-approve').disabled=true;
     renderPlan();
   }
@@ -1076,12 +1133,25 @@
       Object.entries(task.units||{}).filter(([,n])=>n>0).map(([u,n])=>`${u}=${n}`).join('، ')+
       `\nهامش الفجوة: ${Math.round(task.marginMs)}ms`).join('\n---\n')+
       `\nالنتيجة تعتمد على استجابة متصفحك وسيرفر اللعبة؛ لا يوجد ضمان للقنص داخل 200ms.`;
-    const now=nowServer();uiQuery('sd-approve').disabled=!finite(now)||!tasks.every(task=>!validateTask(task,Math.round(now),player,host));
+    const now=nowServer(),lock=get(root.localStorage,LOCK);
+    const foreign=lock&&lock.tabId!==tabId&&lock.until>Date.now();
+    const stale=scanned?.settingsFingerprint!==currentFingerprint()||!finite(now)||
+      now-scanned.checkedAt>120000;
+    uiQuery('sd-approve').disabled=!!foreign||stale||
+      !tasks.every(task=>!validateTask(task,Math.round(now),player,host));
   }
   function renderStatus(){
     const el=uiQuery('sd-status');if(!el)return;
     const now=nowServer();
-    if(!mission){el.textContent='لا توجد مهمة نشطة. ساعة السيرفر: '+stamp(now);return;}
+    if(!mission){
+      el.textContent=otherMission?
+        '🔒 مهمة في تبويب آخر: '+otherMission.phase+
+        '\nالقرية: '+otherMission.sourceId+
+        '\n'+otherMission.note+
+        '\nيمكنك متابعة البيانات هنا وإيقاف المهمة؛ التنفيذ يتم في التبويب المالك فقط.':
+        'لا توجد مهمة نشطة. ساعة السيرفر: '+stamp(now);
+      return;
+    }
     const task=currentTask();
     el.textContent=`الحالة: ${mission.phase}\n${mission.note||''}\n`+
       (task?`القرية: ${task.sourceId} | ${task.kind}\nالإرسال: ${stamp(task.sendAt)} (${countdown(task.sendAt-now)})\n`+
@@ -1091,6 +1161,7 @@
   }
   function monitor(){
     if(!options.autoMonitor||mission&&!['stopped','done','cancel_clicked'].includes(mission.phase))return;
+    if(scanned?.defenseVillageId&&scanned.defenseVillageId!==ownId())return;
     if(!doc.querySelector('#commands_incomings'))return;
     try{
       const trains=readIncoming();const key=trains.map(t=>t.id+':'+t.waves.length).join('|');
@@ -1103,6 +1174,8 @@
   }
   function initialize(){
     syncClock();mount();
+    connectTabs();
+    applySharedDraft();applySharedContext();syncMissionState();
     if(mission){setTimeout(resume,400);}
     uiTick=setInterval(()=>{renderStatus();},250);
     setInterval(()=>{if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait'].includes(mission.phase))touchLock();},30000);
