@@ -453,6 +453,7 @@
   const SETTINGS=storagePrefix+'settings',MISSION=storagePrefix+'mission_'+tabId;
   const METRICS=storagePrefix+'metrics',AUDIT=storagePrefix+'events';
   const LAYOUT=storagePrefix+'layout',TRAIN=storagePrefix+'train',LOCK=storagePrefix+'lock';
+  const SLOTS=storagePrefix+'planning_slots_v110';
   // Drafts and scans are shared by tabs on this origin for this player only.
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v103',CONTEXT=storagePrefix+'scan_context_v103';
@@ -471,6 +472,7 @@
   let logRows=get(root.localStorage,AUDIT)||[];
   let lastScannedKey='',uiTick=0,monitorTimer=0,panelLayout=null;
   let latestDraftAt=0,latestContextAt=0,otherMission=null;
+  let slotState=Array.isArray(get(root.localStorage,SLOTS))?get(root.localStorage,SLOTS).slice(0,30):[];
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
   const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams']
@@ -568,6 +570,7 @@
     root.addEventListener('storage',e=>{
       if(e.storageArea!==root.localStorage)return;
       if(e.key===DRAFT||e.key===SETTINGS)applySharedDraft();
+      if(e.key===SLOTS){slotState=Array.isArray(get(root.localStorage,SLOTS))?get(root.localStorage,SLOTS).slice(0,30):[];renderSlots();}
       if(e.key===CONTEXT)applySharedContext();
       if(e.key===LIVE_STATE||e.key===LOCK)syncMissionState();
       if(e.key===STOP_REQUEST)handleRemoteStop();
@@ -1177,6 +1180,90 @@
       geometry=panelGeometry(saved);draw();
     }};
   }
+
+  function saveSlots(){if(slotState.length>30)throw Error('حد المهام 30');set(root.localStorage,SLOTS,slotState);}
+  function renderSlots(){
+    let rootNode=doc.getElementById('algzawy-sd-slots');
+    if(!rootNode){rootNode=doc.createElement('div');rootNode.id='algzawy-sd-slots';doc.body.appendChild(rootNode);}
+    rootNode.replaceChildren();
+    const badge=uiQuery('sd-slot-count');if(badge)badge.textContent=slotState.length+'/30';
+    const button=(label,fn)=>{const b=doc.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b;};
+    for(const slot of slotState){
+      const section=doc.createElement('section');section.className='sd-task-slot';
+      section.style.left=Math.max(0,Number(slot.x)||20)+'px';
+      section.style.top=Math.max(0,Number(slot.y)||65)+'px';
+      section.style.width=Math.max(230,Number(slot.width)||295)+'px';
+      section.style.height=slot.folded?'42px':Math.max(170,Number(slot.height)||205)+'px';
+      const bar=doc.createElement('div');bar.className='sd-task-bar';
+      const title=doc.createElement('strong');title.textContent=slot.id+' | '+slot.target;
+      bar.appendChild(title);
+      bar.appendChild(button(slot.folded?'فتح':'طي',()=>{slot.folded=!slot.folded;saveSlots();renderSlots();}));
+      bar.appendChild(button('×',()=>{slotState=slotState.filter(s=>s.id!==slot.id);saveSlots();renderSlots();}));
+      section.appendChild(bar);
+      const content=doc.createElement('div');content.className='sd-task-body';content.hidden=!!slot.folded;
+      const summary=doc.createElement('p');
+      summary.textContent=slot.plan?
+        '🎯 '+slot.plan.kind+' | '+slot.target+'\nالوصول: '+stamp(slot.plan.arrivalAt)+
+        '\nهامش: '+slot.plan.marginMs+'ms':
+        'لا توجد خطة محفوظة لهذه النافذة بعد.';
+      content.appendChild(summary);
+      content.appendChild(button('💾 حفظ الخطة المختارة',()=>{
+        if(!chosen||!scanned)return notify('اختر خطة من القائمة الرئيسية أولًا','error');
+        slot.target=scanned.target.str;slot.plan=JSON.parse(JSON.stringify(chosen));
+        slot.savedAt=Date.now();saveSlots();renderSlots();
+      }));
+      content.appendChild(button('🎯 تفعيل الخطة',()=>{
+        if(!slot.plan)return notify('احفظ خطة أولًا','error');
+        if(!scanned||scanned.target.str!==slot.target||
+          !sharedContextUsable(scanned,currentFingerprint(),nowServer()))
+          return notify('يلزم فحص حديث للقرية '+slot.target+' قبل التنفيذ','error');
+        const p=scanned.plans.find(p=>p.id===slot.plan.id);
+        if(!p)return notify('الخطة القديمة غير صالحة؛ أعد الاختيار من نتائج الفحص','error');
+        chosen=p;uiQuery('sd-options').value=p.id;renderPlan();publishSelectedPlan();
+        notify('تم تفعيل '+slot.id+' للتجهيز؛ لم يصدر أي أمر.','success');
+      }));
+      section.appendChild(content);
+      bar.addEventListener('pointerdown',event=>{
+        if(event.target.closest('button'))return;
+        if(event.pointerType==='mouse'&&event.button!==0)return;
+        event.preventDefault();
+        const x=section.offsetLeft,y=section.offsetTop,sx=event.clientX,sy=event.clientY;
+        try{bar.setPointerCapture(event.pointerId);}catch(_){}
+        const move=e=>{
+          if(e.pointerId!==event.pointerId)return;
+          section.style.left=Math.max(0,Math.min(root.innerWidth-70,x+e.clientX-sx))+'px';
+          section.style.top=Math.max(0,Math.min(root.innerHeight-30,y+e.clientY-sy))+'px';
+        };
+        const stop=e=>{
+          if(e.pointerId!==event.pointerId)return;
+          bar.removeEventListener('pointermove',move);bar.removeEventListener('pointerup',stop);
+          bar.removeEventListener('pointercancel',stop);
+          slot.x=section.offsetLeft;slot.y=section.offsetTop;
+          if(!slot.folded){slot.width=section.offsetWidth;slot.height=section.offsetHeight;}
+          saveSlots();
+          try{bar.releasePointerCapture(event.pointerId);}catch(_){}
+        };
+        bar.addEventListener('pointermove',move);bar.addEventListener('pointerup',stop);
+        bar.addEventListener('pointercancel',stop);
+      });
+      section.addEventListener('pointerup',()=>{
+        if(slot.folded)return;
+        const w=section.offsetWidth,h=section.offsetHeight;
+        if(w!==slot.width||h!==slot.height){slot.width=w;slot.height=h;saveSlots();}
+      });
+      rootNode.appendChild(section);
+    }
+  }
+  function createSlot(){
+    if(slotState.length>=30)return notify('الحد الأقصى 30 نافذة تخطيط','error');
+    let i=1;while(slotState.some(s=>s.id==='SD-'+pad(i)))i++;
+    slotState.push({id:'SD-'+pad(i),
+      target:scanned?.target?.str||game.village.x+'|'+game.village.y,
+      plan:chosen?JSON.parse(JSON.stringify(chosen)):null,
+      width:295,height:205,x:20+(i%7)*33,y:65+(i%7)*35,folded:false});
+    saveSlots();renderSlots();
+  }
+
   function mount(){
     if(uiQuery(uiId)||!doc.body)return;
     const style=doc.createElement('style');
@@ -1212,6 +1299,14 @@
 #${uiId} .sd-auto-option{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--sd-accent)}
 #${uiId} #sd-auto-nobles{width:20px;height:20px;flex:none;accent-color:var(--sd-accent)}
 #${uiId} #sd-gap-warning{padding:8px;border:1px solid #806C47;border-radius:8px}
+#algzawy-sd-slots .sd-task-slot{position:fixed;z-index:2147482998;box-sizing:border-box;resize:both;overflow:auto;direction:rtl;min-width:230px;min-height:42px;background:#102031;border:2px solid #B49AFF;border-radius:10px;color:#EAF3F8;font:12px/1.5 Tahoma,Arial;box-shadow:0 10px 30px #0009}
+#algzawy-sd-slots .sd-task-bar{display:flex;align-items:center;gap:4px;padding:4px;background:#192B40;cursor:move;touch-action:none}
+#algzawy-sd-slots .sd-task-bar strong{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#algzawy-sd-slots button{background:#123E3D;color:#EAF3F8;border:1px solid #447F79;border-radius:6px;margin:2px;padding:6px;cursor:pointer}
+#algzawy-sd-slots .sd-task-body{padding:8px;white-space:pre-wrap}
+#algzawy-sd-slots .sd-task-body[hidden]{display:none!important}
+#${uiId} .sd-task-actions{display:flex;align-items:center;gap:4px}
+#${uiId} .sd-task-actions small{color:var(--sd-accent)}
 #${uiId} #sd-countdown{display:flex;flex-direction:column;align-items:center;justify-content:center;
 width:calc(100% - 6px);min-height:102px;margin:10px 3px 8px;padding:12px 10px;
 background:linear-gradient(115deg,#182C42,#232340);border:2px solid var(--sd-accent);
@@ -1255,7 +1350,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.1.0 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.1.0 QA</strong><span class="sd-accent-code">#B49AFF</span></span><span class="sd-task-actions"><button id="sd-add-slot" type="button">+ مهمة</button><small id="sd-slot-count">0/30</small><button id="sd-fold" type="button">طي</button></span></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
@@ -1296,6 +1391,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 </main>`;
     doc.body.appendChild(panel);
     panelLayout=placePanel(panel);
+    uiQuery('sd-add-slot').onclick=createSlot;
+    renderSlots();
     // Restore persisted raw draft before the first browser interaction.
     const restored=get(root.localStorage,DRAFT);
     if(restored?.version===1)latestDraftAt=Number(restored.updatedAt)||0;
