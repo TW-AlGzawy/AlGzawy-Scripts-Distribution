@@ -21,9 +21,9 @@ const config={villages:[{id:'42',name:'Village 42',x:554,y:499,units:stock}],tar
  unitMinutes:{axe:18,light:10,spy:9,sword:22,ram:30,catapult:30,snob:35},
  worldFactor:1,now,share:0.5,safetyMs:100};
 
-test('v1.0.4 QA complete userscript compiles and maintains stable installer URL',()=>{
+test('v1.0.5 QA complete userscript compiles and maintains stable installer URL',()=>{
  assert.doesNotThrow(()=>new vm.Script(source));
- assert.match(source,/@version\s+1\.0\.4-qa/);
+ assert.match(source,/@version\s+1\.0\.5-qa/);
  assert.match(source,/@downloadURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy/);
  assert.match(source,/--sd-accent:#B49AFF/);
  assert.match(source,/id="sd-fold"/);
