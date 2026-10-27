@@ -262,8 +262,9 @@
     for(const line of csv.split(/\r?\n/)){
       const cols=line.split(',');if(cols.length<5)continue;
       const id=String(cols[0]).trim(),x=Number(cols[2]),y=Number(cols[3]),owner=Number(cols[4]);
-      if(!/^\d+$/.test(id)||!Number.isInteger(x)||!Number.isInteger(y)||
-        !Number.isFinite(owner)||owner!==0)continue;
+      if(!/^\d+$/.test(id)||!/^\d+$/.test(String(cols[4]||'').trim())||
+        !Number.isInteger(x)||!Number.isInteger(y)||x<0||x>999||y<0||y>999||
+        owner!==0)continue;
       const distance=Math.hypot(x-source.x,y-source.y);
       if(distance<0.5||distance>radius)continue;
       targets.push({id,x,y,str:x+'|'+y,owner:0,distance});
