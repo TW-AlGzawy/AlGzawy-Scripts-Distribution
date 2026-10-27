@@ -217,7 +217,7 @@
       if(!gap.usable)continue;
       for(const duration of WINDOWS){
         const outbound=duration/2,sendAt=gap.arrival-duration,cancelAt=gap.arrival-outbound;
-        if(sendAt<now+MIN_PREP_MS||sendAt>=waves[0].at||outbound>=oneWayMs||outbound>=cancelWindowMs)continue;
+        if(sendAt<now+MIN_PREP_MS||outbound>=oneWayMs||outbound>=cancelWindowMs)continue;
         plans.push({kind:'cancel',id:'can:'+sourceId+':'+gap.i+':'+duration,
           sourceId:String(sourceId),target,sendAt,cancelAt,arrivalAt:gap.arrival,
           travelMs:oneWayMs,marginMs:gap.slack,gapIndex:gap.i,gapWidthMs:gap.width,
@@ -1372,6 +1372,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   <div id="sd-radar" class="box">لم يُقرأ أي قطار هجمات بعد.</div>
   <label for="sd-options">خطط الدفاع المتاحة</label><select id="sd-options"><option>اختر خطة بعد الفحص</option></select>
   <div id="sd-plan" class="box">لم تُحدد خطة.</div>
+  <details id="sd-troops"><summary>⚔️ القوات المختارة للقنص (دعم / إلغاء)</summary>
+    <div id="sd-units" class="box">لم تُحدد القوات بعد.</div>
+  </details>
   <div class="row"><button id="sd-stop" type="button">■ إيقاف آمن</button>
   <button id="sd-export" type="button">📋 تصدير سجل التنفيذ</button></div>
   <div id="sd-status" class="box">لا توجد مهمة نشطة.</div>
@@ -1598,7 +1601,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   }
   function renderPlan(){
     const el=uiQuery('sd-plan');if(!el)return;
-    if(!chosen){el.textContent=scanned?.plans.length?'اختر إحدى الخطط ثم اضغط اعتماد وتنفيذ.':'لا توجد خطة يمكن تنفيذها ضمن الوقت الحالي.';return;}
+    if(!chosen){el.textContent=scanned?.plans.length?'اختر إحدى الخطط ثم اضغط اعتماد وتنفيذ.':'لا توجد خطة يمكن تنفيذها ضمن الوقت الحالي.';
+      if(uiQuery('sd-units'))uiQuery('sd-units').textContent='لم تُحدد القوات بعد.';
+      return;}
     const tasks=Array.isArray(chosen.tasks)?chosen.tasks:[chosen];
     el.textContent=`النوع: ${chosen.kind==='multi'?'قنص عدة نبلاء':chosen.kind==='hybrid'?'تنسيق دعم':chosen.kind==='cancel'?'قنص الإلغاء':'دعم مباشر'}\n`+
       tasks.map((task,i)=>`${i+1}. 🎯 قنص النبيل ${task.gapIndex+1} | قرية ${task.sourceName||task.sourceId} → ${task.target.str}\n`+
@@ -1607,6 +1612,14 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       Object.entries(task.units||{}).filter(([,n])=>n>0).map(([u,n])=>`${u}=${n}`).join('، ')+
       `\nهامش الفجوة: ${Math.round(task.marginMs)}ms`).join('\n---\n')+
       `\nالنتيجة تعتمد على استجابة متصفحك وسيرفر اللعبة؛ لا يوجد ضمان للقنص داخل 200ms.`;
+    if(uiQuery('sd-units'))uiQuery('sd-units').textContent=tasks.map((task,index)=>{
+      const count=Object.entries(task.units||{}).filter(([,n])=>Number(n)>0);
+      const total=count.reduce((sum,[,n])=>sum+Number(n),0);
+      return '⚔️ مجموعة '+(index+1)+' | '+(task.kind==='cancel'?'هجوم إلغاء':'دعم')+
+        ' | قنص النبيل '+(task.gapIndex+1)+'\nالقرية: '+(task.sourceName||task.sourceId)+
+        '\n'+count.map(([unit,n])=>unit+' × '+n).join(' | ')+
+        '\nالمجموع: '+total+' جندي';
+    }).join('\n\n');
     const now=nowServer(),lock=get(root.localStorage,LOCK);
     const foreign=lock&&lock.tabId!==tabId&&lock.until>Date.now();
     const stale=!sharedContextUsable(scanned,currentFingerprint(),now);
