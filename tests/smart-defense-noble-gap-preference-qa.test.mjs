@@ -14,7 +14,7 @@ const waves=[{kind:'strong',at:start,index:1,precise:true},
 {kind:'noble',at:start+3*60000+300,index:4,precise:true}];
 test('QA script compiles and exposes editable saved noble spacing',()=>{
  assert.doesNotThrow(()=>new vm.Script(source));
- assert.match(source,/@version\s+1\.0\.6-qa/);
+ assert.match(source,/@version\s+1\.1\.0-qa/);
  assert.match(source,/id="sd-noble-spacing" type="number" min="1" max="60000"/);
  assert.match(source,/uiQuery\('sd-noble-spacing'\)\.addEventListener\('input'/);
  assert.match(source,/recordDraft\('sd-noble-spacing',String\(val\)\)/);
