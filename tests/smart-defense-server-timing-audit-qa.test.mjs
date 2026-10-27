@@ -11,9 +11,9 @@ const core=require(scriptPath);
 const scheduled=Date.UTC(2026,9,28,2,56,21,953);
 const task={kind:'support',sendAt:scheduled,travelMs:1800000,marginMs:100};
 
-test('QA v1.0.5 complete script compiles with strict clock and receipt audit',()=>{
+test('QA v1.0.6 complete script compiles with strict clock and receipt audit',()=>{
  assert.doesNotThrow(()=>new vm.Script(src));
- assert.match(src,/@version\s+1\.0\.5-qa/);
+ assert.match(src,/@version\s+1\.0\.6-qa/);
  assert.match(src,/MAX_CLOCK_DRIFT_MS=100/);
  assert.match(src,/if\(deviation>MAX_CLOCK_DRIFT_MS\)return null/);
  assert.match(src,/if\(late>SEND_TOLERANCE_MS\)return stopMission/);
