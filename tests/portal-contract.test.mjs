@@ -49,7 +49,7 @@ class DB{
       throw Error('Unexpected FIRST: '+sql);
     },
     async all(){const a=this.args;
-      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved,user_agent:k.user_agent}))};
+      if(sql.includes('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent,k.device_kind FROM portal_device_keys k JOIN portal_devices d'))return {results:db.keys.filter(k=>k.user_id===a[0]&&db.devices.some(d=>d.id===k.device_id&&d.active===1)).map(k=>({device_id:k.device_id,public_key_json:k.public_key_json,approved:k.approved,user_agent:k.user_agent,device_kind:k.device_kind}))};
        if(sql.includes('SELECT script_id FROM portal_script_controls WHERE enabled=0'))return {results:db.scriptControls.filter(x=>x.enabled===0).map(x=>({script_id:x.id}))};
        if(sql.includes('SELECT script_id FROM portal_entitlements'))return {results:db.grants.filter(v=>v.user_id===a[0]&&v.allowed===1).map(v=>({script_id:v.script_id}))};
       if(sql.includes('SELECT script_id,enabled,settings_json FROM portal_preferences'))return {results:db.prefs.filter(v=>v.user_id===a[0])};
@@ -94,7 +94,7 @@ class DB{
       if(sql.startsWith('INSERT INTO portal_preferences')){const old=db.prefs.find(x=>x.user_id===a[0]&&x.script_id===a[1]);if(old){old.enabled=a[2];if(a.length>3)old.settings_json=a[3];}else db.prefs.push({user_id:a[0],script_id:a[1],enabled:a[2],settings_json:a[3]||'{}'});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_pair_codes')){db.codes.push({code_hash:a[0],user_id:a[1],expires_at:a[2],consumed_at:null});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_devices')){db.devices.push({id:a[0],user_id:a[1],device_hash:a[2],active:1});return {meta:{changes:1}};}
-      if(sql.startsWith('INSERT INTO portal_device_keys')){db.keys.push({device_id:a[0],user_id:a[1],public_key_json:a[2],approved:0,last_counter:0,first_ip:a[3],last_ip:a[4],user_agent:a[5]});return {meta:{changes:1}};}
+      if(sql.startsWith('INSERT INTO portal_device_keys')){db.keys.push({device_id:a[0],user_id:a[1],public_key_json:a[2],approved:0,last_counter:0,first_ip:a[3],last_ip:a[4],user_agent:a[5],device_kind:a[6]});return {meta:{changes:1}};}
       if(sql.startsWith('INSERT INTO portal_access_events')){db.events.push({id:a[0],user_id:a[1],device_id:a[2],event_type:a[3],ip:a[4]});return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE user_id=')){for(const k of db.keys)if(k.user_id===a[0])k.approved=0;return {meta:{changes:1}};}
       if(sql.startsWith('DELETE FROM portal_device_keys WHERE device_id=')){const n=db.keys.length;db.keys=db.keys.filter(x=>!(x.device_id===a[0]&&x.user_id===a[1]));return {meta:{changes:n-db.keys.length}};}
@@ -103,13 +103,20 @@ if(sql.startsWith('UPDATE portal_device_keys SET approved=0 WHERE device_id=')){
       if(sql.startsWith('UPDATE portal_device_keys SET approved=1 WHERE device_id=')){
   const k=db.keys.find(v=>v.device_id===a[0]&&v.user_id===a[1]&&v.approved===0);
   if(k){
-    const kind=ua=>/(?:iphone|ipad|ipod|android|mobile)/i.test(ua||'')?'phone':'desktop';
-    if(db.keys.some(v=>v.user_id===k.user_id&&v.approved===1&&kind(v.user_agent)===kind(k.user_agent)))
+    const kind=x=>x.device_kind||(/(?:iphone|ipad|ipod|android|mobile)/i.test(x.user_agent||'')?'phone':'desktop');
+    if(db.keys.some(v=>v.user_id===k.user_id&&v.approved===1&&kind(v)===kind(k)))
       throw Error('UNIQUE constraint failed');
     k.approved=1;
   }
   return {meta:{changes:k?1:0}};
  }
+      if(sql.startsWith('UPDATE portal_device_keys SET device_kind=?')){
+        const k=db.keys.find(v=>v.device_id===a[1]&&v.user_id===a[2]);
+        if(!k)return {meta:{changes:0}};
+        if(db.keys.some(v=>v!==k&&v.user_id===k.user_id&&v.device_kind===a[0]))
+          throw Error('UNIQUE constraint failed');
+        k.device_kind=a[0];return {meta:{changes:1}};
+      }
       if(sql.startsWith('UPDATE portal_device_keys SET last_ip=')){const k=db.keys.find(v=>v.device_id===a[1]);if(k)k.last_ip=a[0];return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_devices SET active=1')){const d=db.devices.find(v=>v.id===a[0]);if(d)d.active=1;return {meta:{changes:1}};}
       if(sql.startsWith('UPDATE portal_users SET active=0')){const u=db.users.find(v=>v.id===a[0]);if(u)u.active=0;return {meta:{changes:u?1:0}};}
@@ -581,21 +588,21 @@ test('approved desktop and phone coexist; third device and duplicate class canno
    return crypto.subtle.exportKey('jwk',pair.publicKey);
  };
  const desktopAgent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/156';
- const phoneAgent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Safari/605';
- const enroll=(pub,ua)=>api(db,'device/auto-enroll',{method:'POST',cookie,
-   headers:{...headers,'User-Agent':ua},body:{nonce:crypto.randomUUID(),publicKey:pub}});
+ const phoneAgent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/26.6 Safari/605.1.15';
+ const enroll=(pub,ua,deviceKind)=>api(db,'device/auto-enroll',{method:'POST',cookie,
+   headers:{...headers,'User-Agent':ua},body:{nonce:crypto.randomUUID(),publicKey:pub,deviceKind}});
  const approve=id=>api(db,'admin/users/'+uid+'/devices/'+id+'/approve',{method:'POST',token:admin,body:{}});
- const computer=await enroll(await makeKey(),desktopAgent);
+ const computer=await enroll(await makeKey(),desktopAgent,'desktop');
  assert.equal(computer.status,202);
  assert.equal((await approve(computer.json.deviceId)).status,200);
- const repeat=await enroll(await makeKey(),desktopAgent);
+ const repeat=await enroll(await makeKey(),desktopAgent,'desktop');
  assert.equal(repeat.status,409);
  assert.equal(repeat.json.error,'device_slot_occupied');
- const phone=await enroll(await makeKey(),phoneAgent);
+ const phone=await enroll(await makeKey(),phoneAgent,'phone');
  assert.equal(phone.status,202);
  assert.equal((await approve(phone.json.deviceId)).status,200);
  assert.equal(db.keys.filter(x=>x.approved===1).length,2);
- const third=await enroll(await makeKey(),phoneAgent);
+ const third=await enroll(await makeKey(),phoneAgent,'phone');
  assert.equal(third.status,409);
  assert.equal(third.json.error,'device_limit_reached');
  const devices=await api(db,'admin/users/'+uid+'/entitlements',{token:admin});
@@ -603,7 +610,7 @@ test('approved desktop and phone coexist; third device and duplicate class canno
  assert.deepEqual(devices.json.devices.map(d=>d.deviceKind).sort(),['desktop','phone']);
  assert.equal((await api(db,'admin/users/'+uid+'/devices/'+computer.json.deviceId+'/revoke',
    {method:'POST',token:admin,body:{}})).status,200);
- const replacement=await enroll(await makeKey(),desktopAgent);
+ const replacement=await enroll(await makeKey(),desktopAgent,'desktop');
  assert.equal(replacement.status,202);
  assert.equal((await approve(replacement.json.deviceId)).status,200);
  assert.equal(db.keys.find(k=>k.device_id===phone.json.deviceId).approved,1,
