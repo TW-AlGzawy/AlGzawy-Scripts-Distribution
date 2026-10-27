@@ -35,7 +35,10 @@ test('registered slots are limited by a D1 unique expression across approved and
  assert.match(migration,/CREATE UNIQUE INDEX IF NOT EXISTS portal_one_device_per_user_kind/);
  assert.doesNotMatch(migration,/WHERE approved=1/);
  assert.match(schema,/portal_one_device_per_user_kind/);
- assert.match(api,/const deviceKind=ua=>/);
+ assert.match(api,/const deviceKind=\(ua,explicit\)=>/);
+ assert.match(api,/owner_device_kind_changed/);
+ assert.match(schema,/device_kind TEXT NOT NULL DEFAULT 'desktop'/);
+ assert.match(migration,/coalesce\(device_kind,'desktop'\)/);
  assert.match(api,/if\(rows\.length>=2\)return bad\('device_limit_reached',409\)/);
  assert.match(api,/if\(slots\.length>=2\)return bad\('device_limit_reached',409\)/);
  assert.match(api,/if\(slots\.some\(d=>d\.approved===1&&d\.kind===target\.kind\)\)/);
