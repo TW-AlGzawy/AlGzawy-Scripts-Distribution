@@ -383,7 +383,10 @@
     const request=get(root.localStorage,STOP_REQUEST);
     if(!request||request.owner!==tabId||request.initiator===tabId||
       !mission||!['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))return;
-    if(Math.abs(Date.now()-Number(request.at))>30000)return;
+    // Hidden Safari tabs may suspend storage events for minutes. Keep the stop
+    // request valid for this particular mission, regardless of wake-up delay.
+    if(!Number.isSafeInteger(request.at)||request.at<mission.createdAt||
+      request.at>Date.now()+5000)return;
     if(request.id&&mission.createdAt&&request.id!==mission.createdAt)return;
     stopMission('أوقف المستخدم المهمة من تبويب آخر؛ راجع أي أمر أُرسل مسبقًا');
   }
