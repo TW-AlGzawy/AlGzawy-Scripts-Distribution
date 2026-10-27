@@ -734,6 +734,8 @@
   }
   function approvePlan(){
     if(!chosen||!scanned)throw Error('نفذ الفحص ثم اختر خطة أولًا');
+    if(!visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1).some(p=>p.id===chosen.id))
+      throw Error('الخطة لا تستهدف النبيل المحدد؛ اختر خطة مناسبة');
     if(!sharedContextUsable(scanned,currentFingerprint(),nowServer()))
       throw Error('الخطة المشتركة قديمة أو تغيرت الإعدادات؛ أعد الفحص قبل التنفيذ');
     const now=nowServer();if(!finite(now)||!ready())throw Error('ساعة الخادم أو الجلسة غير متاحة');
@@ -1262,7 +1264,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     };
     uiQuery('sd-select').onclick=()=>{
       if(!scanned?.plans?.length||scanned.settingsFingerprint!==currentFingerprint())return;
-      chosen=scanned.plans[0];uiQuery('sd-options').value=chosen.id;
+      const available=visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1);
+      chosen=available[0]||null;if(!chosen)return;
+      uiQuery('sd-options').value=chosen.id;
       renderPlan();publishSelectedPlan();
       notify('تم ترشيح الخطة الأعلى؛ ستظهر أيضًا في تبويبات اللعبة الأخرى');
     };
@@ -1334,18 +1338,42 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         list.push('🎯 قنص الإلغاء غير محسوب: أدخل هدف هجوم الإلغاء وزمن سير جيشك في الإعدادات المتقدمة، ثم أعد الفحص.');
       list.push('سرعة التشكيلة تُحسب الآن باستخدام أسرع مجموعة مناسبة من كل قرية، وليس بإجبار جميع الوحدات البطيئة على المشاركة.');
     }
+    const nobleMax=Math.max(1,...scanned.trains.map(t=>t.nobles||0));
+    const nobleSelect=uiQuery('sd-noble-target');
+    if(nobleSelect){
+      const previous=options.nobleTarget||1;
+      nobleSelect.replaceChildren();
+      for(let n=1;n<=nobleMax;n++){
+        const element=doc.createElement('option');element.value=String(n);
+        element.textContent='النبيل '+n+(n===1?' — بعد الهجمة الافتتاحية':' — بعد النبيل '+(n-1));
+        nobleSelect.appendChild(element);
+      }
+      nobleSelect.value=String(Math.min(previous,nobleMax));
+      nobleSelect.disabled=options.autoNobles!==false;
+    }
+    const warnings=scanned.trains.flatMap(t=>nobleGapSummary(t.waves,options.nobleSpacingMs||200,options.margin).filter(g=>g.differs)
+      .map(g=>'النبيل '+g.index+': الفاصل الحقيقي '+g.observedMs+'ms مختلف عن المتوقع '+g.expectedMs+'ms'));
+    const note=uiQuery('sd-gap-warning');
+    if(note)note.textContent=(warnings.length?warnings.slice(0,4).join(' | '):
+      'الفواصل الفعلية هي أساس القنص. فاصل العالم المتوقع '+(options.nobleSpacingMs||200)+'ms محفوظ.')+
+      ' هامش الأمان: '+options.margin+'ms.';
+    const candidates=visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1);
+    list.push('🎯 الوضع: '+(options.autoNobles!==false?'تلقائي (خطط منفردة ومتعددة)':
+      'اختيار يدوي للنبيل '+(options.nobleTarget||1))+' | خطط مطابقة: '+candidates.length);
     select.replaceChildren();
-    for(const plan of scanned.plans.slice(0,80)){
+    for(const plan of candidates.slice(0,100)){
       const o=doc.createElement('option');o.value=plan.id;
-      o.textContent=(plan.kind==='support'?'🛡️ دعم':plan.kind==='cancel'?'🎯 إلغاء':'🔄 دعم من قريتين')+
+      o.textContent=(plan.kind==='support'?'🛡️ دعم':plan.kind==='cancel'?'🎯 إلغاء':
+        plan.kind==='multi'?'🎯 عدة نبلاء':'🔄 دعم من قريتين')+
+        ' | نبيل '+(plan.kind==='multi'?plan.nobleIndices.join('+'):nobleIndexOf(plan)||'?')+
         ' | '+clockOnly(plan.arrivalAt)+' | هامش '+Math.round(plan.marginMs)+'ms'+
-        ' | '+(plan.kind==='hybrid'?plan.tasks.map(x=>x.sourceId).join('+'):plan.sourceId);
+        ' | '+(plan.tasks?plan.tasks.map(x=>x.sourceId).join('+'):plan.sourceId);
       select.appendChild(o);
     }
     const stale=!sharedContextUsable(scanned,currentFingerprint(),nowServer());
     if(stale)list.push('⏳ الخطة محفوظة للعرض فقط: انتهت صلاحية الفحص أو تغيرت الإعدادات. أعد الفحص قبل الاعتماد.');
     radar.textContent=list.join('\n\n');
-    uiQuery('sd-select').disabled=!scanned.plans.length||stale;
+    uiQuery('sd-select').disabled=!candidates.length||stale;
     chosen=null;uiQuery('sd-approve').disabled=true;
     renderPlan();
   }
@@ -1353,8 +1381,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const el=uiQuery('sd-plan');if(!el)return;
     if(!chosen){el.textContent=scanned?.plans.length?'اختر إحدى الخطط ثم اضغط اعتماد وتنفيذ.':'لا توجد خطة يمكن تنفيذها ضمن الوقت الحالي.';return;}
     const tasks=Array.isArray(chosen.tasks)?chosen.tasks:[chosen];
-    el.textContent=`النوع: ${chosen.kind==='hybrid'?'تنسيق دعم من قريتين':chosen.kind==='cancel'?'قنص الإلغاء':'دعم مباشر'}\n`+
-      tasks.map((task,i)=>`${i+1}. قرية ${task.sourceName||task.sourceId} → ${task.target.str}\n`+
+    el.textContent=`النوع: ${chosen.kind==='multi'?'قنص عدة نبلاء':chosen.kind==='hybrid'?'تنسيق دعم':chosen.kind==='cancel'?'قنص الإلغاء':'دعم مباشر'}\n`+
+      tasks.map((task,i)=>`${i+1}. 🎯 قنص النبيل ${task.gapIndex+1} | قرية ${task.sourceName||task.sourceId} → ${task.target.str}\n`+
       `إرسال: ${stamp(task.sendAt)}\n`+(task.cancelAt?`إلغاء: ${stamp(task.cancelAt)}\n`:'')+
       `عودة/وصول مستهدف: ${stamp(task.arrivalAt)}\nالقوات: `+
       Object.entries(task.units||{}).filter(([,n])=>n>0).map(([u,n])=>`${u}=${n}`).join('، ')+
