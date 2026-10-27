@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] Smart Defense Commander | القنص والدعم الذكي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.3-qa
+// @version      1.0.4-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -271,7 +271,47 @@
       validEpoch(snapshot.checkedAt)&&finite(now)&&
       now>=snapshot.checkedAt-3000&&now-snapshot.checkedAt<=maxAgeMs;
   }
-  const CORE=Object.freeze({mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+
+  // Pure display logic, intentionally never triggers a live command.
+  function countdownCardState(phase,task,now){
+    const blank='--:--:--.---';
+    if(!phase||!task)return {tone:'idle',label:'⏱️ عدّاد إرسال الدعم',time:blank,
+      detail:'لا توجد مهمة معتمدة. اعتمد خطة لعرض عدّاد الإرسال.'};
+    const isCancel=task.kind==='cancel';
+    const place=String(task.target?.str||task.target||'—');
+    const details='القرية '+String(task.sourceId||'—')+' → '+place;
+    if(phase==='stopped')return {tone:'stopped',label:'⛔ توقفت المهمة',time:blank,
+      detail:'لا يوجد موعد إرسال نشط؛ راجع السبب في تفاصيل المهمة.'};
+    if(!finite(now))return {tone:'unknown',label:'⚠️ ساعة السيرفر غير متاحة',time:blank,
+      detail:'تعذر حساب العد التنازلي دون وقت اللعبة.'};
+    const until=x=>countdown(Math.max(0,Math.round(x-now)));
+    if(isCancel&&['cancel_wait','cancel_clicked'].includes(phase)){
+      if(phase==='cancel_clicked')return {tone:'complete',label:'🏠 عودة الجيش المتوقعة بعد',
+        time:validEpoch(task.arrivalAt)?until(task.arrivalAt):blank,detail:details};
+      return {tone:'waiting',label:'⏳ إلغاء الهجوم بعد',
+        time:validEpoch(task.cancelAt)?until(task.cancelAt):blank,
+        detail:'وقت الإلغاء: '+stamp(task.cancelAt)+' | '+details};
+    }
+    if(['sent','verify','done'].includes(phase)){
+      const arriving=validEpoch(task.arrivalAt)&&task.arrivalAt>now;
+      return {tone:'complete',label:arriving?
+        (isCancel?'🏠 عودة الجيش المتوقعة بعد':'🚩 وصول الدعم المتوقع بعد'):
+        (isCancel?'✅ تم إصدار أمر الهجوم':'✅ تم إصدار أمر الدعم'),
+        time:arriving?until(task.arrivalAt):'00:00:00.000',
+        detail:(arriving?'الموعد المستهدف: '+stamp(task.arrivalAt):
+          'تأكد من وصول القوات داخل اللعبة')+' | '+details};
+    }
+    if(!validEpoch(task.sendAt))return {tone:'unknown',label:'⚠️ موعد الإرسال غير صالح',
+      time:blank,detail:details};
+    const due=now>=task.sendAt;
+    return {tone:due?'due':'waiting',label:due?
+      '⚠️ حان موعد الإرسال':(isCancel?'⏳ إرسال جيش الإلغاء بعد':'⏳ إرسال الدعم بعد'),
+      time:until(task.sendAt),
+      detail:(due?'بانتظار تحقق الإرسال — هذا لا يعني أنه تم':
+        'موعد الإرسال: '+stamp(task.sendAt))+' | '+details};
+  }
+
+  const CORE=Object.freeze({countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -433,8 +473,12 @@
   function storeMission(obj){
     mission=obj;set(root.sessionStorage,MISSION,obj);
     // Only the owning tab executes game orders; peers can show status.
+    const task=obj.tasks?.[obj.index]||null;
     const state={owner:tabId,id:obj.createdAt,updatedAt:Date.now(),phase:obj.phase,
-      note:obj.note||'',sourceId:obj.tasks?.[obj.index]?.sourceId||'',target:obj.target?.str||''};
+      note:obj.note||'',sourceId:task?.sourceId||'',target:obj.target?.str||'',
+      kind:task?.kind||'',sendAt:task?.sendAt||null,
+      cancelAt:task?.cancelAt||null,arrivalAt:task?.arrivalAt||null,
+      taskTarget:task?.target?.str||''};
     try{set(root.localStorage,LIVE_STATE,state);}catch(_){}
     renderStatus();
   }
@@ -962,6 +1006,26 @@
 #${uiId} #sd-plan{border-inline-start:3px solid var(--sd-teal)}
 #${uiId} #sd-radar{border-inline-start:3px solid #477F95}
 #${uiId} #sd-status{border-inline-start:3px solid var(--sd-gold)}
+#${uiId} #sd-countdown{display:flex;flex-direction:column;align-items:center;justify-content:center;
+width:calc(100% - 6px);min-height:102px;margin:10px 3px 8px;padding:12px 10px;
+background:linear-gradient(115deg,#182C42,#232340);border:2px solid var(--sd-accent);
+border-radius:12px;box-shadow:0 0 0 2px #B49AFF15,inset 0 1px #FFFFFF11;
+cursor:pointer;text-align:center;gap:5px;color:var(--sd-text)}
+#${uiId} #sd-countdown:hover:not(:disabled){background:linear-gradient(115deg,#1C3545,#2A2848);border-color:#D0BDFE}
+#${uiId} #sd-countdown[data-tone=waiting]{border-color:var(--sd-teal);background:linear-gradient(115deg,#102E37,#153C40)}
+#${uiId} #sd-countdown[data-tone=due]{border-color:var(--sd-gold)}
+#${uiId} #sd-countdown[data-tone=complete]{border-color:var(--sd-accent)}
+#${uiId} #sd-countdown[data-tone=stopped]{border-color:var(--sd-danger)}
+#${uiId} #sd-countdown .sd-timer-title{font-size:14px;font-weight:800;color:var(--sd-text)}
+#${uiId} #sd-countdown .sd-timer-digits{font:800 clamp(23px,4vw,35px)/1.25 Consolas,"Segoe UI",monospace;
+font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;color:var(--sd-teal);
+letter-spacing:.5px;text-shadow:0 2px 14px #40E1BF28}
+#${uiId} #sd-countdown[data-tone=stopped] .sd-timer-digits{color:var(--sd-danger)}
+#${uiId} #sd-countdown[data-tone=due] .sd-timer-digits{color:var(--sd-gold)}
+#${uiId} #sd-countdown .sd-timer-description{font-size:11px;line-height:1.5;
+color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
+#${uiId} #sd-countdown .sd-timer-hint{font-size:10px;color:var(--sd-accent)}
+
 #${uiId} label{display:block;margin-top:9px;font-weight:700;color:#C5D9E4}
 #${uiId} input,#${uiId} select{width:100%;min-width:0;height:33px;padding:6px 8px;color:var(--sd-text);background:var(--sd-bg);border:1px solid #365166;border-radius:7px;font:12px Consolas,Tahoma,monospace}
 #${uiId} input:focus,#${uiId} select:focus{border-color:var(--sd-accent)}
@@ -985,12 +1049,18 @@
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.3 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.4 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
   <button id="sd-select" type="button" class="primary" disabled>② 🧠 أفضل خطة</button></div>
   <button id="sd-approve" type="button" class="primary" disabled>③ ▶ اعتماد وتنفيذ الخطة</button>
+  <button id="sd-countdown" type="button" data-tone="idle" title="اضغط للانتقال إلى تفاصيل المهمة" aria-label="عدّاد إرسال الدعم">
+    <span id="sd-countdown-label" class="sd-timer-title">⏱️ عدّاد إرسال الدعم</span>
+    <strong id="sd-countdown-value" class="sd-timer-digits" role="timer" aria-live="off">--:--:--.---</strong>
+    <span id="sd-countdown-description" class="sd-timer-description">لا توجد مهمة معتمدة بعد</span>
+    <span class="sd-timer-hint">اضغط لعرض تفاصيل العملية</span>
+  </button>
   <div id="sd-message" class="box" aria-live="polite">افتح القرية التي تتعرض للهجمات واضغط «فحص شامل».</div>
   <div id="sd-radar" class="box">لم يُقرأ أي قطار هجمات بعد.</div>
   <label for="sd-options">خطط الدفاع المتاحة</label><select id="sd-options"><option>اختر خطة بعد الفحص</option></select>
@@ -1060,6 +1130,10 @@
     };
     uiQuery('sd-approve').onclick=()=>{
       try{approvePlan();}catch(e){log('APPROVE_BLOCK',e.message);notify('لم يبدأ التنفيذ: '+e.message,'error');}
+    };
+    uiQuery('sd-countdown').onclick=()=>{
+      const el=uiQuery('sd-status');
+      el?.scrollIntoView?.({behavior:'smooth',block:'center'});
     };
     uiQuery('sd-stop').onclick=()=>{
       if(mission&&['done','stopped','cancel_clicked'].includes(mission.phase))return;
@@ -1149,9 +1223,29 @@
     uiQuery('sd-approve').disabled=!!foreign||stale||
       !tasks.every(task=>!validateTask(task,Math.round(now),player,host));
   }
+  function renderCountdown(now){
+    const button=uiQuery('sd-countdown');if(!button)return;
+    let task=null,phase='';
+    if(mission){task=currentTask();phase=mission.phase;}
+    else if(otherMission){
+      task={kind:otherMission.kind,sourceId:otherMission.sourceId,
+        target:otherMission.taskTarget||otherMission.target,
+        sendAt:otherMission.sendAt,cancelAt:otherMission.cancelAt,
+        arrivalAt:otherMission.arrivalAt};
+      phase=otherMission.phase;
+    }
+    const data=countdownCardState(phase,task,now);
+    button.dataset.tone=data.tone;
+    uiQuery('sd-countdown-label').textContent=data.label;
+    uiQuery('sd-countdown-value').textContent=data.time;
+    uiQuery('sd-countdown-description').textContent=
+      (otherMission&&!mission?'🔒 المهمة تنفذ في تبويب آخر | ':'')+data.detail;
+    button.setAttribute('aria-label',data.label+'، '+data.time);
+  }
   function renderStatus(){
     const el=uiQuery('sd-status');if(!el)return;
     const now=nowServer();
+    renderCountdown(now);
     if(!mission){
       el.textContent=otherMission?
         '🔒 مهمة في تبويب آخر: '+otherMission.phase+
