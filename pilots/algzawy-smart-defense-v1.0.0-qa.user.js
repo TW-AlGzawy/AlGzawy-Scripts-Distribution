@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] Smart Defense Commander | القنص والدعم الذكي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.2-qa
+// @version      1.0.3-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -274,6 +274,11 @@
   const SETTINGS=storagePrefix+'settings',MISSION=storagePrefix+'mission_'+tabId;
   const METRICS=storagePrefix+'metrics',AUDIT=storagePrefix+'events';
   const LAYOUT=storagePrefix+'layout',TRAIN=storagePrefix+'train',LOCK=storagePrefix+'lock';
+  // Drafts and scans are shared by tabs on this origin for this player only.
+  // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
+  const DRAFT=storagePrefix+'draft_v103',CONTEXT=storagePrefix+'scan_context_v103';
+  const LIVE_STATE=storagePrefix+'mission_state_v103',STOP_REQUEST=storagePrefix+'stop_request_v103';
+  const FIELD_IDS=['sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count'];
   const STOP_EVENT='__algzawy_stop_smart-defense-v1';
   const uiId='algzawy-smart-defense-v1';
   const ownId=()=>String(root.game_data?.village?.id||'');
@@ -284,8 +289,106 @@
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:2};
   let logRows=get(root.localStorage,AUDIT)||[];
-  let lastScannedKey='',uiTick=0,monitorTimer=0;
+  let lastScannedKey='',uiTick=0,monitorTimer=0,panelLayout=null;
+  let latestDraftAt=0,latestContextAt=0,otherMission=null;
   const uiQuery=id=>doc.getElementById(id);
+  // Only settings that affect a planned army enter the fingerprint.
+  const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams']
+    .map(k=>values?.[k]??null));
+  const currentFingerprint=()=>fingerprint(get(root.localStorage,SETTINGS)||options);
+  function recordDraft(id,value){
+    if(!FIELD_IDS.includes(id))return;
+    const previous=get(root.localStorage,DRAFT)||{};
+    const draft={version:1,updatedAt:Math.max(Date.now(),Number(previous.updatedAt||0)+1),
+      writer:tabId,fields:{...(previous.fields||{}),[id]:String(value)}};
+    latestDraftAt=draft.updatedAt;
+    set(root.localStorage,DRAFT,draft);
+  }
+  function applySharedDraft(){
+    const draft=get(root.localStorage,DRAFT);
+    if(!draft||draft.version!==1||!draft.fields)return;
+    if(draft.updatedAt<latestDraftAt)return;
+    latestDraftAt=draft.updatedAt;
+    for(const id of FIELD_IDS)if(typeof draft.fields[id]==='string'&&uiQuery(id))
+      uiQuery(id).value=draft.fields[id]; // do not dispatch input/change and cause sync loops
+    const latest=get(root.localStorage,SETTINGS);if(latest)options=latest;
+    if(scanned&&scanned.settingsFingerprint!==currentFingerprint()){
+      chosen=null;renderPlan();
+      const btn=uiQuery('sd-approve');if(btn)btn.disabled=true;
+      const msg=uiQuery('sd-message');
+      if(msg)msg.textContent='🔄 تم تحديث إعدادات الدفاع من تبويب آخر. أعد «فحص شامل» قبل التنفيذ.';
+    }
+  }
+  function publishScanContext(){
+    if(!scanned)return;
+    const previous=get(root.localStorage,CONTEXT)||{};
+    const data={version:1,writer:tabId,updatedAt:Math.max(Date.now(),Number(previous.updatedAt||0)+1),
+      checkedAt:scanned.checkedAt,defenseVillageId:scanned.defenseVillageId||ownId(),
+      settingsFingerprint:scanned.settingsFingerprint,
+      target:scanned.target,trains:scanned.trains,plans:scanned.plans.slice(0,80),
+      totalPlans:scanned.plans.length,diagnostics:scanned.diagnostics,regional:scanned.regional,
+      rosterCount:scanned.roster?.length||scanned.rosterCount||0,
+      selectedId:chosen?.id||null};
+    try{set(root.localStorage,CONTEXT,data);latestContextAt=data.updatedAt;}
+    catch(e){notify('تعذر حفظ نتائج الفحص المشتركة؛ تحقق من مساحة تخزين المتصفح','error');}
+  }
+  function applySharedContext(){
+    const remote=get(root.localStorage,CONTEXT);
+    if(!remote||remote.version!==1||!remote.target||!Array.isArray(remote.plans)||
+      !Array.isArray(remote.trains)||!validEpoch(remote.checkedAt))return;
+    if(remote.updatedAt<latestContextAt)return;
+    latestContextAt=remote.updatedAt;
+    scanned={target:remote.target,trains:remote.trains,plans:remote.plans,
+      checkedAt:remote.checkedAt,settingsFingerprint:remote.settingsFingerprint,
+      defenseVillageId:String(remote.defenseVillageId||''),
+      rosterCount:Number(remote.rosterCount)||0,totalPlans:Number(remote.totalPlans)||0,
+      diagnostics:remote.diagnostics||[],regional:remote.regional||{available:false,reason:'غير محفوظ'}};
+    lastScannedKey=scanned.trains.map(t=>t.id+':'+t.waves.length).join('|');
+    renderScan();
+    chosen=remote.selectedId?scanned.plans.find(p=>p.id===remote.selectedId)||null:null;
+    const select=uiQuery('sd-options');if(select&&chosen)select.value=chosen.id;
+    renderPlan();
+    const msg=uiQuery('sd-message');
+    if(msg)msg.textContent='🔄 تمت مزامنة بيانات القرية '+scanned.target.str+
+      ' والخطة من تبويب آخر. يجب أن تكون الخطة حديثة وصالحة قبل التنفيذ.';
+  }
+  function publishSelectedPlan(){
+    if(!scanned)return;
+    const existing=get(root.localStorage,CONTEXT);
+    if(existing&&existing.defenseVillageId===scanned.defenseVillageId&&
+      existing.checkedAt===scanned.checkedAt){
+      const updated={...existing,selectedId:chosen?.id||null,
+        writer:tabId,updatedAt:Math.max(Date.now(),Number(existing.updatedAt||0)+1)};
+      try{set(root.localStorage,CONTEXT,updated);latestContextAt=updated.updatedAt;}catch(_){}
+    }
+  }
+  function syncMissionState(){
+    const status=get(root.localStorage,LIVE_STATE),locked=get(root.localStorage,LOCK);
+    otherMission=status&&status.owner!==tabId&&locked?.tabId===status.owner&&
+      Number(locked.until)>Date.now()?status:null;
+    renderStatus();
+  }
+  function handleRemoteStop(){
+    const request=get(root.localStorage,STOP_REQUEST);
+    if(!request||request.owner!==tabId||request.initiator===tabId||
+      !mission||!['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))return;
+    if(Math.abs(Date.now()-Number(request.at))>30000)return;
+    if(request.id&&mission.createdAt&&request.id!==mission.createdAt)return;
+    stopMission('أوقف المستخدم المهمة من تبويب آخر؛ راجع أي أمر أُرسل مسبقًا');
+  }
+  function connectTabs(){
+    root.addEventListener('storage',e=>{
+      if(e.storageArea!==root.localStorage)return;
+      if(e.key===DRAFT||e.key===SETTINGS)applySharedDraft();
+      if(e.key===CONTEXT)applySharedContext();
+      if(e.key===LIVE_STATE||e.key===LOCK)syncMissionState();
+      if(e.key===STOP_REQUEST)handleRemoteStop();
+      if(e.key===LAYOUT)panelLayout?.apply(get(root.localStorage,LAYOUT));
+    });
+    root.addEventListener('pageshow',()=>{
+      applySharedDraft();applySharedContext();syncMissionState();
+    });
+  }
   function log(event,detail=''){
     const line={time:new Date().toISOString(),event,detail:String(detail).slice(0,400),village:ownId()};
     logRows=[line,...logRows].slice(0,160);
@@ -313,7 +416,14 @@
   function releaseLock(){
     if(get(root.localStorage,LOCK)?.tabId===tabId)root.localStorage.removeItem(LOCK);
   }
-  function storeMission(obj){mission=obj;set(root.sessionStorage,MISSION,obj);renderStatus();}
+  function storeMission(obj){
+    mission=obj;set(root.sessionStorage,MISSION,obj);
+    // Only the owning tab executes game orders; peers can show status.
+    const state={owner:tabId,id:obj.createdAt,updatedAt:Date.now(),phase:obj.phase,
+      note:obj.note||'',sourceId:obj.tasks?.[obj.index]?.sourceId||'',target:obj.target?.str||''};
+    try{set(root.localStorage,LIVE_STATE,state);}catch(_){}
+    renderStatus();
+  }
   function humanStop(){
     if(root.localStorage.getItem('algzawy_human_verification_pause')==='1')return true;
     return !!doc.querySelector('iframe[src*="captcha"],form[action*="captcha"],#bot_check,.hcaptcha-box,.g-recaptcha');
@@ -790,6 +900,10 @@
       pointers(handle,edge);
     }
     root.addEventListener('resize',()=>{draw();persist();});draw();
+    return {apply(saved){
+      if(!saved||typeof saved!=='object')return;
+      geometry=panelGeometry(saved);draw();
+    }};
   }
   function mount(){
     if(uiQuery(uiId)||!doc.body)return;
@@ -846,7 +960,7 @@
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.2 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.3 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -871,7 +985,7 @@
   </details>
 </main>`;
     doc.body.appendChild(panel);
-    placePanel(panel);
+    panelLayout=placePanel(panel);
     uiQuery('sd-reserve').value=options.reserve;
     uiQuery('sd-margin').value=options.margin;
     uiQuery('sd-cancel-target').value=options.cancelTarget;
