@@ -29,6 +29,31 @@ test('version notices are UI-only and use official portal for bridge and script 
  assert.match(portal,/installationState\(item\)/);
  assert.doesNotMatch(bridge,/eval\(.*availableReleases|new Function\(.*availableReleases/);
 });
+test('every licensed script exposes an independent reinstall link in cards and details',()=>{
+  const css=read('portal/v2/app.css');
+  const definition=portal.match(/function reinstallControl\\(item\\)\\{[\\s\\S]*?\\n\\}(?=\\nasync function fetchReleaseVersions)/)?.[0];
+  assert.ok(definition,'reinstallControl must exist');
+  const createLink=vm.runInNewContext(definition+'; reinstallControl',{
+    el:(tag,className,textContent)=>({
+      tag,className,textContent,attributes:{},
+      setAttribute(key,value){this.attributes[key]=value;},
+      addEventListener(event,handler){this[event]=handler;}
+    }),
+    installerUrlFor:item=>item.installer,
+    setTimeout:()=>{},state:{user:null},probeInstalledScripts:()=>{}
+  });
+  const url='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/algzawy-builder-v1.user.js';
+  const link=createLink({id:'algzawy-builder-v1',name:'الغزااوي | البناء المتطور',installer:url});
+  assert.equal(link.tag,'a');
+  assert.equal(link.href,url);
+  assert.match(link.textContent,/تثبيت مرة أخرى/);
+  assert.equal(link.target,'_blank');
+  assert.equal(link.rel,'noopener noreferrer');
+  assert.match(link.attributes['aria-label'],/البناء المتطور/);
+  assert.match(portal,/actions\\.append\\(info,install,reinstallControl\\(item\\)\\)/);
+  assert.match(portal,/actions\\.append\\(toggle,link,reinstallControl\\(item\\)\\)/);
+  assert.match(css,/\\.bot-actions\\{flex-wrap:wrap;justify-content:flex-end;min-width:0\\}/);
+});
 test('registered slots are limited by a D1 unique expression across approved and pending keys',()=>{
  assert.doesNotMatch(migration,/^BEGIN TRANSACTION;|^COMMIT;/m);
  assert.match(migration,/DROP INDEX IF EXISTS portal_one_approved_device_per_user;/);
