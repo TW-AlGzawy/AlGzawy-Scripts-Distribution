@@ -464,13 +464,19 @@
   function ready(){return !humanStop()&&String(root.game_data?.player?.id)===player&&
     root.location.host===host&&nowServer()!==null;}
   function saveSettings(){
-    const res=Number(uiQuery('sd-reserve')?.value),margin=Number(uiQuery('sd-margin')?.value);
-    if(finite(res)&&res>=5&&res<=95)options.reserve=res;
-    if(Number.isSafeInteger(margin)&&margin>=0&&margin<=30000)options.margin=margin;
-    options.cancelTarget=(uiQuery('sd-cancel-target')?.value||'').trim();
-    options.cancelOneWay=Number(uiQuery('sd-cancel-oneway')?.value||0);
-    options.cancelLimit=Number(uiQuery('sd-cancel-limit')?.value||600);
-    options.maxTeams=Number(uiQuery('sd-team-count')?.value||2);
+    // Authoritative per-field draft avoids an unsynchronized tab writing stale
+    // values for unrelated fields during concurrent editing.
+    const drafts=get(root.localStorage,DRAFT)?.fields||{};
+    const value=id=>Object.hasOwn(drafts,id)?drafts[id]:uiQuery(id)?.value||'';
+    const merged={...(get(root.localStorage,SETTINGS)||options)};
+    const res=Number(value('sd-reserve')),margin=Number(value('sd-margin'));
+    if(finite(res)&&res>=5&&res<=95)merged.reserve=res;
+    if(Number.isSafeInteger(margin)&&margin>=0&&margin<=30000)merged.margin=margin;
+    merged.cancelTarget=value('sd-cancel-target').trim();
+    merged.cancelOneWay=Number(value('sd-cancel-oneway')||0);
+    merged.cancelLimit=Number(value('sd-cancel-limit')||600);
+    merged.maxTeams=Number(value('sd-team-count')||2);
+    options=merged;
     set(root.localStorage,SETTINGS,options);
   }
   function readIncoming(){
@@ -1013,15 +1019,15 @@
     uiQuery('sd-team-count').value=options.maxTeams;
     uiQuery('sd-advanced').open=!!options.advanced;
     uiQuery('sd-advanced').addEventListener('toggle',()=>{
-      options.advanced=uiQuery('sd-advanced').open;
+      options={...(get(root.localStorage,SETTINGS)||options),
+        advanced:uiQuery('sd-advanced').open};
       set(root.localStorage,SETTINGS,options);
     });
     applySharedDraft();
     for(const id of FIELD_IDS){
-      let pending=null;
       const saveInput=()=>{
         recordDraft(id,uiQuery(id).value);
-        saveSettings(); // valid values survive tab changes even without blur
+        saveSettings(); // every input is persisted before tab switch; no debounce
         chosen=null;
         uiQuery('sd-approve').disabled=true;
         if(scanned?.settingsFingerprint!==currentFingerprint()){
@@ -1029,17 +1035,8 @@
           if(message)message.textContent='تم حفظ الإعدادات لجميع تبويبات اللعبة. اضغط «فحص شامل» لتحديث الخطة.';
         }
       };
-      uiQuery(id).addEventListener('input',()=>{
-        if(pending!==null)clearTimeout(pending);
-        pending=setTimeout(()=>{pending=null;saveInput();},70);
-      });
-      uiQuery(id).addEventListener('change',()=>{
-        if(pending!==null){clearTimeout(pending);pending=null;}
-        saveInput();
-      });
-      uiQuery(id).addEventListener('blur',()=>{
-        if(pending!==null){clearTimeout(pending);pending=null;saveInput();}
-      });
+      uiQuery(id).addEventListener('input',saveInput);
+      uiQuery(id).addEventListener('change',saveInput);
     }
     uiQuery('sd-scan').onclick=async()=>{
       uiQuery('sd-scan').disabled=true;notify('جاري فحص القرى والهجمات وسرعات الوحدات...');
