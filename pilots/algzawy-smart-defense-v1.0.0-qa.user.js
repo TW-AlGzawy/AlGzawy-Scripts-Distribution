@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] Smart Defense Commander | القنص والدعم الذكي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.1-qa
+// @version      1.0.2-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -13,7 +13,8 @@
 (function (root) {
   'use strict';
   const DAY=86400000, UNIT_TYPES=['spear','sword','axe','archer','spy','light','marcher','heavy','ram','catapult','knight','snob'];
-  const DEF_TYPES=['spear','sword','archer','heavy','knight'];
+  // All game army units may be considered for a timed movement; validate against the native order form.
+  const DEF_TYPES=UNIT_TYPES;
   const WINDOWS=[480000,360000,240000,120000,60000,30000];
   const SEND_TOLERANCE_MS=100, MIN_PREP_MS=15000, MIN_NAV_SEPARATION_MS=30000;
   const pad=(x,n=2)=>String(x).padStart(n,'0');
@@ -136,36 +137,75 @@
     if(!result.length)throw Error('لم أقرأ قرى وقوات صالحة من الجدول');
     return result;
   }
-  function supportOptions({villages,target,waves,unitMinutes,worldFactor,now,share=0.5,safetyMs=100}){
+
+  // Generate nested formations sorted by the slowest included unit.
+  // Crucial: do not force a slow sword/ram/noble to delay fast cavalry
+  // when a faster subset can still reach the sniping gap.
+  function unitFormations(stock,speeds,share){
+    if(!finite(share)||share<=0||share>1)return [];
+    const available=[];
+    for(const kind of UNIT_TYPES){
+      const amount=Number(stock?.[kind]),minutes=Number(speeds?.[kind]);
+      if(!Number.isSafeInteger(amount)||amount<1||!finite(minutes)||minutes<=0)continue;
+      const count=Math.floor(amount*share);
+      if(count>0)available.push({kind,count,minutes});
+    }
+    const tiers=[...new Set(available.map(x=>x.minutes))].sort((a,b)=>a-b);
+    return tiers.map(maxSpeed=>{
+      const eligible=available.filter(x=>x.minutes<=maxSpeed);
+      const units=Object.fromEntries(eligible.map(x=>[x.kind,x.count]));
+      const troops=eligible.reduce((sum,x)=>sum+x.count,0);
+      return {units,troops,minutes:maxSpeed};
+    }).filter(x=>x.troops>0);
+  }
+  function supportOptions({villages,target,waves,unitMinutes,worldFactor,now,share=0.5,safetyMs=100,diagnostics=null}){
     if(!Array.isArray(villages)||!target||!validEpoch(now)||!finite(worldFactor)||worldFactor<=0||
       !finite(share)||share<=0||share>1)throw Error('بيانات حساب القرى غير صالحة');
-    const choices=[];
+    const choices=[],openGaps=gaps(waves,safetyMs).filter(g=>g.usable);
+    const stats={villagesChecked:0,eligibleVillages:0,reachableVillages:0,withoutUsableUnits:0,
+      tooLate:0,usableGaps:openGaps.length,choices:0,nearestLateMs:null,fastestTravelMs:null};
     for(const village of villages){
       if(village.x===target.x&&village.y===target.y)continue;
-      const units={};for(const unit of DEF_TYPES){
-        const count=Number(village.units?.[unit]),velocity=Number(unitMinutes?.[unit]);
-        if(Number.isSafeInteger(count)&&count>1&&finite(velocity)&&velocity>0){
-          const reserved=Math.floor(count*share);if(reserved>0)units[unit]=reserved;
-        }
-      }
-      const chosen=Object.keys(units);if(!chosen.length)continue;
-      const minutes=Math.max(...chosen.map(x=>unitMinutes[x]));
+      stats.villagesChecked++;
+      const formations=unitFormations(village.units,unitMinutes,share);
+      if(!formations.length){stats.withoutUsableUnits++;continue;}
+      stats.eligibleVillages++;
       const distance=Math.hypot(village.x-target.x,village.y-target.y);
-      const travelMs=Math.ceil(distance*minutes*60000/worldFactor);
-      const troops=Object.values(units).reduce((a,b)=>a+b,0);
-      for(const gap of gaps(waves,safetyMs)){
-        if(!gap.usable)continue;
-        const sendAt=gap.arrival-travelMs;
-        if(sendAt<now+MIN_PREP_MS)continue;
+      let reachable=false;
+      for(const gap of openGaps){
+        let best=null;
+        for(const formation of formations){
+          const travelMs=Math.ceil(distance*formation.minutes*60000/worldFactor);
+          if(stats.fastestTravelMs===null||travelMs<stats.fastestTravelMs)
+            stats.fastestTravelMs=travelMs;
+          const sendAt=gap.arrival-travelMs;
+          if(sendAt<now+MIN_PREP_MS){
+            const late=now+MIN_PREP_MS-sendAt;
+            if(stats.nearestLateMs===null||late<stats.nearestLateMs)stats.nearestLateMs=late;
+            continue;
+          }
+          if(!best||formation.troops>best.formation.troops||
+            (formation.troops===best.formation.troops&&travelMs<best.travelMs)){
+            best={formation,travelMs,sendAt};
+          }
+        }
+        if(!best)continue;
+        reachable=true;
+        const {formation,travelMs,sendAt}=best;
         choices.push({kind:'support',id:'sup:'+village.id+':'+gap.i,sourceId:String(village.id),
           sourceName:village.name,source:{x:village.x,y:village.y},target,
-          units,troops,travelMs,distance,sendAt,arrivalAt:gap.arrival,
+          units:formation.units,troops:formation.troops,travelMs,distance,sendAt,arrivalAt:gap.arrival,
           marginMs:gap.slack,gapIndex:gap.i,gapWidthMs:gap.width,
           precise:waves.every(x=>x.precise)});
       }
+      if(reachable)stats.reachableVillages++;
+      else if(openGaps.length)stats.tooLate++;
     }
+    stats.choices=choices.length;
+    if(diagnostics&&typeof diagnostics==='object')Object.assign(diagnostics,stats);
     return choices.sort((a,b)=>b.marginMs-a.marginMs||b.troops-a.troops||a.travelMs-b.travelMs);
   }
+
   function cancelOptions({waves,now,sourceId,target,oneWayMs,cancelWindowMs,safetyMs=100}){
     if(!Array.isArray(waves)||!validEpoch(now)||!target||!Number.isSafeInteger(oneWayMs)||oneWayMs<=0||
       !Number.isSafeInteger(cancelWindowMs)||cancelWindowMs<=0)return [];
@@ -220,7 +260,7 @@
     return null;
   }
   const CORE=Object.freeze({parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
-    rosterFromTable,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
+    rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
   if(!root?.document||!root?.game_data?.player?.id||!root.location?.pathname?.endsWith('/game.php'))return;
@@ -382,7 +422,7 @@
     if(!target||!own||!finite(options.cancelOneWay)||options.cancelOneWay<=0)return [];
     const units={};for(const unit of DEF_TYPES){
       const count=Number(own.units[unit]||0);
-      if(count>0)units[unit]=Math.floor(count*(1-options.reserve/100));
+      if(count>0){const quantity=Math.floor(count*(1-options.reserve/100));if(quantity>0)units[unit]=quantity;}
     }
     if(Object.values(units).every(x=>x<=0))return [];
     return cancelOptions({waves:train.waves,now,sourceId:ownId(),target,
@@ -397,15 +437,16 @@
     const trains=readIncoming();const [roster,config,regional]=await Promise.all([
       readVillages(),readConfiguration(),readRegionalThreats().catch(e=>({available:false,reason:e.message,villages:[]}))]);
     const now=nowServer();if(!finite(now))throw Error('ساعة السيرفر انقطعت أثناء الفحص');
-    const support=[],cancel=[];
+    const support=[],cancel=[],diagnostics=[];
     for(const train of trains){
+      const diagnostic={trainId:train.id};diagnostics.push(diagnostic);
       support.push(...supportOptions({villages:roster,target,waves:train.waves,
         unitMinutes:config.unitMinutes,worldFactor:config.factor,now:Math.round(now),
-        share:(100-options.reserve)/100,safetyMs:options.margin}).map(x=>({...x,trainId:train.id})));
+        share:(100-options.reserve)/100,safetyMs:options.margin,diagnostics:diagnostic}).map(x=>({...x,trainId:train.id})));
       cancel.push(...cancelPlanFor(train,roster,Math.round(now)).map(x=>({...x,trainId:train.id})));
     }
     const plans=rankStrategies(support,cancel,Math.round(now),options.maxTeams);
-    scanned={target,roster,config,trains,plans,regional,checkedAt:Math.round(now)};
+    scanned={target,roster,config,trains,plans,regional,diagnostics,checkedAt:Math.round(now)};
     set(root.sessionStorage,TRAIN,{target,trains,checkedAt:scanned.checkedAt});
     chosen=null;lastScannedKey=trains.map(t=>t.id+':'+t.waves.length).join('|');
     log('SCAN',`${trains.length} trains, ${roster.length} villages, ${plans.length} proposals`);
@@ -805,9 +846,9 @@
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.2 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
-  <div class="notice">قائد الدفاع الذكي — يعتمد أوامر اللعبة الأصلية. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
+  <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
   <button id="sd-select" type="button" class="primary" disabled>② 🧠 أفضل خطة</button></div>
   <button id="sd-approve" type="button" class="primary" disabled>③ ▶ اعتماد وتنفيذ الخطة</button>
@@ -884,6 +925,19 @@
     for(const train of scanned.trains.slice(0,6)){
       const range=gaps(train.waves,options.margin).map(x=>`${x.label}: ${x.width}ms`).join('، ');
       list.push(`🚨 ${clockOnly(train.startAt)} | ${train.nobles} نبلاء | ${train.precise?'أجزاء مؤكدّة':'أجزاء غير مكتملة'}\n${range}`);
+    }
+    for(const d of scanned.diagnostics||[]){
+      list.push('🔎 تشخيص توفر الجيوش: '+d.eligibleVillages+' من '+d.villagesChecked+
+        ' قرية تحتوي وحدات صالحة (جميع الأنواع). قادرة على الوصول: '+d.reachableVillages+
+        ' | متأخرة: '+d.tooLate+' | دون وحدات قابلة للتوزيع: '+d.withoutUsableUnits+
+        ' | فجوات كافية للهامش: '+d.usableGaps+
+        (d.nearestLateMs!==null?' | أقرب فرصة فائتة بـ '+(d.nearestLateMs/1000).toFixed(1)+'ث':''));
+    }
+    if(!scanned.plans.length){
+      list.push('⚠️ لا توجد خطة قابلة للتنفيذ بالشروط والوقت الحالي. قد تكون جميع القرى بعيدة أو أن الإرسال فات موعده.');
+      if(!options.cancelTarget||!(options.cancelOneWay>0))
+        list.push('🎯 قنص الإلغاء غير محسوب: أدخل هدف هجوم الإلغاء وزمن سير جيشك في الإعدادات المتقدمة، ثم أعد الفحص.');
+      list.push('سرعة التشكيلة تُحسب الآن باستخدام أسرع مجموعة مناسبة من كل قرية، وليس بإجبار جميع الوحدات البطيئة على المشاركة.');
     }
     radar.textContent=list.join('\n\n');select.replaceChildren();
     for(const plan of scanned.plans.slice(0,80)){
