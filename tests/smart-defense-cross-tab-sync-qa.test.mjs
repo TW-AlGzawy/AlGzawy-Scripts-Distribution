@@ -69,7 +69,7 @@ test('remote plan appears in other tab, but never automatically arms game orders
 test('stop command can be sent from another tab only to the current task owner',()=>{
   assert.match(script,/const STOP_REQUEST=|STOP_REQUEST=storagePrefix\+/);
   assert.match(script,/request\.owner!==tabId/);
-  assert.match(script,/Math\.abs\(Date\.now\(\)-Number\(request\.at\)\)>30000/);
+  assert.match(script,/request\.at<mission\.createdAt/);
   assert.match(script,/set\(root\.localStorage,STOP_REQUEST,ask\)/);
   assert.match(script,/handleRemoteStop\(\)/);
 });
