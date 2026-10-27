@@ -10,9 +10,9 @@ const script=fs.readFileSync(new URL(file,import.meta.url),'utf8');
 const core=require(file);
 const now=Date.UTC(2026,9,27,22,39,0);
 
-test('QA v1.0.5 compiles and updates the existing direct install URL',()=>{
+test('QA v1.0.6 compiles and updates the existing direct install URL',()=>{
   assert.doesNotThrow(()=>new vm.Script(script));
-  assert.match(script,/\/\/ @version\s+1\.0\.5-qa/);
+  assert.match(script,/\/\/ @version\s+1\.0\.6-qa/);
   assert.match(script,/@updateURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy/);
   assert.match(script,/@downloadURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy/);
 });
