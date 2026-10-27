@@ -254,6 +254,56 @@
     return [...options,...teams].sort((a,b)=>b.score-a.score);
   }
 
+
+  function barbarianTargetsFromWorldMap(csv,source,radius=12,limit=60){
+    if(!source||!finite(source.x)||!finite(source.y)||typeof csv!=='string')
+      throw Error('خريطة القرى غير صالحة');
+    const targets=[];
+    for(const line of csv.split(/\r?\n/)){
+      const cols=line.split(',');if(cols.length<5)continue;
+      const id=String(cols[0]).trim(),x=Number(cols[2]),y=Number(cols[3]),owner=Number(cols[4]);
+      if(!/^\d+$/.test(id)||!Number.isInteger(x)||!Number.isInteger(y)||
+        !Number.isFinite(owner)||owner!==0)continue;
+      const distance=Math.hypot(x-source.x,y-source.y);
+      if(distance<0.5||distance>radius)continue;
+      targets.push({id,x,y,str:x+'|'+y,owner:0,distance});
+    }
+    targets.sort((a,b)=>b.distance-a.distance||a.id.localeCompare(b.id));
+    return targets.slice(0,limit);
+  }
+  function sequentialCancelCandidates({source,nearby,units,unitMinutes,worldFactor,waves,now,cancelWindowMs,safetyMs=100,share=0.5}){
+    if(!source||!Array.isArray(nearby)||!validEpoch(now)||!finite(worldFactor)||worldFactor<=0)
+      throw Error('بيانات أهداف القنص غير صالحة');
+    const formations=unitFormations(units,unitMinutes,share);
+    const possible=[];
+    for(const target of nearby){
+      if(target.owner!==0||target.x===source.x&&target.y===source.y)continue;
+      for(const formation of formations){
+        const travelMs=Math.ceil(Math.hypot(target.x-source.x,target.y-source.y)*
+          formation.minutes*60000/worldFactor);
+        for(const option of cancelOptions({waves,now,sourceId:String(source.id),
+          target:{x:target.x,y:target.y,str:target.str},oneWayMs:travelMs,
+          cancelWindowMs,safetyMs})){
+          possible.push({...option,sourceName:source.name||String(source.id),
+            units:formation.units,troops:formation.troops,autoTarget:true,
+            targetVillageId:target.id,targetOwner:0,targetDistance:target.distance,
+            // For equal gap prefer a longer transit to offer far-to-near fallbacks.
+            targetTravelMs:travelMs});
+        }
+      }
+    }
+    const bestByTargetAndGap=new Map();
+    for(const candidate of possible){
+      const key=candidate.target.str+':'+candidate.gapIndex;
+      const current=bestByTargetAndGap.get(key);
+      if(!current||candidate.troops>current.troops||
+        candidate.troops===current.troops&&candidate.targetTravelMs>current.targetTravelMs)
+        bestByTargetAndGap.set(key,candidate);
+    }
+    return [...bestByTargetAndGap.values()].sort((a,b)=>
+      b.targetTravelMs-a.targetTravelMs||a.gapIndex-b.gapIndex).slice(0,80);
+  }
+
   // Human-facing target indexes refer to the noble being intercepted:
   // 1 = after opening and before first noble, 2 = between nobles 1 and 2, etc.
   function nobleIndexOf(plan){
@@ -388,7 +438,7 @@
       deltaMs,lateMs:Math.max(0,deltaMs),
       withinMargin:finite(task.marginMs)&&Math.abs(deltaMs)<=task.marginMs};
   }
-  const CORE=Object.freeze({nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
