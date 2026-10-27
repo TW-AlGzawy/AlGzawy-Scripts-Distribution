@@ -1283,7 +1283,10 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   <details id="sd-advanced"><summary>⚙️ الإعدادات المتقدمة والتشخيص</summary>
     <div class="row"><div><label>الاحتياطي في كل قرية (%)</label><input id="sd-reserve" type="number" min="5" max="95" step="5"></div>
     <div><label>هامش الأمان (ms)</label><input id="sd-margin" type="number" min="0" max="30000"></div></div>
-    <label>إحداثيات هدف هجوم الإلغاء (هدف تختاره أنت)</label><input id="sd-cancel-target" placeholder="500|500" dir="ltr">
+    <label for="sd-cancel-suggestions">🏘️ أهداف الإلغاء المكتشفة — الأبعد ثم الأقرب</label>
+    <select id="sd-cancel-suggestions"><option>اضغط فحص شامل لاكتشاف الأهداف</option></select>
+    <button id="sd-use-cancel" type="button">🎯 اعتماد الهدف المقترح وإعادة الحساب</button>
+    <label>إحداثيات هدف الإلغاء (اختيار يدوي بديل)</label><input id="sd-cancel-target" placeholder="500|500" dir="ltr">
     <div class="row"><div><label>زمن السير لهجوم الإلغاء (ثانية)</label><input id="sd-cancel-oneway" type="number" min="1"></div>
     <div><label>نافذة الإلغاء (ثانية)</label><input id="sd-cancel-limit" type="number" min="1"></div></div>
     <label>العدد الأقصى لقرى الدعم المنسقة</label><input id="sd-team-count" type="number" min="1" max="3">
@@ -1354,6 +1357,19 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       renderPlan();publishSelectedPlan();
       notify('تم ترشيح الخطة الأعلى؛ ستظهر أيضًا في تبويبات اللعبة الأخرى');
     };
+    uiQuery('sd-use-cancel').onclick=()=>{
+      const id=uiQuery('sd-cancel-suggestions').value;
+      const proposal=scanned?.plans?.find(p=>p.id===id&&p.kind==='cancel'&&p.autoTarget);
+      if(!proposal)return notify('افحص أهداف الإلغاء ثم اختر هدفًا صالحًا','error');
+      uiQuery('sd-cancel-target').value=proposal.target.str;
+      uiQuery('sd-cancel-oneway').value=String(Math.ceil(proposal.targetTravelMs/1000));
+      recordDraft('sd-cancel-target',proposal.target.str);
+      recordDraft('sd-cancel-oneway',String(Math.ceil(proposal.targetTravelMs/1000)));
+      saveSettings();
+      chosen=null;uiQuery('sd-approve').disabled=true;
+      notify('تم تحديد هدف الإلغاء '+proposal.target.str+
+        '؛ اعمل فحصًا جديدًا للتحقق من الجيش والتوقيت قبل التنفيذ.','success');
+    };
     uiQuery('sd-options').onchange=()=>{
       if(scanned?.settingsFingerprint!==currentFingerprint())return;
       const id=uiQuery('sd-options').value;
@@ -1415,6 +1431,28 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         ' | متأخرة: '+d.tooLate+' | دون وحدات قابلة للتوزيع: '+d.withoutUsableUnits+
         ' | فجوات كافية للهامش: '+d.usableGaps+
         (d.nearestLateMs!==null?' | أقرب فرصة فائتة بـ '+(d.nearestLateMs/1000).toFixed(1)+'ث':''));
+    }
+    const autoCancel=scanned.plans.filter(p=>p.kind==='cancel'&&p.autoTarget);
+    if(scanned.worldTargets?.available)
+      list.push('🎯 أهداف الإلغاء من خريطة العالم: '+scanned.worldTargets.villages.length+
+        ' قرية بربرية قريبة، خطط إلغاء محسوبة: '+autoCancel.length+
+        '. الخيارات من الأبعد إلى الأقرب حسب زمن السير.');
+    else list.push('🎯 لم تتوفر أهداف إلغاء تلقائية: '+(scanned.worldTargets?.reason||'بيانات العالم غير متاحة')+
+      '؛ يمكنك إدخال هدف يدويًا.');
+    const cancelChoice=uiQuery('sd-cancel-suggestions');
+    if(cancelChoice){
+      cancelChoice.replaceChildren();
+      const candidates=autoCancel.slice().sort((a,b)=>b.targetTravelMs-a.targetTravelMs);
+      const seen=new Set();
+      for(const p of candidates){
+        const key=p.target.str;
+        if(seen.has(key))continue;seen.add(key);
+        const opt=doc.createElement('option');opt.value=p.id;
+        opt.textContent=p.target.str+' | سير '+countdown(p.targetTravelMs)+
+          ' | قنص النبيل '+(p.gapIndex+1);
+        cancelChoice.appendChild(opt);
+        if(seen.size>=30)break;
+      }
     }
     if(!scanned.plans.length){
       list.push('⚠️ لا توجد خطة قابلة للتنفيذ بالشروط والوقت الحالي. قد تكون جميع القرى بعيدة أو أن الإرسال فات موعده.');
