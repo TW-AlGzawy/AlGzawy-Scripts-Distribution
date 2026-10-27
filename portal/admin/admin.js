@@ -356,6 +356,25 @@ async function editSubscription(user){
      item.append(h('div','','آخر اتصال: '+(device.last_seen||'لم يتصل بعد')));
      item.append(h('div','','الفئة: '+(device.deviceKind==='phone'?'📱 هاتف':'💻 كمبيوتر')+' · المتصفح: '+(device.user_agent||'غير معروف')));
      const row=h('div','owner-actions');
+     const newKind=device.deviceKind==='phone'?'desktop':'phone';
+     const kindButton=h('button','button button-secondary button-sm',
+       newKind==='phone'?'تصنيف الجهاز كهاتف 📱':'تصنيف الجهاز ككمبيوتر 💻');
+     kindButton.type='button';
+     kindButton.disabled=list.some(other=>other.device_id!==device.device_id&&other.deviceKind===newKind);
+     if(kindButton.disabled)kindButton.title='فتحة الجهاز المطلوبة مشغولة بالفعل';
+     kindButton.addEventListener('click',async()=>{
+       if(!confirm('تأكيد تصنيف هذا الجهاز كـ '+(newKind==='phone'?'هاتف':'كمبيوتر')+'؟'))return;
+       row.querySelectorAll('button').forEach(button=>button.disabled=true);
+       try{
+         await api('admin/users/'+encodeURIComponent(user.id)+'/devices/'+encodeURIComponent(device.device_id)+'/kind',
+          {method:'POST',body:{deviceKind:newKind}});
+         renderDeviceCards(list.map(entry=>entry.device_id===device.device_id?
+          {...entry,deviceKind:newKind}:entry));
+         toast('تم حفظ نوع الجهاز دون إلغاء اعتماد الأجهزة الأخرى');
+         void refreshDeviceDetails();
+       }catch(err){toast(errorArabic(err),true);void refreshDeviceDetails();}
+     });
+     row.append(kindButton);
      if(!approved){
        const approve=h('button','button button-primary button-sm','اعتماد هذا الجهاز');
        approve.type='button';
