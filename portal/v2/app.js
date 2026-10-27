@@ -135,6 +135,21 @@ function installationControl(item){
   });
   return link;
 }
+function reinstallControl(item){
+  // Always allow installing the official loader again on this device, even
+  // when another probe reported the script installed or is still checking.
+  const link=el('a','btn outline reinstall-script','↻ تثبيت مرة أخرى');
+  link.href=installerUrlFor(item);
+  link.rel='noopener noreferrer';
+  link.target='_blank';
+  link.title='افتح المثبّت الرسمي في Tampermonkey على هذا الجهاز. بعد التثبيت، حدّث صفحة البوابة للتحقق من النسخة.';
+  link.setAttribute('aria-label','تثبيت '+item.name+' مرة أخرى على هذا الجهاز');
+  link.addEventListener('click',()=>{
+    // Preserve normal link navigation; the new userscript may need a portal reload.
+    setTimeout(()=>{if(state.user)probeInstalledScripts(item.id);},4500);
+  });
+  return link;
+}
 async function fetchReleaseVersions(){
   if(!state.user)return;
   try{
@@ -425,7 +440,7 @@ function renderScripts(){
     const info=el('button','btn outline','التفاصيل');info.addEventListener('click',()=>openScript(item.id));
     const install=installationControl(item);
     const ver=el('div','installation-note',installationState(item).note);
-    actions.append(info,install);lower.append(pill,actions);card.append(top,title,description,ver,lower);root.append(card);
+    actions.append(info,install,reinstallControl(item));lower.append(pill,actions);card.append(top,title,description,ver,lower);root.append(card);
   }
 }
 function renderActivity(){
@@ -491,7 +506,7 @@ function openScript(id){
   toggle.disabled=info.locked;
   toggle.addEventListener('click',async()=>{await setEnabled(item,!state.prefs[id]?.enabled);closeDialog();});
   const link=installationControl(item);
-  actions.append(toggle,link);root.append(actions);
+  actions.append(toggle,link,reinstallControl(item));root.append(actions);
   if(id==='warehouse-alert-safe'){
     const pref=state.prefs[id]||{},wrap=el('div','dialog-setting');
     const label=el('label','','نسبة التنبيه الابتدائية (1–100%) — تُطبّق عند أول مزامنة على المتصفح؛ إذا حفظت نسبة من نافذة اللعبة تبقى هي المعتمدة.');
