@@ -54,6 +54,10 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 /* Reported installation state — never derived from the ON/OFF subscription toggle */
 .bot-card .installation-note{font-size:10px;line-height:1.7;color:#9bc4c8;min-height:31px;margin-top:6px}
 .bot-actions .btn{min-height:33px;font-size:10px;padding:6px 9px}
+/* Keep the reinstall link visible alongside the status on narrow script cards. */
+.bot-card .bot-bottom{flex-wrap:wrap}
+.bot-actions{flex-wrap:wrap;justify-content:flex-end;min-width:0}
+
 .installed-verified{border-color:#207d69!important;background:#123e36!important;color:#67eac3!important;cursor:default!important}
 .install-update{border-color:#c48b51!important;background:#3a2d26!important;color:#ffd6a0!important}
 .installation-checking{border-color:#355769!important;background:#172d3c!important;color:#b8cddd!important}
