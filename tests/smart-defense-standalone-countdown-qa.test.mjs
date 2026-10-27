@@ -15,9 +15,9 @@ const support={
 };
 const cancel={...support,kind:'cancel',cancelAt:now+500000};
 
-test('complete QA v1.0.6 compiles and reuses direct-install path',()=>{
+test('complete QA v1.1.0 compiles and reuses direct-install path',()=>{
  assert.doesNotThrow(()=>new vm.Script(script));
- assert.match(script,/@version\s+1\.0\.6-qa/);
+ assert.match(script,/@version\s+1\.1\.0-qa/);
  assert.match(script,/@downloadURL\s+https:\/\/raw\.githubusercontent\.com\/TW-AlGzawy/);
 });
 test('prominent dedicated timer button remains above all logs and is clickable without submitting',()=>{
