@@ -196,12 +196,14 @@ async function subscriptionOK(env,userId){
 function requesterIP(req){return (req.headers.get('CF-Connecting-IP')||'').slice(0,64);}
 // Only device possession + owner approval authenticate a device. User-Agent
 // classifies its dedicated desktop/phone slot; IP is never an identity key.
-const deviceKind=ua=>/(?:iphone|ipad|ipod|android|mobile)/i.test(String(ua||''))?'phone':'desktop';
+const deviceKind=(ua,explicit)=>['phone','desktop'].includes(explicit)?explicit:
+  (/(?:iphone|ipad|ipod|android|mobile)/i.test(String(ua||''))?'phone':'desktop');
+const validDeviceKind=value=>value==='phone'||value==='desktop';
 async function registeredDeviceSlots(env,userId){
   const response=await env.DB.prepare(
-    'SELECT k.device_id,k.approved,k.user_agent FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1'
+    'SELECT k.device_id,k.approved,k.user_agent,k.device_kind FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1'
   ).bind(userId).all();
-  return (response.results||[]).map(row=>({...row,kind:deviceKind(row.user_agent)}));
+  return (response.results||[]).map(row=>({...row,kind:deviceKind(row.user_agent,row.device_kind)}));
 }
 async function accessEvent(env,req,userId,deviceId,type){
   try{await env.DB.prepare('INSERT INTO portal_access_events(id,user_id,device_id,event_type,ip) VALUES (?,?,?,?,?)')
@@ -487,11 +489,11 @@ async function handler(req,env){
       if(!owner)return bad('not_found',404);
       if(req.method==='GET'){
         const access=await allowedSet(env,uid);
-        const devices=await env.DB.prepare('SELECT k.device_id,k.approved,k.first_ip,k.last_ip,k.first_seen,k.last_seen,k.user_agent,d.active '
+        const devices=await env.DB.prepare('SELECT k.device_id,k.approved,k.first_ip,k.last_ip,k.first_seen,k.last_seen,k.user_agent,k.device_kind,d.active '
         +'FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? ORDER BY k.first_seen DESC').bind(uid).all();
         const sub=await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(uid).first();
         const events=await env.DB.prepare('SELECT event_type,ip,occurred_at FROM portal_access_events WHERE user_id=? ORDER BY occurred_at DESC LIMIT 30').bind(uid).all();
-        return reply({ok:true,user:owner,allowedIds:[...access],devices:(devices.results||[]).map(d=>({...d,deviceKind:deviceKind(d.user_agent)})),deviceLimit:2,subscription:sub||{active:0,expires_at:null},events:events.results||[]});
+        return reply({ok:true,user:owner,allowedIds:[...access],devices:(devices.results||[]).map(d=>({...d,deviceKind:deviceKind(d.user_agent,d.device_kind)})),deviceLimit:2,subscription:sub||{active:0,expires_at:null},events:events.results||[]});
       }
       if(req.method==='PUT'){
         let payload;try{payload=await bodyJSON(req);}catch(_){return bad('invalid_json');}
@@ -515,10 +517,29 @@ async function handler(req,env){
       return reply({ok:true});
     }
     if(path[1]==='users'&&path.length===6&&path[3]==='devices'&&req.method==='POST'){
-      if(!['approve','revoke'].includes(path[5]))return bad('not_found',404);
+      if(!['approve','revoke','kind'].includes(path[5]))return bad('not_found',404);
       const uid=path[2],deviceId=path[4];
       const owned=await env.DB.prepare('SELECT device_id FROM portal_device_keys WHERE device_id=? AND user_id=?').bind(deviceId,uid).first();
       if(!owned)return bad('not_found',404);
+      if(path[5]==='kind'){
+        let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+        if(!validDeviceKind(input?.deviceKind)||Object.keys(input).length!==1)
+          return bad('invalid_device_kind',400);
+        const slots=await registeredDeviceSlots(env,uid);
+        const selected=slots.find(d=>d.device_id===deviceId);
+        if(!selected)return bad('device_inactive',409);
+        if(slots.some(d=>d.device_id!==deviceId&&d.kind===input.deviceKind))
+          return bad('device_slot_occupied',409);
+        try{
+          await env.DB.prepare('UPDATE portal_device_keys SET device_kind=? WHERE device_id=? AND user_id=?')
+            .bind(input.deviceKind,deviceId,uid).run();
+        }catch(error){
+          if(/UNIQUE constraint failed/i.test(String(error)))return bad('device_slot_occupied',409);
+          throw error;
+        }
+        await accessEvent(env,req,uid,deviceId,'owner_device_kind_changed');
+        return reply({ok:true,deviceKind:input.deviceKind});
+      }
       if(path[5]==='approve'){
         const slots=await registeredDeviceSlots(env,uid);
         const target=slots.find(d=>d.device_id===deviceId);
@@ -638,8 +659,10 @@ async function handler(req,env){
       ||Object.keys(pub).some(k=>!['kty','crv','x','y','ext','key_ops','alg'].includes(k)))return bad('invalid_public_key');
     try{await crypto.subtle.importKey('jwk',pub,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);}
     catch(_){return bad('invalid_public_key');}
+    if(input?.deviceKind!==undefined&&!validDeviceKind(input.deviceKind))return bad('invalid_device_kind',400);
+    const requestedKind=deviceKind(req.headers.get('User-Agent'),input?.deviceKind);
     const userId=session.user.id;
-    const devices=await env.DB.prepare('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1').bind(userId).all();
+    const devices=await env.DB.prepare('SELECT k.device_id,k.public_key_json,k.approved,k.user_agent,k.device_kind FROM portal_device_keys k JOIN portal_devices d ON d.id=k.device_id WHERE k.user_id=? AND d.active=1').bind(userId).all();
     const rows=devices.results||[];
     // Identical key: recover a previously approved enrollment, without
     // creating another active device. The frontend then proves key possession.
@@ -652,15 +675,15 @@ async function handler(req,env){
     if(existing)return reply({ok:true,deviceId:existing.device_id,status:'pending_approval',nonce},202);
     // Max two active keys, including pending. To replace a key, owner revokes it first.
     if(rows.length>=2)return bad('device_limit_reached',409);
-    if(rows.some(d=>deviceKind(d.user_agent)===deviceKind(req.headers.get('User-Agent'))))
+    if(rows.some(d=>deviceKind(d.user_agent,d.device_kind)===requestedKind))
       return bad('device_slot_occupied',409);
     const id=crypto.randomUUID();
     if(!existing){
       const inertHash=await digest('auto-device-'+bytes(32),env.PORTAL_HASH_PEPPER);
       await env.DB.batch([
         env.DB.prepare('INSERT INTO portal_devices(id,user_id,device_hash,active) VALUES(?,?,?,1)').bind(id,userId,inertHash),
-        env.DB.prepare('INSERT INTO portal_device_keys(device_id,user_id,public_key_json,approved,first_ip,last_ip,user_agent) VALUES(?,?,?,0,?,?,?)')
-          .bind(id,userId,JSON.stringify({kty:'EC',crv:'P-256',x:pub.x,y:pub.y}),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180))
+        env.DB.prepare('INSERT INTO portal_device_keys(device_id,user_id,public_key_json,approved,first_ip,last_ip,user_agent,device_kind) VALUES(?,?,?,0,?,?,?,?)')
+          .bind(id,userId,JSON.stringify({kty:'EC',crv:'P-256',x:pub.x,y:pub.y}),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180),requestedKind)
       ]);
     }
     await accessEvent(env,req,userId,id,'device_pair_requested');
@@ -673,6 +696,7 @@ async function handler(req,env){
     if(!pub||typeof pub!=='object'||pub.kty!=='EC'||pub.crv!=='P-256'||typeof pub.x!=='string'||typeof pub.y!=='string'
       ||pub.x.length!==43||pub.y.length!==43||Object.keys(pub).some(k=>!['kty','crv','x','y','ext','key_ops','alg'].includes(k)))return bad('invalid_public_key');
     try{await crypto.subtle.importKey('jwk',pub,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);}catch(_){return bad('invalid_public_key');}
+    if(data?.deviceKind!==undefined&&!validDeviceKind(data.deviceKind))return bad('invalid_device_kind',400);
     const now=Math.floor(Date.now()/1000);
     const codeHash=await digest(data.code,env.PORTAL_HASH_PEPPER);
     // A full account must not consume a one-use code just to reject the device.
@@ -682,7 +706,7 @@ async function handler(req,env){
     if(!pending)return bad('expired_or_used_code',401);
     const slots=await registeredDeviceSlots(env,pending.user_id);
     if(slots.length>=2)return bad('device_limit_reached',409);
-    if(slots.some(d=>d.kind===deviceKind(req.headers.get('User-Agent'))))
+    if(slots.some(d=>d.kind===deviceKind(req.headers.get('User-Agent'),data?.deviceKind)))
       return bad('device_slot_occupied',409);
     const claim=await env.DB.prepare(
       'UPDATE portal_pair_codes SET consumed_at=? WHERE code_hash=? AND consumed_at IS NULL AND expires_at>? RETURNING user_id'
@@ -694,8 +718,8 @@ async function handler(req,env){
     const inertHash=await digest('inert-device-'+bytes(32),env.PORTAL_HASH_PEPPER);
     await env.DB.batch([
       env.DB.prepare('INSERT INTO portal_devices(id,user_id,device_hash,active) VALUES(?,?,?,1)').bind(id,claim.user_id,inertHash),
-      env.DB.prepare('INSERT INTO portal_device_keys(device_id,user_id,public_key_json,approved,first_ip,last_ip,user_agent) VALUES(?,?,?,0,?,?,?)')
-        .bind(id,claim.user_id,JSON.stringify(pub),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180))
+      env.DB.prepare('INSERT INTO portal_device_keys(device_id,user_id,public_key_json,approved,first_ip,last_ip,user_agent,device_kind) VALUES(?,?,?,0,?,?,?,?)')
+        .bind(id,claim.user_id,JSON.stringify(pub),requesterIP(req),requesterIP(req),(req.headers.get('User-Agent')||'').slice(0,180),deviceKind(req.headers.get('User-Agent'),data?.deviceKind))
     ]);
     await accessEvent(env,req,claim.user_id,id,'device_pair_requested');
     return reply({ok:true,deviceId:id,status:'pending_approval'},202);
