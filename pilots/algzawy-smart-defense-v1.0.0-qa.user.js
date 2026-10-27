@@ -509,6 +509,7 @@
       checkedAt:scanned.checkedAt,defenseVillageId:scanned.defenseVillageId||ownId(),
       settingsFingerprint:scanned.settingsFingerprint,
       target:scanned.target,trains:scanned.trains,plans:scanned.plans.slice(0,80),
+      worldTargets:scanned.worldTargets,
       totalPlans:scanned.plans.length,diagnostics:scanned.diagnostics,regional:scanned.regional,
       rosterCount:scanned.roster?.length||scanned.rosterCount||0,
       selectedId:chosen?.id||null};
@@ -525,7 +526,8 @@
       checkedAt:remote.checkedAt,settingsFingerprint:remote.settingsFingerprint,
       defenseVillageId:String(remote.defenseVillageId||''),
       rosterCount:Number(remote.rosterCount)||0,totalPlans:Number(remote.totalPlans)||0,
-      diagnostics:remote.diagnostics||[],regional:remote.regional||{available:false,reason:'غير محفوظ'}};
+      diagnostics:remote.diagnostics||[],regional:remote.regional||{available:false,reason:'غير محفوظ'},
+      worldTargets:remote.worldTargets||{available:false,reason:'لم تُحفظ قائمة الأهداف'}};
     lastScannedKey=scanned.trains.map(t=>t.id+':'+t.waves.length).join('|');
     renderScan();
     chosen=remote.selectedId?scanned.plans.find(p=>p.id===remote.selectedId)||null:null;
@@ -732,6 +734,25 @@
     }
     return {available:true,villages:[...villages.values()]};
   }
+
+  async function readWorldCancelTargets(source){
+    // Public official game map listing. Cache ONLY a short local shortlist.
+    const cacheKey=storagePrefix+'cancel_world_targets_v110';
+    const cache=get(root.localStorage,cacheKey);
+    if(cache?.source===source.str&&Date.now()-cache.updatedAt<15*60000&&
+      Array.isArray(cache.villages))return {available:true,villages:cache.villages,cached:true};
+    const response=await fetch('/map/village.txt',{credentials:'same-origin',redirect:'follow'});
+    if(!response.ok)throw Error('خريطة العالم غير متاحة HTTP '+response.status);
+    const contentSize=Number(response.headers.get('content-length')||0);
+    if(contentSize>24*1024*1024)throw Error('خريطة العالم كبيرة جدًا للفحص داخل المتصفح');
+    const csv=await response.text();
+    if(csv.length>24*1024*1024)throw Error('تم إيقاف قراءة خريطة كبيرة جدًا');
+    const villages=barbarianTargetsFromWorldMap(csv,source,12,60);
+    if(!villages.length)throw Error('لم أجد أهدافًا بربرية ضمن نطاق البحث');
+    try{set(root.localStorage,cacheKey,{source:source.str,updatedAt:Date.now(),villages});}catch(_){}
+    return {available:true,villages,cached:false};
+  }
+
   function cancelPlanFor(train,roster,now){
     const target=xy(options.cancelTarget);
     const own=roster.find(x=>x.id===ownId());
@@ -750,8 +771,10 @@
     if(!ready())throw Error('تعذر تأكيد جلسة اللعبة أو ساعة الخادم');
     const target=xy(`${game.village.x}|${game.village.y}`);
     if(!target)throw Error('تعذر معرفة القرية المدافَع عنها');
-    const trains=readIncoming();const [roster,config,regional]=await Promise.all([
-      readVillages(),readConfiguration(),readRegionalThreats().catch(e=>({available:false,reason:e.message,villages:[]}))]);
+    const trains=readIncoming();const [roster,config,regional,worldTargets]=await Promise.all([
+      readVillages(),readConfiguration(),
+      readRegionalThreats().catch(e=>({available:false,reason:e.message,villages:[]})),
+      readWorldCancelTargets(target).catch(e=>({available:false,reason:e.message,villages:[]}))]);
     const now=nowServer();if(!finite(now))throw Error('ساعة السيرفر انقطعت أثناء الفحص');
     const scanFingerprint=currentFingerprint();
     const support=[],cancel=[],diagnostics=[];
@@ -761,12 +784,23 @@
         unitMinutes:config.unitMinutes,worldFactor:config.factor,now:Math.round(now),
         share:(100-options.reserve)/100,safetyMs:options.margin,diagnostics:diagnostic}).map(x=>({...x,trainId:train.id})));
       cancel.push(...cancelPlanFor(train,roster,Math.round(now)).map(x=>({...x,trainId:train.id})));
+      if(worldTargets.available){
+        const own=roster.find(v=>v.id===ownId());
+        if(own){
+          cancel.push(...sequentialCancelCandidates({source:own,nearby:worldTargets.villages,
+            units:own.units,unitMinutes:config.unitMinutes,worldFactor:config.factor,
+            waves:train.waves,now:Math.round(now),
+            cancelWindowMs:Math.round(options.cancelLimit*1000),
+            safetyMs:options.margin,share:(100-options.reserve)/100})
+            .map(p=>({...p,trainId:train.id})));
+        }
+      }
     }
     const basePlans=rankStrategies(support,cancel,Math.round(now),options.maxTeams);
     const plans=[...multiNobleStrategies(basePlans,options.maxTeams),...basePlans];
     plans.sort((a,b)=>(b.score||0)-(a.score||0));
     if(scanFingerprint!==currentFingerprint())throw Error('تغيرت الإعدادات أثناء الفحص؛ أعد الفحص للخطة الجديدة');
-    scanned={target,roster,config,trains,plans,regional,diagnostics,
+    scanned={target,roster,config,trains,plans,regional,worldTargets,diagnostics,
       settingsFingerprint:scanFingerprint,defenseVillageId:ownId(),checkedAt:Math.round(now)};
     set(root.sessionStorage,TRAIN,{target,trains,checkedAt:scanned.checkedAt});
     chosen=null;lastScannedKey=trains.map(t=>t.id+':'+t.waves.length).join('|');
