@@ -444,6 +444,7 @@
     } // no input/change event, preventing cross-tab sync loops
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=!!uiQuery('sd-auto-nobles')?.checked;
     const latest=get(root.localStorage,SETTINGS);if(latest)options=latest;
+    if(uiQuery('sd-noble-spacing'))uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     if(scanned&&scanned.settingsFingerprint!==currentFingerprint()){
       chosen=null;renderPlan();
       const btn=uiQuery('sd-approve');if(btn)btn.disabled=true;
@@ -1168,6 +1169,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.6 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
+  <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
+  <input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr">
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
   <button id="sd-select" type="button" class="primary" disabled>② 🧠 أفضل خطة</button></div>
   <button id="sd-approve" type="button" class="primary" disabled>③ ▶ اعتماد وتنفيذ الخطة</button>
@@ -1206,7 +1209,16 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-cancel-oneway').value=options.cancelOneWay||'';
     uiQuery('sd-cancel-limit').value=options.cancelLimit;
     uiQuery('sd-team-count').value=options.maxTeams;
+    uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     uiQuery('sd-advanced').open=!!options.advanced;
+    uiQuery('sd-noble-spacing').addEventListener('input',()=>{
+      const val=Number(uiQuery('sd-noble-spacing').value);
+      if(Number.isSafeInteger(val)&&val>=1&&val<=60000){
+        options={...(get(root.localStorage,SETTINGS)||options),nobleSpacingMs:val};
+        set(root.localStorage,SETTINGS,options);
+        recordDraft('sd-noble-spacing',String(val));
+      }
+    });
     uiQuery('sd-advanced').addEventListener('toggle',()=>{
       options={...(get(root.localStorage,SETTINGS)||options),
         advanced:uiQuery('sd-advanced').open};
