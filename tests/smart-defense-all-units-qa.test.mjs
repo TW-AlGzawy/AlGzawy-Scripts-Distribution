@@ -90,9 +90,11 @@ test('no usable units and too-narrow 200ms gaps provide distinct diagnostics',()
  assert.equal(b.usableGaps,0);
 });
 test('cancel attack plan remains available for all-unit sniping when timings allow',()=>{
- const p=core.cancelOptions({waves,now,sourceId:'42',target:core.xy('500|500'),
+ const earlyWaves=[{kind:'strong',at:now+18*60000,index:1,precise:true},
+   {kind:'noble',at:now+19*60000,index:2,precise:true}];
+ const p=core.cancelOptions({waves:earlyWaves,now,sourceId:'42',target:core.xy('500|500'),
   oneWayMs:45*60000,cancelWindowMs:10*60000,safetyMs:100});
  assert.ok(p.length>0);
  assert.equal(p[0].kind,'cancel');
- assert.ok(p[0].sendAt<waves[0].at);
+ assert.ok(p[0].sendAt<earlyWaves[0].at);
 });
