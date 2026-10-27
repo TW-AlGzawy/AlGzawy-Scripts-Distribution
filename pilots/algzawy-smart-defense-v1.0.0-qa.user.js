@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         [AlGzawy QA] Smart Defense Commander | القنص والدعم الذكي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.6-qa
+// @version      1.1.0-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/smart-defense-v100-direct-install-20261027/pilots/algzawy-smart-defense-v1.0.0-qa.user.js
-// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/smart-defense-v100-direct-install-20261027/pilots/algzawy-smart-defense-v1.0.0-qa.user.js
+// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/smart-defense-v110-2026-10-28/pilots/algzawy-smart-defense-v1.0.0-qa.user.js
+// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/smart-defense-v110-2026-10-28/pilots/algzawy-smart-defense-v1.0.0-qa.user.js
 // @grant        none
 // ==/UserScript==
 (function (root) {
@@ -1123,6 +1123,9 @@
 #${uiId} #sd-plan{border-inline-start:3px solid var(--sd-teal)}
 #${uiId} #sd-radar{border-inline-start:3px solid #477F95}
 #${uiId} #sd-status{border-inline-start:3px solid var(--sd-gold)}
+#${uiId} .sd-auto-option{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--sd-accent)}
+#${uiId} #sd-auto-nobles{width:20px;height:20px;flex:none;accent-color:var(--sd-accent)}
+#${uiId} #sd-gap-warning{padding:8px;border:1px solid #806C47;border-radius:8px}
 #${uiId} #sd-countdown{display:flex;flex-direction:column;align-items:center;justify-content:center;
 width:calc(100% - 6px);min-height:102px;margin:10px 3px 8px;padding:12px 10px;
 background:linear-gradient(115deg,#182C42,#232340);border:2px solid var(--sd-accent);
@@ -1166,11 +1169,15 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.6 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.1.0 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
   <input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr">
+  <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — تحليل فرص قنص عدة نبلاء</label>
+  <label for="sd-noble-target">🎯 النبيل المستهدف يدويًا</label>
+  <select id="sd-noble-target" disabled><option value="1">النبيل الأول — بعد الافتتاحية</option></select>
+  <p id="sd-gap-warning" class="tiny">تعتمد الخطة على أوقات الوصول الفعلية، لا على الفاصل المتوقع.</p>
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
   <button id="sd-select" type="button" class="primary" disabled>② 🧠 أفضل خطة</button></div>
   <button id="sd-approve" type="button" class="primary" disabled>③ ▶ اعتماد وتنفيذ الخطة</button>
@@ -1210,6 +1217,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-cancel-limit').value=options.cancelLimit;
     uiQuery('sd-team-count').value=options.maxTeams;
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
+    uiQuery('sd-auto-nobles').checked=options.autoNobles!==false;
+    uiQuery('sd-noble-target').value=options.nobleTarget||1;
+    uiQuery('sd-noble-target').disabled=uiQuery('sd-auto-nobles').checked;
     uiQuery('sd-advanced').open=!!options.advanced;
     uiQuery('sd-noble-spacing').addEventListener('input',()=>{
       const val=Number(uiQuery('sd-noble-spacing').value);
@@ -1227,8 +1237,13 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     applySharedDraft();
     for(const id of FIELD_IDS){
       const saveInput=()=>{
-        recordDraft(id,uiQuery(id).value);
+        recordDraft(id,id==='sd-auto-nobles'?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
         saveSettings(); // every input is persisted before tab switch; no debounce
+        if(id==='sd-auto-nobles')uiQuery('sd-noble-target').disabled=uiQuery(id).checked;
+        if(['sd-noble-spacing','sd-auto-nobles','sd-noble-target'].includes(id)&&scanned){
+          renderScan();
+          publishScanContext();
+        }
         chosen=null;
         uiQuery('sd-approve').disabled=true;
         if(scanned?.settingsFingerprint!==currentFingerprint()){
