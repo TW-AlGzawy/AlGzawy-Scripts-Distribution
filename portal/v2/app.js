@@ -232,7 +232,12 @@ async function approveDevice(){
   if(!autoLink||!state.user||!window.opener)return;
   const button=$('approveAuto');button.disabled=true;$('autoError').textContent='';
   try{
-    const result=await api('device/auto-enroll',{method:'POST',body:{nonce:autoLink.nonce,publicKey:autoLink.publicKey}});
+    // Safari in desktop-site mode may report Macintosh on a genuine iPhone/iPad.
+   // The owner must still approve the cryptographically signed device key.
+   const mobileHardware=/(?:iphone|ipad|ipod|android|mobile)/i.test(navigator.userAgent)||
+     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
+   const result=await api('device/auto-enroll',{method:'POST',
+     body:{nonce:autoLink.nonce,publicKey:autoLink.publicKey,deviceKind:mobileHardware?'phone':'desktop'}});
     if(result.nonce!==autoLink.nonce||!['approved','pending_approval'].includes(result.status)||!/^[0-9a-f-]{36}$/i.test(result.deviceId||''))throw Error('invalid_auto_enrollment');
     tellGame({ok:true,deviceId:result.deviceId,status:result.status});
     const pending=result.status==='pending_approval';
