@@ -259,7 +259,19 @@
     if(task.kind==='cancel'&&(!validEpoch(task.cancelAt)||task.cancelAt<=task.sendAt))return 'موعد الإلغاء غير صحيح';
     return null;
   }
-  const CORE=Object.freeze({parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  function mergeSharedDraft(previous,id,value,writer,time){
+    if(typeof id!=='string'||typeof value!=='string'||!Number.isSafeInteger(time))
+      throw Error('بيانات حقل المزامنة غير صالحة');
+    return {version:1,updatedAt:Math.max(time,Number(previous?.updatedAt||0)+1),
+      writer,fields:{...(previous?.fields||{}),[id]:value}};
+  }
+  function sharedContextUsable(snapshot,settingsKey,now,maxAgeMs=120000){
+    return !!snapshot&&typeof settingsKey==='string'&&
+      snapshot.settingsFingerprint===settingsKey&&
+      validEpoch(snapshot.checkedAt)&&finite(now)&&
+      now>=snapshot.checkedAt-3000&&now-snapshot.checkedAt<=maxAgeMs;
+  }
+  const CORE=Object.freeze({mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -299,8 +311,7 @@
   function recordDraft(id,value){
     if(!FIELD_IDS.includes(id))return;
     const previous=get(root.localStorage,DRAFT)||{};
-    const draft={version:1,updatedAt:Math.max(Date.now(),Number(previous.updatedAt||0)+1),
-      writer:tabId,fields:{...(previous.fields||{}),[id]:String(value)}};
+    const draft=mergeSharedDraft(previous,id,String(value),tabId,Date.now());
     latestDraftAt=draft.updatedAt;
     set(root.localStorage,DRAFT,draft);
   }
@@ -576,8 +587,8 @@
   }
   function approvePlan(){
     if(!chosen||!scanned)throw Error('نفذ الفحص ثم اختر خطة أولًا');
-    if(scanned.settingsFingerprint!==currentFingerprint())
-      throw Error('الإعدادات المشتركة تغيرت بعد الفحص؛ أعد الفحص قبل التنفيذ');
+    if(!sharedContextUsable(scanned,currentFingerprint(),nowServer()))
+      throw Error('الخطة المشتركة قديمة أو تغيرت الإعدادات؛ أعد الفحص قبل التنفيذ');
     const now=nowServer();if(!finite(now)||!ready())throw Error('ساعة الخادم أو الجلسة غير متاحة');
     if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))
       throw Error('هناك خطة نشطة بالفعل؛ أوقفها قبل اعتماد خطة جديدة');
@@ -1114,8 +1125,7 @@
         ' | '+(plan.kind==='hybrid'?plan.tasks.map(x=>x.sourceId).join('+'):plan.sourceId);
       select.appendChild(o);
     }
-    const stale=scanned.settingsFingerprint!==currentFingerprint()||
-      !finite(nowServer())||nowServer()-scanned.checkedAt>120000;
+    const stale=!sharedContextUsable(scanned,currentFingerprint(),nowServer());
     if(stale)list.push('⏳ الخطة محفوظة للعرض فقط: انتهت صلاحية الفحص أو تغيرت الإعدادات. أعد الفحص قبل الاعتماد.');
     radar.textContent=list.join('\n\n');
     uiQuery('sd-select').disabled=!scanned.plans.length||stale;
@@ -1135,8 +1145,7 @@
       `\nالنتيجة تعتمد على استجابة متصفحك وسيرفر اللعبة؛ لا يوجد ضمان للقنص داخل 200ms.`;
     const now=nowServer(),lock=get(root.localStorage,LOCK);
     const foreign=lock&&lock.tabId!==tabId&&lock.until>Date.now();
-    const stale=scanned?.settingsFingerprint!==currentFingerprint()||!finite(now)||
-      now-scanned.checkedAt>120000;
+    const stale=!sharedContextUsable(scanned,currentFingerprint(),now);
     uiQuery('sd-approve').disabled=!!foreign||stale||
       !tasks.every(task=>!validateTask(task,Math.round(now),player,host));
   }
