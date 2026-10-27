@@ -228,6 +228,7 @@
   const identity={host:root.location.host,player:String(game.player.id),village:String(game.village.id),tabId};
   const UI_STATE_KEY='algzawy_cancel_snipe_ui_v021_'+encodeURIComponent(identity.host)+'_'+identity.player;
   const CAPTURE_KEY='algzawy_cancel_snipe_capture_v03_'+encodeURIComponent(identity.host)+'_'+identity.player+'_'+identity.village;
+  const PREF_KEY='algzawy_cancel_snipe_prefs_v04_'+encodeURIComponent(identity.host)+'_'+identity.player+'_'+identity.village;
   let job=null,clockState=null,timer=null,uiTick=null,locked=false,selectedPlan=null,selectedGapIndex=null,capture=null,incomingCandidates=[];
   const read=()=>{try{const a=JSON.parse(root.localStorage.getItem(KEY)||'null');if(!a||a.host!==identity.host||a.player!==identity.player||a.village!==identity.village||a.tabId!==identity.tabId)return null;return a;}catch(_){return null;}};
   const save=next=>{job=next;root.localStorage.setItem(KEY,JSON.stringify(next));paint();};
@@ -602,11 +603,41 @@
     doc.body.appendChild(p);
     const field=id=>doc.getElementById(id), day=doc.getElementById('serverDate')?.textContent?.match(/(\d\d?)[\/.](\d\d?)[\/.](\d{4})/);
     field('acs-day').value=day?`${day[3]}-${pad(day[2])}-${pad(day[1])}`:new Date().toISOString().slice(0,10);
+    const preferenceIds=['acs-mode','acs-margin','acs-window','acs-custom-window','acs-target','acs-travel','acs-limit'];
+    let storedPrefs={};
+    try{storedPrefs=JSON.parse(root.sessionStorage.getItem(PREF_KEY)||'{}')||{};}catch(_){}
+    for(const id of preferenceIds){
+      const value=storedPrefs.fields?.[id];
+      if(typeof value==='string'&&field(id))field(id).value=value;
+    }
+    let restoreGap=Number.isSafeInteger(storedPrefs.gapIndex)?storedPrefs.gapIndex:null;
+    if(isConfirm()){
+      const target=targetFromConfirm();
+      if(target&&!field('acs-target').value.trim())field('acs-target').value=target;
+    }
+    function persistPreferences(){
+      const fields={};
+      for(const id of preferenceIds)fields[id]=field(id)?.value||'';
+      try{root.sessionStorage.setItem(PREF_KEY,JSON.stringify({fields,gapIndex:selectedGapIndex??restoreGap}));}catch(_){}
+    }
+    for(const id of preferenceIds){
+      field(id)?.addEventListener('change',persistPreferences);
+      field(id)?.addEventListener('input',persistPreferences);
+    }
+    field('acs-game-fields').hidden=field('acs-mode').value!=='game';
+    field('acs-relative-fields').hidden=field('acs-mode').value!=='countdown';
+    field('acs-absolute-fields').hidden=field('acs-mode').value!=='absolute';
+    field('acs-custom-row').hidden=field('acs-window').value!=='custom';
+    persistPreferences();
     const text=(id,s)=>{field(id).textContent=s;};
     capture=readCapture();
     function captureStatus(){text('acs-capture-status',capture?`✅ الهجمة القوية مثبتة: ${fmt(capture.strongAt)}\nباقٍ الآن: ${countdownDisplay(capture.strongAt-(serverNow()??NaN))}\nالمصدر: ${capture.source||'يدوي'}${capture.precise===false?' — أجزاء الثانية تقديرية':''}`:'لم يُلتقط الموعد بعد. اقرأ الهجمات من اللعبة أو أدخل العداد واضغط التقاط.');}
     captureStatus();
-
+    if(capture?.waves?.length){
+      text('acs-game-summary',capture.waves.map((w,i)=>
+        (i===0?'🔴 افتتاحية':'🟡 نبيل '+i)+' | '+fmt(w.at).slice(11)+(w.precise?'':' ⚠️ تقديري')
+      ).join('\n')+'\n✅ القطار محفوظ من صفحة القرية.');
+    }
     function acceptTrain(index){
       const selected=incomingCandidates[index];
       if(!selected)throw Error('اقرأ الهجمات واختر القطار أولًا');
@@ -675,13 +706,17 @@
             try{
               const target=field('acs-target').value.trim();if(!/^\d{3}\|\d{3}$/.test(target))throw Error('حدد إحداثيات الهدف أولًا');
               const result=autoFromForm(i);
-              selectedPlan={...result,target};selectedGapIndex=i;text('acs-plan',planLabel(result,target));
+              selectedPlan={...result,target};selectedGapIndex=i;restoreGap=i;persistPreferences();text('acs-plan',planLabel(result,target));
               field('acs-arm').disabled=!isConfirm();
               if(!isConfirm())note('أكمل الحساب، ثم افتح شاشة تأكيد هجوم الإخراج لتجهيز التنفيذ.');
             }catch(e){selectedPlan=null;selectedGapIndex=null;text('acs-plan','❌ '+e.message);field('acs-arm').disabled=true;}
           };row.append(label,b);field('acs-gaps').append(row);
         });
         text('acs-plan','اختر فجوة. سيحدد السكربت أكبر نافذة متاحة ويحسب الإرسال والإلغاء آليًا.');
+        if(restoreGap!==null&&isConfirm()&&field('acs-mode').value==='game'&&gs[restoreGap]?.usable){
+          const choice=field('acs-gaps').querySelectorAll('button')[restoreGap];
+          if(choice)choice.click();
+        }
       }catch(e){text('acs-plan','❌ '+e.message);}
     };
     field('acs-arm').onclick=()=>{
@@ -696,8 +731,10 @@
         arm(selectedPlan);field('acs-arm').disabled=true;
       }catch(e){note('❌ '+e.message);}
     };
-    if(doc.querySelector('#commands_incomings')||doc.querySelector('#commands_outgoings'))
+    if(!isConfirm()&&(doc.querySelector('#commands_incomings')||doc.querySelector('#commands_outgoings')))
       setTimeout(()=>field('acs-scan').click(),0);
+    else if(capture?.waves?.length&&isConfirm()&&field('acs-mode').value==='game')
+      setTimeout(()=>field('acs-calc').click(),0);
     field('acs-stop').onclick=()=>stop('أوقف المستخدم المهمة قبل التنفيذ التالي');
     paint();
   }
