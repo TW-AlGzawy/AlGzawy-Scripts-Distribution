@@ -31,8 +31,10 @@ test('version notices are UI-only and use official portal for bridge and script 
 });
 test('every licensed script exposes an independent reinstall link in cards and details',()=>{
   const css=read('portal/v2/app.css');
-  const definition=portal.match(/function reinstallControl\\(item\\)\\{[\\s\\S]*?\\n\\}(?=\\nasync function fetchReleaseVersions)/)?.[0];
-  assert.ok(definition,'reinstallControl must exist');
+  const start=portal.indexOf('function reinstallControl(item){');
+  const end=portal.indexOf('\nasync function fetchReleaseVersions(){',start);
+  assert.ok(start>=0&&end>start,'reinstallControl must exist');
+  const definition=portal.slice(start,end);
   const createLink=vm.runInNewContext(definition+'; reinstallControl',{
     el:(tag,className,textContent)=>({
       tag,className,textContent,attributes:{},
@@ -50,9 +52,9 @@ test('every licensed script exposes an independent reinstall link in cards and d
   assert.equal(link.target,'_blank');
   assert.equal(link.rel,'noopener noreferrer');
   assert.match(link.attributes['aria-label'],/البناء المتطور/);
-  assert.match(portal,/actions\\.append\\(info,install,reinstallControl\\(item\\)\\)/);
-  assert.match(portal,/actions\\.append\\(toggle,link,reinstallControl\\(item\\)\\)/);
-  assert.match(css,/\\.bot-actions\\{flex-wrap:wrap;justify-content:flex-end;min-width:0\\}/);
+  assert.ok(portal.includes('actions.append(info,install,reinstallControl(item))'));
+  assert.ok(portal.includes('actions.append(toggle,link,reinstallControl(item))'));
+  assert.ok(css.includes('.bot-actions{flex-wrap:wrap;justify-content:flex-end;min-width:0}'));
 });
 test('registered slots are limited by a D1 unique expression across approved and pending keys',()=>{
  assert.doesNotMatch(migration,/^BEGIN TRANSACTION;|^COMMIT;/m);
