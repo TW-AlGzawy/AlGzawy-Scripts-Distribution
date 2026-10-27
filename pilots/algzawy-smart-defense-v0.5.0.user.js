@@ -599,6 +599,48 @@
       +`العودة المستهدفة بين الموجتين: ${fmt(plan.returnAt)}\n`
       +`المتبقي الآن إلى الإرسال: ${countdownDisplay(plan.sendAt-(serverNow()??NaN))}\nالهدف: ${target}`;
   }
+
+  let supportReview=null;
+  async function scanSupportVillages(){
+    if(!gameReady())throw Error('جلسة اللعبة أو ساعة الخادم غير متاحة');
+    const waves=readWaves();
+    const [cfgRes,unitsRes]=await Promise.all([
+      fetch('/interface.php?func=get_config',{credentials:'same-origin'}),
+      fetch('/interface.php?func=get_unit_info',{credentials:'same-origin'})
+    ]);
+    if(!cfgRes.ok||!unitsRes.ok)throw Error('تعذر الحصول على سرعات العالم والوحدات');
+    const parser=new DOMParser();
+    const config=parser.parseFromString(await cfgRes.text(),'application/xml');
+    const unitConfig=parser.parseFromString(await unitsRes.text(),'application/xml');
+    if(config.querySelector('parsererror')||unitConfig.querySelector('parsererror'))
+      throw Error('رد إعدادات العالم غير صالح');
+    const speed=Number(config.getElementsByTagName('speed')[0]?.textContent);
+    const unitSpeed=Number(config.getElementsByTagName('unit_speed')[0]?.textContent);
+    if(!speed||!unitSpeed)throw Error('سرعة العالم غير قابلة للتحديد');
+    const unitMinutes={};
+    for(const unit of DEFENSE_UNITS){
+      const node=unitConfig.getElementsByTagName(unit)[0];
+      const minutes=Number(node?.getElementsByTagName('speed')[0]?.textContent);
+      if(Number.isFinite(minutes)&&minutes>0)unitMinutes[unit]=minutes;
+    }
+    if(Object.keys(unitMinutes).length<2)throw Error('لم أتمكن من قراءة زمن سير الوحدات');
+    const params=new URLSearchParams({village:identity.village,screen:'overview_villages',
+      mode:'units',type:'own_home',group:'0',page:'-1'});
+    const sitter=new URLSearchParams(root.location.search).get('t');
+    if(sitter)params.set('t',sitter);
+    const response=await fetch('/game.php?'+params.toString(),{credentials:'same-origin'});
+    if(!response.ok)throw Error('لم يمكن تحميل قائمة القرى');
+    const rosterPage=parser.parseFromString(await response.text(),'text/html');
+    const roster=extractVillageRoster(rosterPage.querySelector('#units_table'));
+    const now=serverNow();
+    if(!Number.isFinite(now))throw Error('ساعة الخادم الدقيقة توقفت أثناء الفحص');
+    const target={x:Number(game.village.x),y:Number(game.village.y)};
+    if(!Number.isFinite(target.x)||!Number.isFinite(target.y))throw Error('إحداثيات القرية المدافَع عنها غير متاحة');
+    return {roster,options:supportCandidates({villages:roster,target,waves,
+      unitMinutes,speedFactor:speed*unitSpeed,nowMs:Math.round(now),
+      marginMs:Number(doc.getElementById('acs-margin')?.value||50),share:0.5})};
+  }
+
   function mount(){
     if(!doc.body||doc.getElementById(UI_ID))return;
     const css=doc.createElement('style');css.id=STYLE_ID;
@@ -634,7 +676,17 @@
 `;
     doc.head.appendChild(css);
     const p=doc.createElement('section');p.id=UI_ID;p.innerHTML=`<header><strong>🛡️ الغزااوي | Smart Defense · QA v0.5.0</strong><button type="button" id="acs-fold">طي</button></header><main>
-      <div class="warn">تجربة خاصة: الإرسال والإلغاء آليان بعد تجهيز الخطة. لا ضمان لوصول الأمر بالميلي ثانية؛ لا تشغل مهمتين في تبويبين.</div>
+      <div class="warn">QA: لن تُلغى مهمة القنص بمجرد إخفاء التبويب، لكن دقة مؤقتات الخلفية غير مضمونة؛ لن نرسل طلبًا متأخرًا.</div>
+
+      <section class="box" id="acs-defense-widget">
+        <b>🛡️ مركز الدفاع الذكي — فحص القرى وإمكانات الدعم</b>
+        <p>يحدد الفجوات ويقترح قرى دفاعية قادرة على إرسال دعم لا يزيد عن 50% من وحداتها الدفاعية المتاحة.</p>
+        <button type="button" id="acs-defense-scan">① فحص جميع القرى والهجمات</button>
+        <button type="button" id="acs-defense-best" disabled>② أفضل خطة دعم</button>
+        <button type="button" id="acs-defense-open" disabled>③ فتح نقطة التجمع</button>
+        <div class="box" id="acs-defense-results">لم يبدأ الفحص. قنص الإلغاء التجريبي متاح أسفل هذه اللوحة.</div>
+      </section>
+
       <label>مصدر توقيت الهجمات</label><select id="acs-mode"><option value="game">✅ تلقائي من جدول هجمات القرية</option><option value="countdown">يدوي: عدّ تنازلي + فروق النبلاء</option><option value="absolute">مواعيد وصول الهجمات بالتوقيت الكامل</option></select>
       <div id="acs-game-fields">
         <label>1. قراءة الهجمة الأولى وجميع النبلاء مباشرة من صفحة القرية</label>
@@ -716,6 +768,53 @@
     capture=readCapture();
     function captureStatus(){text('acs-capture-status',capture?`✅ الهجمة القوية مثبتة: ${fmt(capture.strongAt)}\nباقٍ الآن: ${countdownDisplay(capture.strongAt-(serverNow()??NaN))}\nالمصدر: ${capture.source||'يدوي'}${capture.precise===false?' — أجزاء الثانية تقديرية':''}`:'لم يُلتقط الموعد بعد. اقرأ الهجمات من اللعبة أو أدخل العداد واضغط التقاط.');}
     captureStatus();
+
+    field('acs-defense-scan').onclick=async()=>{
+      const output=field('acs-defense-results');
+      field('acs-defense-scan').disabled=true;
+      output.textContent='جارٍ فحص القرى وقواتها وسرعات وحدات العالم...';
+      try{
+        if(!capture?.waves?.length&&field('acs-mode').value==='game'){
+          const detected=scanIncoming()[0];
+          capture={strongAt:detected.waves[0].at,waves:detected.waves,
+            capturedAt:Math.round(serverNow()),source:detected.source,precise:detected.precise};
+          root.sessionStorage.setItem(CAPTURE_KEY,JSON.stringify(capture));
+          captureStatus();
+        }
+        supportReview=await scanSupportVillages();
+        let lines=['✅ فُحصت '+supportReview.roster.length+' قرية | فرص الدعم: '+supportReview.options.length];
+        if(!supportReview.options.length)lines.push('لا توجد قرية قادرة على الوصول في موعد الفجوة المحددة.');
+        for(const c of supportReview.options.slice(0,10)){
+          lines.push('🏘 '+c.name+' | '+c.troops+' جندي | '+Math.round(c.travelMs/1000)+
+            'ث سير | إرسال '+fmt(c.sendAt).slice(11)+' | وصول '+fmt(c.arrivalAt).slice(11)+
+            ' | هامش '+c.timeMarginMs+'ms');
+        }
+        output.textContent=lines.join('\n');
+        field('acs-defense-best').disabled=!supportReview.options.length;
+      }catch(e){
+        supportReview=null;output.textContent='❌ '+e.message;
+        field('acs-defense-best').disabled=true;field('acs-defense-open').disabled=true;
+      }finally{field('acs-defense-scan').disabled=false;}
+    };
+    field('acs-defense-best').onclick=()=>{
+      const candidate=supportReview?.options?.[0];if(!candidate)return;
+      supportReview.selected=candidate;
+      field('acs-defense-results').textContent=
+        '✅ خطة الدعم الموصى بها (تحتاج اعتمادًا قبل التنفيذ)\n'+
+        'المصدر: '+candidate.name+'\n'+
+        'الوحدات: '+Object.entries(candidate.units).map(([u,n])=>u+': '+n).join('، ')+
+        '\nالإرسال: '+fmt(candidate.sendAt)+'\nالوصول: '+fmt(candidate.arrivalAt)+
+        '\nالفجوة: '+candidate.gapWidthMs+'ms\n'+
+        'الكمية المقترحة لا تتجاوز نصف الوحدات المتاحة لكل نوع. لا يوجد إرسال دعم تلقائي في v0.5.';
+      field('acs-defense-open').disabled=false;
+    };
+    field('acs-defense-open').onclick=()=>{
+      const candidate=supportReview?.selected;if(!candidate)return;
+      const url=new URL('/game.php',root.location.origin);
+      url.searchParams.set('village',candidate.id);url.searchParams.set('screen','place');
+      const sitter=new URLSearchParams(root.location.search).get('t');if(sitter)url.searchParams.set('t',sitter);
+      root.location.assign(url.href);
+    };
     if(capture?.waves?.length){
       text('acs-game-summary',capture.waves.map((w,i)=>
         (i===0?'🔴 افتتاحية':'🟡 نبيل '+i)+' | '+fmt(w.at).slice(11)+(w.precise?'':' ⚠️ تقديري')
