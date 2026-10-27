@@ -292,6 +292,11 @@
         time:validEpoch(task.cancelAt)?until(task.cancelAt):blank,
         detail:'وقت الإلغاء: '+stamp(task.cancelAt)+' | '+details};
     }
+    if(isCancel&&['sent','verify'].includes(phase)){
+      return {tone:'waiting',label:'🔍 التحقق من أمر الهجوم قبل الإلغاء',
+        time:validEpoch(task.cancelAt)?until(task.cancelAt):blank,
+        detail:'لم يُتحقق بعد من أمر الهجوم، ولن يُلغى أمر غير محدد | '+details};
+    }
     if(['sent','verify','done'].includes(phase)){
       const arriving=validEpoch(task.arrivalAt)&&task.arrivalAt>now;
       return {tone:'complete',label:arriving?
