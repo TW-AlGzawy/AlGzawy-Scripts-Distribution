@@ -6,9 +6,9 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const bridge=read('loaders/algzawy-cloud-bridge.user.js');
 const portal=read('portal/v2/app.js');
 const page=read('portal/v2/index.html');
-test('bridge 2.4.10 advertises update notices only, with a portal link',()=>{
+test('bridge 2.4.11 advertises update notices only, with a portal link',()=>{
  new vm.Script(bridge);new vm.Script(portal);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.10$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.11$/m);
  assert.match(bridge,/@match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*/);
  assert.match(bridge,/function pollReleaseUpdates\(\)/);
  assert.match(bridge,/function paintUpdateNotices\(\)/);
