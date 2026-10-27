@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] Smart Defense Commander | القنص والدعم الذكي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.0-qa
+// @version      1.0.1-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -754,38 +754,58 @@
     if(uiQuery(uiId)||!doc.body)return;
     const style=doc.createElement('style');
     style.textContent=`
-#${uiId}{position:fixed;z-index:2147483000;min-width:280px;display:flex;flex-direction:column;direction:rtl;color:#e6f9fc;background:#0c2031;border:1px solid #25b4bd;border-radius:13px;box-shadow:0 12px 33px #0009;box-sizing:border-box;font:12px/1.65 Tahoma,Arial,sans-serif;overflow:visible}
+#${uiId}{--sd-bg:#07111C;--sd-panel:#102031;--sd-panel2:#13283A;--sd-border:#263C4F;--sd-text:#EAF3F8;--sd-muted:#95ACBC;--sd-teal:#40E1BF;--sd-gold:#DFB677;--sd-danger:#FC8595;--sd-accent:#B49AFF;--sd-accent-dark:#342A59;position:fixed;z-index:2147483000;min-width:280px;display:flex;flex-direction:column;direction:rtl;color:var(--sd-text);background:var(--sd-panel);border:1px solid var(--sd-border);border-top:3px solid var(--sd-accent);border-radius:13px;box-shadow:0 16px 40px #0009,0 0 0 1px #B49AFF17;box-sizing:border-box;font:12px/1.7 Tahoma,"Segoe UI",Arial,sans-serif;overflow:visible}
 #${uiId} *{box-sizing:border-box}
-#${uiId} header{display:flex;justify-content:space-between;align-items:center;min-height:48px;gap:8px;padding:6px 10px;background:#173d4c;border-radius:12px 12px 0 0;cursor:move;touch-action:none;user-select:none}
-#${uiId} header strong{pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#${uiId} main{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 12px}
-#${uiId} .sub{margin:8px 0;color:#bbd7e2}#${uiId} .tiny{color:#efcb91}
-#${uiId} button{border:1px solid #45c2c8;border-radius:7px;background:#116977;color:white;padding:8px 10px;cursor:pointer;margin:3px}
-#${uiId} button:disabled{opacity:.35;cursor:not-allowed}
-#${uiId} .primary{font-weight:bold;width:calc(100% - 6px);font-size:13px;background:#137e7a}
-#${uiId} #sd-approve{background:#35733e;border-color:#5fc57c}
-#${uiId} #sd-stop{background:#7b3544;border-color:#b16978}
-#${uiId} .box{white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;background:#071826;border:1px solid #275e70;border-radius:7px;padding:8px;margin:8px 0;line-height:1.7;max-height:220px;overflow:auto}
-#${uiId} label{display:block;margin-top:7px;font-weight:bold}
-#${uiId} input,#${uiId} select{width:100%;height:31px;padding:5px;color:white;background:#071826;border:1px solid #377783;border-radius:6px;font:12px Consolas,monospace}
+#${uiId} [hidden]{display:none!important}
+#${uiId} header{display:flex;justify-content:space-between;align-items:center;min-height:46px;gap:8px;padding:6px 10px;background:linear-gradient(110deg,#172A41 0%,#13283A 65%,#28223F 100%);border-radius:10px 10px 0 0;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid #B49AFF35}
+#${uiId} header strong{pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.08px;font-weight:700}
+#${uiId} .sd-brand{display:flex;align-items:center;gap:8px;min-width:0;pointer-events:none}
+#${uiId} .sd-mark{display:grid;place-items:center;min-width:31px;height:29px;padding:0 4px;border:1px solid var(--sd-accent);border-radius:8px;background:var(--sd-accent-dark);color:var(--sd-accent);font:700 11px/1 "Segoe UI",Arial;box-shadow:0 0 0 2px #B49AFF10;flex-shrink:0}
+#${uiId} .sd-accent-code{font:700 9px/1.2 Consolas,monospace;color:var(--sd-accent);direction:ltr;opacity:.95;white-space:nowrap}
+#${uiId} main{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px;background:radial-gradient(ellipse at 50% -15%,#1A3647 0%,transparent 60%),var(--sd-panel)}
+#${uiId} .sub{margin:8px 0;color:var(--sd-muted)}
+#${uiId} .tiny{color:var(--sd-gold)}
+#${uiId} button{border:1px solid #327A73;border-radius:8px;background:#123E3D;color:var(--sd-teal);padding:8px 10px;cursor:pointer;margin:3px;font:600 12px/1.5 Tahoma,Arial,sans-serif;transition:background .15s,border-color .15s,box-shadow .15s}
+#${uiId} button:hover:not(:disabled){background:#1B514A;border-color:var(--sd-teal)}
+#${uiId} button:focus-visible,#${uiId} input:focus-visible,#${uiId} select:focus-visible,#${uiId} summary:focus-visible{outline:2px solid var(--sd-teal);outline-offset:2px}
+#${uiId} button:disabled{opacity:.42;cursor:not-allowed}
+#${uiId} .primary{font-weight:700;width:calc(100% - 6px);font-size:13px;background:#174740;border-color:#3F927C;color:#D9FFF2}
+#${uiId} #sd-select{background:var(--sd-accent-dark);border-color:#6D5AA3;color:#E9DFFF}
+#${uiId} #sd-select:hover:not(:disabled){background:#44366C;border-color:var(--sd-accent)}
+#${uiId} #sd-approve{background:#185746;border-color:#3ABF94;color:#C9FFE9;box-shadow:inset 0 1px #72EEBE11}
+#${uiId} #sd-approve:hover:not(:disabled){background:#1D6C52;border-color:var(--sd-teal)}
+#${uiId} #sd-stop{background:#392532;border-color:#965160;color:#FFC7CE}
+#${uiId} #sd-stop:hover:not(:disabled){background:#4B2B3B;border-color:var(--sd-danger)}
+#${uiId} #sd-fold{min-width:43px;flex-shrink:0;background:#172C3D;color:var(--sd-text);border-color:#39556A}
+#${uiId} .box{white-space:pre-wrap;unicode-bidi:plaintext;direction:rtl;background:var(--sd-bg);border:1px solid var(--sd-border);border-radius:9px;padding:10px;margin:8px 0;line-height:1.75;max-height:220px;overflow:auto;color:var(--sd-text)}
+#${uiId} #sd-message{border-inline-start:3px solid var(--sd-accent);background:#171F32}
+#${uiId} #sd-plan{border-inline-start:3px solid var(--sd-teal)}
+#${uiId} #sd-radar{border-inline-start:3px solid #477F95}
+#${uiId} #sd-status{border-inline-start:3px solid var(--sd-gold)}
+#${uiId} label{display:block;margin-top:9px;font-weight:700;color:#C5D9E4}
+#${uiId} input,#${uiId} select{width:100%;min-width:0;height:33px;padding:6px 8px;color:var(--sd-text);background:var(--sd-bg);border:1px solid #365166;border-radius:7px;font:12px Consolas,Tahoma,monospace}
+#${uiId} input:focus,#${uiId} select:focus{border-color:var(--sd-accent)}
 #${uiId} .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
-#${uiId} details{border-top:1px solid #326070;margin-top:10px;padding-top:5px}
-#${uiId} summary{padding:8px;border-radius:7px;background:#173d4c;cursor:pointer;font-weight:bold}
+#${uiId} details{border-top:1px solid var(--sd-border);margin-top:12px;padding-top:7px}
+#${uiId} summary{padding:9px 10px;border-radius:8px;background:var(--sd-panel2);border:1px solid var(--sd-border);cursor:pointer;font-weight:700;color:var(--sd-accent)}
+#${uiId} details[open]>summary{border-color:#7860B6;background:#211E35}
 #${uiId} .sd-resize{position:absolute;display:block;z-index:20;touch-action:none}
 #${uiId} .sd-resize[data-edge=n]{top:-6px;left:15px;right:15px;height:12px;cursor:n-resize}
 #${uiId} .sd-resize[data-edge=s]{bottom:-6px;left:15px;right:15px;height:12px;cursor:s-resize}
 #${uiId} .sd-resize[data-edge=e]{right:-6px;top:15px;bottom:15px;width:12px;cursor:e-resize}
 #${uiId} .sd-resize[data-edge=w]{left:-6px;top:15px;bottom:15px;width:12px;cursor:w-resize}
-#${uiId} .sd-resize[data-edge=nw]{left:-7px;top:-7px;width:19px;height:19px;cursor:nw-resize;background:#177b84;border:2px solid #9ce9df;border-radius:4px}
-#${uiId} .sd-resize[data-edge=ne]{right:-7px;top:-7px;width:19px;height:19px;cursor:ne-resize;background:#177b84;border:2px solid #9ce9df;border-radius:4px}
-#${uiId} .sd-resize[data-edge=sw]{left:-7px;bottom:-7px;width:19px;height:19px;cursor:sw-resize;background:#177b84;border:2px solid #9ce9df;border-radius:4px}
-#${uiId} .sd-resize[data-edge=se]{right:-7px;bottom:-7px;width:19px;height:19px;cursor:se-resize;background:#177b84;border:2px solid #9ce9df;border-radius:4px}
+#${uiId} .sd-resize[data-edge=nw]{top:-7px;left:-7px;width:19px;height:19px;cursor:nw-resize;background:#342A59;border:2px solid var(--sd-accent);border-radius:5px}
+#${uiId} .sd-resize[data-edge=ne]{top:-7px;right:-7px;width:19px;height:19px;cursor:ne-resize;background:#342A59;border:2px solid var(--sd-accent);border-radius:5px}
+#${uiId} .sd-resize[data-edge=sw]{bottom:-7px;left:-7px;width:19px;height:19px;cursor:sw-resize;background:#342A59;border:2px solid var(--sd-accent);border-radius:5px}
+#${uiId} .sd-resize[data-edge=se]{bottom:-7px;right:-7px;width:19px;height:19px;cursor:se-resize;background:#342A59;border:2px solid var(--sd-accent);border-radius:5px}
 #${uiId}.folded .sd-resize{display:none}
-#${uiId} .notice{padding:6px;border-radius:6px;background:#153444;margin-bottom:8px}
+#${uiId}.folded header{border-radius:10px}
+#${uiId} .notice{padding:9px 10px;border:1px solid #77633E;border-inline-start:3px solid var(--sd-gold);border-radius:8px;background:#27271F;color:#F2DAB2;margin-bottom:10px;line-height:1.7}
+@media (max-width:560px){#${uiId}{font-size:12px}#${uiId} main{padding:9px}#${uiId} .row{gap:5px}#${uiId} button{padding:8px 6px}#${uiId} .sd-accent-code{display:none}}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><strong>🛡️ AlGzawy Smart Defense · v1.0 QA</strong><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يعتمد أوامر اللعبة الأصلية. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
