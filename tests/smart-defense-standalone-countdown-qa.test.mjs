@@ -64,6 +64,9 @@ test('confirmed send no longer claims upcoming arrival after arrival deadline',(
 test('cancel sniping changes from send to cancel countdown and expected return',()=>{
  const before=core.countdownCardState('armed',cancel,now);
  assert.equal(before.label,'⏳ إرسال جيش الإلغاء بعد');
+ const unconfirmed=core.countdownCardState('sent',cancel,now);
+ assert.match(unconfirmed.label,/التحقق من أمر الهجوم/);
+ assert.doesNotMatch(unconfirmed.label,/عودة الجيش/);
  const active=core.countdownCardState('cancel_wait',cancel,now);
  assert.equal(active.label,'⏳ إلغاء الهجوم بعد');
  assert.equal(active.time,'00:08:20.000');
