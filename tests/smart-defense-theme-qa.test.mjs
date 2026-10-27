@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const src=fs.readFileSync(new URL('../pilots/algzawy-smart-defense-v1.0.0-qa.user.js',import.meta.url),'utf8');
-test('Smart Defense v1.0.5 theme compiles as Tampermonkey JavaScript',()=>{
+test('Smart Defense v1.0.6 theme compiles as Tampermonkey JavaScript',()=>{
   assert.doesNotThrow(()=>new vm.Script(src));
-  assert.match(src,/\/\/ @version\s+1\.0\.5-qa/);
+  assert.match(src,/\/\/ @version\s+1\.0\.6-qa/);
   assert.match(src,/@updateURL\s+https:\/\/raw\.githubusercontent\.com\//);
   assert.match(src,/@downloadURL\s+https:\/\/raw\.githubusercontent\.com\//);
 });
