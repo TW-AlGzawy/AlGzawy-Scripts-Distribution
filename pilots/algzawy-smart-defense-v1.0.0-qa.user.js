@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] Smart Defense Commander | القنص والدعم الذكي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.4-qa
+// @version      1.0.5-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -16,7 +16,10 @@
   // All game army units may be considered for a timed movement; validate against the native order form.
   const DEF_TYPES=UNIT_TYPES;
   const WINDOWS=[480000,360000,240000,120000,60000,30000];
-  const SEND_TOLERANCE_MS=100, MIN_PREP_MS=15000, MIN_NAV_SEPARATION_MS=30000;
+  // This tolerance applies to the browser's click, NOT server acceptance.
+  // Never treat a click at T as proof the server received a command at T.
+  const SEND_TOLERANCE_MS=100, MAX_CLOCK_DRIFT_MS=100;
+  const MIN_PREP_MS=15000, MIN_NAV_SEPARATION_MS=30000;
   const pad=(x,n=2)=>String(x).padStart(n,'0');
   const finite=n=>typeof n==='number'&&Number.isFinite(n);
   const validEpoch=n=>Number.isSafeInteger(n)&&n>1500000000000;
@@ -316,7 +319,17 @@
         'موعد الإرسال: '+stamp(task.sendAt))+' | '+details};
   }
 
-  const CORE=Object.freeze({countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  function observedDelivery(task,observedArrivalAt){
+    if(!task||!validEpoch(task.sendAt)||!Number.isSafeInteger(task.travelMs)||
+      task.travelMs<=0||!validEpoch(observedArrivalAt))return null;
+    const expectedArrivalAt=task.sendAt+task.travelMs;
+    const deltaMs=observedArrivalAt-expectedArrivalAt;
+    return {expectedArrivalAt,observedArrivalAt,
+      estimatedServerAcceptedAt:observedArrivalAt-task.travelMs,
+      deltaMs,lateMs:Math.max(0,deltaMs),
+      withinMargin:finite(task.marginMs)&&Math.abs(deltaMs)<=task.marginMs};
+  }
+  const CORE=Object.freeze({observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -510,7 +523,9 @@
     if(!finite(gameClock))return null;
     const expected=clock.base+(performance.now()-clock.perf),actual=gameClock+clock.offset;
     const deviation=Math.abs(actual-expected);
-    if(deviation>1400)return null;
+    // Earlier code tolerated up to 1,400ms drift. That is incompatible with
+    // precision scheduling and can silently convert a timed click into a late send.
+    if(deviation>MAX_CLOCK_DRIFT_MS)return null;
     return actual;
   }
   function ready(){return !humanStop()&&String(root.game_data?.player?.id)===player&&
@@ -809,7 +824,11 @@
     if(late>SEND_TOLERANCE_MS)return stopMission('تأخر مؤقت المتصفح '+Math.round(late)+'ms؛ لم نرسل أمرًا متأخرًا');
     // Mark before native click. A reload must not cause duplicate dispatch.
     storeMission({...mission,phase:'sent',clickedAt:time,note:'تم الضغط على زر إرسال اللعبة؛ تحقق من ظهور الأمر الصادر'});
-    log('SEND_CLICK',task.kind+' '+stamp(time)+' deviation '+Math.round(late)+'ms');
+    log('SEND_CLICK',task.kind+' planned '+stamp(task.sendAt)+
+      ' / browser click '+stamp(time)+' / client_delta '+Math.round(late)+
+      'ms / performance '+performance.now().toFixed(1)+
+      'ms / local '+new Date().toISOString()+
+      ' — NOT a server receipt confirmation');
     const abs=Math.abs(late);metric.samples=[...metric.samples,abs].slice(-80);
     metric.maxDeviation=Math.max(...metric.samples,0);set(root.localStorage,METRICS,metric);
     button.click();
@@ -822,6 +841,21 @@
     if(isConfirmation())return;
     const outgoing=findOutgoing(task);
     if(outgoing){
+      const measured=observedDelivery(task,outgoing.at);
+      if(measured){
+        storeMission({...mission,serverArrivalAt:measured.observedArrivalAt,
+          serverDeltaMs:measured.deltaMs,
+          note:'تم رصد أمر صادر مطابق؛ تأخير القبول المُستنتج من موعد الوصول: '+
+            (measured.deltaMs>=0?'+':'')+measured.deltaMs+'ms'});
+        log('SERVER_TIMING','planned_send '+stamp(task.sendAt)+
+          ' / estimated_server_accept '+stamp(measured.estimatedServerAcceptedAt)+
+          ' / planned_arrival '+stamp(measured.expectedArrivalAt)+
+          ' / observed_arrival '+stamp(measured.observedArrivalAt)+
+          ' / delta_ms '+measured.deltaMs+
+          ' / within_margin '+measured.withinMargin);
+      }else{
+        log('SERVER_TIMING_UNKNOWN','arrival timestamp unavailable; click time is not proof of delivery');
+      }
       if(task.kind==='cancel'){
         if(!outgoing.cancelLink)return stopMission('لم يظهر رابط الإلغاء الأصلي للأمر المتحقق منه');
         if(mission.phase!=='cancel_wait'){
@@ -832,7 +866,11 @@
         schedule();return;
       }
       log('SUPPORT_VERIFIED',outgoing.id);
-      finishTask('تأكد ظهور أمر الدعم '+outgoing.id+' في أوامر اللعبة');return;
+      const offset=measured?.deltaMs;
+      const precision=finite(offset)&&Math.abs(offset)>SEND_TOLERANCE_MS?
+        '⚠️ فارق إرسال مُستنتج '+(offset>=0?'+':'')+offset+'ms عن الخطة؛ هذا ليس تنفيذًا دقيقًا.':
+        'تم تسجيل زمن وصول مطابق تقريبًا أو لم يُقَس الفرق.';
+      finishTask('تأكد ظهور أمر الدعم '+outgoing.id+' في أوامر اللعبة. '+precision);return;
     }
     const since=nowServer()-(mission.clickedAt||mission.createdAt);
     if(since>16000)return stopMission('لم يظهر أمر مطابق في الأوامر الصادرة. افحص اللعبة يدويًا قبل أي إعادة إرسال');
@@ -1054,7 +1092,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.4 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ AlGzawy Smart Defense · v1.0.5 QA</strong><span class="sd-accent-code">#B49AFF</span></span><button id="sd-fold" type="button">طي</button></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -1265,7 +1303,10 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       (task?`القرية: ${task.sourceId} | ${task.kind}\nالإرسال: ${stamp(task.sendAt)} (${countdown(task.sendAt-now)})\n`+
       (task.cancelAt?`الإلغاء: ${stamp(task.cancelAt)} (${countdown(task.cancelAt-now)})\n`:''):
       '')+`ساعة السيرفر: ${stamp(now)}\n`+
-      `أعلى انحراف مسجل: ${Math.round(metric.maxDeviation||0)}ms`;
+      (finite(mission.serverDeltaMs)?
+        'فارق القبول المُستنتج من وصول اللعبة: '+
+          (mission.serverDeltaMs>=0?'+':'')+mission.serverDeltaMs+'ms\n':'')+
+      `أعلى انحراف ضغط مسجل: ${Math.round(metric.maxDeviation||0)}ms`;
   }
   function monitor(){
     if(!options.autoMonitor||mission&&!['stopped','done','cancel_clicked'].includes(mission.phase))return;
