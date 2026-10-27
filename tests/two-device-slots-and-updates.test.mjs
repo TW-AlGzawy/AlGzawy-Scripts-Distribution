@@ -12,7 +12,7 @@ const migration=read('portal/migrations/2026-10-26-two-device-slots.sql');
 
 test('version notices are UI-only and use official portal for bridge and script installation',()=>{
  new vm.Script(bridge);new vm.Script(portal);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.10$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.11$/m);
  assert.match(bridge,/^\/\/ @match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*$/m);
  assert.match(bridge,/@connect\s+raw\.githubusercontent\.com/);
  assert.match(bridge,/function pollReleaseUpdates\(\)/);

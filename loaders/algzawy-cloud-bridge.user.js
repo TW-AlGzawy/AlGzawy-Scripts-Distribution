@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.10
+// @version      2.4.11
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -21,7 +21,11 @@
   if (window.__algzawyCloudBridge) return;
   window.__algzawyCloudBridge=true;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev';
-  const BRIDGE_VERSION='2.4.10';
+  // Safari iOS supports a separate Swift transport for Tampermonkey requests.
+  // Use it only as a network-error fallback; signature proof is never bypassed.
+  const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
+    (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
+  const BRIDGE_VERSION='2.4.11';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -409,19 +413,36 @@
     }catch(err){popup.close();showMessage('تعذر تجهيز الربط الآمن: '+err.message);}
   }
   function request(path,opts={}){
-    return new Promise((resolve,reject)=>{
-      GM_xmlhttpRequest({
+    const send=(headers,swift=false)=>new Promise((resolve,reject)=>{
+      const config={
         method:opts.method||'GET',url:PORTAL_ORIGIN+'/api/'+path,timeout:12000,
-        headers:{'Accept':'application/json',...(opts.headers||{}),...(opts.data?{'Content-Type':'application/json'}:{})},
+        headers:{'Accept':'application/json',...(headers||{}),...(opts.data?{'Content-Type':'application/json'}:{})},
         data:opts.data?JSON.stringify(opts.data):undefined,
         onload:response=>{
           let data;try{data=JSON.parse(response.responseText);}catch(_){return reject(Error('تعذر قراءة رد Cloudflare'));}
           if(response.status<200||response.status>=300||!data?.ok)return reject(Error(data?.error||'HTTP '+response.status));
           resolve(data);
         },
-        onerror:()=>reject(Error('مشكلة اتصال بالبوابة')),
-        ontimeout:()=>reject(Error('انتهت مهلة الاتصال'))
-      });
+        onerror:()=>{
+          const error=Error('مشكلة اتصال بالبوابة');error.transport='network';reject(error);
+        },
+        ontimeout:()=>{
+          const error=Error('انتهت مهلة الاتصال');error.transport='timeout';reject(error);
+        }
+      };
+      // Tampermonkey for Safari can route fetch:false via its Swift backend.
+      if(swift)config.fetch=false;
+      try{GM_xmlhttpRequest(config);}catch(_){
+        const error=Error('مشكلة اتصال بالبوابة');error.transport='network';reject(error);
+      }
+    });
+    return send(opts.headers).catch(async error=>{
+      if(!IOS_WEBKIT_HTTP||!['network','timeout'].includes(error.transport)
+        ||(opts.headers?.['X-ALG-SIGNATURE']&&typeof opts.retryHeaders!=='function'))throw error;
+      // The first signed request might have reached D1 before its reply was lost.
+      // Re-sign with a strictly newer counter to preserve server anti-replay.
+      const freshHeaders=typeof opts.retryHeaders==='function'?await opts.retryHeaders():opts.headers;
+      return send(freshHeaders,true);
     });
   }
   function showMessage(msg,good=false){
@@ -479,27 +500,45 @@
   function checkPublisher(){
     if(!connection.device||publisherPending||document.visibilityState==='hidden')return;
     publisherPending=true;
-    GM_xmlhttpRequest({
-      method:'GET',url:PUBLISHER_STATUS+'?t='+Date.now(),timeout:6000,
-      headers:{'Cache-Control':'no-store'},
-      onload:r=>{
+    const send=(swift=false)=>new Promise((resolve,reject)=>{
+      const config={
+        method:'GET',url:PUBLISHER_STATUS+'?t='+Date.now(),timeout:6000,
+        headers:{'Cache-Control':'no-store'},
+        onload:resolve,
+        onerror:()=>reject(Error('network')),
+        ontimeout:()=>reject(Error('timeout'))
+      };
+      if(swift)config.fetch=false;
+      try{GM_xmlhttpRequest(config);}catch(_){reject(Error('network'));}
+    });
+    void (async()=>{
+      try{
+        let response;
+        try{response=await send();}catch(error){
+          if(!IOS_WEBKIT_HTTP)throw error;
+          response=await send(true);
+        }
         publisherPending=false;
         let enabled=false;
-        try{const data=JSON.parse(r.responseText);enabled=r.status===200&&data.ok===true&&data.global?.enabled===true&&Number.isInteger(data.global?.revision);}catch(_){}
+        try{
+          const data=JSON.parse(response.responseText);
+          enabled=response.status===200&&data.ok===true&&data.global?.enabled===true&&Number.isInteger(data.global?.revision);
+        }catch(_){}
         if(!enabled){
           publisherPreviouslyOn=false;
-          stopAll();
-          showMessage('الإدارة أوقفت المنظومة أو تعذر التحقق من Cloudflare');
+          stopAll();showMessage('الإدارة أوقفت المنظومة أو تعذر التحقق من Cloudflare');
         }else{
           if(publisherPreviouslyOn===false)void synchronize(true);
           publisherPreviouslyOn=true;
         }
-      },
-      onerror:()=>{publisherPending=false;publisherPreviouslyOn=false;stopAll();showMessage('تعذر الاتصال بالتحكم المركزي؛ تم الإيقاف احترازيًا');},
-      ontimeout:()=>{publisherPending=false;publisherPreviouslyOn=false;stopAll();showMessage('انتهت مهلة التحكم المركزي؛ تم الإيقاف احترازيًا');}
-    });
+      }catch(error){
+        publisherPending=false;publisherPreviouslyOn=false;stopAll();
+        showMessage(error.message==='timeout'
+          ?'انتهت مهلة التحكم المركزي؛ تم الإيقاف احترازيًا'
+          :'تعذر الاتصال بالتحكم المركزي؛ تم الإيقاف احترازيًا');
+      }
+    })();
   }
-
   // A subscriber entitlement only makes the script available on the website.
   // The in-game launcher must display a script only if signed state says ON.
   function activeScriptIds(state){
@@ -531,7 +570,7 @@
     pending=true;lastRequest=Date.now();
     showMessage('جارٍ التحقق من الجهاز والاشتراك ومزامنة الصلاحيات...');
     try{
-      const r=await request('device/state',{headers:await deviceProof()});
+      const r=await request('device/state',{headers:await deviceProof(),retryHeaders:()=>deviceProof()});
       if(!r.global||typeof r.global.enabled!=='boolean'||!r.scripts||typeof r.scripts!=='object')throw Error('استجابة مزامنة غير مكتملة');
       localStorage.setItem(LICENSE_UNTIL,String(Date.now()+120000));
       localStorage.setItem(LICENSE_ID,connection.device);
