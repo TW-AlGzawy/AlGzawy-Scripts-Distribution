@@ -81,7 +81,7 @@ test('window crossing second 950→050 is interpreted against actual absolute at
 });
 test('interposed regular attacks are risk annotations, not boundaries hiding nobles',()=>{
  const t=core.nobleTrains(openings)[0];
- const ws=core.nobleWindows(t,{safetyMs:10,auto:true,
+ const ws=core.nobleWindows(t,{safetyMs:9,auto:true,
    targets:{noble3:{selected:true,fromMs:690,toMs:710}}});
  assert.equal(ws[1].riskCount,0);
  assert.equal(ws[2].arrival,time(18,13,36,700));
