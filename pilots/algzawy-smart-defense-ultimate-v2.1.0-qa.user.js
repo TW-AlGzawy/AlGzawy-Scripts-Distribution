@@ -1754,6 +1754,17 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       const page=doc.createElement('section');page.dataset.sdPage=id;
       pages[id]=page;panel.querySelector('main').appendChild(page);
     }
+    const move=(id,tab)=>{
+      const el=uiQuery(id);if(!el)return;
+      let top=el;
+      if(el.closest('label')?.parentElement===panel.querySelector('main'))
+        top=el.closest('label');
+      else if(el.closest('.row')?.parentElement===panel.querySelector('main'))
+        top=el.closest('.row');
+      const prev=top.previousElementSibling;
+      if(prev?.tagName==='LABEL'&&prev.htmlFor===id)pages[tab].appendChild(prev);
+      pages[tab].appendChild(top);
+    };
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
