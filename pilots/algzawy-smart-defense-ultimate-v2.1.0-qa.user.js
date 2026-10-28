@@ -1014,6 +1014,8 @@
       readRegionalThreats().catch(e=>({available:false,reason:e.message,villages:[]})),
       readWorldCancelTargets(target).catch(e=>({available:false,reason:e.message,villages:[]}))]);
     const now=nowServer();if(!finite(now))throw Error('ساعة السيرفر انقطعت أثناء الفحص');
+    if(liveNobleSignature(readIncoming(),nowServer())!==liveNobleSignature(trains,nowServer()))
+      throw Error('تغيرت الهجمات أثناء الفحص؛ أعد فحص القطار الحالي');
     const scanFingerprint=currentFingerprint();
     const support=[],cancel=[],diagnostics=[];
     const targetRules=rulesFor(ownId());
