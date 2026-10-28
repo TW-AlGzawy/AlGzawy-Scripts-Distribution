@@ -1709,6 +1709,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 #${uiId} #sd-countdown .sd-timer-digits{font-size:25px}
 #${uiId} .sd-tabs::-webkit-scrollbar{height:3px}
 #${uiId} #sd-add-slot{width:98%;margin:8px auto;display:block}
+#${uiId} .sd-task-item{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:6px 0;padding:8px;border:1px solid #475977;border-radius:8px;background:#132B3C}
+#${uiId} .sd-task-item strong{flex:1;min-width:140px;font-size:11px}
 #${uiId}.folded .sd-tabs{display:none}
 `;
     doc.head.append(style);
