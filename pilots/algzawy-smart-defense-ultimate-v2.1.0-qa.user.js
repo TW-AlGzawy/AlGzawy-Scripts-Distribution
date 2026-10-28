@@ -888,7 +888,7 @@
     set(root.localStorage,SETTINGS,options);
   }
   function liveNobleSignature(trains,now){return (trains||[]).flatMap(t=>t.waves||[]).filter(w=>w.kind==='noble'&&w.at>now).map(w=>nobleKey(w)+':'+w.at).sort().join('|');}
-  function clearExpiredNobles(){
+  function clearExpiredNobles(publish=true){
     const had=Boolean(scanned||chosen);
     scanned=null;chosen=null;lastScannedKey='';
     root.sessionStorage.removeItem(TRAIN);
@@ -898,7 +898,7 @@
     const approve=uiQuery('sd-approve');if(approve)approve.disabled=true;
     const message=uiQuery('sd-message');if(message)message.textContent='✅ انتهت الهجمات النبيلة أو اختفت من جدول اللعبة.';
     renderPlan();
-    if(had)set(root.localStorage,CONTEXT,{version:1,invalidated:true,defenseVillageId:ownId(),updatedAt:Date.now()});
+    if(had&&publish)set(root.localStorage,CONTEXT,{version:1,invalidated:true,defenseVillageId:ownId(),updatedAt:Date.now()});
   }
   function readIncoming(){
     const now=nowServer();if(!finite(now))throw Error('ساعة سيرفر اللعبة الدقيقة غير متاحة');
