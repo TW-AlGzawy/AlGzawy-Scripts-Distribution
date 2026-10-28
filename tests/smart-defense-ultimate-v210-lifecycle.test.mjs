@@ -149,3 +149,18 @@ test('world availability guards both display and select-all; nobles remain exclu
   assert.match(src,/const next=all\?availableWorldUnits\(\):\[\]/);
   assert.match(src,/return allowed\.filter\(x=>present\.has\(x\)\)/);
 });
+
+test('persisted noble scan is not considered live after its arrival timestamp',()=>{
+  const trains=[{waves:[{kind:'strong',at:t-1000},{kind:'noble',at:t-1}]}];
+  assert.equal(core.hasExpiredNobleRecords(trains,t),true);
+  assert.equal(core.hasExpiredNobleRecords(trains,t-2),false);
+});
+test('past ordinary attacks alone cannot mark a noble scan expired',()=>{
+  assert.equal(core.hasExpiredNobleRecords([{waves:[
+    {kind:'strong',at:t-1000},{kind:'opening',at:t-500},{kind:'noble',at:t+100}
+  ]}],t),false);
+});
+test('unusable persisted context is rejected instead of restoring past nobles',()=>{
+  assert.match(src,/if\(remote&&hasExpiredNobleRecords\(remote\.trains,nowServer\(\)\)\)/);
+  assert.match(src,/hasExpiredNobleRecords\(scanned\.trains,nowServer\(\)\)\|\|!targetRulesMatch\(\)/);
+});
