@@ -1496,6 +1496,9 @@
     rootNode.replaceChildren();
     const badge=uiQuery('sd-slot-count');if(badge)badge.textContent=slotState.length+'/30';
     const conflicts=slotConflicts(slotState);
+    const directory=uiQuery('sd-tasks-list');if(directory)directory.replaceChildren();
+    if(directory&&!slotState.length)
+      directory.textContent='لا توجد مهام محفوظة. اضغط «إنشاء مهمة قنص جديدة» لبدء التخطيط.';
     const button=(label,fn)=>{const b=doc.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b;};
     for(const slot of slotState){
       const section=doc.createElement('section');section.className='sd-task-slot';
