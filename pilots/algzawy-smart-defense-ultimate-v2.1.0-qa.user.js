@@ -1501,6 +1501,20 @@
       directory.textContent='لا توجد مهام محفوظة. اضغط «إنشاء مهمة قنص جديدة» لبدء التخطيط.';
     const button=(label,fn)=>{const b=doc.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b;};
     for(const slot of slotState){
+      if(directory){
+        const row=doc.createElement('div');row.className='sd-task-item';
+        const info=doc.createElement('strong');
+        info.textContent=slot.id+' | '+slot.target+' | '+(slot.plan?'خطة محفوظة':'بانتظار اختيار خطة');
+        row.appendChild(info);
+        row.appendChild(button(slot.visible?'إخفاء النافذة':'عرض النافذة',()=>{
+          slot.visible=!slot.visible;saveSlots();renderSlots();
+        }));
+        row.appendChild(button('حذف',()=>{
+          slotState=slotState.filter(s=>s.id!==slot.id);saveSlots();renderSlots();
+        }));
+        directory.appendChild(row);
+      }
+      if(!slot.visible)continue;
       const section=doc.createElement('section');section.className='sd-task-slot';
       section.style.left=Math.max(0,Number(slot.x)||20)+'px';
       section.style.top=Math.max(0,Number(slot.y)||65)+'px';
