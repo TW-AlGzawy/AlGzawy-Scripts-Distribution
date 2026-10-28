@@ -1617,7 +1617,7 @@
     slotState.push({id:'SD-'+pad(i),
       target:scanned?.target?.str||game.village.x+'|'+game.village.y,
       plan:chosen?JSON.parse(JSON.stringify(chosen)):null,
-      width:295,height:205,x:20+(i%7)*33,y:65+(i%7)*35,folded:false});
+      width:295,height:205,x:20+(i%7)*33,y:65+(i%7)*35,folded:false,visible:true});
     saveSlots();renderSlots();
   }
 
