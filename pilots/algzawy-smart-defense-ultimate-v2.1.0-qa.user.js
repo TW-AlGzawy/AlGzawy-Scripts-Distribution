@@ -2260,6 +2260,10 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       if(lastScannedKey&&key!==lastScannedKey){
         notify('🚨 تغير قطار الهجمات الواردة؛ أعد الفحص لتحديث خطة الدفاع','info');
         log('THREAT_CHANGE',key);chosen=null;uiQuery('sd-approve').disabled=true;
+        if(scanned&&scanned.defenseVillageId===ownId()){
+          scanned={...scanned,trains,plans:[],checkedAt:Math.round(nowServer())};
+          renderScan();publishScanContext();
+        }
       }
       lastScannedKey=key;
     }catch(_){}
