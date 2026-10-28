@@ -68,7 +68,8 @@ test('fallback only before browser click and only when signed-off task can be pr
  assert.match(source,/if\(!mission\|\|mission.phase!=='armed'\|\|mission.clickedAt/);
  assert.match(source,/p.sendAt-now>=MIN_NAV_SEPARATION_MS/);
  assert.match(source,/!validateTask\(p,Math.round\(now\),player,host\)/);
- assert.match(source,/metric.maxDeviation<=Math.max\(90,p.marginMs-20\)/);
+ assert.match(source,/Number\(metric.maxServerDeltaAbs\)\|\|0/);
+ assert.match(source,/Math.max\(90,p.marginMs-20\)/);
  assert.match(source,/storeMission\(\{\.\.\.mission,phase:'routing',tasks:\[first\]/);
  assert.match(source,/if\(tryCancelFallback\('انتهى وقت المحاولة قبل الضغط على الإرسال'\)\)return/);
  assert.match(source,/if\(tryCancelFallback\('تأخر مؤقت المتصفح '/);
