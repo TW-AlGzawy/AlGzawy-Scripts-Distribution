@@ -136,3 +136,16 @@ test('monitor detects same-size train replacement by individual noble signature'
   assert.match(src,/threatChanged:true,checkedAt:Math\.round\(nowServer\(\)\)/);
   assert.match(src,/shouldStopForMissingNoble\(mission,remote\)/);
 });
+
+test('world unit list hides unavailable archer and mounted archer types',()=>{
+  assert.deepEqual(core.availableArmyTypes(['spear','sword','axe','spy','light','heavy','ram','catapult','snob']),[
+    'spear','sword','axe','spy','light','heavy','ram','catapult']);
+});
+test('world config supplies unit fallback if game_data.units is unavailable',()=>{
+  assert.deepEqual(core.availableArmyTypes(null,{spear:{},sword:{},snob:{}}),['spear','sword']);
+});
+test('world availability guards both display and select-all; nobles remain excluded',()=>{
+  assert.match(src,/for\(const type of availableWorldUnits\(\)\)/);
+  assert.match(src,/const next=all\?availableWorldUnits\(\):\[\]/);
+  assert.match(src,/return allowed\.filter\(x=>present\.has\(x\)\)/);
+});
