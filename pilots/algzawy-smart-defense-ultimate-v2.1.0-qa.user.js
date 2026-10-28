@@ -1677,6 +1677,20 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 #${uiId} .notice{padding:9px 10px;border:1px solid #77633E;border-inline-start:3px solid var(--sd-gold);border-radius:8px;background:#27271F;color:#F2DAB2;margin-bottom:10px;line-height:1.7}
 @media (max-width:560px){#${uiId}{font-size:12px}#${uiId} main{padding:9px}#${uiId} .row{gap:5px}#${uiId} button{padding:8px 6px}#${uiId} .sd-accent-code{display:none}}
 `;
+    style.textContent+=`
+#${uiId} .sd-tabs{display:flex;gap:3px;overflow-x:auto;flex-shrink:0;padding:6px;background:#11243A;border-bottom:1px solid #37516D;scrollbar-width:thin}
+#${uiId} .sd-tabs button{flex:0 0 auto;min-width:65px;font-size:10px;padding:6px;margin:0;border-radius:6px;background:#172D40;color:#C6D7E8;border-color:#3A5065}
+#${uiId} .sd-tabs button.selected{background:#3A2F63;border-color:#B49AFF;color:#FFF}
+#${uiId} [data-sd-page]{min-height:100px}
+#${uiId} [data-sd-page][hidden]{display:none!important}
+#${uiId} header strong{white-space:normal;line-height:1.2;font-size:12px}
+#${uiId} header .sd-version{font-size:10px;color:#C5B5F1;white-space:nowrap}
+#${uiId} #sd-countdown{padding:10px 8px;min-height:104px;margin-top:6px}
+#${uiId} #sd-countdown .sd-timer-digits{font-size:25px}
+#${uiId} .sd-tabs::-webkit-scrollbar{height:3px}
+#${uiId} #sd-add-slot{width:98%;margin:8px auto;display:block}
+#${uiId}.folded .sd-tabs{display:none}
+`;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
     panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="Smart Defense • #B49AFF">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1 QA</small></span></header>
