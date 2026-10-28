@@ -1551,7 +1551,6 @@
       const bar=doc.createElement('div');bar.className='sd-task-bar';
       const title=doc.createElement('strong');title.textContent=slot.id+' | '+slot.target;
       bar.appendChild(title);
-      bar.appendChild(button(slot.folded?'فتح':'طي',()=>{slot.folded=!slot.folded;saveSlots();renderSlots();}));
       bar.appendChild(button('×',()=>{slotState=slotState.filter(s=>s.id!==slot.id);saveSlots();renderSlots();}));
       section.appendChild(bar);
       const content=doc.createElement('div');content.className='sd-task-body';content.hidden=!!slot.folded;
@@ -1585,9 +1584,12 @@
         if(event.pointerType==='mouse'&&event.button!==0)return;
         event.preventDefault();
         const x=section.offsetLeft,y=section.offsetTop,sx=event.clientX,sy=event.clientY;
+        let moved=false;
         try{bar.setPointerCapture(event.pointerId);}catch(_){}
         const move=e=>{
           if(e.pointerId!==event.pointerId)return;
+          if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>7)moved=true;
+          if(!moved)return;
           section.style.left=Math.max(0,Math.min(root.innerWidth-70,x+e.clientX-sx))+'px';
           section.style.top=Math.max(0,Math.min(root.innerHeight-30,y+e.clientY-sy))+'px';
         };
@@ -1597,8 +1599,10 @@
           bar.removeEventListener('pointercancel',stop);
           slot.x=section.offsetLeft;slot.y=section.offsetTop;
           if(!slot.folded){slot.width=section.offsetWidth;slot.height=section.offsetHeight;}
+          if(!moved)slot.folded=!slot.folded;
           saveSlots();
           try{bar.releasePointerCapture(event.pointerId);}catch(_){}
+          if(!moved)renderSlots();
         };
         bar.addEventListener('pointermove',move);bar.addEventListener('pointerup',stop);
         bar.addEventListener('pointercancel',stop);
