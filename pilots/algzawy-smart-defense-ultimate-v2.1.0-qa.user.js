@@ -624,7 +624,16 @@
     return !context.trains.some(train=>(train.waves||[]).some(w=>
       w.kind==='noble'&&nobleKey(w)===task.nobleId&&w.at===task.nobleAt));
   }
-  const CORE=Object.freeze({shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  function availableArmyTypes(gameUnits,configUnits){
+    const listed=Array.isArray(gameUnits)?gameUnits:
+      typeof gameUnits==='string'?gameUnits.split(/[\s,]+/).filter(Boolean):
+      gameUnits&&typeof gameUnits==='object'?Object.keys(gameUnits):[];
+    const known=listed.length?listed:Object.keys(configUnits||{});
+    const present=new Set(known);
+    return UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'&&
+      (!known.length||present.has(x)));
+  }
+  const CORE=Object.freeze({availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -688,16 +697,7 @@
       'تم حفظ استهداف النبيل ونافذته. يجب إجراء فحص شامل جديد قبل اعتماد أي خطة.';
   }
   function availableWorldUnits(){
-    // Tribal Wars exposes an authoritative unit list in game_data on most
-    // worlds. The world configuration read during a full scan is a fallback.
-    const gameUnits=root.game_data?.units;
-    const listed=Array.isArray(gameUnits)?gameUnits:
-      typeof gameUnits==='string'?gameUnits.split(/[\s,]+/).filter(Boolean):
-      gameUnits&&typeof gameUnits==='object'?Object.keys(gameUnits):[];
-    const known=listed.length?listed:Object.keys(scanned?.config?.unitMinutes||{});
-    const present=new Set(known);
-    return UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'&&
-      (!known.length||present.has(x)));
+    return availableArmyTypes(root.game_data?.units,scanned?.config?.unitMinutes);
   }
   function allowedUnits(){
     const value=options.unitAllow;
