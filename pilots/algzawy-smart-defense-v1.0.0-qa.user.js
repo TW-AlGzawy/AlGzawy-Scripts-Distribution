@@ -867,8 +867,11 @@
     for(const task of tasks){
       const problem=validateTask(task,Math.round(now),player,host);
       if(problem)throw Error(problem);
-      if(metric.maxDeviation>Math.max(90,task.marginMs-20))
-        throw Error('تذبذب توقيت المتصفح المقاس ('+Math.round(metric.maxDeviation)+'ms) أكبر من هامش الفجوة. اختر فجوة أوسع');
+      const measuredError=Math.max(Number(metric.maxDeviation)||0,
+        Number(metric.maxServerDeltaAbs)||0);
+      if(measuredError>Math.max(90,task.marginMs-20))
+        throw Error('فارق التوقيت المقاس (النقر أو استلام السيرفر) '+Math.round(measuredError)+
+          'ms يتجاوز هامش الفجوة. اختر فجوة أوسع ولا تعتمد على القنص الدقيق هنا');
     }
     if(humanStop())throw Error('التحقق البشري نشط');
     if(!acquireLock())throw Error('توجد مهمة دفاعية نشطة في تبويب آخر');
@@ -1043,6 +1046,10 @@
     if(outgoing){
       const measured=observedDelivery(task,outgoing.at);
       if(measured){
+        const error=Math.abs(measured.deltaMs);
+        metric.serverDeltas=[...(metric.serverDeltas||[]),error].slice(-40);
+        metric.maxServerDeltaAbs=Math.max(...metric.serverDeltas,0);
+        set(root.localStorage,METRICS,metric);
         storeMission({...mission,serverArrivalAt:measured.observedArrivalAt,
           serverDeltaMs:measured.deltaMs,
           note:'تم رصد أمر صادر مطابق؛ تأخير القبول المُستنتج من موعد الوصول: '+
@@ -1124,7 +1131,8 @@
       p.sendAt-now>=MIN_NAV_SEPARATION_MS&&
       !validateTask(p,Math.round(now),player,host)&&
       Number.isFinite(p.marginMs)&&
-      metric.maxDeviation<=Math.max(90,p.marginMs-20));
+      Math.max(Number(metric.maxDeviation)||0,Number(metric.maxServerDeltaAbs)||0)<=
+        Math.max(90,p.marginMs-20));
     if(!first)return false;
     const remaining=cancelFallbackCandidates(mission.fallbackPlans,first,Math.round(now));
     log('CASCADE_FALLBACK',reason+' → '+first.target.str+
@@ -1762,7 +1770,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       (finite(mission.serverDeltaMs)?
         'فارق القبول المُستنتج من وصول اللعبة: '+
           (mission.serverDeltaMs>=0?'+':'')+mission.serverDeltaMs+'ms\n':'')+
-      `أعلى انحراف ضغط مسجل: ${Math.round(metric.maxDeviation||0)}ms`;
+      `أعلى انحراف ضغط مسجل: ${Math.round(metric.maxDeviation||0)}ms\n`+
+      `أعلى فارق قبول مستنتج من السيرفر: ${Math.round(metric.maxServerDeltaAbs||0)}ms`;
   }
   function monitor(){
     if(!options.autoMonitor||mission&&!['stopped','done','cancel_clicked'].includes(mission.phase))return;
