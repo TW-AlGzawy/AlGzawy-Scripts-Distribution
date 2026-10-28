@@ -699,7 +699,7 @@
       rosterCount:Number(remote.rosterCount)||0,totalPlans:Number(remote.totalPlans)||0,
       diagnostics:remote.diagnostics||[],regional:remote.regional||{available:false,reason:'غير محفوظ'},
       worldTargets:remote.worldTargets||{available:false,reason:'لم تُحفظ قائمة الأهداف'},
-      targetRules:remote.targetRules||{};
+      targetRules:remote.targetRules||{}};
     lastScannedKey=scanned.trains.map(t=>t.id+':'+t.waves.length).join('|');
     renderScan();
     chosen=remote.selectedId?scanned.plans.find(p=>p.id===remote.selectedId)||null:null;
