@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [AlGzawy QA] سكربت الدفاع من مانوس | Manus v1.2.0
+// @name         [AlGzawy QA] سكربت الدفاع من مانوس | Manus v1.2.1
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/manus
 // @version      1.2.1-qa
 // @description  QA build: defensive planning, noble-train radar, timing diagnostics and native-game safeguards. Not a production release.
