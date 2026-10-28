@@ -19,3 +19,5 @@ jobs:
         run: node --check pilots/algzawy-smart-defense-ultimate-v2.0.0-qa.user.js
       - name: Targeting safety tests
         run: node --test tests/smart-defense-ultimate-v200.test.mjs
+      - name: In-browser UI smoke mock
+        run: node tests/smart-defense-ultimate-smoke.cjs
