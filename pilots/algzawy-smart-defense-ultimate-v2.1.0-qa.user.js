@@ -891,6 +891,8 @@
   function liveNobleSignature(trains,now){return (trains||[]).flatMap(t=>t.waves||[]).filter(w=>w.kind==='noble'&&w.at>now).map(w=>nobleKey(w)+':'+w.at).sort().join('|');}
   function clearExpiredNobles(publish=true){
     const had=Boolean(scanned||chosen);
+    if(mission&&!mission.clickedAt&&['routing','prepare','confirm','armed'].includes(mission.phase))
+      stopMission('انتهى أو اختفى قطار النبلاء قبل إرسال القوات');
     scanned=null;chosen=null;lastScannedKey='';
     root.sessionStorage.removeItem(TRAIN);
     const select=uiQuery('sd-options');if(select)select.replaceChildren();
