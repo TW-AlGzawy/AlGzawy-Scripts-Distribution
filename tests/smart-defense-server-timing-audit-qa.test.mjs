@@ -65,3 +65,11 @@ test('safety: no automatic rescue send when browser timer is late',()=>{
  assert.match(src,/لم نرسل أمرًا متأخرًا/);
  assert.match(src,/END_TOLERANCE_MS/);
 });
+
+test('measured server-side receipt variance is persisted and blocks overly tight gaps',()=>{
+ assert.match(src,/metric\.serverDeltas=\[\.\.\.\(metric\.serverDeltas\|\|\[\]\),error\]\.slice\(-40\)/);
+ assert.match(src,/metric\.maxServerDeltaAbs=Math\.max\(\.\.\.metric\.serverDeltas,0\)/);
+ assert.match(src,/const measuredError=Math\.max\(Number\(metric\.maxDeviation\)\|\|0,/);
+ assert.match(src,/Number\(metric\.maxServerDeltaAbs\)\|\|0/);
+ assert.match(src,/فارق التوقيت المقاس/);
+});
