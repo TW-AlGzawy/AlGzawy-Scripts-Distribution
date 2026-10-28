@@ -888,6 +888,16 @@
     set(root.localStorage,SETTINGS,options);
   }
   function liveNobleSignature(trains,now){return (trains||[]).flatMap(t=>t.waves||[]).filter(w=>w.kind==='noble'&&w.at>now).map(w=>nobleKey(w)+':'+w.at).sort().join('|');}
+  function clearExpiredNobles(){
+    scanned=null;chosen=null;lastScannedKey='';
+    root.sessionStorage.removeItem(TRAIN);
+    const select=uiQuery('sd-options');if(select)select.replaceChildren();
+    const list=uiQuery('sd-noble-list');if(list)list.textContent='لا توجد هجمات نبيلة قادمة.';
+    const radar=uiQuery('sd-radar');if(radar)radar.textContent='✅ انتهى القطار؛ أزيلت الخطط السابقة.';
+    const approve=uiQuery('sd-approve');if(approve)approve.disabled=true;
+    const message=uiQuery('sd-message');if(message)message.textContent='✅ انتهت الهجمات النبيلة أو اختفت من جدول اللعبة.';
+    renderPlan();
+  }
   function readIncoming(){
     const now=nowServer();if(!finite(now))throw Error('ساعة سيرفر اللعبة الدقيقة غير متاحة');
     const table=doc.querySelector('#commands_incomings');
