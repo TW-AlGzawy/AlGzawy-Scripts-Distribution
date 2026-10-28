@@ -906,12 +906,23 @@
     renderPlan();
     if(had&&publish)set(root.localStorage,CONTEXT,{version:1,invalidated:true,defenseVillageId:ownId(),updatedAt:Date.now()});
   }
+  function pruneNobleRules(trains){
+    const active=new Set((trains||[]).flatMap(t=>
+      (t.waves||[]).filter(w=>w.kind==='noble').map(nobleKey)));
+    const saved=get(root.localStorage,TARGET_RULES)||{};
+    const existing=saved[ownId()]||{};
+    const retained=Object.fromEntries(Object.entries(existing).filter(([key])=>active.has(key)));
+    if(Object.keys(existing).length!==Object.keys(retained).length)
+      set(root.localStorage,TARGET_RULES,{...saved,[ownId()]:retained});
+    return Object.keys(existing).length-Object.keys(retained).length;
+  }
   function readIncoming(){
     const now=nowServer();if(!finite(now))throw Error('ساعة سيرفر اللعبة الدقيقة غير متاحة');
     const table=doc.querySelector('#commands_incomings');
     if(!table)throw Error('افتح القرية التي يظهر فيها جدول الهجمات الواردة أولًا');
     const records=activeIncomingRecords([...table.querySelectorAll('tr')].map(row=>classifyRow(row,now)).filter(Boolean),now);
     const trains=nobleTrains(records);
+    pruneNobleRules(trains);
     if(!trains.length){clearExpiredNobles();return [];} // no active nobles remain
     try{renderNativeNobleControls();}catch(e){log('INLINE_TARGET_UI',String(e.message||e));}
     return trains;
