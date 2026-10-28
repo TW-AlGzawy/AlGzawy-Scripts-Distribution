@@ -9,7 +9,7 @@ const src=fs.readFileSync(new URL(file,import.meta.url),'utf8'),core=require(fil
 const t=Date.UTC(2026,9,28,18,13,36,800);
 test('valid userscript syntax and new isolated version',()=>{
  assert.doesNotThrow(()=>new vm.Script(src));
- assert.match(src,/@version\s+2\.1\.0-qa/);
+ assert.match(src,/@version\s+2\.1\.1-qa/);
  assert.match(src,/qa\/smart-defense-ultimate-v210-20261028/);
 });
 test('past noble attack cannot enter future scan',()=>{
@@ -24,9 +24,11 @@ test('empty incoming list clears cached plans and blocks old approvals',()=>{
  assert.match(src,/if\(remote\?\.invalidated\)/);
  assert.match(src,/monitorTimer=setInterval\(monitor,1500\)/);
 });
-test('Arabic tabs and native controls are compact',()=>{
+test('five Arabic tabs and native controls are compact',()=>{
  assert.match(src,/القائد الذكي للدفاع والقنص/);
- for(const word of ['الرئيسية','النبلاء','القوات','الخطط','التنفيذ','الإعدادات'])assert.ok(src.includes(word));
+ for(const word of ['الرئيسية','النبلاء','القوات','التنفيذ','الإعدادات'])assert.ok(src.includes(word));
+ assert.doesNotMatch(src,/plans:'🛡️ الخطط'/);
+ assert.match(src,/خطط الدفاع ومركز القيادة/);
  assert.match(src,/className='sd-tabs'/);
  assert.match(src,/cell\.prepend\(inline\)/);
  assert.match(src,/width:29px!important/);
@@ -74,4 +76,33 @@ test('execution page exposes latest log, stop and export while technical log sta
  assert.match(src,/const exec=uiQuery\('sd-execution-log'\)/);
  assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
  assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-advanced'\]\)move\(id,'settings'\)/);
+});
+
+test('Home includes plans, selected plan, approval and independent task slots',()=>{
+ const home=src.indexOf("for(const id of ['sd-scan','sd-countdown','sd-message','sd-radar'])move(id,'home')");
+ const heading=src.indexOf("plansHeading.textContent='🛡️ خطط الدفاع ومركز القيادة'");
+ const plans=src.indexOf("for(const id of ['sd-options','sd-plan','sd-approve'])move(id,'home')");
+ const task=src.indexOf('pages.home.appendChild(newTask)');
+ const list=src.indexOf('pages.home.appendChild(tasksList)');
+ assert.ok(home>=0&&heading>home&&plans>heading&&task>plans&&list>task);
+ assert.doesNotMatch(src,/pages\.plans/);
+ assert.match(src,/uiQuery\('sd-approve'\)\.onclick=/);
+ assert.match(src,/uiQuery\('sd-options'\)\.onchange=/);
+});
+test('Navigation exposes exactly five sections and gracefully migrates saved plans tab to Home',()=>{
+ const nav=src.match(/const TAB_NAMES=\{([\s\S]*?)\};/);
+ assert.ok(nav,'navigation definition exists');
+ assert.deepEqual([...nav[1].matchAll(/(?:^|[,\s])(home|nobles|units|execution|settings):/g)].map(x=>x[1]),
+  ['home','nobles','units','execution','settings']);
+ assert.doesNotMatch(nav[1],/plans:/);
+ assert.match(src,/activeTab=TAB_NAMES\[tab\]\?tab:'home'/);
+ assert.match(src,/activate\(activeTab\)/);
+ assert.match(src,/set\(root\.localStorage,TAB_KEY,activeTab\)/);
+});
+test('Combining pages does not relocate execution, units, noble controls or advanced settings',()=>{
+ assert.match(src,/move\('sd-unit-section','units'\)/);
+ assert.match(src,/\['sd-auto-nobles','sd-include-first','sd-noble-lead'/);
+ assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
+ assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-advanced'\]\)move\(id,'settings'\)/);
+ assert.match(src,/data-sd-page/);
 });
