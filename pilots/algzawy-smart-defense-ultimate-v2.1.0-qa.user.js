@@ -1071,6 +1071,11 @@
     if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))
       throw Error('هناك خطة نشطة بالفعل؛ أوقفها قبل اعتماد خطة جديدة');
     if(scanned.checkedAt<now-120000)throw Error('الفحص أقدم من دقيقتين. أعد الفحص لتحديث القوات والأوقات');
+    if(scanned.defenseVillageId===ownId()&&doc.querySelector('#commands_incomings')){
+      const current=readIncoming(),keys=new Set(current.flatMap(t=>t.waves.map(nobleKey)));
+      if(!chosen||missionTasks(chosen).some(task=>task.nobleId&&!keys.has(task.nobleId)))
+        throw Error('انتهى النبيل المحدد أو اختفى من أوامر اللعبة؛ أعد الفحص');
+    }
     const tasks=missionTasks(chosen);
     if(tasks.some(task=>task.kind==='cancel'&&!options.cancelExperimental))
       throw Error('قنص الإلغاء لا يزال تجريبيًا؛ لا يُعتمد دون تفعيل الإذن التجريبي الصريح وفحص نموذج العودة');
