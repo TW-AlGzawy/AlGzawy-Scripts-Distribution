@@ -2285,7 +2285,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       `أعلى فارق قبول مستنتج من السيرفر: ${Math.round(metric.maxServerDeltaAbs||0)}ms`;
   }
   function monitor(){
-    if(!options.autoMonitor||mission&&!['stopped','done','cancel_clicked'].includes(mission.phase))return;
+    if(!options.autoMonitor)return;
+    if(mission&&['sent','verify','cancel_wait'].includes(mission.phase))return;
     if(scanned?.defenseVillageId&&scanned.defenseVillageId!==ownId())return;
     if(!doc.querySelector('#commands_incomings'))return;
     try{
