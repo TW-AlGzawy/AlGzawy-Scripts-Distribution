@@ -95,3 +95,44 @@ test('monitor uses a real incoming table and never wipes a foreign village on na
   assert.match(src,/if\(scanned\?\.defenseVillageId&&scanned\.defenseVillageId!==ownId\(\)\)return/);
   assert.match(src,/if\(!doc\.querySelector\('#commands_incomings'\)\)return/);
 });
+
+const specific={...pending(),index:0,tasks:[{nobleId:'n2',nobleAt:t+400}]};
+const changedTrains=(waves,overrides={})=>({
+  invalidated:false,threatChanged:true,defenseVillageId:'78',
+  updatedAt:t+500,trains:[{waves}],...overrides
+});
+test('individual missing target stops pending send despite remaining nobles',()=>{
+  assert.equal(core.shouldStopForMissingNoble(specific,
+    changedTrains([{kind:'noble',id:'n1',at:t+200},{kind:'noble',id:'n3',at:t+600}])),true);
+});
+test('timestamp change of same noble ID invalidates previous landing window',()=>{
+  assert.equal(core.shouldStopForMissingNoble(specific,
+    changedTrains([{kind:'noble',id:'n2',at:t+401}])),true);
+});
+test('target remaining unchanged does not stop pending send',()=>{
+  assert.equal(core.shouldStopForMissingNoble(specific,
+    changedTrains([{kind:'noble',id:'n2',at:t+400}])),false);
+});
+test('partial scan from a different defense village cannot stop task',()=>{
+  assert.equal(core.shouldStopForMissingNoble(specific,
+    changedTrains([],{defenseVillageId:'79'})),false);
+});
+test('ordinary non-change scan never invalidates task',()=>{
+  assert.equal(core.shouldStopForMissingNoble(specific,
+    changedTrains([],{threatChanged:false})),false);
+});
+test('already sent order is preserved on partial noble expiry',()=>{
+  assert.equal(core.shouldStopForMissingNoble({...specific,clickedAt:t+50},
+    changedTrains([])),false);
+});
+test('stale partial scan and no-task mission do not invalidate current target',()=>{
+  assert.equal(core.shouldStopForMissingNoble(specific,
+    changedTrains([],{updatedAt:t-4000})),false);
+  assert.equal(core.shouldStopForMissingNoble({...specific,tasks:[]},
+    changedTrains([])),false);
+});
+test('monitor detects same-size train replacement by individual noble signature',()=>{
+  assert.match(src,/const key=liveNobleSignature\(trains,nowServer\(\)\)/);
+  assert.match(src,/threatChanged:true,checkedAt:Math\.round\(nowServer\(\)\)/);
+  assert.match(src,/shouldStopForMissingNoble\(mission,remote\)/);
+});
