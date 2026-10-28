@@ -1748,6 +1748,12 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};const original=[...panel.querySelector('main').children];
+    for(const [id,label] of Object.entries(TAB_NAMES)){
+      const button=doc.createElement('button');button.type='button';
+      button.dataset.sdTab=id;button.textContent=label;nav.appendChild(button);
+      const page=doc.createElement('section');page.dataset.sdPage=id;
+      pages[id]=page;panel.querySelector('main').appendChild(page);
+    }
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
