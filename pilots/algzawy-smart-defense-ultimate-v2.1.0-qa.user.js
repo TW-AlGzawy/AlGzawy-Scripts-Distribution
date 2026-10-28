@@ -904,7 +904,7 @@
     if(!table)throw Error('افتح القرية التي يظهر فيها جدول الهجمات الواردة أولًا');
     const records=activeIncomingRecords([...table.querySelectorAll('tr')].map(row=>classifyRow(row,now)).filter(Boolean),now);
     const trains=nobleTrains(records);
-    if(!trains.length){scanned=null;chosen=null;lastScannedKey='';return [];} // no active nobles
+    if(!trains.length){clearExpiredNobles();return [];} // no active nobles
     try{renderNativeNobleControls();}catch(e){log('INLINE_TARGET_UI',String(e.message||e));}
     return trains;
   }
