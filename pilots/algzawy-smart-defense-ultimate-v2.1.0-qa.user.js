@@ -1573,6 +1573,8 @@
     saveSlots();renderSlots();
   }
 
+  const TAB_NAMES={home:'🏠 الرئيسية',nobles:'🎯 النبلاء',units:'⚔️ القوات',
+    plans:'🛡️ الخطط',execution:'📋 التنفيذ',settings:'⚙️ الإعدادات'};
   function mount(){
     if(uiQuery(uiId)||!doc.body)return;
     const style=doc.createElement('style');
