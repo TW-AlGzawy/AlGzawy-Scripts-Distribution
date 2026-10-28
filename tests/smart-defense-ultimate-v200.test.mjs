@@ -40,7 +40,7 @@ test('default auto targets nobles 2–4 and ignores first unless toggled',()=>{
  const train=core.nobleTrains(openings)[0];
  const windows=core.nobleWindows(train,{safetyMs:40,leadMs:250,auto:true});
  assert.deepEqual(windows.map(x=>x.selected),[false,true,true,true]);
- assert.equal(windows[0].arrival,time(18,13,36,230));
+ assert.equal(windows[0].arrival,time(18,13,36,231));
  assert.equal(windows[1].arrival,time(18,13,36,581));
  assert.equal(windows[2].arrival,time(18,13,36,781));
  assert.equal(windows[3].arrival,time(18,13,36,981));
@@ -81,8 +81,10 @@ test('window crossing second 950→050 is interpreted against actual absolute at
 });
 test('interposed regular attacks are risk annotations, not boundaries hiding nobles',()=>{
  const t=core.nobleTrains(openings)[0];
- const ws=core.nobleWindows(t,{safetyMs:40,auto:true});
+ const ws=core.nobleWindows(t,{safetyMs:10,auto:true,
+   targets:{noble3:{selected:true,fromMs:690,toMs:710}}});
  assert.equal(ws[1].riskCount,0);
+ assert.equal(ws[2].arrival,time(18,13,36,700));
  assert.equal(ws[2].riskCount,1);
  assert.equal(ws[2].riskWeight,3);
  assert.equal(ws[3].riskCount,0);
@@ -116,7 +118,7 @@ test('real support proposal inherits noble ID, explicit interval and cleaner ris
  assert.equal(support.length,3);
  assert.ok(support.every(x=>Object.keys(x.units).length===1&&x.units.light===25));
  assert.deepEqual(support.map(x=>x.nobleId),['noble2','noble3','noble4']);
- assert.equal(support[1].riskCount,1);
+ assert.equal(support[1].riskCount,0,'cleaner BEFORE troop landing is not a post-arrival hazard');
  assert.equal(support[1].arrivalAt,time(18,13,36,781));
 });
 test('source contains inline attack-row controls, command-specific targeting UI and unit pictures',()=>{
