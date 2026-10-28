@@ -1586,7 +1586,7 @@
 #${uiId} header strong{pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.08px;font-weight:700}
 #${uiId} .sd-brand{display:flex;align-items:center;gap:8px;min-width:0;pointer-events:none}
 #${uiId} .sd-mark{display:grid;place-items:center;min-width:31px;height:29px;padding:0 4px;border:1px solid var(--sd-accent);border-radius:8px;background:var(--sd-accent-dark);color:var(--sd-accent);font:700 11px/1 "Segoe UI",Arial;box-shadow:0 0 0 2px #B49AFF10;flex-shrink:0}
-#${uiId} .sd-accent-code{font:700 9px/1.2 Consolas,monospace;color:var(--sd-accent);direction:ltr;opacity:.95;white-space:nowrap}
+#${uiId} .sd-accent-code{display:none}
 #${uiId} main{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px;background:radial-gradient(ellipse at 50% -15%,#1A3647 0%,transparent 60%),var(--sd-panel)}
 #${uiId} .sub{margin:8px 0;color:var(--sd-muted)}
 #${uiId} .tiny{color:var(--sd-gold)}
