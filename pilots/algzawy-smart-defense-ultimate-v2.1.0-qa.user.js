@@ -887,6 +887,7 @@
     options=merged;
     set(root.localStorage,SETTINGS,options);
   }
+  function liveNobleSignature(trains,now){return (trains||[]).flatMap(t=>t.waves||[]).filter(w=>w.kind==='noble'&&w.at>now).map(w=>nobleKey(w)+':'+w.at).sort().join('|');}
   function readIncoming(){
     const now=nowServer();if(!finite(now))throw Error('ساعة سيرفر اللعبة الدقيقة غير متاحة');
     const table=doc.querySelector('#commands_incomings');
