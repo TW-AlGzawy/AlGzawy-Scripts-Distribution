@@ -1409,16 +1409,13 @@
   function placePanel(panel){
     let geometry=panelGeometry(get(root.localStorage,LAYOUT)||{});
     const header=panel.querySelector('header'),main=panel.querySelector('main');
-    const fold=uiQuery('sd-fold');
     const draw=()=>{
       geometry=panelGeometry(geometry);
       panel.style.left=Math.round(geometry.left)+'px';panel.style.top=Math.round(geometry.top)+'px';
       panel.style.width=Math.round(geometry.width)+'px';panel.style.height=(geometry.folded?49:Math.round(geometry.height))+'px';
       main.hidden=geometry.folded;panel.classList.toggle('folded',geometry.folded);
-      fold.textContent=geometry.folded?'فتح':'طي';
     };
     const persist=()=>set(root.localStorage,LAYOUT,geometry);
-    fold.onclick=()=>{geometry.folded=!geometry.folded;draw();persist();};
     const pointers=(el,edge)=>{
       el.addEventListener('pointerdown',e=>{
         if(e.button!==0&&e.pointerType==='mouse')return;
