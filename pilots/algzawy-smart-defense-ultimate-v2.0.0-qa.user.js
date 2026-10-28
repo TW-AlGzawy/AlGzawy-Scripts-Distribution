@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         [AlGzawy QA] سكربت الدفاع الأصلي النهائي | Ultimate Defense
-// @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
+// @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/ultimate
 // @version      2.0.0-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
@@ -1196,6 +1196,10 @@
     const sitter=new URLSearchParams(root.location.search).get('t');if(sitter)args.set('t',sitter);
     root.location.assign('/game.php?'+args.toString());
   }
+  function sendToleranceFor(task){
+    if(!Number.isSafeInteger(task?.marginMs)||task.marginMs<1)return 0;
+    return Math.max(1,Math.min(SEND_TOLERANCE_MS,Math.floor(task.marginMs*0.4)));
+  }
   function fireSend(){
     const task=currentTask();if(!task||mission?.phase!=='armed')return;
     if(!ready()||!isConfirmation()||!confirmedKind(task.kind))return stopMission('فشل فحص صفحة اللعبة قبل الإرسال');
@@ -1203,7 +1207,7 @@
     if(!target||target.str!==task.target.str||!button||!button.isConnected||button.disabled)
       return stopMission('تغيّر هدف الهجوم أو زر الإرسال');
     const time=nowServer(),late=time-task.sendAt;
-    if(late>SEND_TOLERANCE_MS){
+    if(late>sendToleranceFor(task)){
       if(tryCancelFallback('تأخر مؤقت المتصفح '+Math.round(late)+'ms قبل الإرسال'))return;
       return stopMission('تأخر مؤقت المتصفح '+Math.round(late)+'ms؛ لم نرسل أمرًا متأخرًا');
     }
@@ -1337,7 +1341,7 @@
     const task=currentTask();if(!task)return stopMission('المهمة غير صالحة');
     const time=nowServer(),deadline=mission.phase==='armed'?task.sendAt:task.cancelAt;
     if(!finite(time)||!validEpoch(deadline))return stopMission('موعد غير صالح');
-    if(mission.phase==='armed'&&time-task.sendAt>SEND_TOLERANCE_MS){
+    if(mission.phase==='armed'&&time-task.sendAt>sendToleranceFor(task)){
       if(tryCancelFallback('انتهى وقت المحاولة قبل الضغط على الإرسال'))return;
       return stopMission('انتهى موعد الإرسال، ولا يوجد بديل مستقبلي آمن؛ لم نرسل هجومًا متأخرًا');
     }
@@ -1653,6 +1657,10 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
   <input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr">
   <details id="sd-unit-section" open><summary>⚔️ اختر أنواع الجنود المسموح استخدامها (محفوظة)</summary>
+    <div class="row">
+      <button id="sd-unit-all" type="button">✅ تحديد كل الوحدات</button>
+      <button id="sd-unit-none" type="button">⬜ إلغاء تحديد الجميع</button>
+    </div>
     <div id="sd-unit-controls" class="sd-unit-grid"></div>
   </details>
   <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — استهداف جميع النبلاء الممكنين منذ بداية القطار</label>
@@ -1732,6 +1740,16 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     renderUnitControls();
+    const applyAllUnits=all=>{
+      const next=all?UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'):[];
+      options={...(get(root.localStorage,SETTINGS)||options),unitAllow:next};
+      set(root.localStorage,SETTINGS,options);
+      renderUnitControls();
+      chosen=null;if(uiQuery('sd-approve'))uiQuery('sd-approve').disabled=true;
+      notify('تم حفظ اختيارات الوحدات؛ يجب إعادة الفحص قبل اعتماد الجيش.','info');
+    };
+    uiQuery('sd-unit-all').onclick=()=>applyAllUnits(true);
+    uiQuery('sd-unit-none').onclick=()=>applyAllUnits(false);
     uiQuery('sd-auto-nobles').checked=options.autoNobles!==false;
     if(uiQuery('sd-cancel-experimental'))uiQuery('sd-cancel-experimental').checked=options.cancelExperimental===true;
     uiQuery('sd-cascade-auto').checked=options.cascadeAuto===true;
