@@ -894,7 +894,7 @@
     if(!table)throw Error('افتح القرية التي يظهر فيها جدول الهجمات الواردة أولًا');
     const records=activeIncomingRecords([...table.querySelectorAll('tr')].map(row=>classifyRow(row,now)).filter(Boolean),now);
     const trains=nobleTrains(records);
-    if(!trains.length)return []; // zero active nobles is a valid live state, not an error
+    if(!trains.length){scanned=null;chosen=null;lastScannedKey='';return [];} // no active nobles
     try{renderNativeNobleControls();}catch(e){log('INLINE_TARGET_UI',String(e.message||e));}
     return trains;
   }
