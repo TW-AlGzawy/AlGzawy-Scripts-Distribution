@@ -725,6 +725,7 @@
   }
   function applySharedContext(){
     const remote=get(root.localStorage,CONTEXT);
+    if(remote?.invalidated){if(scanned?.defenseVillageId===String(remote.defenseVillageId))clearExpiredNobles(false);return;}
     if(!remote||remote.version!==1||!remote.target||!Array.isArray(remote.plans)||
       !Array.isArray(remote.trains)||!validEpoch(remote.checkedAt))return;
     if(remote.updatedAt<latestContextAt)return;
