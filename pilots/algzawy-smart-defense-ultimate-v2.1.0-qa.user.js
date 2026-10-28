@@ -1933,6 +1933,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       try{approvePlan();}catch(e){log('APPROVE_BLOCK',e.message);notify('لم يبدأ التنفيذ: '+e.message,'error');}
     };
     uiQuery('sd-countdown').onclick=()=>{
+      panel.querySelector('[data-sd-tab=execution]')?.click();
       const el=uiQuery('sd-status');
       el?.scrollIntoView?.({behavior:'smooth',block:'center'});
     };
