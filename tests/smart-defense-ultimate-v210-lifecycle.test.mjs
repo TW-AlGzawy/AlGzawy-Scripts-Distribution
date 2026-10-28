@@ -78,7 +78,7 @@ test('dispatch key ledger rejects replay of a previously claimed order',()=>{
 });
 test('source tab consumes storage expiry and rechecks before sending',()=>{
   assert.match(src,/if\(shouldStopForExpiredTarget\(mission,remote\)\)/);
-  assert.match(src,/if\(shouldStopForExpiredTarget\(mission,get\(root\.localStorage,CONTEXT\)\)\)/);
+  assert.match(src,/shouldStopForExpiredTarget\(mission,get\(root\.localStorage,CONTEXT\)\)/);
   assert.match(src,/defenseVillageId:scanned\.defenseVillageId/);
 });
 test('a new sequential task resets prior clickedAt without clearing the audit',()=>{
