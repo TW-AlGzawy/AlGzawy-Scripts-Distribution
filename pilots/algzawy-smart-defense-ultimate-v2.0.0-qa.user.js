@@ -373,10 +373,10 @@
     targets.sort((a,b)=>b.distance-a.distance||a.id.localeCompare(b.id));
     return targets.slice(0,limit);
   }
-  function sequentialCancelCandidates({source,nearby,units,unitMinutes,worldFactor,waves,now,cancelWindowMs,safetyMs=100,share=0.5}){
+  function sequentialCancelCandidates({source,nearby,units,unitMinutes,worldFactor,waves,now,cancelWindowMs,safetyMs=100,share=0.5,windows=null,allowUnits=null}){
     if(!source||!Array.isArray(nearby)||!validEpoch(now)||!finite(worldFactor)||worldFactor<=0)
       throw Error('بيانات أهداف القنص غير صالحة');
-    const formations=unitFormations(units,unitMinutes,share);
+    const formations=unitFormations(units,unitMinutes,share,allowUnits);
     const possible=[];
     for(const target of nearby){
       if(target.owner!==0||target.x===source.x&&target.y===source.y)continue;
@@ -385,7 +385,7 @@
           formation.minutes*60000/worldFactor);
         for(const option of cancelOptions({waves,now,sourceId:String(source.id),
           target:{x:target.x,y:target.y,str:target.str},oneWayMs:travelMs,
-          cancelWindowMs,safetyMs})){
+          cancelWindowMs,safetyMs,windows})){
           possible.push({...option,sourceName:source.name||String(source.id),
             units:formation.units,troops:formation.troops,autoTarget:true,
             targetVillageId:target.id,targetOwner:0,targetDistance:target.distance,
@@ -425,7 +425,7 @@
     }));
   }
   function multiNobleStrategies(plans,maxTeams=3){
-    const max=Math.max(1,Math.min(3,Number(maxTeams)||1));
+    const max=Math.max(1,Math.min(30,Number(maxTeams)||1));
     if(max<2)return [];
     // Cancel commands require verification and human-safe return handling; never
     // group them into a composite that would silently stop after first cancel.
@@ -497,7 +497,7 @@
       !/^\d+$/.test(String(task.sourceId||''))||!xy(task.target?.str||''))return 'خطة غير صالحة';
     if(!validEpoch(task.sendAt)||task.sendAt-now<MIN_PREP_MS)return 'لم يعد هناك وقت كاف لتجهيز الإرسال';
     if(!task.precise)return 'توقيت إحدى الهجمات لا يحتوي على ميلي ثانية مؤكدة';
-    if(task.kind==='support'&&(!task.units||!Object.keys(task.units).every(x=>DEF_TYPES.includes(x))))return 'الوحدات الدفاعية غير صحيحة';
+    if(task.kind==='support'&&(!task.units||!Object.keys(task.units).every(x=>DEF_TYPES.includes(x)&&x!=='snob'&&x!=='knight')))return 'الوحدات الدفاعية غير صحيحة';
     if(task.kind==='cancel'&&(!validEpoch(task.cancelAt)||task.cancelAt<=task.sendAt))return 'موعد الإلغاء غير صحيح';
     return null;
   }
@@ -583,12 +583,13 @@
   const SETTINGS=storagePrefix+'settings',MISSION=storagePrefix+'mission_'+tabId;
   const METRICS=storagePrefix+'metrics',AUDIT=storagePrefix+'events';
   const LAYOUT=storagePrefix+'layout',TRAIN=storagePrefix+'train',LOCK=storagePrefix+'lock';
-  const SLOTS=storagePrefix+'planning_slots_v110';
+  const SLOTS=storagePrefix+'planning_slots_v200';
+  const TARGET_RULES=storagePrefix+'noble_target_rules_v200';
   // Drafts and scans are shared by tabs on this origin for this player only.
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v103',CONTEXT=storagePrefix+'scan_context_v103';
   const LIVE_STATE=storagePrefix+'mission_state_v103',STOP_REQUEST=storagePrefix+'stop_request_v103';
-  const FIELD_IDS=['sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-auto-nobles','sd-noble-target','sd-cascade-auto'];
+  const FIELD_IDS=['sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
   const STOP_EVENT='__algzawy_stop_smart-defense-v1';
   const uiId='algzawy-smart-defense-v1';
   const ownId=()=>String(root.game_data?.village?.id||'');
@@ -598,16 +599,51 @@
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:2,
-    nobleSpacingMs:200,autoNobles:true,nobleTarget:1,cascadeAuto:false};
+    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,nobleTarget:1,
+    unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false};
   let logRows=get(root.localStorage,AUDIT)||[];
   let lastScannedKey='',uiTick=0,monitorTimer=0,panelLayout=null;
   let latestDraftAt=0,latestContextAt=0,otherMission=null;
   let slotState=Array.isArray(get(root.localStorage,SLOTS))?get(root.localStorage,SLOTS).slice(0,30):[];
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
-  const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto']
+  const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto',
+    'nobleLeadMs','includeFirst','unitAllow']
     .map(k=>values?.[k]??null));
   const currentFingerprint=()=>fingerprint(get(root.localStorage,SETTINGS)||options);
+
+  function rulesFor(villageId=ownId()){
+    const state=get(root.localStorage,TARGET_RULES)||{};
+    return state[String(villageId)]||{};
+  }
+  function updateNobleRule(key,values,villageId=ownId()){
+    if(!key||!values)return;
+    const all=get(root.localStorage,TARGET_RULES)||{};
+    const old=all[String(villageId)]||{};
+    const copy={...old,[key]:{...(old[key]||{}),...values}};
+    set(root.localStorage,TARGET_RULES,{...all,[String(villageId)]:copy});
+    chosen=null;
+    if(uiQuery('sd-approve'))uiQuery('sd-approve').disabled=true;
+    if(uiQuery('sd-message'))uiQuery('sd-message').textContent=
+      'تم حفظ استهداف النبيل ونافذته. يجب إجراء فحص شامل جديد قبل اعتماد أي خطة.';
+  }
+  function allowedUnits(){
+    const value=options.unitAllow;
+    const allowed=Array.isArray(value)?value:
+      UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight');
+    return allowed.filter(x=>UNIT_TYPES.includes(x)&&x!=='snob'&&x!=='knight');
+  }
+  function targetRulesMatch(){
+    if(!scanned||!scanned.targetRules)return false;
+    return JSON.stringify(scanned.targetRules)===
+      JSON.stringify(rulesFor(scanned.defenseVillageId));
+  }
+  function selectedWindows(train,defs=rulesFor()){
+    return nobleWindows(train,{safetyMs:options.margin,
+      leadMs:options.nobleLeadMs||250,targets:defs,
+      auto:options.autoNobles!==false,includeFirst:options.includeFirst===true});
+  }
+
   function recordDraft(id,value){
     if(!FIELD_IDS.includes(id))return;
     const previous=get(root.localStorage,DRAFT)||{};
@@ -621,7 +657,7 @@
     if(draft.updatedAt<latestDraftAt)return;
     latestDraftAt=draft.updatedAt;
     for(const id of FIELD_IDS)if(typeof draft.fields[id]==='string'&&uiQuery(id)){
-      if(id==='sd-auto-nobles'||id==='sd-cascade-auto')uiQuery(id).checked=draft.fields[id]==='1';
+      if(['sd-auto-nobles','sd-cascade-auto','sd-include-first'].includes(id))uiQuery(id).checked=draft.fields[id]==='1';
       else uiQuery(id).value=draft.fields[id];
     } // no input/change event, preventing cross-tab sync loops
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=!!uiQuery('sd-auto-nobles')?.checked;
@@ -639,7 +675,7 @@
     const previous=get(root.localStorage,CONTEXT)||{};
     const data={version:1,writer:tabId,updatedAt:Math.max(Date.now(),Number(previous.updatedAt||0)+1),
       checkedAt:scanned.checkedAt,defenseVillageId:scanned.defenseVillageId||ownId(),
-      settingsFingerprint:scanned.settingsFingerprint,
+      settingsFingerprint:scanned.settingsFingerprint,targetRules:scanned.targetRules,
       target:scanned.target,trains:scanned.trains,plans:scanned.plans.slice(0,80),
       worldTargets:scanned.worldTargets,
       totalPlans:scanned.plans.length,diagnostics:scanned.diagnostics,regional:scanned.regional,
@@ -659,7 +695,8 @@
       defenseVillageId:String(remote.defenseVillageId||''),
       rosterCount:Number(remote.rosterCount)||0,totalPlans:Number(remote.totalPlans)||0,
       diagnostics:remote.diagnostics||[],regional:remote.regional||{available:false,reason:'غير محفوظ'},
-      worldTargets:remote.worldTargets||{available:false,reason:'لم تُحفظ قائمة الأهداف'}};
+      worldTargets:remote.worldTargets||{available:false,reason:'لم تُحفظ قائمة الأهداف'},
+      targetRules:remote.targetRules||{};
     lastScannedKey=scanned.trains.map(t=>t.id+':'+t.waves.length).join('|');
     renderScan();
     chosen=remote.selectedId?scanned.plans.find(p=>p.id===remote.selectedId)||null:null;
@@ -792,6 +829,10 @@
     merged.cancelOneWay=Number(value('sd-cancel-oneway')||0);
     merged.cancelLimit=Number(value('sd-cancel-limit')||600);
     merged.maxTeams=Number(value('sd-team-count')||2);
+    const lead=Number(value('sd-noble-lead')||250);
+    if(Number.isSafeInteger(lead)&&lead>0&&lead<=60000)merged.nobleLeadMs=lead;
+    merged.includeFirst=(Object.hasOwn(drafts,'sd-include-first')?drafts['sd-include-first']:
+      (uiQuery('sd-include-first')?.checked?'1':'0'))==='1';
     const spacing=Number(value('sd-noble-spacing')||200);
     if(Number.isSafeInteger(spacing)&&spacing>=1&&spacing<=60000)merged.nobleSpacingMs=spacing;
     const autoRaw=Object.hasOwn(drafts,'sd-auto-nobles')?drafts['sd-auto-nobles']:
@@ -811,8 +852,9 @@
     const table=doc.querySelector('#commands_incomings');
     if(!table)throw Error('افتح القرية التي يظهر فيها جدول الهجمات الواردة أولًا');
     const records=[...table.querySelectorAll('tr')].map(row=>classifyRow(row,now)).filter(Boolean);
-    const trains=groupTrains(records);
-    if(!trains.length)throw Error('لم يظهر قطار يبدأ بهجمة دون نبيل وتليه هجمات تحمل أيقونة النبيل');
+    const trains=nobleTrains(records);
+    if(!trains.length)throw Error('لا توجد هجمات تحمل علامة نبيل مؤكدة في هذه القرية');
+    try{renderNativeNobleControls();}catch(e){log('INLINE_TARGET_UI',String(e.message||e));}
     return trains;
   }
   async function readConfiguration(){
@@ -889,18 +931,19 @@
     return {available:true,villages,cached:false};
   }
 
-  function cancelPlanFor(train,roster,now){
+  function cancelPlanFor(train,roster,now,windows=null){
     const target=xy(options.cancelTarget);
     const own=roster.find(x=>x.id===ownId());
     if(!target||!own||!finite(options.cancelOneWay)||options.cancelOneWay<=0)return [];
     const units={};for(const unit of DEF_TYPES){
       const count=Number(own.units[unit]||0);
-      if(count>0){const quantity=Math.floor(count*(1-options.reserve/100));if(quantity>0)units[unit]=quantity;}
+      if(count>0&&allowedUnits().includes(unit)){
+        const quantity=Math.floor(count*(1-options.reserve/100));if(quantity>0)units[unit]=quantity;}
     }
     if(Object.values(units).every(x=>x<=0))return [];
     return cancelOptions({waves:train.waves,now,sourceId:ownId(),target,
       oneWayMs:Math.round(options.cancelOneWay*1000),
-      cancelWindowMs:Math.round(options.cancelLimit*1000),safetyMs:options.margin})
+      cancelWindowMs:Math.round(options.cancelLimit*1000),safetyMs:options.margin,windows})
       .map(x=>({...x,units,sourceName:own.name}));
   }
   async function scanEverything(){
@@ -914,18 +957,23 @@
     const now=nowServer();if(!finite(now))throw Error('ساعة السيرفر انقطعت أثناء الفحص');
     const scanFingerprint=currentFingerprint();
     const support=[],cancel=[],diagnostics=[];
+    const targetRules=rulesFor(ownId());
     for(const train of trains){
+      const windows=selectedWindows(train,targetRules);
       const diagnostic={trainId:train.id};diagnostics.push(diagnostic);
       support.push(...supportOptions({villages:roster,target,waves:train.waves,
         unitMinutes:config.unitMinutes,worldFactor:config.factor,now:Math.round(now),
-        share:(100-options.reserve)/100,safetyMs:options.margin,diagnostics:diagnostic}).map(x=>({...x,trainId:train.id})));
-      cancel.push(...cancelPlanFor(train,roster,Math.round(now)).map(x=>({...x,trainId:train.id})));
+        share:(100-options.reserve)/100,safetyMs:options.margin,diagnostics:diagnostic,
+        windows,allowUnits:allowedUnits()}).map(x=>({...x,trainId:train.id})));
+      cancel.push(...cancelPlanFor(train,roster,Math.round(now),windows)
+        .map(x=>({...x,trainId:train.id})));
       if(worldTargets.available){
         const own=roster.find(v=>v.id===ownId());
         if(own){
           cancel.push(...sequentialCancelCandidates({source:own,nearby:worldTargets.villages,
             units:own.units,unitMinutes:config.unitMinutes,worldFactor:config.factor,
-            waves:train.waves,now:Math.round(now),
+            waves:train.waves,now:Math.round(now),windows,
+            allowUnits:allowedUnits(),
             cancelWindowMs:Math.round(options.cancelLimit*1000),
             safetyMs:options.margin,share:(100-options.reserve)/100})
             .map(p=>({...p,trainId:train.id})));
@@ -936,7 +984,7 @@
     const plans=[...multiNobleStrategies(basePlans,options.maxTeams),...basePlans];
     plans.sort((a,b)=>(b.score||0)-(a.score||0));
     if(scanFingerprint!==currentFingerprint())throw Error('تغيرت الإعدادات أثناء الفحص؛ أعد الفحص للخطة الجديدة');
-    scanned={target,roster,config,trains,plans,regional,worldTargets,diagnostics,
+    scanned={target,roster,config,trains,plans,regional,worldTargets,diagnostics,targetRules,
       settingsFingerprint:scanFingerprint,defenseVillageId:ownId(),checkedAt:Math.round(now)};
     set(root.sessionStorage,TRAIN,{target,trains,checkedAt:scanned.checkedAt});
     chosen=null;lastScannedKey=trains.map(t=>t.id+':'+t.waves.length).join('|');
@@ -956,13 +1004,15 @@
     if(!chosen||!scanned)throw Error('نفذ الفحص ثم اختر خطة أولًا');
     if(!visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1).some(p=>p.id===chosen.id))
       throw Error('الخطة لا تستهدف النبيل المحدد؛ اختر خطة مناسبة');
-    if(!sharedContextUsable(scanned,currentFingerprint(),nowServer()))
+    if(!sharedContextUsable(scanned,currentFingerprint(),nowServer())||!targetRulesMatch())
       throw Error('الخطة المشتركة قديمة أو تغيرت الإعدادات؛ أعد الفحص قبل التنفيذ');
     const now=nowServer();if(!finite(now)||!ready())throw Error('ساعة الخادم أو الجلسة غير متاحة');
     if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))
       throw Error('هناك خطة نشطة بالفعل؛ أوقفها قبل اعتماد خطة جديدة');
     if(scanned.checkedAt<now-120000)throw Error('الفحص أقدم من دقيقتين. أعد الفحص لتحديث القوات والأوقات');
     const tasks=missionTasks(chosen);
+    if(tasks.some(task=>Object.keys(task.units||{}).some(u=>!allowedUnits().includes(u))))
+      throw Error('أحد الجيوش يتضمن وحدة غير مفعّلة في لوحة اختيار القوات');
     const fallbackPlans=options.cascadeAuto===true&&tasks.length===1?
       cancelFallbackCandidates(scanned.plans,tasks[0],Math.round(now)):[];
     for(const task of tasks){
