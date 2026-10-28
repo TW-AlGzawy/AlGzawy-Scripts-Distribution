@@ -633,7 +633,12 @@
     return UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'&&
       (!known.length||present.has(x)));
   }
-  const CORE=Object.freeze({availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  function hasExpiredNobleRecords(trains,now){
+    return Array.isArray(trains)&&validEpoch(Math.round(now))&&
+      trains.some(train=>(train.waves||[]).some(w=>
+        w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
+  }
+  const CORE=Object.freeze({hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -770,6 +775,14 @@
     }
     if(shouldStopForMissingNoble(mission,remote))
       stopMission('اختفى النبيل المحدد أو تغير وقت وصوله بينما بقيت نبلاء أخرى');
+    // A reloaded tab must not resurrect a noble that has already arrived
+    // merely because its earlier scan is less than two minutes old.
+    if(remote&&hasExpiredNobleRecords(remote.trains,nowServer())){
+      if(scanned?.defenseVillageId===String(remote.defenseVillageId)){
+        scanned=null;chosen=null;lastScannedKey='';renderScan();renderPlan();
+      }
+      return;
+    }
     if(remote&&!remote.invalidated&&!sharedContextUsable(remote,currentFingerprint(),nowServer()))return;
     if(!remote||remote.version!==1||!remote.target||!Array.isArray(remote.plans)||
       !Array.isArray(remote.trains)||!validEpoch(remote.checkedAt))return;
@@ -1138,7 +1151,8 @@
     if(!chosen||!scanned)throw Error('نفذ الفحص ثم اختر خطة أولًا');
     if(!visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1).some(p=>p.id===chosen.id))
       throw Error('الخطة لا تستهدف النبيل المحدد؛ اختر خطة مناسبة');
-    if(!sharedContextUsable(scanned,currentFingerprint(),nowServer())||!targetRulesMatch())
+    if(!sharedContextUsable(scanned,currentFingerprint(),nowServer())||
+      hasExpiredNobleRecords(scanned.trains,nowServer())||!targetRulesMatch())
       throw Error('الخطة المشتركة قديمة أو تغيرت الإعدادات؛ أعد الفحص قبل التنفيذ');
     const now=nowServer();if(!finite(now)||!ready())throw Error('ساعة الخادم أو الجلسة غير متاحة');
     if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait','verify'].includes(mission.phase))
