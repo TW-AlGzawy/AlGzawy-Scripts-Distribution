@@ -687,11 +687,24 @@
     if(uiQuery('sd-message'))uiQuery('sd-message').textContent=
       'تم حفظ استهداف النبيل ونافذته. يجب إجراء فحص شامل جديد قبل اعتماد أي خطة.';
   }
+  function availableWorldUnits(){
+    // Tribal Wars exposes an authoritative unit list in game_data on most
+    // worlds. The world configuration read during a full scan is a fallback.
+    const gameUnits=root.game_data?.units;
+    const listed=Array.isArray(gameUnits)?gameUnits:
+      typeof gameUnits==='string'?gameUnits.split(/[\s,]+/).filter(Boolean):
+      gameUnits&&typeof gameUnits==='object'?Object.keys(gameUnits):[];
+    const known=listed.length?listed:Object.keys(scanned?.config?.unitMinutes||{});
+    const present=new Set(known);
+    return UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'&&
+      (!known.length||present.has(x)));
+  }
   function allowedUnits(){
     const value=options.unitAllow;
     const allowed=Array.isArray(value)?value:
       UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight');
-    return allowed.filter(x=>UNIT_TYPES.includes(x)&&x!=='snob'&&x!=='knight');
+    const present=new Set(availableWorldUnits());
+    return allowed.filter(x=>present.has(x));
   }
   function targetRulesMatch(){
     if(!scanned||!scanned.targetRules)return false;
@@ -1108,6 +1121,7 @@
       settingsFingerprint:scanFingerprint,defenseVillageId:ownId(),checkedAt:Math.round(now)};
     set(root.sessionStorage,TRAIN,{target,trains,checkedAt:scanned.checkedAt});
     chosen=null;lastScannedKey=liveNobleSignature(trains,nowServer());
+    renderUnitControls();
     log('SCAN',`${trains.length} trains, ${roster.length} villages, ${plans.length} proposals`);
     renderScan();publishScanContext();return scanned;
   }
@@ -1938,7 +1952,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     renderUnitControls();
     const applyAllUnits=all=>{
-      const next=all?UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'):[];
+      const next=all?availableWorldUnits():[];
       options={...(get(root.localStorage,SETTINGS)||options),unitAllow:next};
       set(root.localStorage,SETTINGS,options);
       renderUnitControls();
@@ -2063,7 +2077,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const wrap=uiQuery('sd-unit-controls');if(!wrap)return;
     wrap.replaceChildren();
     const enabled=new Set(allowedUnits());
-    for(const type of UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight')){
+    for(const type of availableWorldUnits()){
       const label=doc.createElement('label');label.className='sd-unit-label';
       const input=doc.createElement('input');input.type='checkbox';
       input.checked=enabled.has(type);input.dataset.unitType=type;
