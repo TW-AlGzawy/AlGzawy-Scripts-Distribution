@@ -1874,7 +1874,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-cascade-auto').checked=options.cascadeAuto===true;
     uiQuery('sd-noble-target').value=options.nobleTarget||1;
     uiQuery('sd-noble-target').disabled=uiQuery('sd-auto-nobles').checked;
-    uiQuery('sd-advanced').open=!!options.advanced;
+    uiQuery('sd-advanced').open=true; // settings already own page, no second click needed
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=true;
     uiQuery('sd-noble-spacing').addEventListener('input',()=>{
       const val=Number(uiQuery('sd-noble-spacing').value);
