@@ -1784,6 +1784,11 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     for(const button of nav.querySelectorAll('[data-sd-tab]'))
       button.onclick=()=>activate(button.dataset.sdTab);
     activate(activeTab);
+    const newTask=doc.createElement('button');newTask.type='button';
+    newTask.id='sd-add-slot';newTask.textContent='➕ إنشاء مهمة قنص جديدة';
+    pages.plans.appendChild(newTask);
+    const tasksList=doc.createElement('div');tasksList.id='sd-tasks-list';
+    pages.plans.appendChild(tasksList);
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
