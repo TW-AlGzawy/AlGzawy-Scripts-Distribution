@@ -1006,7 +1006,7 @@
     if(!target)throw Error('تعذر معرفة القرية المدافَع عنها');
     const trains=readIncoming();
     if(!trains.length){
-      invalidateExpiredPlans('لا توجد هجمات نبيلة قادمة في هذه القرية؛ أزيلت الخطط القديمة.',true);
+      clearExpiredNobles();
       return {trains:[],plans:[],empty:true};
     }
     const [roster,config,regional,worldTargets]=await Promise.all([
