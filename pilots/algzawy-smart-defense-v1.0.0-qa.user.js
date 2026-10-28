@@ -1122,7 +1122,9 @@
     if(!finite(now)||!ready()||humanStop())return false;
     const first=mission.fallbackPlans.find(p=>
       p.sendAt-now>=MIN_NAV_SEPARATION_MS&&
-      !validateTask(p,Math.round(now),player,host));
+      !validateTask(p,Math.round(now),player,host)&&
+      Number.isFinite(p.marginMs)&&
+      metric.maxDeviation<=Math.max(90,p.marginMs-20));
     if(!first)return false;
     const remaining=cancelFallbackCandidates(mission.fallbackPlans,first,Math.round(now));
     log('CASCADE_FALLBACK',reason+' → '+first.target.str+
