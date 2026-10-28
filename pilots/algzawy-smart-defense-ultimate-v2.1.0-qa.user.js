@@ -1774,6 +1774,16 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-advanced'])move(id,'settings');
     for(const node of original)if(node.parentElement===panel.querySelector('main'))
       pages.settings.appendChild(node);
+    const activate=tab=>{
+      activeTab=TAB_NAMES[tab]?tab:'home';
+      for(const [id,page] of Object.entries(pages))page.hidden=id!==activeTab;
+      for(const button of nav.querySelectorAll('[data-sd-tab]'))
+        button.classList.toggle('selected',button.dataset.sdTab===activeTab);
+      set(root.localStorage,TAB_KEY,activeTab);
+    };
+    for(const button of nav.querySelectorAll('[data-sd-tab]'))
+      button.onclick=()=>activate(button.dataset.sdTab);
+    activate(activeTab);
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
