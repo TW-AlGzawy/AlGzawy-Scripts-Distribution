@@ -2065,6 +2065,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const now=nowServer();if(!finite(now))return;
     const entries=[...table.querySelectorAll('tr')].map(row=>({row,info:classifyRow(row,now)}))
       .filter(x=>x.info&&x.info.at>now);
+    const activeNobleRows=new Set(entries.filter(x=>x.info.kind==='noble').map(x=>x.row));
+    for(const row of table.querySelectorAll('tr'))if(!activeNobleRows.has(row))
+      row.querySelector('.sd-inline-noble')?.remove();
     const lookup=new Map(nobleTrains(entries.map(x=>x.info)).flatMap(t=>
       t.waves.filter(x=>x.kind==='noble').map((n,i)=>[nobleKey(n),i+1])));
     const stored=rulesFor(ownId());
