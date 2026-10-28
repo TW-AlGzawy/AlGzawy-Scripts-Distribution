@@ -2007,7 +2007,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         el.addEventListener('click',e=>e.stopPropagation());
         el.addEventListener('change',save);
       }
-      cell.appendChild(inline);
+      cell.prepend(inline);
     }
   }
 
