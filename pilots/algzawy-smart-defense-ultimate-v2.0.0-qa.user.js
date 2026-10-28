@@ -111,6 +111,31 @@
   // The game table can contain cleaners and mixed attacks between nobles.
   // Noble tracking is therefore independent of ordinary attack rows.
   // Ordinary attacks are retained as risk observations, never silent boundaries.
+
+  function dispatchKey(task){
+    return [task?.kind||'',String(task?.sourceId||''),task?.target?.str||'',
+      task?.sendAt||0,JSON.stringify(task?.units||{})].join('|');
+  }
+  function reserveDispatch(storage,key,dispatch,now){
+    if(!storage||!dispatch||!validEpoch(now))return false;
+    let rows={};
+    try{rows=JSON.parse(storage.getItem(key)||'{}')||{};}catch(_){rows={};}
+    if(typeof rows!=='object'||Array.isArray(rows))rows={};
+    for(const id of Object.keys(rows))
+      if(!validEpoch(rows[id])||now-rows[id]>86400000)delete rows[id];
+    if(validEpoch(rows[dispatch])&&now-rows[dispatch]<86400000)return false;
+    rows[dispatch]=now;storage.setItem(key,JSON.stringify(rows));return true;
+  }
+  function measuredTimingRisk(margin,jitter,serverDelay){
+    if(!Number.isSafeInteger(margin)||margin<20)
+      return {safe:false,message:'الهامش أقل من 20ms ولا يمكن اعتباره صالحًا لأتمتة المتصفح'};
+    const max=Math.max(Number(jitter)||0,Number(serverDelay)||0);
+    if(max>=margin)
+      return {safe:false,message:'تأخير مقاس '+Math.ceil(max)+'ms يتجاوز الهامش '+margin+'ms'};
+    return {safe:true,message:max?'تأخير مسجل '+Math.ceil(max)+'ms، ولا توجد دقة مضمونة':
+      'لا توجد بيانات سيرفر كافية؛ النتيجة تقديرية ولا توجد دقة مضمونة'};
+  }
+
   function nobleTrains(records,maxSpan=30*60000){
     const sorted=(records||[]).filter(r=>validEpoch(r.at)).slice().sort((a,b)=>a.at-b.at);
     const noble=sorted.filter(r=>r.kind==='noble');
@@ -570,7 +595,7 @@
       deltaMs,lateMs:Math.max(0,deltaMs),
       withinMargin:finite(task.marginMs)&&Math.abs(deltaMs)<=task.marginMs};
   }
-  const CORE=Object.freeze({nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -587,6 +612,7 @@
   const LAYOUT=storagePrefix+'layout',TRAIN=storagePrefix+'train',LOCK=storagePrefix+'lock';
   const SLOTS=storagePrefix+'planning_slots_v200';
   const TARGET_RULES=storagePrefix+'noble_target_rules_v200';
+  const CLAIMED_SENDS=storagePrefix+'dispatch_claims_v200';
   // Drafts and scans are shared by tabs on this origin for this player only.
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v103',CONTEXT=storagePrefix+'scan_context_v103';
@@ -600,9 +626,10 @@
   let mission=get(root.sessionStorage,MISSION),scanned=null,chosen=null,clock=null,timer=null;
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
-    cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:2,
+    cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:10,
     nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,nobleTarget:1,
-    unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false};
+    unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
+    cancelExperimental:false};
   let logRows=get(root.localStorage,AUDIT)||[];
   let lastScannedKey='',uiTick=0,monitorTimer=0,panelLayout=null;
   let latestDraftAt=0,latestContextAt=0,otherMission=null;
@@ -841,6 +868,7 @@
     const autoRaw=Object.hasOwn(drafts,'sd-auto-nobles')?drafts['sd-auto-nobles']:
       (uiQuery('sd-auto-nobles')?.checked?'1':'0');
     merged.autoNobles=autoRaw==='1';
+    merged.cancelExperimental=!!get(root.localStorage,SETTINGS)?.cancelExperimental;
     const cascadeRaw=Object.hasOwn(drafts,'sd-cascade-auto')?drafts['sd-cascade-auto']:
       (uiQuery('sd-cascade-auto')?.checked?'1':'0');
     merged.cascadeAuto=cascadeRaw==='1';
@@ -1014,6 +1042,8 @@
       throw Error('هناك خطة نشطة بالفعل؛ أوقفها قبل اعتماد خطة جديدة');
     if(scanned.checkedAt<now-120000)throw Error('الفحص أقدم من دقيقتين. أعد الفحص لتحديث القوات والأوقات');
     const tasks=missionTasks(chosen);
+    if(tasks.some(task=>task.kind==='cancel'&&!options.cancelExperimental))
+      throw Error('قنص الإلغاء لا يزال تجريبيًا؛ لا يُعتمد دون تفعيل الإذن التجريبي الصريح وفحص نموذج العودة');
     if(tasks.some(task=>Object.keys(task.units||{}).some(u=>!allowedUnits().includes(u))))
       throw Error('أحد الجيوش يتضمن وحدة غير مفعّلة في لوحة اختيار القوات');
     const fallbackPlans=options.cascadeAuto===true&&tasks.length===1?
@@ -1021,11 +1051,9 @@
     for(const task of tasks){
       const problem=validateTask(task,Math.round(now),player,host);
       if(problem)throw Error(problem);
-      const measuredError=Math.max(Number(metric.maxDeviation)||0,
-        Number(metric.maxServerDeltaAbs)||0);
-      if(measuredError>Math.max(90,task.marginMs-20))
-        throw Error('فارق التوقيت المقاس (النقر أو استلام السيرفر) '+Math.round(measuredError)+
-          'ms يتجاوز هامش الفجوة. اختر فجوة أوسع ولا تعتمد على القنص الدقيق هنا');
+      const verdict=measuredTimingRisk(task.marginMs,metric.maxDeviation,metric.maxServerDeltaAbs);
+      if(!verdict.safe)throw Error(verdict.message);
+      log('PRECISION_WARNING',verdict.message);
     }
     if(humanStop())throw Error('التحقق البشري نشط');
     if(!acquireLock())throw Error('توجد مهمة دفاعية نشطة في تبويب آخر');
@@ -1179,6 +1207,9 @@
       if(tryCancelFallback('تأخر مؤقت المتصفح '+Math.round(late)+'ms قبل الإرسال'))return;
       return stopMission('تأخر مؤقت المتصفح '+Math.round(late)+'ms؛ لم نرسل أمرًا متأخرًا');
     }
+    // Persistent idempotency survives reload, and the existing tab lock guards competing tabs.
+    if(!reserveDispatch(root.localStorage,CLAIMED_SENDS,dispatchKey(task),Math.round(time)))
+      return stopMission('سبق تسجيل محاولة إرسال الأمر نفسه؛ ممنوع الإرسال المكرر');
     // Mark before native click. A reload must not cause duplicate dispatch.
     storeMission({...mission,phase:'sent',clickedAt:time,note:'تم الضغط على زر إرسال اللعبة؛ تحقق من ظهور الأمر الصادر'});
     log('SEND_CLICK',task.kind+' planned '+stamp(task.sendAt)+
@@ -1667,7 +1698,11 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     <label>إحداثيات هدف الإلغاء (اختيار يدوي بديل)</label><input id="sd-cancel-target" placeholder="500|500" dir="ltr">
     <div class="row"><div><label>زمن السير لهجوم الإلغاء (ثانية)</label><input id="sd-cancel-oneway" type="number" min="1"></div>
     <div><label>نافذة الإلغاء (ثانية)</label><input id="sd-cancel-limit" type="number" min="1"></div></div>
-    <label>العدد الأقصى لقرى الدعم المنسقة</label><input id="sd-team-count" type="number" min="1" max="3">
+    <label>العدد الأقصى للمهام المتسلسلة الممكنة (حتى 30)</label>
+    <input id="sd-team-count" type="number" min="1" max="30">
+    <label class="sd-auto-option" for="sd-cancel-experimental">
+      <input id="sd-cancel-experimental" type="checkbox"> ⚠️ السماح بإلغاء تجريبي — نموذج عودة الجيش غير مُثبت لهذا العالم
+    </label>
     <div id="sd-audit" class="box">سجل التنفيذ فارغ.</div>
     <p class="tiny">لا يفسر السكربت هجومًا بلا نبيل باعتباره هجومًا قويًا بالضرورة. لا ينفّذ تعليمات CAPTCHA ولا يتجاوز اعتماد الجلسة.</p>
   </details>
@@ -1685,11 +1720,20 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-cancel-oneway').value=options.cancelOneWay||'';
     uiQuery('sd-cancel-limit').value=options.cancelLimit;
     uiQuery('sd-team-count').value=options.maxTeams;
+    uiQuery('sd-cancel-experimental').checked=options.cancelExperimental===true;
+    uiQuery('sd-cancel-experimental').addEventListener('change',()=>{
+      options={...(get(root.localStorage,SETTINGS)||options),
+        cancelExperimental:uiQuery('sd-cancel-experimental').checked};
+      set(root.localStorage,SETTINGS,options);
+      chosen=null;if(uiQuery('sd-approve'))uiQuery('sd-approve').disabled=true;
+      notify('تغيير إذن إلغاء الهجوم. يلزم فحص جديد؛ تقدير العودة لا يمثل تأكيدًا من السيرفر.','info');
+    });
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     renderUnitControls();
     uiQuery('sd-auto-nobles').checked=options.autoNobles!==false;
+    if(uiQuery('sd-cancel-experimental'))uiQuery('sd-cancel-experimental').checked=options.cancelExperimental===true;
     uiQuery('sd-cascade-auto').checked=options.cascadeAuto===true;
     uiQuery('sd-noble-target').value=options.nobleTarget||1;
     uiQuery('sd-noble-target').disabled=uiQuery('sd-auto-nobles').checked;
@@ -1989,7 +2033,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         nobleSelect.appendChild(element);
       }
       nobleSelect.value=String(Math.min(previous,nobleMax));
-      nobleSelect.disabled=options.autoNobles!==false;
+      nobleSelect.disabled=true; // multiple row checkboxes are authoritative
     }
     const warnings=scanned.trains.flatMap(t=>nobleGapSummary(t.waves,options.nobleSpacingMs||200,options.margin).filter(g=>g.differs)
       .map(g=>'النبيل '+g.index+': الفاصل الحقيقي '+g.observedMs+'ms مختلف عن المتوقع '+g.expectedMs+'ms'));
@@ -1998,6 +2042,11 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       'الفواصل الفعلية هي أساس القنص. فاصل العالم المتوقع '+(options.nobleSpacingMs||200)+'ms محفوظ.')+
       ' هامش الأمان: '+options.margin+'ms.';
     const candidates=visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1);
+    const discovered=scanned.trains.reduce((n,t)=>n+t.nobles,0);
+    const covered=new Set(scanned.plans.filter(p=>p.kind==='support'&&p.nobleId)
+      .map(p=>p.trainId+':'+p.nobleId));
+    list.push('📊 تغطية مخططة مبدئية: '+covered.size+' من '+discovered+
+      ' نبلاء. قد تمنع تعارضات القوات والتوقيت تنفيذ كل هذه الخطط معًا.');
     list.push('🎯 الوضع: '+(options.autoNobles!==false?'تلقائي (استهداف مبكر لأكبر عدد ممكن)':
       'اختيار يدوي للنبيل '+(options.nobleTarget||1))+' | خطط مطابقة: '+candidates.length);
     select.replaceChildren();
@@ -2109,6 +2158,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   }
   function initialize(){
     syncClock();mount();
+    try{renderNativeNobleControls();}catch(_){/* native table may be absent */}
     connectTabs();
     applySharedDraft();applySharedContext();syncMissionState();
     if(mission){setTimeout(resume,400);}
