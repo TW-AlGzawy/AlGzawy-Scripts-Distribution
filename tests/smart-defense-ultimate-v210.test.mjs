@@ -36,3 +36,29 @@ test('task windows open only on request',()=>{
  assert.match(src,/newTask\.textContent='➕ إنشاء مهمة قنص جديدة'/);
  assert.match(src,/if\(!slot\.visible\)continue/);
 });
+
+test('expired selection rules are pruned and regular monitoring is always enabled',()=>{
+ assert.match(src,/function pruneNobleRules\(trains\)/);
+ assert.match(src,/pruneNobleRules\(trains\);/);
+ assert.match(src,/if\(!trains\.length\)\{clearExpiredNobles\(\);return \[\];\}/);
+ assert.match(src,/function monitor\(\)\{\s*\/\/ Expiry checks are mandatory/);
+ assert.doesNotMatch(src,/function monitor\(\)\{\s*if\(!options\.autoMonitor\)return/);
+});
+test('noble expiration never terminates unexecuted order belonging to another village',()=>{
+ assert.match(src,/mission\.target\?\.str===xy\(game\.village\.x\+'\|'\+game\.village\.y\)\?\.str/);
+ assert.match(src,/if\(mission&&!mission.clickedAt/);
+ assert.match(src,/if\(had&&publish\)set\(root\.localStorage,CONTEXT/);
+});
+test('new independent tasks open visibly and countdown goes to execution tab',()=>{
+ assert.match(src,/folded:false,visible:true/);
+ assert.match(src,/if\(!slot\.visible\)continue/);
+ assert.match(src,/panel\.querySelector\('\[data-sd-tab=execution\]'\)\?\.click\(\)/);
+});
+test('real target and lead settings are retained while attack-row controls stay compact',()=>{
+ assert.match(src,/id="sd-noble-list"/);
+ assert.match(src,/fromMs/);
+ assert.match(src,/toMs/);
+ assert.match(src,/\.sd-inline-noble input\[type=number\]\{width:29px!important/);
+ assert.match(src,/cell\.prepend\(inline\)/);
+ assert.match(src,/ui_active_tab_v210/);
+});
