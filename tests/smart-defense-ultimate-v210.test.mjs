@@ -72,6 +72,6 @@ test('execution page exposes latest log, stop and export while technical log sta
  assert.match(src,/executionLog\.id='sd-execution-log'/);
  assert.match(src,/pages\.execution\.appendChild\(executionLog\)/);
  assert.match(src,/const exec=uiQuery\('sd-execution-log'\)/);
- assert.match(src,/move\('sd-troops','execution'\)/);
- assert.match(src,/move\('sd-advanced','settings'\)/);
+ assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
+ assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-advanced'\]\)move\(id,'settings'\)/);
 });
