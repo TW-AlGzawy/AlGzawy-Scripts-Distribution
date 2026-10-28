@@ -1501,6 +1501,11 @@
 
   function saveSlots(){if(slotState.length>30)throw Error('حد المهام 30');set(root.localStorage,SLOTS,slotState);}
   function renderSlots(){
+    const now=nowServer();
+    if(finite(now)){
+      const valid=slotState.filter(slot=>!slot.plan||slot.plan.arrivalAt>now);
+      if(valid.length!==slotState.length){slotState=valid;saveSlots();}
+    }
     let rootNode=doc.getElementById('algzawy-sd-slots');
     if(!rootNode){rootNode=doc.createElement('div');rootNode.id='algzawy-sd-slots';doc.body.appendChild(rootNode);}
     rootNode.replaceChildren();
