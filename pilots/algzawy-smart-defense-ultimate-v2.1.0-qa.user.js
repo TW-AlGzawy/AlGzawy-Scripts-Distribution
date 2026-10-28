@@ -889,6 +889,7 @@
   }
   function liveNobleSignature(trains,now){return (trains||[]).flatMap(t=>t.waves||[]).filter(w=>w.kind==='noble'&&w.at>now).map(w=>nobleKey(w)+':'+w.at).sort().join('|');}
   function clearExpiredNobles(){
+    const had=Boolean(scanned||chosen);
     scanned=null;chosen=null;lastScannedKey='';
     root.sessionStorage.removeItem(TRAIN);
     const select=uiQuery('sd-options');if(select)select.replaceChildren();
