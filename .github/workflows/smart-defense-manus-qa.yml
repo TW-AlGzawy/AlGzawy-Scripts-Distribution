@@ -1,0 +1,22 @@
+name: Manus Smart Defense QA
+
+on:
+  push:
+    branches:
+      - qa/smart-defense-manus-v120-20261028
+    paths:
+      - pilots/qa/smart-defense/algzawy-smart-defense-v1.2.0-qa.user.js
+      - pilots/qa/smart-defense/smart-defense-qa.test.cjs
+      - .github/workflows/smart-defense-manus-qa.yml
+  workflow_dispatch:
+
+jobs:
+  qa-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript syntax
+        run: node --check pilots/qa/smart-defense/algzawy-smart-defense-v1.2.0-qa.user.js
+      - name: Run Manus QA and noble-arrival regression tests
+        run: node --test pilots/qa/smart-defense/smart-defense-qa.test.cjs
