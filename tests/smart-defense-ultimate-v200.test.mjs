@@ -132,3 +132,57 @@ test('source contains inline attack-row controls, command-specific targeting UI 
  assert.match(src,/TARGET_RULES=storagePrefix\+'noble_target_rules_v200'/);
  assert.match(src,/if\(!sharedContextUsable\(scanned,currentFingerprint\(\),nowServer\(\)\)\|\|!targetRulesMatch\(\)\)/);
 });
+
+test('10 noble waves are all considered, with 9 default auto targets and optional first',()=>{
+ const start=time(19,0,0,200);
+ const events=[{kind:'opening',at:start-10000,precise:true,id:'open'},
+   ...Array.from({length:10},(_,i)=>({kind:'noble',at:start+i*200,
+    id:'n'+(i+1),precise:true}))];
+ const train=core.nobleTrains(events)[0];
+ assert.equal(train.nobles,10);
+ const opts=core.nobleWindows(train,{safetyMs:30,leadMs:250});
+ assert.equal(opts.length,10);
+ assert.equal(opts.filter(x=>x.selected&&x.usable).length,9);
+ assert.equal(core.nobleWindows(train,{safetyMs:30,leadMs:250,includeFirst:true})
+   .filter(x=>x.selected&&x.usable).length,10);
+});
+test('multi-noble mission plan covers as many independent sources as safely spaced departure allows',()=>{
+ const start=time(19,0,0,200);
+ const candidates=Array.from({length:10},(_,i)=>({
+  kind:'support',trainId:'train',gapIndex:i,sourceId:String(100+i),
+  id:'candidate:'+i,sendAt:start+i*60000,arrivalAt:start+7200000+i*200,
+  marginMs:60,score:10000000-i*100000,precise:true,troops:50,
+  units:{light:50}
+ }));
+ const multi=core.multiNobleStrategies(candidates,10);
+ assert.equal(multi.length,1);
+ assert.equal(multi[0].tasks.length,10);
+ assert.deepEqual(multi[0].nobleIndices,Array.from({length:10},(_,i)=>i+1));
+ assert.equal(core.multiNobleStrategies(candidates.map(x=>({...x,sourceId:'100'})),10).length,0);
+});
+test('repeat-dispatch ledger blocks second send of identical plan across reloads',()=>{
+ const map=new Map();
+ const store={getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,String(v))};
+ const planned=time(20,0,0,200);
+ const a={kind:'support',sourceId:'42',target:{str:'500|500'},
+  units:{spear:500},sendAt:planned};
+ assert.equal(core.dispatchKey(a),core.dispatchKey({...a}));
+ assert.equal(core.reserveDispatch(store,'sendClaims',core.dispatchKey(a),planned),true);
+ assert.equal(core.reserveDispatch(store,'sendClaims',core.dispatchKey(a),planned+300),false);
+ assert.equal(core.reserveDispatch(store,'sendClaims',core.dispatchKey({...a,sendAt:planned+60000}),planned+300),true);
+});
+test('timing risk must reject measured 237ms delay on 75ms noble margin',()=>{
+ assert.equal(core.measuredTimingRisk(75,20,237).safe,false);
+ assert.equal(core.measuredTimingRisk(75,20,40).safe,true);
+ assert.equal(core.measuredTimingRisk(10,0,0).safe,false);
+});
+test('UI permits chosen army units but prohibits nobles and narrow-snipe late send',()=>{
+ assert.match(src,/id="sd-unit-all"/);
+ assert.match(src,/id="sd-unit-none"/);
+ assert.match(src,/id="sd-include-first"/);
+ assert.match(src,/id="sd-cancel-experimental" type="checkbox"/);
+ assert.match(src,/function sendToleranceFor\(task\)/);
+ assert.match(src,/if\(late>sendToleranceFor\(task\)\)/);
+ assert.match(src,/if\(mission.phase==='armed'&&time-task.sendAt>sendToleranceFor\(task\)\)/);
+ assert.match(src,/if\(tasks.some\(task=>task.kind==='cancel'&&!options.cancelExperimental\)\)/);
+});
