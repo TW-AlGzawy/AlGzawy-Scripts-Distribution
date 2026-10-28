@@ -62,3 +62,16 @@ test('real target and lead settings are retained while attack-row controls stay 
  assert.match(src,/cell\.prepend\(inline\)/);
  assert.match(src,/ui_active_tab_v210/);
 });
+
+test('click on subtask header folds it without any separate fold button',()=>{
+ assert.match(src,/if\(!moved\)slot\.folded=!slot\.folded/);
+ assert.match(src,/if\(!moved\)renderSlots\(\)/);
+ assert.doesNotMatch(src,/bar\.appendChild\(button\(slot\.folded\?'فتح':'طي'/);
+});
+test('execution page exposes latest log, stop and export while technical log stays in settings',()=>{
+ assert.match(src,/executionLog\.id='sd-execution-log'/);
+ assert.match(src,/pages\.execution\.appendChild\(executionLog\)/);
+ assert.match(src,/const exec=uiQuery\('sd-execution-log'\)/);
+ assert.match(src,/move\('sd-troops','execution'\)/);
+ assert.match(src,/move\('sd-advanced','settings'\)/);
+});
