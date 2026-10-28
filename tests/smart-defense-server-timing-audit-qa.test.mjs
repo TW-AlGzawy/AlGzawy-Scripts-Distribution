@@ -16,7 +16,8 @@ test('QA v1.1.0 complete script compiles with strict clock and receipt audit',()
  assert.match(src,/@version\s+1\.1\.0-qa/);
  assert.match(src,/MAX_CLOCK_DRIFT_MS=100/);
  assert.match(src,/if\(deviation>MAX_CLOCK_DRIFT_MS\)return null/);
- assert.match(src,/if\(late>SEND_TOLERANCE_MS\)return stopMission/);
+ assert.match(src,/if\(late>SEND_TOLERANCE_MS\)\{/);
+ assert.match(src,/if\(tryCancelFallback\('تأخر مؤقت المتصفح '/);
  assert.match(src,/if\(mission.phase==='armed'&&time-task.sendAt>SEND_TOLERANCE_MS\)/);
 });
 test('a perfect matched arrival infers zero server-side delivery delay',()=>{
