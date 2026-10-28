@@ -610,7 +610,21 @@
       validEpoch(mission.createdAt)&&validEpoch(notice.updatedAt)&&
       notice.updatedAt>=mission.createdAt-3000);
   }
-  const CORE=Object.freeze({shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  // Partial train expiry: other nobles can remain while the selected one
+  // disappears. Never apply a snapshot from another defense village.
+  function shouldStopForMissingNoble(mission,context){
+    if(!mission||mission.clickedAt||!['routing','prepare','confirm','armed'].includes(mission.phase)||
+      context?.invalidated||context?.threatChanged!==true||!Array.isArray(context.trains)||
+      !validEpoch(context.updatedAt)||!validEpoch(mission.createdAt)||
+      context.updatedAt<mission.createdAt-3000||
+      !mission.defenseVillageId||
+      String(context.defenseVillageId)!==String(mission.defenseVillageId))return false;
+    const task=mission.tasks?.[mission.index||0];
+    if(!task?.nobleId||!validEpoch(task.nobleAt))return false;
+    return !context.trains.some(train=>(train.waves||[]).some(w=>
+      w.kind==='noble'&&nobleKey(w)===task.nobleId&&w.at===task.nobleAt));
+  }
+  const CORE=Object.freeze({shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -725,7 +739,7 @@
       settingsFingerprint:scanned.settingsFingerprint,targetRules:scanned.targetRules,
       target:scanned.target,trains:scanned.trains,plans:scanned.plans.slice(0,80),
       worldTargets:scanned.worldTargets,
-      totalPlans:scanned.plans.length,diagnostics:scanned.diagnostics,regional:scanned.regional,
+      totalPlans:scanned.plans.length,threatChanged:scanned.threatChanged===true,diagnostics:scanned.diagnostics,regional:scanned.regional,
       rosterCount:scanned.roster?.length||scanned.rosterCount||0,
       selectedId:chosen?.id||null};
     try{set(root.localStorage,CONTEXT,data);latestContextAt=data.updatedAt;}
@@ -741,19 +755,21 @@
         stopMission('اختفى النبيل المستهدف من تبويب القرية المدافَع عنها قبل الإرسال');
       return;
     }
+    if(shouldStopForMissingNoble(mission,remote))
+      stopMission('اختفى النبيل المحدد أو تغير وقت وصوله بينما بقيت نبلاء أخرى');
     if(remote&&!remote.invalidated&&!sharedContextUsable(remote,currentFingerprint(),nowServer()))return;
     if(!remote||remote.version!==1||!remote.target||!Array.isArray(remote.plans)||
       !Array.isArray(remote.trains)||!validEpoch(remote.checkedAt))return;
     if(remote.updatedAt<latestContextAt)return;
     latestContextAt=remote.updatedAt;
     scanned={target:remote.target,trains:remote.trains,plans:remote.plans,
-      checkedAt:remote.checkedAt,settingsFingerprint:remote.settingsFingerprint,
+      checkedAt:remote.checkedAt,threatChanged:remote.threatChanged===true,settingsFingerprint:remote.settingsFingerprint,
       defenseVillageId:String(remote.defenseVillageId||''),
       rosterCount:Number(remote.rosterCount)||0,totalPlans:Number(remote.totalPlans)||0,
       diagnostics:remote.diagnostics||[],regional:remote.regional||{available:false,reason:'غير محفوظ'},
       worldTargets:remote.worldTargets||{available:false,reason:'لم تُحفظ قائمة الأهداف'},
       targetRules:remote.targetRules||{}};
-    lastScannedKey=scanned.trains.map(t=>t.id+':'+t.waves.length).join('|');
+    lastScannedKey=liveNobleSignature(scanned.trains,nowServer());
     renderScan();
     chosen=remote.selectedId?scanned.plans.find(p=>p.id===remote.selectedId)||null:null;
     const select=uiQuery('sd-options');if(select&&chosen)select.value=chosen.id;
@@ -1091,7 +1107,7 @@
     scanned={target,roster,config,trains,plans,regional,worldTargets,diagnostics,targetRules,
       settingsFingerprint:scanFingerprint,defenseVillageId:ownId(),checkedAt:Math.round(now)};
     set(root.sessionStorage,TRAIN,{target,trains,checkedAt:scanned.checkedAt});
-    chosen=null;lastScannedKey=trains.map(t=>t.id+':'+t.waves.length).join('|');
+    chosen=null;lastScannedKey=liveNobleSignature(trains,nowServer());
     log('SCAN',`${trains.length} trains, ${roster.length} villages, ${plans.length} proposals`);
     renderScan();publishScanContext();return scanned;
   }
@@ -1291,7 +1307,8 @@
       return stopMission('تأخر مؤقت المتصفح '+Math.round(late)+'ms؛ لم نرسل أمرًا متأخرًا');
     }
     // Recheck persisted expiry: suspended tabs can miss storage events.
-    if(shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT)))
+    if(shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT))||
+      shouldStopForMissingNoble(mission,get(root.localStorage,CONTEXT)))
       return stopMission('وصل إشعار بانتهاء النبيل المستهدف قبل الضغط على الإرسال');
     // Persistent idempotency survives reload, and the existing tab lock guards competing tabs.
     if(!reserveDispatch(root.localStorage,CLAIMED_SENDS,dispatchKey(task),Math.round(time)))
@@ -1419,7 +1436,8 @@
   function schedule(){
     clearTimeout(timer);timer=null;
     if(!mission||!['armed','cancel_wait'].includes(mission.phase)||stopGuard())return;
-    if(mission.phase==='armed'&&shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT)))
+    if(mission.phase==='armed'&&(shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT))||
+      shouldStopForMissingNoble(mission,get(root.localStorage,CONTEXT))))
       return stopMission('تم إبطال هدف القنص في القرية المدافَع عنها');
     if(!touchLock())return stopMission('فقدنا قفل التنفيذ بين التبويبات');
     if(!ready())return stopMission('ساعة الخادم غير موثوقة أو الجلسة غير متاحة');
@@ -2352,12 +2370,12 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     if(scanned?.defenseVillageId&&scanned.defenseVillageId!==ownId())return;
     if(!doc.querySelector('#commands_incomings'))return;
     try{
-      const trains=readIncoming();const key=trains.map(t=>t.id+':'+t.waves.length).join('|');
+      const trains=readIncoming();const key=liveNobleSignature(trains,nowServer());
       if(lastScannedKey&&key!==lastScannedKey){
         notify('🚨 تغير قطار الهجمات الواردة؛ أعد الفحص لتحديث خطة الدفاع','info');
         log('THREAT_CHANGE',key);chosen=null;uiQuery('sd-approve').disabled=true;
         if(scanned&&scanned.defenseVillageId===ownId()){
-          scanned={...scanned,trains,plans:[],checkedAt:Math.round(nowServer())};
+          scanned={...scanned,trains,plans:[],threatChanged:true,checkedAt:Math.round(nowServer())};
           renderScan();publishScanContext();
         }
       }
