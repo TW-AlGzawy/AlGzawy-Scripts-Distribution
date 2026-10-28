@@ -1842,6 +1842,10 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-advanced'])move(id,'settings');
     for(const node of original)if(node.parentElement===panel.querySelector('main'))
       pages.settings.appendChild(node);
+    const executionLog=doc.createElement('div');
+    executionLog.id='sd-execution-log';executionLog.className='box';
+    executionLog.setAttribute('aria-label','آخر أحداث التنفيذ');
+    pages.execution.appendChild(executionLog);
     const activate=tab=>{
       activeTab=TAB_NAMES[tab]?tab:'home';
       for(const [id,page] of Object.entries(pages))page.hidden=id!==activeTab;
@@ -1996,6 +2000,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   function renderAudit(){
     const el=uiQuery('sd-audit');if(!el)return;
     el.textContent=logRows.slice(0,20).map(x=>`${x.time} [${x.event}] ${x.detail}`).join('\n')||'لا توجد أحداث بعد';
+    const exec=uiQuery('sd-execution-log');
+    if(exec)exec.textContent=logRows.slice(0,8).map(x=>`${x.time} [${x.event}] ${x.detail}`).join('\n')||'لا توجد أحداث تنفيذ بعد.';
   }
 
   const UNIT_LABELS={spear:'رماح',sword:'سيوف',axe:'فؤوس',archer:'رماة',
