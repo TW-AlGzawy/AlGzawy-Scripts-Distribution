@@ -1421,10 +1421,12 @@
         if(e.button!==0&&e.pointerType==='mouse')return;
         if(edge==='move'&&e.target.closest('button,input,select,textarea'))return;
         e.preventDefault();const origin={...geometry},startX=e.clientX,startY=e.clientY;
+        let moved=false;
         try{el.setPointerCapture(e.pointerId);}catch(_){}
         const move=ev=>{
           if(ev.pointerId!==e.pointerId)return;
           const dx=ev.clientX-startX,dy=ev.clientY-startY;
+          if(Math.abs(dx)+Math.abs(dy)>7)moved=true;
           const right=origin.left+origin.width,bottom=origin.top+origin.height;
           if(edge==='move'){
             geometry.left=origin.left+dx;geometry.top=origin.top+dy;
@@ -1441,7 +1443,9 @@
         const up=ev=>{
           if(ev.pointerId!==e.pointerId)return;
           el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);
-          el.removeEventListener('pointercancel',up);persist();
+          el.removeEventListener('pointercancel',up);
+          if(edge==='move'&&!moved){geometry.folded=!geometry.folded;draw();}
+          persist();
           try{el.releasePointerCapture(e.pointerId);}catch(_){}
         };
         el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);
