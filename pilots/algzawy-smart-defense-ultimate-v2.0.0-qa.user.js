@@ -488,7 +488,8 @@
 
   function visibleNoblePlans(plans,autoNobles=true,targetNoble=1){
     if(!Array.isArray(plans))return [];
-    const filtered=autoNobles?plans:plans.filter(p=>nobleIndexOf(p)===Number(targetNoble));
+    // Noble checkboxes, applied by nobleWindows, permit multiple manual targets.
+    const filtered=plans;
     return filtered.slice().sort((a,b)=>(b.score||0)-(a.score||0));
   }
 
@@ -662,6 +663,7 @@
     } // no input/change event, preventing cross-tab sync loops
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=!!uiQuery('sd-auto-nobles')?.checked;
     const latest=get(root.localStorage,SETTINGS);if(latest)options=latest;
+    if(uiQuery('sd-unit-controls'))renderUnitControls();
     if(uiQuery('sd-noble-spacing'))uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     if(scanned&&scanned.settingsFingerprint!==currentFingerprint()){
       chosen=null;renderPlan();
@@ -1544,6 +1546,24 @@
 #${uiId} .sd-auto-option{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--sd-accent)}
 #${uiId} #sd-auto-nobles{width:20px;height:20px;flex:none;accent-color:var(--sd-accent)}
 #${uiId} #sd-gap-warning{padding:8px;border:1px solid #806C47;border-radius:8px}
+#${uiId} .sd-unit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}
+#${uiId} .sd-unit-label{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:5px;margin:0;background:#102B3B;border:1px solid #355467;border-radius:7px;cursor:pointer}
+#${uiId} .sd-unit-label input{width:18px;height:18px;flex:none;accent-color:#40E1BF}
+#${uiId} .sd-unit-label img{width:22px;height:22px;object-fit:contain}
+#${uiId} .sd-unit-label span{font-size:10px;white-space:normal}
+#${uiId} #sd-noble-list{max-height:305px;overflow:auto;border:1px solid #50637B;padding:7px;border-radius:8px}
+#${uiId} .sd-noble-line{display:grid;grid-template-columns:18px minmax(0,1fr) 60px 60px;gap:5px;align-items:center;padding:6px 2px;border-bottom:1px solid #385066}
+#${uiId} .sd-noble-line input[type=checkbox]{width:18px;height:18px;accent-color:#B49AFF}
+#${uiId} .sd-noble-line label{font-size:10px;margin:0}
+#${uiId} .sd-noble-line input[type=number]{width:100%;font:12px Consolas,monospace}
+#${uiId} .sd-noble-line small{grid-column:1/-1;color:#DFB677;line-height:1.6}
+#${uiId} .sd-noble-line span{font:700 11px Consolas,Tahoma,monospace}
+.sd-inline-noble{display:inline-flex;align-items:center;gap:3px;margin-inline:5px;padding:3px;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:5px;direction:ltr}
+.sd-inline-noble input[type=number]{width:45px!important;height:22px!important;text-align:center}
+.sd-inline-noble input[type=checkbox]{width:16px;height:16px}
+.sd-inline-noble b{font-size:11px}
+@media(max-width:380px){#${uiId} .sd-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 #algzawy-sd-slots .sd-task-slot{position:fixed;z-index:2147482998;box-sizing:border-box;resize:both;overflow:auto;direction:rtl;min-width:230px;min-height:42px;background:#102031;border:2px solid #B49AFF;border-radius:10px;color:#EAF3F8;font:12px/1.5 Tahoma,Arial;box-shadow:0 10px 30px #0009}
 #algzawy-sd-slots .sd-task-bar{display:flex;align-items:center;gap:4px;padding:4px;background:#192B40;cursor:move;touch-action:none}
 #algzawy-sd-slots .sd-task-bar strong{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -1600,7 +1620,17 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
   <input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr">
-  <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — تحليل فرص قنص عدة نبلاء</label>
+  <details id="sd-unit-section" open><summary>⚔️ اختر أنواع الجنود المسموح استخدامها (محفوظة)</summary>
+    <div id="sd-unit-controls" class="sd-unit-grid"></div>
+  </details>
+  <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — استهداف جميع النبلاء الممكنين منذ بداية القطار</label>
+  <label class="sd-auto-option" for="sd-include-first"><input id="sd-include-first" type="checkbox"> 👑 تضمين النبيل الأول تلقائيًا (غير محدد افتراضيًا)</label>
+  <label for="sd-noble-lead">⏱️ قبل النبيل الأول في الفجوات الطويلة (ms)</label>
+  <input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr">
+  <details id="sd-targeting" open><summary>🎯 حدد النبلاء ونطاق الوصول لكل نبيل (من جزء → إلى جزء)</summary>
+    <div id="sd-noble-list">افحص الهجمات الواردة أولًا لإظهار النبلاء.</div>
+    <p class="tiny">تظهر هذه الخيارات أيضًا بجانب أوامر النبلاء في جدول اللعبة. الأجزاء 0–999؛ وعند عبور الثانية يمكن أن تكون البداية أكبر من النهاية.</p>
+  </details>
   <label for="sd-noble-target">🎯 النبيل المستهدف يدويًا</label>
   <select id="sd-noble-target" disabled><option value="1">النبيل الأول — بعد الافتتاحية</option></select>
   <p id="sd-gap-warning" class="tiny">تعتمد الخطة على أوقات الوصول الفعلية، لا على الفاصل المتوقع.</p>
@@ -1655,11 +1685,15 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-cancel-limit').value=options.cancelLimit;
     uiQuery('sd-team-count').value=options.maxTeams;
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
+    uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
+    uiQuery('sd-include-first').checked=options.includeFirst===true;
+    renderUnitControls();
     uiQuery('sd-auto-nobles').checked=options.autoNobles!==false;
     uiQuery('sd-cascade-auto').checked=options.cascadeAuto===true;
     uiQuery('sd-noble-target').value=options.nobleTarget||1;
     uiQuery('sd-noble-target').disabled=uiQuery('sd-auto-nobles').checked;
     uiQuery('sd-advanced').open=!!options.advanced;
+    if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=true;
     uiQuery('sd-noble-spacing').addEventListener('input',()=>{
       const val=Number(uiQuery('sd-noble-spacing').value);
       if(Number.isSafeInteger(val)&&val>=1&&val<=60000){
@@ -1676,7 +1710,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     applySharedDraft();
     for(const id of FIELD_IDS){
       const saveInput=()=>{
-        recordDraft(id,(id==='sd-auto-nobles'||id==='sd-cascade-auto')?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
+        recordDraft(id,(id==='sd-auto-nobles'||id==='sd-cascade-auto'||id==='sd-include-first')?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
         saveSettings(); // every input is persisted before tab switch; no debounce
         if(id==='sd-auto-nobles')uiQuery('sd-noble-target').disabled=uiQuery(id).checked;
         if(['sd-noble-spacing','sd-auto-nobles','sd-noble-target'].includes(id)&&scanned){
@@ -1758,9 +1792,138 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const el=uiQuery('sd-audit');if(!el)return;
     el.textContent=logRows.slice(0,20).map(x=>`${x.time} [${x.event}] ${x.detail}`).join('\n')||'لا توجد أحداث بعد';
   }
+
+  const UNIT_LABELS={spear:'رماح',sword:'سيوف',axe:'فؤوس',archer:'رماة',
+    spy:'جواسيس',light:'فرسان خفاف',marcher:'رماة خيل',heavy:'فرسان ثقال',
+    ram:'كباش',catapult:'مقاليع'};
+  function renderUnitControls(){
+    const wrap=uiQuery('sd-unit-controls');if(!wrap)return;
+    wrap.replaceChildren();
+    const enabled=new Set(allowedUnits());
+    for(const type of UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight')){
+      const label=doc.createElement('label');label.className='sd-unit-label';
+      const input=doc.createElement('input');input.type='checkbox';
+      input.checked=enabled.has(type);input.dataset.unitType=type;
+      const img=doc.createElement('img');img.alt=UNIT_LABELS[type]||type;
+      img.src='/graphic/unit/unit_'+type+'.png';img.loading='lazy';
+      const name=doc.createElement('span');name.textContent=UNIT_LABELS[type]||type;
+      label.append(input,img,name);wrap.appendChild(label);
+      input.addEventListener('change',()=>{
+        const units=new Set(allowedUnits());
+        if(input.checked)units.add(type);else units.delete(type);
+        options={...(get(root.localStorage,SETTINGS)||options),
+          unitAllow:UNIT_TYPES.filter(u=>units.has(u)&&u!=='snob'&&u!=='knight')};
+        set(root.localStorage,SETTINGS,options);
+        chosen=null;if(uiQuery('sd-approve'))uiQuery('sd-approve').disabled=true;
+        notify('تم حفظ قائمة القوات المسموح بها. أعد الفحص قبل اعتماد خطة.','info');
+      });
+    }
+  }
+  function renderNobleSelector(){
+    const panel=uiQuery('sd-noble-list');if(!panel)return;
+    panel.replaceChildren();
+    const trains=scanned?.trains||[];
+    if(!trains.length){panel.textContent='افحص الهجمات الواردة أولًا لإظهار النبلاء.';return;}
+    const vId=scanned.defenseVillageId||ownId();
+    for(const train of trains){
+      const title=doc.createElement('strong');
+      title.textContent='👑 القطار '+clockOnly(train.waves[1]?.at)+
+        ' | عدد النبلاء '+train.nobles;
+      panel.appendChild(title);
+      const targets=rulesFor(vId);
+      const windows=nobleWindows(train,{safetyMs:options.margin,
+        leadMs:options.nobleLeadMs||250,targets,
+        auto:options.autoNobles!==false,includeFirst:options.includeFirst===true});
+      for(const w of windows){
+        const row=doc.createElement('div');row.className='sd-noble-line';
+        row.dataset.nobleKey=w.nobleId;
+        const mark=doc.createElement('input');mark.type='checkbox';mark.checked=w.selected;
+        mark.title='حدد القنص للنبيل '+w.nobleIndex;
+        const caption=doc.createElement('span');
+        caption.textContent='👑 '+w.nobleIndex+' @ '+clockOnly(w.nobleAt);
+        const inputs=[];
+        const rule=targets[w.nobleId]||{};
+        for(const [labelName,field] of [['من','fromMs'],['إلى','toMs']]){
+          const label=doc.createElement('label');label.textContent=labelName;
+          const input=doc.createElement('input');input.type='number';input.min='0';
+          input.max='999';input.step='1';input.placeholder=labelName==='من'?'210':'390';
+          input.value=rule[field]??'';
+          input.title=labelName+' جزء من الثانية (0–999)';
+          label.appendChild(input);inputs.push(input);
+          row.appendChild(label);
+        }
+        row.prepend(mark,caption);
+        const status=doc.createElement('small');
+        status.textContent=w.valid?
+          ('🎯 '+clockOnly(w.arrival)+' | هامش '+w.slack+'ms'+
+            (w.riskCount?' | ⚠️ '+w.riskCount+' هجمات بين الوصول والنبيل':' | دون هجمات أخرى')):
+          '⚠️ '+w.reason;
+        row.appendChild(status);
+        const save=()=>{
+          const fields={selected:mark.checked};
+          for(let i=0;i<2;i++){
+            const field=i?'toMs':'fromMs',input=inputs[i];
+            const val=input.value.trim();
+            if(val&&Number.isInteger(+val)&&+val>=0&&+val<=999)
+              fields[field]=+val;
+            else fields[field]=undefined;
+          }
+          updateNobleRule(w.nobleId,fields,vId);
+        };
+        mark.addEventListener('change',save);
+        for(const input of inputs)input.addEventListener('change',save);
+        panel.appendChild(row);
+      }
+    }
+  }
+  function renderNativeNobleControls(){
+    const table=doc.querySelector('#commands_incomings');
+    if(!table)return;
+    const now=nowServer();if(!finite(now))return;
+    const entries=[...table.querySelectorAll('tr')].map(row=>({row,info:classifyRow(row,now)}))
+      .filter(x=>x.info);
+    const lookup=new Map(nobleTrains(entries.map(x=>x.info)).flatMap(t=>
+      t.waves.filter(x=>x.kind==='noble').map((n,i)=>[nobleKey(n),i+1])));
+    const stored=rulesFor(ownId());
+    for(const {row,info} of entries){
+      if(info.kind!=='noble')continue;
+      const key=nobleKey(info),i=lookup.get(key)||1;
+      const cell=row.querySelector('td');if(!cell)continue;
+      if(cell.querySelector('.sd-inline-noble'))continue;
+      const inline=doc.createElement('span');inline.className='sd-inline-noble';
+      const flag=doc.createElement('input');flag.type='checkbox';
+      flag.checked=stored[key]?.selected??(options.autoNobles!==false&&
+        (i>1||options.includeFirst===true));
+      flag.title='قنص النبيل '+i;
+      const tag=doc.createElement('b');tag.textContent='🎯 '+i;
+      inline.append(flag,tag);
+      const fields=[];
+      for(const field of ['fromMs','toMs']){
+        const el=doc.createElement('input');el.type='number';el.min='0';el.max='999';
+        el.step='1';el.placeholder=field==='fromMs'?'من':'إلى';
+        el.value=stored[key]?.[field]??'';
+        inline.append(el);fields.push(el);
+      }
+      const save=()=>{
+        const o={selected:flag.checked};
+        for(let j=0;j<2;j++){
+          const val=fields[j].value.trim();
+          o[j?'toMs':'fromMs']=val!==''&&Number.isInteger(+val)&&+val>=0&&+val<=999?+val:undefined;
+        }
+        updateNobleRule(key,o,ownId());
+      };
+      for(const el of [flag,...fields]){
+        el.addEventListener('click',e=>e.stopPropagation());
+        el.addEventListener('change',save);
+      }
+      cell.appendChild(inline);
+    }
+  }
+
   function renderScan(){
     const radar=uiQuery('sd-radar'),select=uiQuery('sd-options');if(!radar||!select)return;
     if(!scanned)return;
+    renderNobleSelector();
     const list=[`قرية الدفاع: ${scanned.target.str} | قرى مرصودة: ${scanned.roster?.length??scanned.rosterCount??0}`,
       `قطارات نبلاء: ${scanned.trains.length} | خطط محتملة: ${scanned.totalPlans??scanned.plans.length}`];
     if(scanned.defenseVillageId&&scanned.defenseVillageId!==ownId())
@@ -1772,7 +1935,11 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         list.push(`  ${entry.coord} | إشارات هجوم: ${entry.attacks} | علامات نبيل: ${entry.nobles}`);
     }else list.push('🌐 رادار القرى الأخرى: غير مؤكد — '+(scanned.regional?.reason||'واجهة الجدول غير متاحة'));
     for(const train of scanned.trains.slice(0,6)){
-      const range=gaps(train.waves,options.margin).map(x=>`${x.label}: ${x.width}ms`).join('، ');
+      const range=nobleWindows(train,{safetyMs:options.margin,leadMs:options.nobleLeadMs||250,
+        targets:scanned.targetRules||{},auto:options.autoNobles!==false,includeFirst:options.includeFirst===true})
+        .map(x=>'👑'+x.nobleIndex+' '+clockOnly(x.nobleAt)+' ⇒ '+
+          (x.valid?clockOnly(x.arrival):'خارج الحدود')+' | هامش '+x.slack+'ms'+
+          (x.riskCount?' ⚠️ '+x.riskCount+' هجمات أخرى':'')).join('، ');
       list.push(`🚨 ${clockOnly(train.startAt)} | ${train.nobles} نبلاء | ${train.precise?'أجزاء مؤكدّة':'أجزاء غير مكتملة'}\n${range}`);
     }
     for(const d of scanned.diagnostics||[]){
@@ -1830,7 +1997,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       'الفواصل الفعلية هي أساس القنص. فاصل العالم المتوقع '+(options.nobleSpacingMs||200)+'ms محفوظ.')+
       ' هامش الأمان: '+options.margin+'ms.';
     const candidates=visibleNoblePlans(scanned.plans,options.autoNobles!==false,options.nobleTarget||1);
-    list.push('🎯 الوضع: '+(options.autoNobles!==false?'تلقائي (خطط منفردة ومتعددة)':
+    list.push('🎯 الوضع: '+(options.autoNobles!==false?'تلقائي (استهداف مبكر لأكبر عدد ممكن)':
       'اختيار يدوي للنبيل '+(options.nobleTarget||1))+' | خطط مطابقة: '+candidates.length);
     select.replaceChildren();
     for(const plan of candidates.slice(0,100)){
@@ -1839,6 +2006,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         plan.kind==='multi'?'🎯 عدة نبلاء':'🔄 دعم من قريتين')+
         ' | نبيل '+(plan.kind==='multi'?plan.nobleIndices.join('+'):nobleIndexOf(plan)||'?')+
         ' | '+clockOnly(plan.arrivalAt)+' | هامش '+Math.round(plan.marginMs)+'ms'+
+        (plan.riskCount?' ⚠️ '+plan.riskCount+' هجمات مرافقة':'')+
         ' | '+(plan.tasks?plan.tasks.map(x=>x.sourceId).join('+'):plan.sourceId);
       select.appendChild(o);
     }
@@ -1860,7 +2028,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     el.textContent=`النوع: ${chosen.kind==='multi'?'قنص عدة نبلاء':chosen.kind==='hybrid'?'تنسيق دعم':chosen.kind==='cancel'?'قنص الإلغاء':'دعم مباشر'}\n`+
       tasks.map((task,i)=>`${i+1}. 🎯 قنص النبيل ${task.gapIndex+1} | قرية ${task.sourceName||task.sourceId} → ${task.target.str}\n`+
       `إرسال: ${stamp(task.sendAt)}\n`+(task.cancelAt?`إلغاء: ${stamp(task.cancelAt)}\n`:'')+
-      `عودة/وصول مستهدف: ${stamp(task.arrivalAt)}\nالقوات: `+
+      `عودة/وصول مستهدف: ${stamp(task.arrivalAt)}\nنافذة: ${stamp(task.windowFrom)} ← ${stamp(task.windowTo)}\n`+
+      `⚠️ هجمات غير نبيلة بين وصول الدعم والنبيل: ${task.riskCount||0}\nالقوات: `+
       Object.entries(task.units||{}).filter(([,n])=>n>0).map(([u,n])=>`${u}=${n}`).join('، ')+
       `\nهامش الفجوة: ${Math.round(task.marginMs)}ms`).join('\n---\n')+
       (chosen.kind==='cancel'?'\n🔄 البدائل الاحتياطية المتتابعة: '+fallbacks.length+
