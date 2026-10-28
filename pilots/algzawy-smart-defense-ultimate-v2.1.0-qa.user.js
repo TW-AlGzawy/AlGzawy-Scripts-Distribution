@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] القائد الذكي للدفاع والقنص | AlGzawy
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/ultimate
-// @version      2.1.1-qa
+// @version      2.1.2-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -126,10 +126,17 @@
     if(validEpoch(rows[dispatch])&&now-rows[dispatch]<86400000)return false;
     rows[dispatch]=now;storage.setItem(key,JSON.stringify(rows));return true;
   }
-  function measuredTimingRisk(margin,jitter,serverDelay){
-    if(!Number.isSafeInteger(margin)||margin<20)
-      return {safe:false,message:'الهامش أقل من 20ms ولا يمكن اعتباره صالحًا لأتمتة المتصفح'};
+  function measuredTimingRisk(margin,jitter,serverDelay,allowNarrowAttempt=false){
+    if(!Number.isSafeInteger(margin)||margin<1)
+      return {safe:false,message:'لا توجد نافذة وصول إيجابية قابلة للحساب'};
     const max=Math.max(Number(jitter)||0,Number(serverDelay)||0);
+    // Explicit QA opt-in permits trying a narrow window, never guarantees
+    // acceptance by the game server. Preserve the measured risk in the audit.
+    if(margin<20&&allowNarrowAttempt===true)
+      return {safe:true,highRisk:true,message:'⚠️ محاولة قنص ضيقة تجريبية: سماحية الوصول ±'+margin+
+        'ms، أعلى تأخير مقاس '+Math.ceil(max)+'ms. احتمال الفشل مرتفع؛ لا توجد دقة مضمونة.'};
+    if(margin<20)
+      return {safe:false,message:'سماحية الوصول '+margin+'ms أقل من 20ms؛ فعّل إذن المحاولة الضيقة صراحةً للمتابعة'};
     if(max>=margin)
       return {safe:false,message:'تأخير مقاس '+Math.ceil(max)+'ms يتجاوز الهامش '+margin+'ms'};
     return {safe:true,message:max?'تأخير مسجل '+Math.ceil(max)+'ms، ولا توجد دقة مضمونة':
@@ -197,25 +204,31 @@
         low=second+startPart-(startPart>endPart?1000:0);
         high=second+endPart;manual=true;
       }else if(i===0){
-        high=current.at-safetyMs-1;
-        const lead=Math.max(leadMs,safetyMs+2);
-        low=Math.max(previous?.at||current.at-30000,
-          current.at-(2*lead-safetyMs-1));
+        // Target first noble by leadMs but never invent a landing before
+        // the preceding opening attack. Adjacent 20ms attacks stay eligible.
+        const lead=Math.max(1,Number.isSafeInteger(leadMs)?leadMs:250);
+        high=current.at-1;
+        low=Math.max((previous?.at??current.at-30000)+1,
+          current.at-(2*lead-1));
       }else{
-        low=previous.at+safetyMs+1;
-        high=current.at-safetyMs-1;
+        // Strictly after previous noble and before current noble. Example:
+        // 100ms → 120ms gives 101..119ms, midpoint 110ms.
+        low=previous.at+1;
+        high=current.at-1;
       }
-      const valid=validEpoch(low)&&validEpoch(high)&&
-        low<high&&high<current.at&&(!previous||low>previous.at)&&
-        high<=current.at-safetyMs&&low>=previous.at+safetyMs;
+      const valid=validEpoch(low)&&validEpoch(high)&&low<high&&
+        high<current.at&&(!previous||low>previous.at);
       const landing=valid?low+Math.floor((high-low)/2):null;
-      const margin=valid?Math.min(landing-low,high-landing):0;
+      // Do not subtract configured risk margin a second time. Actual
+      // tolerance is the nearest boundary, including manual interval edges.
+      const margin=valid?Math.min(landing-low,high-landing,
+        landing-(previous?.at??low-1),current.at-landing):0;
       const subsequent=(train.incoming||[]).filter(w=>w.kind!=='noble'&&
         valid&&w.at>landing&&w.at<current.at);
       const riskWeight=subsequent.reduce((v,w)=>v+(w.threat?.weight||2),0);
       windows.push({i,nobleIndex:i+1,nobleId:key,nobleAt:current.at,from:previous?.at,
         to:current.at,windowFrom:low,windowTo:high,width:valid?high-low:0,
-        arrival:landing,slack:margin,usable:!!selected&&valid&&margin>safetyMs,
+        arrival:landing,slack:margin,usable:!!selected&&valid&&margin>=1,
         selected,manual,valid,riskWeight,riskCount:subsequent.length,
         riskBands:subsequent.map(w=>w.threat?.band||'unknown'),
         reason:valid?'': 'نافذة غير صالحة أو تتقاطع مع النبيل السابق',
@@ -661,7 +674,7 @@
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v210',CONTEXT=storagePrefix+'scan_context_v210';
   const LIVE_STATE=storagePrefix+'mission_state_v210',STOP_REQUEST=storagePrefix+'stop_request_v210';
-  const FIELD_IDS=['sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
+  const FIELD_IDS=['sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
   const STOP_EVENT='__algzawy_stop_smart-defense-v1';
   const uiId='algzawy-smart-defense-ultimate-v210';
   const ownId=()=>String(root.game_data?.village?.id||'');
@@ -671,7 +684,7 @@
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:10,
-    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,nobleTarget:1,
+    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,nobleTarget:1,
     unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
     cancelExperimental:false};
   let logRows=get(root.localStorage,AUDIT)||[];
@@ -682,7 +695,7 @@
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
   const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto',
-    'nobleLeadMs','includeFirst','unitAllow']
+    'nobleLeadMs','includeFirst','unitAllow','allowNarrowAttempt']
     .map(k=>values?.[k]??null));
   const currentFingerprint=()=>fingerprint(get(root.localStorage,SETTINGS)||options);
 
@@ -735,7 +748,7 @@
     if(draft.updatedAt<latestDraftAt)return;
     latestDraftAt=draft.updatedAt;
     for(const id of FIELD_IDS)if(typeof draft.fields[id]==='string'&&uiQuery(id)){
-      if(['sd-auto-nobles','sd-cascade-auto','sd-include-first'].includes(id))uiQuery(id).checked=draft.fields[id]==='1';
+      if(['sd-auto-nobles','sd-cascade-auto','sd-include-first','sd-narrow-attempt'].includes(id))uiQuery(id).checked=draft.fields[id]==='1';
       else uiQuery(id).value=draft.fields[id];
     } // no input/change event, preventing cross-tab sync loops
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=!!uiQuery('sd-auto-nobles')?.checked;
@@ -936,6 +949,9 @@
     const autoRaw=Object.hasOwn(drafts,'sd-auto-nobles')?drafts['sd-auto-nobles']:
       (uiQuery('sd-auto-nobles')?.checked?'1':'0');
     merged.autoNobles=autoRaw==='1';
+    const narrowRaw=Object.hasOwn(drafts,'sd-narrow-attempt')?drafts['sd-narrow-attempt']:
+      (uiQuery('sd-narrow-attempt')?.checked?'1':'0');
+    merged.allowNarrowAttempt=narrowRaw==='1';
     merged.cancelExperimental=!!get(root.localStorage,SETTINGS)?.cancelExperimental;
     const cascadeRaw=Object.hasOwn(drafts,'sd-cascade-auto')?drafts['sd-cascade-auto']:
       (uiQuery('sd-cascade-auto')?.checked?'1':'0');
@@ -1163,7 +1179,8 @@
       if(!chosen||missionTasks(chosen).some(task=>task.nobleId&&!keys.has(task.nobleId)))
         throw Error('انتهى النبيل المحدد أو اختفى من أوامر اللعبة؛ أعد الفحص');
     }
-    const tasks=missionTasks(chosen);
+    const tasks=missionTasks(chosen).map(task=>({...task,
+      narrowAttemptApproved:options.allowNarrowAttempt===true&&task.marginMs<20}));
     if(tasks.some(task=>task.kind==='cancel'&&!options.cancelExperimental))
       throw Error('قنص الإلغاء لا يزال تجريبيًا؛ لا يُعتمد دون تفعيل الإذن التجريبي الصريح وفحص نموذج العودة');
     if(tasks.some(task=>Object.keys(task.units||{}).some(u=>!allowedUnits().includes(u))))
@@ -1173,9 +1190,10 @@
     for(const task of tasks){
       const problem=validateTask(task,Math.round(now),player,host);
       if(problem)throw Error(problem);
-      const verdict=measuredTimingRisk(task.marginMs,metric.maxDeviation,metric.maxServerDeltaAbs);
+      const verdict=measuredTimingRisk(task.marginMs,metric.maxDeviation,metric.maxServerDeltaAbs,task.narrowAttemptApproved);
       if(!verdict.safe)throw Error(verdict.message);
-      log('PRECISION_WARNING',verdict.message);
+      log(verdict.highRisk?'NARROW_SNIPE_RISK':'PRECISION_WARNING',verdict.message);
+      if(verdict.highRisk)notify(verdict.message,'error');
     }
     if(humanStop())throw Error('التحقق البشري نشط');
     if(!acquireLock())throw Error('توجد مهمة دفاعية نشطة في تبويب آخر');
@@ -1321,7 +1339,10 @@
   }
   function sendToleranceFor(task){
     if(!Number.isSafeInteger(task?.marginMs)||task.marginMs<1)return 0;
-    return Math.max(1,Math.min(SEND_TOLERANCE_MS,Math.floor(task.marginMs*0.4)));
+    // Never permit a click beyond the theoretical landing tolerance. A
+    // deliberately approved 9ms tolerance allows <=8ms browser lateness.
+    const tolerance=task.narrowAttemptApproved?task.marginMs-1:Math.floor(task.marginMs*0.4);
+    return Math.max(1,Math.min(SEND_TOLERANCE_MS,tolerance));
   }
   function fireSend(){
     const task=currentTask();if(!task||mission?.phase!=='armed')return;
@@ -1828,7 +1849,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.1 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.2 QA</small></span></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
@@ -1842,6 +1863,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </details>
   <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — استهداف جميع النبلاء الممكنين منذ بداية القطار</label>
   <label class="sd-auto-option" for="sd-include-first"><input id="sd-include-first" type="checkbox"> 👑 تضمين النبيل الأول تلقائيًا (غير محدد افتراضيًا)</label>
+  <label class="sd-auto-option" for="sd-narrow-attempt"><input id="sd-narrow-attempt" type="checkbox"> ⚠️ السماح بمحاولة قنص بفاصل ضيق (حتى 20ms) — تجريبي، لا ضمان لوصول الدعم</label>
   <label for="sd-noble-lead">⏱️ قبل النبيل الأول في الفجوات الطويلة (ms)</label>
   <input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr">
   <details id="sd-targeting" open><summary>🎯 حدد النبلاء ونطاق الوصول لكل نبيل (من جزء → إلى جزء)</summary>
@@ -1893,7 +1915,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </details>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.1.1';
+    panel.dataset.editorVersion='2.1.2';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};const original=[...panel.querySelector('main').children];
@@ -1916,7 +1938,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     };
     for(const id of ['sd-scan','sd-countdown','sd-message','sd-radar'])move(id,'home');
     for(const id of ['sd-auto-nobles','sd-include-first','sd-noble-lead',
-      'sd-targeting','sd-noble-target','sd-gap-warning'])move(id,'nobles');
+      'sd-targeting','sd-noble-target','sd-gap-warning','sd-narrow-attempt'])move(id,'nobles');
     move('sd-unit-section','units');
     // Plans, approval and independent planning slots now belong to Home.
     // Preserve the existing IDs and handlers so the planning engine is unchanged.
@@ -1972,6 +1994,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
     uiQuery('sd-include-first').checked=options.includeFirst===true;
+    uiQuery('sd-narrow-attempt').checked=options.allowNarrowAttempt===true;
     renderUnitControls();
     const applyAllUnits=all=>{
       const next=all?availableWorldUnits():[];
@@ -2006,7 +2029,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     applySharedDraft();
     for(const id of FIELD_IDS){
       const saveInput=()=>{
-        recordDraft(id,(id==='sd-auto-nobles'||id==='sd-cascade-auto'||id==='sd-include-first')?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
+        recordDraft(id,(id==='sd-auto-nobles'||id==='sd-cascade-auto'||id==='sd-include-first'||id==='sd-narrow-attempt')?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
         saveSettings(); // every input is persisted before tab switch; no debounce
         if(id==='sd-auto-nobles')uiQuery('sd-noble-target').disabled=uiQuery(id).checked;
         if(['sd-noble-spacing','sd-auto-nobles','sd-noble-target'].includes(id)&&scanned){
@@ -2154,7 +2177,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         row.prepend(mark,caption);
         const status=doc.createElement('small');
         status.textContent=w.valid?
-          ('🎯 '+clockOnly(w.arrival)+' | هامش '+w.slack+'ms'+
+          ('🎯 '+clockOnly(w.arrival)+' | سماحية ±'+w.slack+'ms'+
+            (w.slack<20?' | ⚠️ محاولة ضيقة عالية المخاطر':'')+
             (w.riskCount?' | ⚠️ '+w.riskCount+' هجمات بين الوصول والنبيل':' | دون هجمات أخرى')):
           '⚠️ '+w.reason;
         row.appendChild(status);
@@ -2248,7 +2272,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       list.push('🔎 تشخيص توفر الجيوش: '+d.eligibleVillages+' من '+d.villagesChecked+
         ' قرية تحتوي وحدات صالحة (جميع الأنواع). قادرة على الوصول: '+d.reachableVillages+
         ' | متأخرة: '+d.tooLate+' | دون وحدات قابلة للتوزيع: '+d.withoutUsableUnits+
-        ' | فجوات كافية للهامش: '+d.usableGaps+
+        ' | نوافذ قنص صالحة زمنيًا: '+d.usableGaps+
         (d.nearestLateMs!==null?' | أقرب فرصة فائتة بـ '+(d.nearestLateMs/1000).toFixed(1)+'ث':''));
     }
     const autoCancel=scanned.plans.filter(p=>p.kind==='cancel'&&p.autoTarget);
@@ -2273,8 +2297,13 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         if(seen.size>=30)break;
       }
     }
+    if(scanned.trains.some(t=>nobleWindows(t,{safetyMs:options.margin,
+      leadMs:options.nobleLeadMs||250,targets:scanned.targetRules||{},
+      auto:options.autoNobles!==false,includeFirst:options.includeFirst===true})
+      .some(w=>w.usable&&w.slack<20)))
+      list.push('⚠️ نوافذ ضيقة (أقل من ±20ms): يمكن تخطيطها، لكن التنفيذ يتطلب تفعيل إذن المحاولة التجريبية في صفحة النبلاء، ولا توجد دقة مضمونة.');
     if(!scanned.plans.length){
-      list.push('⚠️ لا توجد خطة قابلة للتنفيذ بالشروط والوقت الحالي. قد تكون جميع القرى بعيدة أو أن الإرسال فات موعده.');
+      list.push('⚠️ لم تنتج خطط ضمن الشروط الحالية. راجع صلاحية الفجوات وزمن السير وتوفر الوحدات؛ لا تفترض أن القرى متأخرة دون قياس.');
       if(!options.cancelTarget||!(options.cancelOneWay>0))
         list.push('🎯 قنص الإلغاء غير محسوب: أدخل هدف هجوم الإلغاء وزمن سير جيشك في الإعدادات المتقدمة، ثم أعد الفحص.');
       list.push('سرعة التشكيلة تُحسب الآن باستخدام أسرع مجموعة مناسبة من كل قرية، وليس بإجبار جميع الوحدات البطيئة على المشاركة.');
