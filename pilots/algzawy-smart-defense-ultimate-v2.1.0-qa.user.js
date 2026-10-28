@@ -1747,6 +1747,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     panel.dataset.editorVersion='2.1.0';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
+    const pages={};const original=[...panel.querySelector('main').children];
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
