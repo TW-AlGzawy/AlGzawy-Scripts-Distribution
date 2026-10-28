@@ -173,8 +173,9 @@
         high=second+endPart;manual=true;
       }else if(i===0){
         high=current.at-safetyMs-1;
+        const lead=Math.max(leadMs,safetyMs+2);
         low=Math.max(previous?.at||current.at-30000,
-          current.at-2*Math.max(leadMs,safetyMs+1));
+          current.at-(2*lead-safetyMs-1));
       }else{
         low=previous.at+safetyMs+1;
         high=current.at-safetyMs-1;
