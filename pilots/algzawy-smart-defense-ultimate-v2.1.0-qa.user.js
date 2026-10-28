@@ -2064,7 +2064,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     if(!table)return;
     const now=nowServer();if(!finite(now))return;
     const entries=[...table.querySelectorAll('tr')].map(row=>({row,info:classifyRow(row,now)}))
-      .filter(x=>x.info);
+      .filter(x=>x.info&&x.info.at>now);
     const lookup=new Map(nobleTrains(entries.map(x=>x.info)).flatMap(t=>
       t.waves.filter(x=>x.kind==='noble').map((n,i)=>[nobleKey(n),i+1])));
     const stored=rulesFor(ownId());
