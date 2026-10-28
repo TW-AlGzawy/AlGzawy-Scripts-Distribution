@@ -2303,8 +2303,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       `أعلى فارق قبول مستنتج من السيرفر: ${Math.round(metric.maxServerDeltaAbs||0)}ms`;
   }
   function monitor(){
-    if(!options.autoMonitor)return;
-    if(mission&&['sent','verify','cancel_wait'].includes(mission.phase))return;
+    // Expiry checks are mandatory even when automatic new-threat scanning is off.
+    // Sent commands are preserved in the audit; only stale incoming targets disappear.
     if(scanned?.defenseVillageId&&scanned.defenseVillageId!==ownId())return;
     if(!doc.querySelector('#commands_incomings'))return;
     try{
