@@ -1765,6 +1765,15 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       if(prev?.tagName==='LABEL'&&prev.htmlFor===id)pages[tab].appendChild(prev);
       pages[tab].appendChild(top);
     };
+    for(const id of ['sd-scan','sd-countdown','sd-message','sd-radar'])move(id,'home');
+    for(const id of ['sd-auto-nobles','sd-include-first','sd-noble-lead',
+      'sd-targeting','sd-noble-target','sd-gap-warning'])move(id,'nobles');
+    move('sd-unit-section','units');
+    for(const id of ['sd-approve','sd-options','sd-plan'])move(id,'plans');
+    for(const id of ['sd-troops','sd-stop','sd-status'])move(id,'execution');
+    for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-advanced'])move(id,'settings');
+    for(const node of original)if(node.parentElement===panel.querySelector('main'))
+      pages.settings.appendChild(node);
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
