@@ -123,3 +123,58 @@ test('duplicate cross-gap timings are not combined as a single noble index',()=>
   const plan={tasks:[{gapIndex:0},{gapIndex:1}]};
   assert.equal(core.nobleIndexOf(plan),null);
 });
+
+test('regression: first noble is targeted just before arrival, not at midpoint of ten-minute opening gap',()=>{
+  const opening=Date.UTC(2026,9,28,18,3,19,543);
+  const first=Date.UTC(2026,9,28,18,13,36,481);
+  const list=[
+    {kind:'strong',at:opening,precise:true},
+    {kind:'noble',at:first,precise:true},
+    {kind:'noble',at:first+200,precise:true},
+    {kind:'noble',at:first+400,precise:true},
+    {kind:'noble',at:first+600,precise:true}
+  ];
+  const actual=core.gaps(list,99,250);
+  assert.equal(actual.length,4);
+  assert.equal(core.clockOnly(actual[0].arrival),'18:13:36.231');
+  assert.equal(actual[0].leadMs,250);
+  assert.equal(actual[0].slack,250);
+  assert.equal(actual[0].position,'before-noble');
+  assert.equal(core.clockOnly(actual[1].arrival),'18:13:36.581');
+  assert.equal(core.clockOnly(actual[2].arrival),'18:13:36.781');
+  assert.equal(core.clockOnly(actual[3].arrival),'18:13:36.981');
+  assert.deepEqual(actual.slice(1).map(x=>x.position),['midpoint','midpoint','midpoint']);
+  assert.deepEqual(actual.slice(1).map(x=>x.slack),[100,100,100]);
+});
+test('regression: 150ms noble gaps are treated as 75ms maximum symmetric margin',()=>{
+  const first=Date.UTC(2026,9,28,18,13,36,481);
+  const sample=[{kind:'strong',at:first-300_000},
+    {kind:'noble',at:first},
+    {kind:'noble',at:first+150},
+    {kind:'noble',at:first+300}];
+  const gaps=core.gaps(sample,74,250);
+  assert.equal(core.clockOnly(gaps[1].arrival),'18:13:36.556');
+  assert.equal(gaps[1].slack,75);
+  assert.equal(core.gaps(sample,75,250)[1].usable,false);
+});
+test('regression: an explicit 100ms lead moves target close but cannot undercut configured safety',()=>{
+  const start=Date.UTC(2026,9,28,18,0,0);
+  const one=[{kind:'strong',at:start},{kind:'noble',at:start+600_000}];
+  assert.equal(core.gaps(one,50,100)[0].leadMs,100);
+  assert.equal(core.gaps(one,100,100)[0].leadMs,101);
+  assert.equal(core.gaps(one,100,100)[0].usable,true);
+});
+test('regression: support candidates inherit corrected noble landing and compute send from it',()=>{
+  const first=Date.UTC(2026,9,28,18,13,36,481);
+  const waves=[{kind:'strong',at:first-600_000,precise:true},
+    {kind:'noble',at:first,precise:true}];
+  const now=Date.UTC(2026,9,28,17,0,0);
+  const target={x:500,y:500,str:'500|500'};
+  const villages=[{id:'42',name:'test',x:499,y:500,units:{light:50}}];
+  const plans=core.supportOptions({villages,target,waves,
+    unitMinutes:{light:10},worldFactor:1,now,share:0.5,
+    safetyMs:100,leadBeforeNobleMs:250});
+  assert.equal(plans.length,1);
+  assert.equal(plans[0].arrivalAt,first-250);
+  assert.equal(plans[0].sendAt,first-250-10*60000);
+});
