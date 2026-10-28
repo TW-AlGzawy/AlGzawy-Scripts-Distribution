@@ -898,6 +898,7 @@
     const approve=uiQuery('sd-approve');if(approve)approve.disabled=true;
     const message=uiQuery('sd-message');if(message)message.textContent='✅ انتهت الهجمات النبيلة أو اختفت من جدول اللعبة.';
     renderPlan();
+    if(had)set(root.localStorage,CONTEXT,{version:1,invalidated:true,defenseVillageId:ownId(),updatedAt:Date.now()});
   }
   function readIncoming(){
     const now=nowServer();if(!finite(now))throw Error('ساعة سيرفر اللعبة الدقيقة غير متاحة');
