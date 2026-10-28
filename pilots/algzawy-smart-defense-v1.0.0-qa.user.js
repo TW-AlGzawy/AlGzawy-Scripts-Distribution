@@ -467,7 +467,7 @@
       deltaMs,lateMs:Math.max(0,deltaMs),
       withinMargin:finite(task.marginMs)&&Math.abs(deltaMs)<=task.marginMs};
   }
-  const CORE=Object.freeze({cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -1242,12 +1242,34 @@
     }};
   }
 
+
+  function slotConflicts(slots){
+    if(!Array.isArray(slots))return [];
+    const conflicts=[];
+    const tasksOf=slot=>slot.plan?(Array.isArray(slot.plan.tasks)?slot.plan.tasks:[slot.plan]):[];
+    for(let i=0;i<slots.length;i++)for(let j=i+1;j<slots.length;j++){
+      const a=slots[i],b=slots[j];
+      for(const x of tasksOf(a))for(const y of tasksOf(b)){
+        if(!validEpoch(x.sendAt)||!validEpoch(y.sendAt))continue;
+        if(x.sourceId===y.sourceId&&
+          x.sendAt<=Math.max(y.arrivalAt||y.sendAt,y.sendAt)&&
+          y.sendAt<=Math.max(x.arrivalAt||x.sendAt,x.sendAt)){
+          conflicts.push({first:a.id,second:b.id,reason:'القوات من القرية نفسها ضمن فترة متداخلة'});
+        }else if(Math.abs(x.sendAt-y.sendAt)<MIN_NAV_SEPARATION_MS){
+          conflicts.push({first:a.id,second:b.id,reason:'موعدا إرسال أقرب من 30 ثانية'});
+        }
+      }
+    }
+    return conflicts;
+  }
+
   function saveSlots(){if(slotState.length>30)throw Error('حد المهام 30');set(root.localStorage,SLOTS,slotState);}
   function renderSlots(){
     let rootNode=doc.getElementById('algzawy-sd-slots');
     if(!rootNode){rootNode=doc.createElement('div');rootNode.id='algzawy-sd-slots';doc.body.appendChild(rootNode);}
     rootNode.replaceChildren();
     const badge=uiQuery('sd-slot-count');if(badge)badge.textContent=slotState.length+'/30';
+    const conflicts=slotConflicts(slotState);
     const button=(label,fn)=>{const b=doc.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b;};
     for(const slot of slotState){
       const section=doc.createElement('section');section.className='sd-task-slot';
@@ -1263,10 +1285,13 @@
       section.appendChild(bar);
       const content=doc.createElement('div');content.className='sd-task-body';content.hidden=!!slot.folded;
       const summary=doc.createElement('p');
-      summary.textContent=slot.plan?
+      const issues=conflicts.filter(c=>c.first===slot.id||c.second===slot.id);
+      summary.textContent=(slot.plan?
         '🎯 '+slot.plan.kind+' | '+slot.target+'\nالوصول: '+stamp(slot.plan.arrivalAt)+
         '\nهامش: '+slot.plan.marginMs+'ms':
-        'لا توجد خطة محفوظة لهذه النافذة بعد.';
+        'لا توجد خطة محفوظة لهذه النافذة بعد.')+
+        (issues.length?'\n⚠️ تعارضات محتملة: '+issues.map(c=>c.reason).join('، '):'')+
+        '\n🛡️ هذه نافذة تخطيط فقط؛ أوامر التنفيذ تخضع لقفل واحد.';
       content.appendChild(summary);
       content.appendChild(button('💾 حفظ الخطة المختارة',()=>{
         if(!chosen||!scanned)return notify('اختر خطة من القائمة الرئيسية أولًا','error');
