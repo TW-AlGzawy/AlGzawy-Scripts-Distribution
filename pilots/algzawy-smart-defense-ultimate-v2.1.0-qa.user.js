@@ -602,7 +602,15 @@
   function activeNobleKeys(records,at){
     return activeIncomingRecords(records,at).filter(r=>r.kind==='noble').map(nobleKey).sort();
   }
-  const CORE=Object.freeze({activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  // Only the current unclicked order to this defense village may be stopped.
+  function shouldStopForExpiredTarget(mission,notice){
+    return !!(mission&&notice?.invalidated===true&&!mission.clickedAt&&
+      ['routing','prepare','confirm','armed'].includes(mission.phase)&&
+      mission.defenseVillageId&&String(mission.defenseVillageId)===String(notice.defenseVillageId)&&
+      validEpoch(mission.createdAt)&&validEpoch(notice.updatedAt)&&
+      notice.updatedAt>=mission.createdAt-3000);
+  }
+  const CORE=Object.freeze({shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -639,7 +647,7 @@
     unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
     cancelExperimental:false};
   let logRows=get(root.localStorage,AUDIT)||[];
-  let lastScannedKey='',uiTick=0,monitorTimer=0,panelLayout=null;
+  let lastScannedKey='',lastUncertainAt=0,uiTick=0,monitorTimer=0,panelLayout=null;
   let activeTab=get(root.localStorage,TAB_KEY)||'home';
   let latestDraftAt=0,latestContextAt=0,otherMission=null;
   let slotState=Array.isArray(get(root.localStorage,SLOTS))?get(root.localStorage,SLOTS).slice(0,30):[];
@@ -725,7 +733,14 @@
   }
   function applySharedContext(){
     const remote=get(root.localStorage,CONTEXT);
-    if(remote?.invalidated){if(scanned?.defenseVillageId===String(remote.defenseVillageId))clearExpiredNobles(false);return;}
+    if(remote?.invalidated){
+      if(!validEpoch(remote.updatedAt)||remote.updatedAt<latestContextAt)return;
+      latestContextAt=remote.updatedAt;
+      if(scanned?.defenseVillageId===String(remote.defenseVillageId))clearExpiredNobles(false);
+      if(shouldStopForExpiredTarget(mission,remote))
+        stopMission('اختفى النبيل المستهدف من تبويب القرية المدافَع عنها قبل الإرسال');
+      return;
+    }
     if(remote&&!remote.invalidated&&!sharedContextUsable(remote,currentFingerprint(),nowServer()))return;
     if(!remote||remote.version!==1||!remote.target||!Array.isArray(remote.plans)||
       !Array.isArray(remote.trains)||!validEpoch(remote.checkedAt))return;
@@ -891,7 +906,9 @@
   }
   function liveNobleSignature(trains,now){return (trains||[]).flatMap(t=>t.waves||[]).filter(w=>w.kind==='noble'&&w.at>now).map(w=>nobleKey(w)+':'+w.at).sort().join('|');}
   function clearExpiredNobles(publish=true){
-    const had=Boolean(scanned||chosen);
+    const had=Boolean(scanned||chosen||(mission&&!mission.clickedAt&&
+      ['routing','prepare','confirm','armed'].includes(mission.phase)&&
+      mission.target?.str===xy(game.village.x+'|'+game.village.y)?.str));
     if(mission&&!mission.clickedAt&&['routing','prepare','confirm','armed'].includes(mission.phase)&&
       mission.target?.str===xy(game.village.x+'|'+game.village.y)?.str)
       stopMission('انتهى أو اختفى قطار النبلاء قبل إرسال القوات');
@@ -920,7 +937,17 @@
     const now=nowServer();if(!finite(now))throw Error('ساعة سيرفر اللعبة الدقيقة غير متاحة');
     const table=doc.querySelector('#commands_incomings');
     if(!table)throw Error('افتح القرية التي يظهر فيها جدول الهجمات الواردة أولًا');
-    const records=activeIncomingRecords([...table.querySelectorAll('tr')].map(row=>classifyRow(row,now)).filter(Boolean),now);
+    const classified=[...table.querySelectorAll('tr')].map(row=>({row,info:classifyRow(row,now)}));
+    // An unreadable live noble row is uncertain, NOT confirmed expired.
+    const uncertain=classified.some(({row,info})=>{
+      if(info)return false;
+      const cell=row.querySelector('td');if(!cell)return false;
+      const images=[...cell.querySelectorAll('img')].map(img=>String(img.getAttribute('src')||'').toLowerCase());
+      return images.some(src=>/\battack(?:_[a-z]+)?\.(?:webp|png|gif)/.test(src))&&
+        images.some(src=>/\bsnob\.(?:webp|png|gif)/.test(src));
+    });
+    if(uncertain)throw Error('توجد هجمة نبيل لا يمكن تأكيد وقتها؛ لم تُحذف خطط القنص، تحقق من جدول اللعبة');
+    const records=activeIncomingRecords(classified.map(x=>x.info).filter(Boolean),now);
     const trains=nobleTrains(records);
     pruneNobleRules(trains);
     if(!trains.length){clearExpiredNobles();return [];} // no active nobles remain
@@ -1109,7 +1136,8 @@
     if(humanStop())throw Error('التحقق البشري نشط');
     if(!acquireLock())throw Error('توجد مهمة دفاعية نشطة في تبويب آخر');
     storeMission({phase:'routing',tasks,index:0,player,host,tabId,createdAt:Math.round(now),
-      target:scanned.target,fallbackPlans,log:[],note:'بدأ تجهيز الخطة المعتمدة'});
+      target:scanned.target,defenseVillageId:scanned.defenseVillageId,
+       fallbackPlans,log:[],note:'بدأ تجهيز الخطة المعتمدة'});
     log('APPROVE',chosen.id);
     routeMission();
   }
@@ -1262,6 +1290,9 @@
       if(tryCancelFallback('تأخر مؤقت المتصفح '+Math.round(late)+'ms قبل الإرسال'))return;
       return stopMission('تأخر مؤقت المتصفح '+Math.round(late)+'ms؛ لم نرسل أمرًا متأخرًا');
     }
+    // Recheck persisted expiry: suspended tabs can miss storage events.
+    if(shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT)))
+      return stopMission('وصل إشعار بانتهاء النبيل المستهدف قبل الضغط على الإرسال');
     // Persistent idempotency survives reload, and the existing tab lock guards competing tabs.
     if(!reserveDispatch(root.localStorage,CLAIMED_SENDS,dispatchKey(task),Math.round(time)))
       return stopMission('سبق تسجيل محاولة إرسال الأمر نفسه؛ ممنوع الإرسال المكرر');
@@ -1352,6 +1383,7 @@
     if(!finite(now)||nextTask.sendAt-now<MIN_PREP_MS)
       return stopMission('المهمة التالية قريبة جدًا؛ انتهت المهمة السابقة فقط');
     storeMission({...mission,index:next,phase:'routing',baselineIds:[],commandId:null,
+      clickedAt:null,armedAt:null,serverArrivalAt:null,serverDeltaMs:null,
       note:'الانتقال إلى القرية التالية'});
     log('NEXT','task '+(next+1));routeMission();
   }
@@ -1387,6 +1419,8 @@
   function schedule(){
     clearTimeout(timer);timer=null;
     if(!mission||!['armed','cancel_wait'].includes(mission.phase)||stopGuard())return;
+    if(mission.phase==='armed'&&shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT)))
+      return stopMission('تم إبطال هدف القنص في القرية المدافَع عنها');
     if(!touchLock())return stopMission('فقدنا قفل التنفيذ بين التبويبات');
     if(!ready())return stopMission('ساعة الخادم غير موثوقة أو الجلسة غير متاحة');
     const task=currentTask();if(!task)return stopMission('المهمة غير صالحة');
@@ -2328,7 +2362,16 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         }
       }
       lastScannedKey=key;
-    }catch(_){}
+    }catch(error){
+      if(/لا يمكن تأكيد وقتها/.test(String(error?.message||''))){
+        const now=Date.now();
+        if(now-lastUncertainAt>10000){
+          lastUncertainAt=now;
+          log('UNCERTAIN_INCOMING',String(error.message));
+          notify('⚠️ وقت أحد النبلاء غير واضح؛ لم تُحذف الخطط احتياطيًا','error');
+        }
+      }
+    }
   }
   function initialize(){
     syncClock();mount();
