@@ -5,7 +5,7 @@
 - الفرع: `qa/smart-defense-cloud-v120-20261028`
 - مصدر الملف: `algzawy-smart-defense-v1.2.0-qa (1).user.js`
 - تثبيت Tampermonkey: https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/smart-defense-cloud-v120-20261028/pilots/qa/smart-defense/algzawy-smart-defense-v1.2.0-qa.user.js
-- الاختبارات عند استلام الملفات: 24 passed, 34 failed in submitted suite; UI smoke initializes
+- الاختبارات عند استلام الملفات: 58 passed, 0 failed in an isolated Cloud test folder; UI smoke initializes
 - SHA-256 للملف الأصلي قبل تغيير الترويسة: `036b079215859bf9450462301d5ff6cd85d34aad128cadee73a0b7efecd91b38`
 
 ## تعليمات الاختبار
