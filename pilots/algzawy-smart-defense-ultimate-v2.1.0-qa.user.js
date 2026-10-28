@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] القائد الذكي للدفاع والقنص | AlGzawy
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/ultimate
-// @version      2.1.0-qa
+// @version      2.1.1-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -1706,7 +1706,7 @@
   }
 
   const TAB_NAMES={home:'🏠 الرئيسية',nobles:'🎯 النبلاء',units:'⚔️ القوات',
-    plans:'🛡️ الخطط',execution:'📋 التنفيذ',settings:'⚙️ الإعدادات'};
+    execution:'📋 التنفيذ',settings:'⚙️ الإعدادات'};
   function mount(){
     if(uiQuery(uiId)||!doc.body)return;
     const style=doc.createElement('style');
@@ -1821,13 +1821,14 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 #${uiId} #sd-countdown .sd-timer-digits{font-size:25px}
 #${uiId} .sd-tabs::-webkit-scrollbar{height:3px}
 #${uiId} #sd-add-slot{width:98%;margin:8px auto;display:block}
+#${uiId} .sd-plans-heading{font-size:12px;line-height:1.5;margin:13px 3px 7px;padding:7px 9px;background:#182C42;border-inline-start:3px solid var(--sd-teal);border-radius:7px;color:var(--sd-text)}
 #${uiId} .sd-task-item{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:6px 0;padding:8px;border:1px solid #475977;border-radius:8px;background:#132B3C}
 #${uiId} .sd-task-item strong{flex:1;min-width:140px;font-size:11px}
 #${uiId}.folded .sd-tabs{display:none}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.1 QA</small></span></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
@@ -1892,7 +1893,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </details>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.1.0';
+    panel.dataset.editorVersion='2.1.1';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};const original=[...panel.querySelector('main').children];
@@ -1917,7 +1918,13 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     for(const id of ['sd-auto-nobles','sd-include-first','sd-noble-lead',
       'sd-targeting','sd-noble-target','sd-gap-warning'])move(id,'nobles');
     move('sd-unit-section','units');
-    for(const id of ['sd-approve','sd-options','sd-plan'])move(id,'plans');
+    // Plans, approval and independent planning slots now belong to Home.
+    // Preserve the existing IDs and handlers so the planning engine is unchanged.
+    const plansHeading=doc.createElement('h3');
+    plansHeading.className='sd-plans-heading';
+    plansHeading.textContent='🛡️ خطط الدفاع ومركز القيادة';
+    pages.home.appendChild(plansHeading);
+    for(const id of ['sd-options','sd-plan','sd-approve'])move(id,'home');
     for(const id of ['sd-troops','sd-stop','sd-status'])move(id,'execution');
     for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-advanced'])move(id,'settings');
     for(const node of original)if(node.parentElement===panel.querySelector('main'))
@@ -1927,6 +1934,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     executionLog.setAttribute('aria-label','آخر أحداث التنفيذ');
     pages.execution.appendChild(executionLog);
     const activate=tab=>{
+      // Previously saved 'plans' tab seamlessly migrates to Home.
       activeTab=TAB_NAMES[tab]?tab:'home';
       for(const [id,page] of Object.entries(pages))page.hidden=id!==activeTab;
       for(const button of nav.querySelectorAll('[data-sd-tab]'))
@@ -1938,9 +1946,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     activate(activeTab);
     const newTask=doc.createElement('button');newTask.type='button';
     newTask.id='sd-add-slot';newTask.textContent='➕ إنشاء مهمة قنص جديدة';
-    pages.plans.appendChild(newTask);
+    pages.home.appendChild(newTask);
     const tasksList=doc.createElement('div');tasksList.id='sd-tasks-list';
-    pages.plans.appendChild(tasksList);
+    pages.home.appendChild(tasksList);
     panelLayout=placePanel(panel);
     uiQuery('sd-add-slot').onclick=createSlot;
     renderSlots();
