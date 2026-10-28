@@ -164,3 +164,86 @@ test('unusable persisted context is rejected instead of restoring past nobles',(
   assert.match(src,/if\(remote&&hasExpiredNobleRecords\(remote\.trains,nowServer\(\)\)\)/);
   assert.match(src,/hasExpiredNobleRecords\(scanned\.trains,nowServer\(\)\)\|\|!targetRulesMatch\(\)/);
 });
+
+test('20ms strong-to-first-noble gap admits 101..119ms and targets 110ms',()=>{
+  const at=Date.UTC(2026,9,29,6,18,32,100);
+  const train=core.nobleTrains([{id:'opening',kind:'opening',at,precise:true},
+    {id:'first',kind:'noble',at:at+20,precise:true}])[0];
+  const w=core.nobleWindows(train,{safetyMs:100,leadMs:250,includeFirst:true})[0];
+  assert.equal(w.windowFrom,at+1);
+  assert.equal(w.windowTo,at+19);
+  assert.equal(w.arrival,at+10);
+  assert.equal(w.slack,9);
+  assert.equal(w.usable,true);
+});
+test('20ms noble-to-noble gap is eligible despite configured 100ms timing risk margin',()=>{
+  const at=Date.UTC(2026,9,29,6,18,32,100);
+  const train=core.nobleTrains([{id:'n1',kind:'noble',at,precise:true},
+    {id:'n2',kind:'noble',at:at+20,precise:true}])[0];
+  const w=core.nobleWindows(train,{safetyMs:100,auto:true})[1];
+  assert.equal(w.windowFrom,at+1);
+  assert.equal(w.windowTo,at+19);
+  assert.equal(w.arrival,at+10);
+  assert.equal(w.slack,9);
+  assert.equal(w.usable,true);
+});
+test('manual 101..119ms targeting remains eligible and never crosses the neighboring waves',()=>{
+  const at=Date.UTC(2026,9,29,6,18,32,100);
+  const train=core.nobleTrains([{id:'n1',kind:'noble',at,precise:true},
+    {id:'n2',kind:'noble',at:at+20,precise:true}])[0];
+  const rules={n2:{selected:true,fromMs:101,toMs:119}};
+  const valid=core.nobleWindows(train,{safetyMs:100,auto:false,targets:rules})[1];
+  assert.equal(valid.usable,true);
+  assert.equal(valid.arrival,at+10);
+  assert.equal(valid.slack,9);
+  const invalid=core.nobleWindows(train,{safetyMs:100,auto:false,
+    targets:{n2:{selected:true,fromMs:100,toMs:120}}})[1];
+  assert.equal(invalid.usable,false);
+});
+test('real village is considered for 20ms gap when there are more than three hours to prepare',()=>{
+  const at=Date.UTC(2026,9,29,6,18,32,100);
+  const train=core.nobleTrains([{id:'n1',kind:'noble',at,precise:true},
+    {id:'n2',kind:'noble',at:at+20,precise:true}])[0];
+  const windows=core.nobleWindows(train,{safetyMs:100,auto:true});
+  const diagnostic={};
+  const plans=core.supportOptions({villages:[{id:'11',name:'sample',
+      x:499,y:500,units:{light:50}}],target:{x:500,y:500,str:'500|500'},
+    waves:train.waves,windows,unitMinutes:{light:10},worldFactor:1,
+    now:at-12600000,share:0.5,safetyMs:100,allowUnits:['light'],diagnostics:diagnostic});
+  assert.equal(diagnostic.usableGaps,1);
+  assert.equal(diagnostic.reachableVillages,1);
+  assert.equal(plans.length,1);
+  assert.equal(plans[0].marginMs,9);
+  assert.equal(plans[0].arrivalAt,at+10);
+});
+test('20ms attack window straddling the second boundary keeps millisecond precision',()=>{
+  const at=Date.UTC(2026,9,29,6,18,32,990);
+  const train=core.nobleTrains([{id:'n1',kind:'noble',at,precise:true},
+    {id:'n2',kind:'noble',at:at+20,precise:true}])[0];
+  const w=core.nobleWindows(train,{safetyMs:100})[1];
+  assert.equal(w.windowFrom,at+1);
+  assert.equal(w.windowTo,at+19);
+  assert.equal(w.arrival,at+10);
+});
+test('narrow dispatch is blocked without explicit consent and warned when consented',()=>{
+  const strict=core.measuredTimingRisk(9,25,237);
+  assert.equal(strict.safe,false);
+  const opted=core.measuredTimingRisk(9,25,237,true);
+  assert.equal(opted.safe,true);
+  assert.equal(opted.highRisk,true);
+  assert.match(opted.message,/237ms/);
+  assert.equal(core.measuredTimingRisk(0,0,0,true).safe,false);
+});
+test('opt-in is shown on noble page, persisted, synchronized and bound to the approved task',()=>{
+  assert.match(src,/id="sd-narrow-attempt"/);
+  assert.match(src,/allowNarrowAttempt:false/);
+  assert.match(src,/merged\.allowNarrowAttempt=narrowRaw==='1'/);
+  assert.match(src,/narrowAttemptApproved:options\.allowNarrowAttempt===true&&task\.marginMs<20/);
+  assert.match(src,/measuredTimingRisk\(task\.marginMs,metric\.maxDeviation,metric\.maxServerDeltaAbs,task\.narrowAttemptApproved\)/);
+});
+test('narrow sends keep the game verification and native click lateness guard',()=>{
+  assert.match(src,/if\(late>sendToleranceFor\(task\)\)/);
+  assert.match(src,/const tolerance=task\.narrowAttemptApproved\?task\.marginMs-1/);
+  assert.match(src,/if\(!reserveDispatch\(root\.localStorage,CLAIMED_SENDS/);
+  assert.match(src,/if\(humanStop\(\)\)throw Error/);
+});
