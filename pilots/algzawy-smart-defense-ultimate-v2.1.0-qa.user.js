@@ -896,6 +896,7 @@
       stopMission('انتهى أو اختفى قطار النبلاء قبل إرسال القوات');
     scanned=null;chosen=null;lastScannedKey='';
     root.sessionStorage.removeItem(TRAIN);
+    for(const control of doc.querySelectorAll('#commands_incomings .sd-inline-noble'))control.remove();
     const select=uiQuery('sd-options');if(select)select.replaceChildren();
     const list=uiQuery('sd-noble-list');if(list)list.textContent='لا توجد هجمات نبيلة قادمة.';
     const radar=uiQuery('sd-radar');if(radar)radar.textContent='✅ انتهى القطار؛ أزيلت الخطط السابقة.';
