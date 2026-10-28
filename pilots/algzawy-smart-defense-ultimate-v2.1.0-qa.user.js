@@ -2269,7 +2269,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     if(mission){setTimeout(resume,400);}
     uiTick=setInterval(()=>{renderStatus();},250);
     setInterval(()=>{if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait'].includes(mission.phase))touchLock();},30000);
-    monitorTimer=setInterval(monitor,15000);
+    monitorTimer=setInterval(monitor,1500);
     doc.addEventListener('algzawy-human-verification',()=>{
       if(mission&&!['done','stopped','cancel_clicked'].includes(mission.phase))stopMission('طلب تحقق بشري');
     });
