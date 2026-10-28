@@ -1622,10 +1622,10 @@
 #${uiId} .sd-noble-line input[type=number]{width:100%;font:12px Consolas,monospace}
 #${uiId} .sd-noble-line small{grid-column:1/-1;color:#DFB677;line-height:1.6}
 #${uiId} .sd-noble-line span{font:700 11px Consolas,Tahoma,monospace}
-.sd-inline-noble{display:inline-flex;align-items:center;gap:3px;margin-inline:5px;padding:3px;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:5px;direction:ltr}
-.sd-inline-noble input[type=number]{width:45px!important;height:22px!important;text-align:center}
-.sd-inline-noble input[type=checkbox]{width:16px;height:16px}
-.sd-inline-noble b{font-size:11px}
+.sd-inline-noble{display:inline-flex;align-items:center;gap:2px;margin-inline:1px;padding:1px;max-height:19px;font-size:9px;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:5px;direction:ltr}
+.sd-inline-noble input[type=number]{width:29px!important;height:17px!important;padding:0 1px!important;font-size:9px!important;text-align:center}
+.sd-inline-noble input[type=checkbox]{width:12px;height:12px;margin:0}
+.sd-inline-noble b{font-size:9px}
 @media(max-width:380px){#${uiId} .sd-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 #algzawy-sd-slots .sd-task-slot{position:fixed;z-index:2147482998;box-sizing:border-box;resize:both;overflow:auto;direction:rtl;min-width:230px;min-height:42px;background:#102031;border:2px solid #B49AFF;border-radius:10px;color:#EAF3F8;font:12px/1.5 Tahoma,Arial;box-shadow:0 10px 30px #0009}
