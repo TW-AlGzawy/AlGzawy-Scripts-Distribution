@@ -51,7 +51,7 @@ test('per-account keyspace and current-tab mission storage are separate from sha
 });
 test('live inputs, restoration on reload and cross-tab storage events are wired',()=>{
   assert.match(script,/uiQuery\(id\)\.addEventListener\('input'/);
-  assert.match(script,/recordDraft\(id,id==='sd-auto-nobles'\?/);
+  assert.match(script,/recordDraft\(id,\(id==='sd-auto-nobles'\|\|id==='sd-cascade-auto'\)\?/);
   assert.match(script,/saveSettings\(\); \/\/ every input is persisted before tab switch; no debounce/);
   assert.match(script,/root\.addEventListener\('storage'/);
   assert.match(script,/if\(e\.key===DRAFT\|\|e\.key===SETTINGS\)applySharedDraft\(\)/);
