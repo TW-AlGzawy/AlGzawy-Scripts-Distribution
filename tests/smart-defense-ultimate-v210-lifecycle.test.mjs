@@ -419,3 +419,22 @@ test('user opt-in is disabled by default, selected before approval, and scoped t
   assert.match(src,/if\(!task\|\|task\.kind!=='support'/);
   assert.match(src,/CALIBRATION_PROFILE/);
 });
+
+test('calibrated experiments feed back estimated native uncorrected lag, not just residuals',()=>{
+  const h=[
+    {sourceId:'1',arrivalDeltaMs:139,nativeTravelMs:100000},
+    {sourceId:'1',arrivalDeltaMs:188,nativeTravelMs:100000},
+    {sourceId:'1',arrivalDeltaMs:386,nativeTravelMs:100000},
+    {sourceId:'1',arrivalDeltaMs:126,nativeTravelMs:100000},
+    {sourceId:'1',arrivalDeltaMs:177,nativeTravelMs:100000},
+    {sourceId:'1',arrivalDeltaMs:118,nativeTravelMs:100000},
+    {sourceId:'1',arrivalDeltaMs:315,nativeTravelMs:100000},
+  ];
+  const previous=core.timingCalibration(h,'2');
+  assert.equal(previous.shiftMs,177);
+  h.push({sourceId:'1',arrivalDeltaMs:0,calibrationOffsetMs:177,nativeTravelMs:100000});
+  const next=core.timingCalibration(h,'2');
+  assert.equal(next.shiftMs,177);
+  assert.equal(next.medianMs,177);
+  assert.match(src,/r\.arrivalDeltaMs\+\s*\(Number\.isSafeInteger\(r\.calibrationOffsetMs\)/);
+});
