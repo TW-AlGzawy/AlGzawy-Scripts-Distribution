@@ -641,7 +641,12 @@
       Math.abs(row.arrivalDeltaMs)<=2000):[];
     const village=rows.filter(r=>String(r.sourceId)===String(sourceId));
     const local=village.length>=3;
-    const sorted=(local?village:rows).map(r=>r.arrivalDeltaMs).sort((a,b)=>a-b);
+    // Recover estimated UNCOMPENSATED lag from experimental attempts.
+    // Otherwise successful calibrated sends would drive the prediction toward
+    // zero and incorrectly disable their own correction on later sends.
+    const sorted=(local?village:rows).map(r=>r.arrivalDeltaMs+
+      (Number.isSafeInteger(r.calibrationOffsetMs)&&r.calibrationOffsetMs>=0&&
+        r.calibrationOffsetMs<=300?r.calibrationOffsetMs:0)).sort((a,b)=>a-b);
     const median=v=>v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2;
     if(!sorted.length)return {samples:0,scope:'none',medianMs:0,madMs:null,spanMs:null,eligible:false,shiftMs:0};
     const mid=median(sorted),mad=median(sorted.map(v=>Math.abs(v-mid)).sort((a,b)=>a-b));
