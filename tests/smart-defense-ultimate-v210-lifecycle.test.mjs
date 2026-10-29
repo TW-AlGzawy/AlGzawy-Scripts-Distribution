@@ -318,3 +318,26 @@ test('execution refuses support without native verification and rechecks next ta
   assert.match(src,/TIMING_BREAKDOWN/);
   assert.match(src,/metric\.nativeResiduals=/);
 });
+
+test('real arrivals are judged against the actual selected noble window, not another gap',()=>{
+  const arrival=Date.UTC(2026,9,29,6,18,32,375);
+  const task={kind:'support',windowFrom:arrival-15,windowTo:arrival+15,arrivalAt:arrival};
+  assert.deepEqual(core.classifySnipingOutcome(task,arrival),{
+    status:'within_target_window',arrivalDeltaMs:0,distanceFromWindowMs:0});
+  assert.equal(core.classifySnipingOutcome(task,arrival+125).status,'outside_target_window');
+  assert.equal(core.classifySnipingOutcome(task,arrival-44).status,'outside_target_window');
+  assert.equal(core.classifySnipingOutcome(task,arrival+498).arrivalDeltaMs,498);
+});
+test('target window labels an unknown time as unknown instead of successful',()=>{
+  const arrival=Date.UTC(2026,9,29,6,18,32,375);
+  assert.equal(core.classifySnipingOutcome({kind:'support',arrivalAt:arrival,
+    windowFrom:arrival-15,windowTo:arrival+15},null).status,'unknown');
+  assert.equal(core.classifySnipingOutcome({kind:'support',arrivalAt:arrival},arrival).status,'unknown');
+});
+test('verified order and sniping outcome are logged independently',()=>{
+  assert.match(src,/log\('SUPPORT_VERIFIED',outgoing\.id\)/);
+  assert.match(src,/log\('SNIPE_OUTCOME',outcome\.status/);
+  assert.match(src,/results:\[\.\.\.\(mission\.results\|\|\[\]\),result\]/);
+  assert.match(src,/misses=results\.filter\(r=>r\.outcome==='outside_target_window'\)\.length/);
+  assert.match(src,/أعلى انحراف بعد التحقق من مدة اللعبة/);
+});
