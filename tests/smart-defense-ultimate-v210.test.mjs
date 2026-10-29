@@ -9,7 +9,7 @@ const src=fs.readFileSync(new URL(file,import.meta.url),'utf8'),core=require(fil
 const t=Date.UTC(2026,9,28,18,13,36,800);
 test('valid userscript syntax and new isolated version',()=>{
  assert.doesNotThrow(()=>new vm.Script(src));
- assert.match(src,/@version\s+2\.1\.3-qa/);
+ assert.match(src,/@version\s+2\.1\.4-qa/);
  assert.match(src,/qa\/smart-defense-ultimate-v210-20261028/);
 });
 test('past noble attack cannot enter future scan',()=>{
@@ -75,7 +75,7 @@ test('execution page exposes latest log, stop and export while technical log sta
  assert.match(src,/pages\.execution\.appendChild\(executionLog\)/);
  assert.match(src,/const exec=uiQuery\('sd-execution-log'\)/);
  assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
- assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-advanced'\]\)move\(id,'settings'\)/);
+ assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-timing-calibration','sd-advanced'\]\)move\(id,'settings'\)/);
 });
 
 test('Home includes plans, selected plan, approval and independent task slots',()=>{
@@ -103,6 +103,6 @@ test('Combining pages does not relocate execution, units, noble controls or adva
  assert.match(src,/move\('sd-unit-section','units'\)/);
  assert.match(src,/\['sd-auto-nobles','sd-include-first','sd-noble-lead'/);
  assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
- assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-advanced'\]\)move\(id,'settings'\)/);
+ assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-timing-calibration','sd-advanced'\]\)move\(id,'settings'\)/);
  assert.match(src,/data-sd-page/);
 });
