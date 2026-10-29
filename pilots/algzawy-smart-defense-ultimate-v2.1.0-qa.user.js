@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] القائد الذكي للدفاع والقنص | AlGzawy
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/ultimate
-// @version      2.1.3-qa
+// @version      2.1.4-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -632,6 +632,37 @@
         'موعد الإرسال: '+stamp(task.sendAt))+' | '+details};
   }
 
+  // A bounded, explicit opt-in prediction. Native-duration-verified arrivals
+  // are the only source; this does NOT measure server receipt time.
+  function timingCalibration(history,sourceId){
+    const rows=Array.isArray(history)?history.filter(row=>
+      row&&String(row.sourceId||'')&&Number.isSafeInteger(row.nativeTravelMs)&&
+      row.nativeTravelMs>0&&Number.isFinite(row.arrivalDeltaMs)&&
+      Math.abs(row.arrivalDeltaMs)<=2000):[];
+    const village=rows.filter(r=>String(r.sourceId)===String(sourceId));
+    const local=village.length>=3;
+    const sorted=(local?village:rows).map(r=>r.arrivalDeltaMs).sort((a,b)=>a-b);
+    const median=v=>v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2;
+    if(!sorted.length)return {samples:0,scope:'none',medianMs:0,madMs:null,spanMs:null,eligible:false,shiftMs:0};
+    const mid=median(sorted),mad=median(sorted.map(v=>Math.abs(v-mid)).sort((a,b)=>a-b));
+    const span=sorted[sorted.length-1]-sorted[0];
+    const eligible=sorted.length>=(local?3:5)&&mid>0&&mid<=400&&mad<=75&&span<=400;
+    return {samples:sorted.length,scope:local?'village':'world',
+      medianMs:Math.round(mid),madMs:Math.round(mad),spanMs:Math.round(span),
+      eligible,shiftMs:eligible?Math.min(300,Math.max(0,Math.round(mid))):0};
+  }
+  function applyTimingCalibration(task,profile,enabled,now){
+    if(!task||task.kind!=='support'||!task.nativeDurationVerified||
+      !validEpoch(task.sendAt)||!validEpoch(task.arrivalAt)||
+      !enabled||!profile?.eligible)return {...task,calibrationOffsetMs:0};
+    const offset=profile.shiftMs,adjusted=task.sendAt-offset;
+    if(!Number.isSafeInteger(offset)||offset<1||offset>300||
+      !validEpoch(adjusted)||!validEpoch(Math.round(now))||adjusted-now<3000)
+      return {...task,calibrationOffsetMs:0};
+    return {...task,sendAt:adjusted,calibrationOffsetMs:offset,
+      nominalSendAt:task.sendAt,calibrationScope:profile.scope,
+      calibrationSampleCount:profile.samples,calibrationMadMs:profile.madMs};
+  }
   function nativeTimingRisk(metric){
     const samples=Array.isArray(metric?.nativeResiduals)?
       metric.nativeResiduals.filter(v=>Number.isFinite(v)).slice(-40):[];
@@ -652,7 +683,8 @@
   function observedDelivery(task,observedArrivalAt){
     if(!task||!validEpoch(task.sendAt)||!Number.isSafeInteger(task.travelMs)||
       task.travelMs<=0||!validEpoch(observedArrivalAt))return null;
-    const expectedArrivalAt=task.sendAt+task.travelMs;
+    // Target arrival stays fixed after an experimental early dispatch.
+    const expectedArrivalAt=validEpoch(task.arrivalAt)?task.arrivalAt:task.sendAt+task.travelMs;
     const deltaMs=observedArrivalAt-expectedArrivalAt;
     return {expectedArrivalAt,observedArrivalAt,
       estimatedServerAcceptedAt:observedArrivalAt-task.travelMs,
@@ -702,7 +734,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -725,7 +757,7 @@
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v210',CONTEXT=storagePrefix+'scan_context_v210';
   const LIVE_STATE=storagePrefix+'mission_state_v210',STOP_REQUEST=storagePrefix+'stop_request_v210';
-  const FIELD_IDS=['sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
+  const FIELD_IDS=['sd-timing-calibration','sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
   const STOP_EVENT='__algzawy_stop_smart-defense-v1';
   const uiId='algzawy-smart-defense-ultimate-v210';
   const ownId=()=>String(root.game_data?.village?.id||'');
@@ -735,7 +767,8 @@
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:10,
-    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,nobleTarget:1,
+    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
+    experimentalTimingCalibration:false,nobleTarget:1,
     unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
     cancelExperimental:false};
   let logRows=get(root.localStorage,AUDIT)||[];
@@ -799,7 +832,7 @@
     if(draft.updatedAt<latestDraftAt)return;
     latestDraftAt=draft.updatedAt;
     for(const id of FIELD_IDS)if(typeof draft.fields[id]==='string'&&uiQuery(id)){
-      if(['sd-auto-nobles','sd-cascade-auto','sd-include-first','sd-narrow-attempt'].includes(id))uiQuery(id).checked=draft.fields[id]==='1';
+      if(['sd-auto-nobles','sd-cascade-auto','sd-include-first','sd-narrow-attempt','sd-timing-calibration'].includes(id))uiQuery(id).checked=draft.fields[id]==='1';
       else uiQuery(id).value=draft.fields[id];
     } // no input/change event, preventing cross-tab sync loops
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=!!uiQuery('sd-auto-nobles')?.checked;
@@ -1003,6 +1036,9 @@
     const narrowRaw=Object.hasOwn(drafts,'sd-narrow-attempt')?drafts['sd-narrow-attempt']:
       (uiQuery('sd-narrow-attempt')?.checked?'1':'0');
     merged.allowNarrowAttempt=narrowRaw==='1';
+    const timingRaw=Object.hasOwn(drafts,'sd-timing-calibration')?drafts['sd-timing-calibration']:
+      (uiQuery('sd-timing-calibration')?.checked?'1':'0');
+    merged.experimentalTimingCalibration=timingRaw==='1';
     merged.cancelExperimental=!!get(root.localStorage,SETTINGS)?.cancelExperimental;
     const cascadeRaw=Object.hasOwn(drafts,'sd-cascade-auto')?drafts['sd-cascade-auto']:
       (uiQuery('sd-cascade-auto')?.checked?'1':'0');
@@ -1231,7 +1267,8 @@
         throw Error('انتهى النبيل المحدد أو اختفى من أوامر اللعبة؛ أعد الفحص');
     }
     const tasks=missionTasks(chosen).map(task=>({...task,
-      narrowAttemptApproved:options.allowNarrowAttempt===true&&task.marginMs<20}));
+      narrowAttemptApproved:options.allowNarrowAttempt===true&&task.marginMs<20,
+      calibrationApproved:options.experimentalTimingCalibration===true}));
     if(tasks.some(task=>task.kind==='cancel'&&!options.cancelExperimental))
       throw Error('قنص الإلغاء لا يزال تجريبيًا؛ لا يُعتمد دون تفعيل الإذن التجريبي الصريح وفحص نموذج العودة');
     if(tasks.some(task=>Object.keys(task.units||{}).some(u=>!allowedUnits().includes(u))))
@@ -1362,6 +1399,17 @@
       log('NATIVE_TRAVEL','village '+task.sourceId+' / raw '+Math.round(task.rawTravelMs??task.travelMs)+
         'ms / plan '+task.travelMs+'ms / game '+nativeMs+
         'ms / send_shift '+(shift>=0?'+':'')+shift+'ms');
+      const profile=timingCalibration(metric.timingHistory,task.sourceId);
+      confirmed=applyTimingCalibration(confirmed,profile,
+        task.calibrationApproved===true,now);
+      log('CALIBRATION_PROFILE','source '+task.sourceId+
+        ' / mode '+(task.calibrationApproved?'experimental':'off')+
+        ' / scope '+profile.scope+' / samples '+profile.samples+
+        ' / median '+profile.medianMs+'ms / mad '+String(profile.madMs)+
+        'ms / range '+String(profile.spanMs)+'ms / shift '+confirmed.calibrationOffsetMs+'ms');
+      if(confirmed.calibrationOffsetMs>0)
+        notify('⚠️ أُدخل تعويض تجريبي '+confirmed.calibrationOffsetMs+
+          'ms. التذبذب '+profile.madMs+'ms؛ القنص غير مضمون.','error');
     }
     if(confirmed.sendAt-now<3000)return stopMission('لم يبق وقت كاف لتأكيد الإرسال');
     const tasks=mission.tasks.slice();tasks[mission.index]=confirmed;
@@ -1431,7 +1479,12 @@
     if(!reserveDispatch(root.localStorage,CLAIMED_SENDS,dispatchKey(task),Math.round(time)))
       return stopMission('سبق تسجيل محاولة إرسال الأمر نفسه؛ ممنوع الإرسال المكرر');
     // Mark before native click. A reload must not cause duplicate dispatch.
-    storeMission({...mission,phase:'sent',clickedAt:time,note:'تم الضغط على زر إرسال اللعبة؛ تحقق من ظهور الأمر الصادر'});
+    // Game Timing may return fractions of a millisecond. Persist integer
+    // timestamps bound to this task BEFORE native click/page navigation.
+    const clickedAt=Math.round(time);
+    storeMission({...mission,phase:'sent',clickedAt,
+      clickedTaskKey:dispatchKey(task),clickedPerformanceMs:performance.now(),
+      note:'تم الضغط على زر إرسال اللعبة؛ تحقق من ظهور الأمر الصادر'});
     log('SEND_CLICK',task.kind+' planned '+stamp(task.sendAt)+
       ' / browser click '+stamp(time)+' / client_delta '+Math.round(late)+
       'ms / performance '+performance.now().toFixed(1)+
@@ -1452,14 +1505,17 @@
       const measured=observedDelivery(task,outgoing.at);
       if(measured){
         const error=Math.abs(measured.deltaMs);
-        const clickOffset=Number.isSafeInteger(mission.clickedAt)?mission.clickedAt-task.sendAt:null;
-        const postClick=Number.isSafeInteger(mission.clickedAt)?
-          measured.estimatedServerAcceptedAt-mission.clickedAt:null;
+        const matchedClick=Number.isSafeInteger(mission.clickedAt)&&
+          mission.clickedTaskKey===dispatchKey(task);
+        const clickOffset=matchedClick?mission.clickedAt-task.sendAt:null;
+        const postClick=matchedClick?measured.estimatedServerAcceptedAt-mission.clickedAt:null;
         const sample={sourceId:task.sourceId,commandId:outgoing.id,
           plannedArrivalAt:measured.expectedArrivalAt,actualArrivalAt:measured.observedArrivalAt,
           arrivalDeltaMs:measured.deltaMs,clickDeltaMs:clickOffset,
           inferredPostClickMs:postClick,nativeTravelMs:task.nativeDurationVerified?task.travelMs:null,
-          rawTravelMs:finite(task.rawTravelMs)?Math.round(task.rawTravelMs):null};
+          rawTravelMs:finite(task.rawTravelMs)?Math.round(task.rawTravelMs):null,
+          calibrationOffsetMs:task.calibrationOffsetMs||0,
+          taskKey:dispatchKey(task)};
         metric.timingHistory=[...(metric.timingHistory||[]),sample].slice(-40);
         if(task.nativeDurationVerified){
           metric.nativeResiduals=[...(metric.nativeResiduals||[]),measured.deltaMs].slice(-40);
@@ -1467,7 +1523,8 @@
         log('TIMING_BREAKDOWN','source '+task.sourceId+' / native_duration '+
           String(sample.nativeTravelMs??'unknown')+'ms / browser_click_offset '+
           String(sample.clickDeltaMs??'unknown')+'ms / inferred_post_click '+
-          String(sample.inferredPostClickMs??'unknown')+'ms / arrival_delta '+
+          String(sample.inferredPostClickMs??'unknown')+'ms / calibration_shift '+
+          sample.calibrationOffsetMs+'ms / arrival_delta '+
           measured.deltaMs+'ms');
         metric.serverDeltas=[...(metric.serverDeltas||[]),error].slice(-40);
         metric.maxServerDeltaAbs=Math.max(...metric.serverDeltas,0);
@@ -1556,7 +1613,8 @@
     if(!finite(now)||nextTask.sendAt-now<MIN_PREP_MS)
       return stopMission('المهمة التالية قريبة جدًا؛ انتهت المهمة السابقة فقط');
     storeMission({...mission,index:next,phase:'routing',baselineIds:[],commandId:null,
-      clickedAt:null,armedAt:null,serverArrivalAt:null,serverDeltaMs:null,
+      clickedAt:null,clickedTaskKey:null,clickedPerformanceMs:null,
+      armedAt:null,serverArrivalAt:null,serverDeltaMs:null,
       note:'الانتقال إلى القرية التالية'});
     log('NEXT','task '+(next+1));routeMission();
   }
@@ -1956,7 +2014,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.3 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.4 QA</small></span></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
@@ -1971,6 +2029,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — استهداف جميع النبلاء الممكنين منذ بداية القطار</label>
   <label class="sd-auto-option" for="sd-include-first"><input id="sd-include-first" type="checkbox"> 👑 تضمين النبيل الأول تلقائيًا (غير محدد افتراضيًا)</label>
   <label class="sd-auto-option" for="sd-narrow-attempt"><input id="sd-narrow-attempt" type="checkbox"> ⚠️ السماح بمحاولة قنص بفاصل ضيق (حتى 20ms) — تجريبي، لا ضمان لوصول الدعم</label>
+  <label class="sd-auto-option" for="sd-timing-calibration"><input id="sd-timing-calibration" type="checkbox"> 🧪 تعويض تأخير الإرسال تجريبيًا بالاعتماد على وسيط قياسات اللعبة (متوقف افتراضيًا؛ حد 300ms)</label>
   <label for="sd-noble-lead">⏱️ قبل النبيل الأول في الفجوات الطويلة (ms)</label>
   <input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr">
   <details id="sd-targeting" open><summary>🎯 حدد النبلاء ونطاق الوصول لكل نبيل (من جزء → إلى جزء)</summary>
@@ -2022,7 +2081,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </details>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.1.3';
+    panel.dataset.editorVersion='2.1.4';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};const original=[...panel.querySelector('main').children];
@@ -2055,7 +2114,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     pages.home.appendChild(plansHeading);
     for(const id of ['sd-options','sd-plan','sd-approve'])move(id,'home');
     for(const id of ['sd-troops','sd-stop','sd-status'])move(id,'execution');
-    for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-advanced'])move(id,'settings');
+    for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-timing-calibration','sd-advanced'])move(id,'settings');
     for(const node of original)if(node.parentElement===panel.querySelector('main'))
       pages.settings.appendChild(node);
     const executionLog=doc.createElement('div');
@@ -2102,6 +2161,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     uiQuery('sd-narrow-attempt').checked=options.allowNarrowAttempt===true;
+    uiQuery('sd-timing-calibration').checked=options.experimentalTimingCalibration===true;
     renderUnitControls();
     const applyAllUnits=all=>{
       const next=all?availableWorldUnits():[];
@@ -2136,7 +2196,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     applySharedDraft();
     for(const id of FIELD_IDS){
       const saveInput=()=>{
-        recordDraft(id,(id==='sd-auto-nobles'||id==='sd-cascade-auto'||id==='sd-include-first'||id==='sd-narrow-attempt')?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
+        recordDraft(id,(id==='sd-auto-nobles'||id==='sd-cascade-auto'||id==='sd-include-first'||id==='sd-narrow-attempt'||id==='sd-timing-calibration')?(uiQuery(id).checked?'1':'0'):uiQuery(id).value);
         saveSettings(); // every input is persisted before tab switch; no debounce
         if(id==='sd-auto-nobles')uiQuery('sd-noble-target').disabled=uiQuery(id).checked;
         if(['sd-noble-spacing','sd-auto-nobles','sd-noble-target'].includes(id)&&scanned){
