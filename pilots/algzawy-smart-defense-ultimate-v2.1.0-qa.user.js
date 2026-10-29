@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] القائد الذكي للدفاع والقنص | AlGzawy
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/ultimate
-// @version      2.1.4-qa
+// @version      2.1.5-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -656,6 +656,31 @@
       medianMs:Math.round(mid),madMs:Math.round(mad),spanMs:Math.round(span),
       eligible,shiftMs:eligible?Math.min(300,Math.max(0,Math.round(mid))):0};
   }
+  // The strict guard remains the default. Only a separately approved support
+  // task, backed by sufficient trustworthy native-duration samples, may
+  // EXPLICITLY try a risky send that the old maximum-error guard would block.
+  // Permission to experiment is not a claim of precision or server acceptance.
+  function assessTaskPrecision(task,measurements){
+    const known=nativeTimingRisk(measurements);
+    const risk=measuredTimingRisk(task?.marginMs,measurements?.maxDeviation,
+      known.maxAbs,task?.narrowAttemptApproved===true);
+    if(risk.safe)return {...risk,experimentalOverride:false};
+    // Narrow <20ms needs its own distinct opt-in. Cancel-snipe never bypasses.
+    if(task?.kind!=='support'||task.calibrationApproved!==true||
+      !Number.isSafeInteger(task.marginMs)||task.marginMs<20)
+      return {...risk,experimentalOverride:false};
+    const profile=timingCalibration(measurements?.timingHistory,task.sourceId);
+    if(!profile.eligible||profile.shiftMs<1){
+      return {...risk,experimentalOverride:false,
+        message:risk.message+'؛ المعايرة التجريبية لم تجمع عينات مستقرة وكافية لهذا الأمر'};
+    }
+    return {safe:true,highRisk:true,experimentalOverride:true,profile,
+      message:'⚠️ تجربة معايرة بموافقة صريحة: الانحراف التاريخي '+known.maxAbs+
+        'ms يتجاوز هامش '+task.marginMs+'ms؛ سيُجرب تقديم الإرسال '+profile.shiftMs+
+        'ms وفق '+profile.samples+' عينات ('+profile.scope+
+        '؛ MAD '+profile.madMs+'ms؛ مدى '+profile.spanMs+
+        'ms). احتمال الفشل مرتفع، ولا توجد دقة مضمونة.'};
+  }
   function applyTimingCalibration(task,profile,enabled,now){
     if(!task||task.kind!=='support'||!task.nativeDurationVerified||
       !validEpoch(task.sendAt)||!validEpoch(task.arrivalAt)||
@@ -739,7 +764,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({assessTaskPrecision,timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -1284,10 +1309,11 @@
       const problem=validateTask(task,Math.round(now),player,host);
       if(problem)throw Error(problem);
       const known=nativeTimingRisk(metric);
-      const verdict=measuredTimingRisk(task.marginMs,metric.maxDeviation,known.maxAbs,task.narrowAttemptApproved);
+      const verdict=assessTaskPrecision(task,metric);
       if(!known.samples)log('PRECISION_UNCALIBRATED','لا توجد عينات وصول موثوقة بعد مطابقة مدة السير مع اللعبة؛ النتائج السابقة ليست معايرة للخطة الجديدة');
       if(!verdict.safe)throw Error(verdict.message);
-      log(verdict.highRisk?'NARROW_SNIPE_RISK':'PRECISION_WARNING',verdict.message);
+      log(verdict.experimentalOverride?'PRECISION_EXPERIMENT_ALLOWED':
+        verdict.highRisk?'NARROW_SNIPE_RISK':'PRECISION_WARNING',verdict.message);
       if(verdict.highRisk)notify(verdict.message,'error');
     }
     if(humanStop())throw Error('التحقق البشري نشط');
@@ -1395,6 +1421,10 @@
     if(!confirmedKind(task.kind))
       return stopMission('تعذر التأكد من نوع الأمر (هجوم أو دعم). لم أُرسل قوات');
     const now=nowServer();if(now===null)return stopMission('ساعة الخادم غير متاحة عند التأكيد');
+    // Recheck with the freshest observations, not just the original approval.
+    const precisionVerdict=assessTaskPrecision(task,metric);
+    if(!precisionVerdict.safe)return stopMission(
+      'أصبحت دقة التنفيذ غير مقبولة عند التأكيد: '+precisionVerdict.message);
     let confirmed=task;
     if(task.kind==='support'){
       const nativeMs=confirmationTravelMs(doc.querySelector('#command-data-form'));
@@ -1412,6 +1442,9 @@
         ' / scope '+profile.scope+' / samples '+profile.samples+
         ' / median '+profile.medianMs+'ms / mad '+String(profile.madMs)+
         'ms / range '+String(profile.spanMs)+'ms / shift '+confirmed.calibrationOffsetMs+'ms');
+      if(precisionVerdict.experimentalOverride&&confirmed.calibrationOffsetMs<1)
+        return stopMission('محاولة المعايرة المطلوبة غير متاحة حاليًا؛ مُنع إرسال دعم غير معاير خارج هامش الخطة');
+      confirmed={...confirmed,precisionOverrideRequired:precisionVerdict.experimentalOverride};
       if(confirmed.calibrationOffsetMs>0)
         notify('⚠️ أُدخل تعويض تجريبي '+confirmed.calibrationOffsetMs+
           'ms. التذبذب '+profile.madMs+'ms؛ القنص غير مضمون.','error');
@@ -1467,6 +1500,9 @@
     const task=currentTask();if(!task||mission?.phase!=='armed')return;
     if(task.kind==='support'&&task.nativeDurationVerified!==true)
       return stopMission('لم يتم التحقق من مدة السير الأصلية؛ مُنع الإرسال');
+    if(task.kind==='support'&&task.precisionOverrideRequired===true&&
+      !(Number.isSafeInteger(task.calibrationOffsetMs)&&task.calibrationOffsetMs>0))
+      return stopMission('انتهت المعايرة المطلوبة؛ مُنع الإرسال غير المعاير');
     if(!ready()||!isConfirmation()||!confirmedKind(task.kind))return stopMission('فشل فحص صفحة اللعبة قبل الإرسال');
     const target=confirmationTarget(),button=doc.getElementById('troop_confirm_submit');
     if(!target||target.str!==task.target.str||!button||!button.isConnected||button.disabled)
@@ -1607,14 +1643,14 @@
       return;
     }
     const nextTask=mission.tasks[next],now=nowServer();
-    const known=nativeTimingRisk(metric);
-    const assessment=measuredTimingRisk(nextTask.marginMs,metric.maxDeviation,
-      known.maxAbs,nextTask.narrowAttemptApproved);
+    const assessment=assessTaskPrecision(nextTask,metric);
     if(!assessment.safe){
       log('NEXT_PRECISION_BLOCK','task '+(next+1)+' / '+assessment.message);
       return stopMission('أوقفنا المهمة التالية بعد تحديث قياسات التوقيت: '+assessment.message);
     }
-    if(assessment.highRisk)log('NEXT_PRECISION_RISK','task '+(next+1)+' / '+assessment.message);
+    if(assessment.highRisk)log(
+      assessment.experimentalOverride?'NEXT_EXPERIMENTAL_RISK':'NEXT_PRECISION_RISK',
+      'task '+(next+1)+' / '+assessment.message);
     if(!finite(now)||nextTask.sendAt-now<MIN_PREP_MS)
       return stopMission('المهمة التالية قريبة جدًا؛ انتهت المهمة السابقة فقط');
     storeMission({...mission,index:next,phase:'routing',baselineIds:[],commandId:null,
@@ -2019,7 +2055,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.4 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.5 QA</small></span></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
@@ -2086,7 +2122,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </details>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.1.4';
+    panel.dataset.editorVersion='2.1.5';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};const original=[...panel.querySelector('main').children];
