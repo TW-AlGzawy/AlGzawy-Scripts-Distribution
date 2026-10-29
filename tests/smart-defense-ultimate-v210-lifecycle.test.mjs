@@ -82,7 +82,7 @@ test('source tab consumes storage expiry and rechecks before sending',()=>{
   assert.match(src,/defenseVillageId:scanned\.defenseVillageId/);
 });
 test('a new sequential task resets prior clickedAt without clearing the audit',()=>{
-  assert.match(src,/clickedAt:null,armedAt:null,serverArrivalAt:null,serverDeltaMs:null/);
+  assert.match(src,/clickedAt:null,clickedTaskKey:null,clickedPerformanceMs:null,\s*armedAt:null,serverArrivalAt:null,serverDeltaMs:null/);
   assert.match(src,/log\('SUPPORT_VERIFIED'/);
   assert.match(src,/reserveDispatch\(root\.localStorage,CLAIMED_SENDS/);
 });
