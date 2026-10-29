@@ -341,3 +341,81 @@ test('verified order and sniping outcome are logged independently',()=>{
   assert.match(src,/misses=results\.filter\(r=>r\.outcome==='outside_target_window'\)\.length/);
   assert.match(src,/أعلى انحراف بعد التحقق من مدة اللعبة/);
 });
+
+test('2.1.4 uses the seven verified QA outcomes for a bounded, opt-in prediction',()=>{
+  const deltas=[139,188,386,126,177,118,315];
+  const villages=['1235','1295','1482','1078','1056','1078','1056'];
+  const history=deltas.map((arrivalDeltaMs,i)=>({
+    sourceId:villages[i],nativeTravelMs:2546000,arrivalDeltaMs}));
+  const profile=core.timingCalibration(history,'9999');
+  assert.equal(profile.scope,'world');
+  assert.equal(profile.samples,7);
+  assert.equal(profile.medianMs,177);
+  assert.equal(profile.madMs,51);
+  assert.equal(profile.spanMs,268);
+  assert.equal(profile.shiftMs,177);
+  assert.equal(profile.eligible,true);
+  // Only two samples per village: no per-village prediction yet.
+  assert.equal(core.timingCalibration(history,'1078').scope,'world');
+});
+test('local timing needs three matching native-verified samples and is more specific than world',()=>{
+  const history=[
+    {sourceId:'1078',arrivalDeltaMs:126,nativeTravelMs:4025000},
+    {sourceId:'1078',arrivalDeltaMs:118,nativeTravelMs:2415000},
+    {sourceId:'1078',arrivalDeltaMs:120,nativeTravelMs:2415000},
+    {sourceId:'1056',arrivalDeltaMs:386,nativeTravelMs:2546000},
+    {sourceId:'1056',arrivalDeltaMs:177,nativeTravelMs:1527000},
+    {sourceId:'1056',arrivalDeltaMs:315,nativeTravelMs:2546000}
+  ];
+  assert.deepEqual(
+    {scope:core.timingCalibration(history,'1078').scope,shift:core.timingCalibration(history,'1078').shiftMs},
+    {scope:'village',shift:120});
+  assert.equal(core.timingCalibration([{sourceId:'1078',arrivalDeltaMs:999,nativeTravelMs:null}],'1078').eligible,false);
+});
+test('calibration never auto-applies and cannot convert an out-of-window arrival to success',()=>{
+  const target=Date.UTC(2026,9,29,6,18,32,375);
+  const original={kind:'support',sourceId:'1235',sendAt:target-5816000,
+    arrivalAt:target,travelMs:5816000,nativeDurationVerified:true,marginMs:15};
+  const profile={eligible:true,shiftMs:177,scope:'world',samples:7,madMs:51};
+  const off=core.applyTimingCalibration(original,profile,false,original.sendAt-60000);
+  assert.equal(off.sendAt,original.sendAt);
+  assert.equal(off.calibrationOffsetMs,0);
+  const on=core.applyTimingCalibration(original,profile,true,original.sendAt-60000);
+  assert.equal(on.sendAt,original.sendAt-177);
+  assert.equal(on.nominalSendAt,original.sendAt);
+  assert.equal(on.arrivalAt,target);
+  const measured=core.observedDelivery(on,target+25);
+  assert.equal(measured.deltaMs,25);
+  assert.equal(measured.expectedArrivalAt,target);
+  assert.equal(core.classifySnipingOutcome({
+    ...on,windowFrom:target-15,windowTo:target+15},target+25).status,'outside_target_window');
+});
+test('calibration refuses insufficient, wildly variable, unverified or expiring estimates',()=>{
+  const profile=core.timingCalibration([139,188,386,126,177,118,315].slice(0,3)
+    .map(n=>({sourceId:'1',nativeTravelMs:1_000_000,arrivalDeltaMs:n})),'2');
+  assert.equal(profile.eligible,false);
+  const wide=core.timingCalibration([100,-500,100,600,100]
+    .map(n=>({sourceId:'1',nativeTravelMs:1_000_000,arrivalDeltaMs:n})),'2');
+  assert.equal(wide.eligible,false);
+  const target=Date.UTC(2026,9,29,6,18,32,375);
+  const task={kind:'support',sendAt:target-10000,arrivalAt:target,travelMs:10000,
+    nativeDurationVerified:true};
+  const good={eligible:true,shiftMs:200,scope:'world',samples:7,madMs:10};
+  assert.equal(core.applyTimingCalibration(task,good,true,task.sendAt-2000).calibrationOffsetMs,0);
+  assert.equal(core.applyTimingCalibration({...task,nativeDurationVerified:false},good,true,task.sendAt-60000).calibrationOffsetMs,0);
+});
+test('fractional Timing.getCurrentServerTime click is rounded before storage and tied to task',()=>{
+  assert.match(src,/const clickedAt=Math\.round\(time\)/);
+  assert.match(src,/clickedTaskKey:dispatchKey\(task\)/);
+  assert.match(src,/mission\.clickedTaskKey===dispatchKey\(task\)/);
+  assert.match(src,/clickOffset=matchedClick\?mission\.clickedAt-task\.sendAt:null/);
+  assert.match(src,/clickedAt:null,clickedTaskKey:null,clickedPerformanceMs:null/);
+});
+test('user opt-in is disabled by default, selected before approval, and scoped to support only',()=>{
+  assert.match(src,/experimentalTimingCalibration:false/);
+  assert.match(src,/id="sd-timing-calibration"/);
+  assert.match(src,/calibrationApproved:options\.experimentalTimingCalibration===true/);
+  assert.match(src,/task\.calibrationApproved===true,now/);
+  assert.match(src,/if\(!task\|\|task\.kind!=='support'/);
+  assert.match(src,/CALIBRATION_PROFILE/);
+});
