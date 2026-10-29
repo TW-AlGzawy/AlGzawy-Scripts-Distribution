@@ -239,7 +239,7 @@ test('opt-in is shown on noble page, persisted, synchronized and bound to the ap
   assert.match(src,/allowNarrowAttempt:false/);
   assert.match(src,/merged\.allowNarrowAttempt=narrowRaw==='1'/);
   assert.match(src,/narrowAttemptApproved:options\.allowNarrowAttempt===true&&task\.marginMs<20/);
-  assert.match(src,/measuredTimingRisk\(task\.marginMs,metric\.maxDeviation,metric\.maxServerDeltaAbs,task\.narrowAttemptApproved\)/);
+  assert.match(src,/measuredTimingRisk\(task\.marginMs,metric\.maxDeviation,known\.maxAbs,task\.narrowAttemptApproved\)/);
 });
 test('narrow sends keep the game verification and native click lateness guard',()=>{
   assert.match(src,/if\(late>sendToleranceFor\(task\)\)/);
