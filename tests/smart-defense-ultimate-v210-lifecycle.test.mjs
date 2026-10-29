@@ -247,3 +247,74 @@ test('narrow sends keep the game verification and native click lateness guard',(
   assert.match(src,/if\(!reserveDispatch\(root\.localStorage,CLAIMED_SENDS/);
   assert.match(src,/if\(humanStop\(\)\)throw Error/);
 });
+
+test('five real QA commands round to the native whole-second travel duration',()=>{
+  // Raw travel milliseconds from the previous five failed/partial attempts,
+  // and native duration shown on the game's confirmation screen.
+  const samples=[
+    {source:'1083 first',raw:12074768,native:12075000,oldDelta:311},
+    {source:'1283',raw:11384200,native:11384000,oldDelta:-21},
+    {source:'1295',raw:9178236,native:9178000,oldDelta:-44},
+    {source:'1155',raw:9000000,native:9000000,oldDelta:125},
+    {source:'1083 second',raw:7244861,native:7245000,oldDelta:498}
+  ];
+  for(const item of samples){
+    assert.equal(core.roundedTravelMs(1,item.raw/60000,1),item.native,item.source);
+    const nativeDifference=item.native-item.raw;
+    const approximatePostClick=item.oldDelta-nativeDifference;
+    assert.ok(approximatePostClick>=0 && approximatePostClick<=500,item.source+' residual');
+  }
+});
+test('native duration is read from labelled row only, not arrival time or countdown',()=>{
+  const row=(...values)=>({querySelectorAll:()=>values.map(textContent=>({textContent}))});
+  const form={querySelectorAll:()=>[
+    row('وقت الوصول','06:18:32.873'),
+    row('المدة:','2:00:45'),
+    row('الإزاحة','19'),
+    row('قوات','0:00:02')
+  ]};
+  assert.equal(core.confirmationTravelMs(form),7245000);
+  assert.equal(core.confirmationTravelMs({querySelectorAll:()=>[row('Duration','3:21:15')]}),12075000);
+  assert.equal(core.confirmationTravelMs({querySelectorAll:()=>[row('Duur','3:09:44')]}),11384000);
+});
+test('unknown or ambiguous native duration fails closed',()=>{
+  const row=(a,b)=>({querySelectorAll:()=>[{textContent:a},{textContent:b}]});
+  assert.equal(core.confirmationTravelMs(null),null);
+  assert.equal(core.confirmationTravelMs({querySelectorAll:()=>[row('arrival','06:18:32')]}),null);
+  assert.equal(core.confirmationTravelMs({querySelectorAll:()=>[
+    row('المدة','3:21:15'),row('المدة','2:00:45')]}),null);
+});
+test('native confirmation adjusts send time rather than target arrival',()=>{
+  const arrival=Date.UTC(2026,9,29,6,18,32,690);
+  const original={kind:'support',sourceId:'1083',arrivalAt:arrival,
+    sendAt:arrival-12074768,travelMs:12074768,rawTravelMs:12074768,marginMs:15};
+  const now=original.sendAt-60000;
+  const rearmed=core.verifyNativeTravel(original,12075000,now);
+  assert.ok(rearmed);
+  assert.equal(rearmed.sendAt,original.sendAt-232);
+  assert.equal(rearmed.sendAt+rearmed.travelMs,arrival);
+  assert.equal(rearmed.originalPlannedSendAt,original.sendAt);
+  assert.equal(rearmed.nativeDurationVerified,true);
+});
+test('native time verification refuses wrong-world speeds and stale timing',()=>{
+  const arrival=Date.UTC(2026,9,29,6,18,32,690);
+  const task={kind:'support',arrivalAt:arrival,sendAt:arrival-12075000,travelMs:12075000};
+  assert.equal(core.verifyNativeTravel(task,null,task.sendAt-60000),null);
+  assert.equal(core.verifyNativeTravel(task,12080000,task.sendAt-60000),null);
+  assert.equal(core.verifyNativeTravel(task,12075000,task.sendAt-1000),null);
+  assert.equal(core.verifyNativeTravel({...task,kind:'cancel'},12075000,task.sendAt-60000),null);
+});
+test('only post-upgrade verified arrivals enter new trusted risk profile',()=>{
+  assert.deepEqual(core.nativeTimingRisk({serverDeltas:[311,21,44,125,498]}),{samples:0,maxAbs:0});
+  assert.deepEqual(core.nativeTimingRisk({nativeResiduals:[79,-20,192]}),{samples:3,maxAbs:192});
+  assert.equal(core.measuredTimingRisk(20,4,192).safe,false);
+});
+test('execution refuses support without native verification and rechecks next task',()=>{
+  assert.match(src,/task\.kind==='support'&&task\.nativeDurationVerified!==true/);
+  assert.match(src,/const nativeMs=confirmationTravelMs\(doc\.querySelector\('#command-data-form'\)\)/);
+  assert.match(src,/const tasks=mission\.tasks\.slice\(\);tasks\[mission\.index\]=confirmed/);
+  assert.match(src,/const assessment=measuredTimingRisk\(nextTask\.marginMs/);
+  assert.match(src,/NEXT_PRECISION_BLOCK/);
+  assert.match(src,/TIMING_BREAKDOWN/);
+  assert.match(src,/metric\.nativeResiduals=/);
+});
