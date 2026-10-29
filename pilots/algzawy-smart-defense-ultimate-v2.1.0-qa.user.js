@@ -637,6 +637,18 @@
       metric.nativeResiduals.filter(v=>Number.isFinite(v)).slice(-40):[];
     return {samples:samples.length,maxAbs:samples.length?Math.max(...samples.map(Math.abs)):0};
   }
+  function classifySnipingOutcome(task,observedArrivalAt){
+    if(task?.kind!=='support'||!validEpoch(observedArrivalAt)||
+      !validEpoch(task.windowFrom)||!validEpoch(task.windowTo)||
+      !validEpoch(task.arrivalAt)||task.windowFrom>=task.windowTo)
+      return {status:'unknown',arrivalDeltaMs:null};
+    const inside=observedArrivalAt>=task.windowFrom&&observedArrivalAt<=task.windowTo;
+    return {status:inside?'within_target_window':'outside_target_window',
+      arrivalDeltaMs:observedArrivalAt-task.arrivalAt,
+      distanceFromWindowMs:inside?0:
+        observedArrivalAt<task.windowFrom?observedArrivalAt-task.windowFrom:
+          observedArrivalAt-task.windowTo};
+  }
   function observedDelivery(task,observedArrivalAt){
     if(!task||!validEpoch(task.sendAt)||!Number.isSafeInteger(task.travelMs)||
       task.travelMs<=0||!validEpoch(observedArrivalAt))return null;
@@ -690,7 +702,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -1483,10 +1495,20 @@
         schedule();return;
       }
       log('SUPPORT_VERIFIED',outgoing.id);
-      const offset=measured?.deltaMs;
-      const precision=finite(offset)&&Math.abs(offset)>SEND_TOLERANCE_MS?
-        '⚠️ فارق إرسال مُستنتج '+(offset>=0?'+':'')+offset+'ms عن الخطة؛ هذا ليس تنفيذًا دقيقًا.':
-        'تم تسجيل زمن وصول مطابق تقريبًا أو لم يُقَس الفرق.';
+      const outcome=classifySnipingOutcome(task,outgoing.at);
+      const result={sourceId:task.sourceId,commandId:outgoing.id,
+        targetNobleId:task.nobleId||null,kind:task.kind,
+        arrivalTargetAt:task.arrivalAt,arrivalObservedAt:outgoing.at,
+        outcome:outcome.status,arrivalDeltaMs:outcome.arrivalDeltaMs};
+      storeMission({...mission,results:[...(mission.results||[]),result]});
+      log('SNIPE_OUTCOME',outcome.status+' / village '+task.sourceId+
+        ' / command '+outgoing.id+' / delta '+String(outcome.arrivalDeltaMs??'unknown')+'ms');
+      const precision=outcome.status==='within_target_window'?
+        '✅ نجحت دقة الوصول ضمن نافذة النبيل المحدد.':
+        outcome.status==='outside_target_window'?
+          '❌ فشل توقيت القنص المستهدف؛ الانحراف '+
+          (outcome.arrivalDeltaMs>=0?'+':'')+outcome.arrivalDeltaMs+'ms عن الخطة.':
+          '⚠️ تم تسجيل الأمر لكن لم نؤكد وقت وصوله داخل نافذة الهدف.';
       finishTask('تأكد ظهور أمر الدعم '+outgoing.id+' في أوامر اللعبة. '+precision);return;
     }
     const since=nowServer()-(mission.clickedAt||mission.createdAt);
@@ -1515,7 +1537,11 @@
     if(!mission)return;
     if(next>=mission.tasks.length){
       storeMission({...mission,phase:'done',note:message});
-      log('DONE',message);releaseLock();notify('اكتملت الأوامر التي أمكن التحقق منها. '+message,'success');
+      log('DONE',message);releaseLock();
+      const results=mission.results||[],misses=results.filter(r=>r.outcome==='outside_target_window').length;
+      const hits=results.filter(r=>r.outcome==='within_target_window').length;
+      notify('اكتمل تسجيل الأوامر. القنص الدقيق: '+hits+' داخل النافذة، '+
+        misses+' خارج النافذة. '+message,misses?'error':'info');
       return;
     }
     const nextTask=mission.tasks[next],now=nowServer();
@@ -2508,7 +2534,9 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         'فارق القبول المُستنتج من وصول اللعبة: '+
           (mission.serverDeltaMs>=0?'+':'')+mission.serverDeltaMs+'ms\n':'')+
       `أعلى انحراف ضغط مسجل: ${Math.round(metric.maxDeviation||0)}ms\n`+
-      `أعلى فارق قبول مستنتج من السيرفر: ${Math.round(metric.maxServerDeltaAbs||0)}ms`;
+      `أعلى انحراف وصول قديم (قبل التحقق من المدة): ${Math.round(metric.maxServerDeltaAbs||0)}ms\n`+
+      `أعلى انحراف بعد التحقق من مدة اللعبة: ${nativeTimingRisk(metric).samples?
+        Math.round(nativeTimingRisk(metric).maxAbs)+'ms':'لا توجد عينات جديدة بعد'}`;
   }
   function monitor(){
     // Expiry checks are mandatory even when automatic new-threat scanning is off.
