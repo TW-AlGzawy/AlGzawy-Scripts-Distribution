@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] القائد الذكي للدفاع والقنص | AlGzawy
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/ultimate
-// @version      2.1.2-qa
+// @version      2.1.3-qa
 // @description  Defensive command planner: noble-train radar, multi-village support, cancellation sniping, signed-off native-game scheduling and audit. Private QA, not licensed production.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -55,6 +55,39 @@
   function parseTimer(text){
     const m=/^(\d{1,3}):([0-5]\d):([0-5]\d)(?:[.:](\d{1,3}))?$/.exec(cleanArabic(text).trim());
     return m?(((+m[1]*60+ +m[2])*60)+ +m[3])*1000+Number((m[4]||'0').padEnd(3,'0')):null;
+  }
+  // Round the mathematical travel estimate to the game's observed full-second
+  // movement duration. Native confirmation remains authoritative.
+  function roundedTravelMs(distance,minutes,worldFactor){
+    if(!finite(distance)||distance<0||!finite(minutes)||minutes<=0||
+      !finite(worldFactor)||worldFactor<=0)return null;
+    const ms=Math.round(distance*minutes*60/worldFactor)*1000;
+    return Number.isSafeInteger(ms)&&ms>0?ms:null;
+  }
+  function confirmationTravelMs(form){
+    if(!form||typeof form.querySelectorAll!=='function')return null;
+    const durations=[];
+    for(const row of form.querySelectorAll('tr')){
+      const cells=[...row.querySelectorAll('th,td')];
+      if(cells.length<2||!cells.some(c=>
+        /^(?:المد[ةه]|duration|durée|duur|dauer)\s*[:：]?$/i.test(cleanArabic(c.textContent||'').trim())))continue;
+      for(const cell of cells){
+        const ms=parseTimer(cell.textContent);
+        if(Number.isSafeInteger(ms)&&ms>0)durations.push(ms);
+      }
+    }
+    return durations.length===1?durations[0]:null;
+  }
+  function verifyNativeTravel(task,nativeMs,now){
+    if(task?.kind!=='support'||!validEpoch(task?.arrivalAt)||
+      !Number.isSafeInteger(task?.travelMs)||task.travelMs<=0||
+      !Number.isSafeInteger(nativeMs)||nativeMs<=0||nativeMs%1000!==0||
+      !validEpoch(Math.round(now))||Math.abs(nativeMs-task.travelMs)>1500)return null;
+    const sendAt=task.arrivalAt-nativeMs;
+    if(!validEpoch(sendAt)||sendAt-now<3000)return null;
+    return {...task,sendAt,travelMs:nativeMs,nativeDurationVerified:true,
+      originalPlannedSendAt:task.originalPlannedSendAt||task.sendAt,
+      modeledTravelMs:task.modeledTravelMs||task.travelMs};
   }
   function parseNumericEndtime(value){
     const s=String(value||'').trim();if(!/^\d{10,13}(?:\.\d{1,3})?$/.test(s))return null;
@@ -309,7 +342,8 @@
       for(const gap of openGaps){
         let best=null;
         for(const formation of formations){
-          const travelMs=Math.ceil(distance*formation.minutes*60000/worldFactor);
+          const travelMs=roundedTravelMs(distance,formation.minutes,worldFactor);
+          if(travelMs===null)continue;
           if(stats.fastestTravelMs===null||travelMs<stats.fastestTravelMs)
             stats.fastestTravelMs=travelMs;
           const sendAt=gap.arrival-travelMs;
@@ -320,15 +354,15 @@
           }
           if(!best||formation.troops>best.formation.troops||
             (formation.troops===best.formation.troops&&travelMs<best.travelMs)){
-            best={formation,travelMs,sendAt};
+            best={formation,travelMs,rawTravelMs:distance*formation.minutes*60000/worldFactor,sendAt};
           }
         }
         if(!best)continue;
         reachable=true;
-        const {formation,travelMs,sendAt}=best;
+        const {formation,travelMs,rawTravelMs,sendAt}=best;
         choices.push({kind:'support',id:'sup:'+village.id+':'+gap.i,sourceId:String(village.id),
           sourceName:village.name,source:{x:village.x,y:village.y},target,
-          units:formation.units,troops:formation.troops,travelMs,distance,sendAt,arrivalAt:gap.arrival,
+          units:formation.units,troops:formation.troops,travelMs,rawTravelMs,distance,sendAt,arrivalAt:gap.arrival,
           marginMs:gap.slack,gapIndex:gap.i,gapWidthMs:gap.width,
           nobleId:gap.nobleId||null,nobleAt:gap.nobleAt||gap.to,
           windowFrom:gap.windowFrom||gap.from,windowTo:gap.windowTo||gap.to,
@@ -651,7 +685,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -1299,9 +1333,22 @@
       return stopMission('هدف التأكيد أو زر الإرسال لا يطابق الخطة؛ لم أُرسل قوات');
     if(!confirmedKind(task.kind))
       return stopMission('تعذر التأكد من نوع الأمر (هجوم أو دعم). لم أُرسل قوات');
-    const now=nowServer();if(now===null||task.sendAt-now<3000)return stopMission('لم يبق وقت كاف لتأكيد الإرسال');
-    storeMission({...mission,phase:'armed',armedAt:now,note:'تأكيد النموذج صحيح؛ بانتظار وقت إرسال الجيش'});
-    log('ARM',task.kind+' at '+stamp(task.sendAt));schedule();
+    const now=nowServer();if(now===null)return stopMission('ساعة الخادم غير متاحة عند التأكيد');
+    let confirmed=task;
+    if(task.kind==='support'){
+      const nativeMs=confirmationTravelMs(doc.querySelector('#command-data-form'));
+      confirmed=verifyNativeTravel(task,nativeMs,now);
+      if(!confirmed)return stopMission('تعذر التحقق من مدة السير الأصلية أو تغيرت بأكثر من 1.5 ثانية؛ لم أرسل الدعم');
+      const shift=confirmed.sendAt-task.sendAt;
+      log('NATIVE_TRAVEL','village '+task.sourceId+' / raw '+Math.round(task.rawTravelMs??task.travelMs)+
+        'ms / plan '+task.travelMs+'ms / game '+nativeMs+
+        'ms / send_shift '+(shift>=0?'+':'')+shift+'ms');
+    }
+    if(confirmed.sendAt-now<3000)return stopMission('لم يبق وقت كاف لتأكيد الإرسال');
+    const tasks=mission.tasks.slice();tasks[mission.index]=confirmed;
+    storeMission({...mission,tasks,phase:'armed',armedAt:now,
+      note:'تأكد نموذج اللعبة ومدة السير؛ انتظار الإرسال'});
+    log('ARM',confirmed.kind+' at '+stamp(confirmed.sendAt));schedule();
   }
   function parseOutgoing(){
     const table=doc.querySelector('#commands_outgoings');if(!table)return [];
@@ -1346,6 +1393,8 @@
   }
   function fireSend(){
     const task=currentTask();if(!task||mission?.phase!=='armed')return;
+    if(task.kind==='support'&&task.nativeDurationVerified!==true)
+      return stopMission('لم يتم التحقق من مدة السير الأصلية؛ مُنع الإرسال');
     if(!ready()||!isConfirmation()||!confirmedKind(task.kind))return stopMission('فشل فحص صفحة اللعبة قبل الإرسال');
     const target=confirmationTarget(),button=doc.getElementById('troop_confirm_submit');
     if(!target||target.str!==task.target.str||!button||!button.isConnected||button.disabled)
@@ -1849,7 +1898,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.2 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.3 QA</small></span></header>
 <main>
   <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
   <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
@@ -1915,7 +1964,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </details>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.1.2';
+    panel.dataset.editorVersion='2.1.3';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};const original=[...panel.querySelector('main').children];
