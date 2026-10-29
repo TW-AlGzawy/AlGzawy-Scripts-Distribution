@@ -632,6 +632,11 @@
         'موعد الإرسال: '+stamp(task.sendAt))+' | '+details};
   }
 
+  function nativeTimingRisk(metric){
+    const samples=Array.isArray(metric?.nativeResiduals)?
+      metric.nativeResiduals.filter(v=>Number.isFinite(v)).slice(-40):[];
+    return {samples:samples.length,maxAbs:samples.length?Math.max(...samples.map(Math.abs)):0};
+  }
   function observedDelivery(task,observedArrivalAt){
     if(!task||!validEpoch(task.sendAt)||!Number.isSafeInteger(task.travelMs)||
       task.travelMs<=0||!validEpoch(observedArrivalAt))return null;
@@ -685,7 +690,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -1224,7 +1229,9 @@
     for(const task of tasks){
       const problem=validateTask(task,Math.round(now),player,host);
       if(problem)throw Error(problem);
-      const verdict=measuredTimingRisk(task.marginMs,metric.maxDeviation,metric.maxServerDeltaAbs,task.narrowAttemptApproved);
+      const known=nativeTimingRisk(metric);
+      const verdict=measuredTimingRisk(task.marginMs,metric.maxDeviation,known.maxAbs,task.narrowAttemptApproved);
+      if(!known.samples)log('PRECISION_UNCALIBRATED','لا توجد عينات وصول موثوقة بعد مطابقة مدة السير مع اللعبة؛ النتائج السابقة ليست معايرة للخطة الجديدة');
       if(!verdict.safe)throw Error(verdict.message);
       log(verdict.highRisk?'NARROW_SNIPE_RISK':'PRECISION_WARNING',verdict.message);
       if(verdict.highRisk)notify(verdict.message,'error');
@@ -1433,6 +1440,23 @@
       const measured=observedDelivery(task,outgoing.at);
       if(measured){
         const error=Math.abs(measured.deltaMs);
+        const clickOffset=Number.isSafeInteger(mission.clickedAt)?mission.clickedAt-task.sendAt:null;
+        const postClick=Number.isSafeInteger(mission.clickedAt)?
+          measured.estimatedServerAcceptedAt-mission.clickedAt:null;
+        const sample={sourceId:task.sourceId,commandId:outgoing.id,
+          plannedArrivalAt:measured.expectedArrivalAt,actualArrivalAt:measured.observedArrivalAt,
+          arrivalDeltaMs:measured.deltaMs,clickDeltaMs:clickOffset,
+          inferredPostClickMs:postClick,nativeTravelMs:task.nativeDurationVerified?task.travelMs:null,
+          rawTravelMs:finite(task.rawTravelMs)?Math.round(task.rawTravelMs):null};
+        metric.timingHistory=[...(metric.timingHistory||[]),sample].slice(-40);
+        if(task.nativeDurationVerified){
+          metric.nativeResiduals=[...(metric.nativeResiduals||[]),measured.deltaMs].slice(-40);
+        }
+        log('TIMING_BREAKDOWN','source '+task.sourceId+' / native_duration '+
+          String(sample.nativeTravelMs??'unknown')+'ms / browser_click_offset '+
+          String(sample.clickDeltaMs??'unknown')+'ms / inferred_post_click '+
+          String(sample.inferredPostClickMs??'unknown')+'ms / arrival_delta '+
+          measured.deltaMs+'ms');
         metric.serverDeltas=[...(metric.serverDeltas||[]),error].slice(-40);
         metric.maxServerDeltaAbs=Math.max(...metric.serverDeltas,0);
         set(root.localStorage,METRICS,metric);
@@ -1495,6 +1519,14 @@
       return;
     }
     const nextTask=mission.tasks[next],now=nowServer();
+    const known=nativeTimingRisk(metric);
+    const assessment=measuredTimingRisk(nextTask.marginMs,metric.maxDeviation,
+      known.maxAbs,nextTask.narrowAttemptApproved);
+    if(!assessment.safe){
+      log('NEXT_PRECISION_BLOCK','task '+(next+1)+' / '+assessment.message);
+      return stopMission('أوقفنا المهمة التالية بعد تحديث قياسات التوقيت: '+assessment.message);
+    }
+    if(assessment.highRisk)log('NEXT_PRECISION_RISK','task '+(next+1)+' / '+assessment.message);
     if(!finite(now)||nextTask.sendAt-now<MIN_PREP_MS)
       return stopMission('المهمة التالية قريبة جدًا؛ انتهت المهمة السابقة فقط');
     storeMission({...mission,index:next,phase:'routing',baselineIds:[],commandId:null,
