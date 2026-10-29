@@ -239,7 +239,7 @@ test('opt-in is shown on noble page, persisted, synchronized and bound to the ap
   assert.match(src,/allowNarrowAttempt:false/);
   assert.match(src,/merged\.allowNarrowAttempt=narrowRaw==='1'/);
   assert.match(src,/narrowAttemptApproved:options\.allowNarrowAttempt===true&&task\.marginMs<20/);
-  assert.match(src,/measuredTimingRisk\(task\.marginMs,metric\.maxDeviation,known\.maxAbs,task\.narrowAttemptApproved\)/);
+  assert.match(src,/const verdict=assessTaskPrecision\(task,metric\)/);
 });
 test('narrow sends keep the game verification and native click lateness guard',()=>{
   assert.match(src,/if\(late>sendToleranceFor\(task\)\)/);
@@ -313,7 +313,7 @@ test('execution refuses support without native verification and rechecks next ta
   assert.match(src,/task\.kind==='support'&&task\.nativeDurationVerified!==true/);
   assert.match(src,/const nativeMs=confirmationTravelMs\(doc\.querySelector\('#command-data-form'\)\)/);
   assert.match(src,/const tasks=mission\.tasks\.slice\(\);tasks\[mission\.index\]=confirmed/);
-  assert.match(src,/const assessment=measuredTimingRisk\(nextTask\.marginMs/);
+  assert.match(src,/const assessment=assessTaskPrecision\(nextTask,metric\)/);
   assert.match(src,/NEXT_PRECISION_BLOCK/);
   assert.match(src,/TIMING_BREAKDOWN/);
   assert.match(src,/metric\.nativeResiduals=/);
@@ -437,4 +437,56 @@ test('calibrated experiments feed back estimated native uncorrected lag, not jus
   assert.equal(next.shiftMs,177);
   assert.equal(next.medianMs,177);
   assert.match(src,/r\.arrivalDeltaMs\+\s*\(Number\.isSafeInteger\(r\.calibrationOffsetMs\)/);
+});
+
+test('v2.1.5 fixes 386ms max guard for explicitly opted-in 32ms experimental support',()=>{
+  const data=[139,188,386,126,177,118,315];
+  const timingHistory=data.map((arrivalDeltaMs,i)=>({
+    sourceId:String(1000+i),nativeTravelMs:2460000,arrivalDeltaMs}));
+  const metric={maxDeviation:6,nativeResiduals:data,timingHistory};
+  const base={kind:'support',sourceId:'2000',marginMs:32,
+    narrowAttemptApproved:false,calibrationApproved:false};
+  const strict=core.assessTaskPrecision(base,metric);
+  assert.equal(strict.safe,false);
+  assert.match(strict.message,/386ms/);
+  const trial=core.assessTaskPrecision({...base,calibrationApproved:true},metric);
+  assert.equal(trial.safe,true);
+  assert.equal(trial.highRisk,true);
+  assert.equal(trial.experimentalOverride,true);
+  assert.equal(trial.profile.scope,'world');
+  assert.equal(trial.profile.shiftMs,177);
+  assert.match(trial.message,/احتمال الفشل مرتفع/);
+});
+test('calibration permission never silently bypasses narrow and cancellation safety',()=>{
+  const history=[139,188,386,126,177,118,315].map((arrivalDeltaMs,i)=>({
+    sourceId:String(i),nativeTravelMs:100000,arrivalDeltaMs}));
+  const metric={nativeResiduals:history.map(x=>x.arrivalDeltaMs),maxDeviation:5,timingHistory:history};
+  const base={sourceId:'500',kind:'support',marginMs:15,calibrationApproved:true};
+  const narrow=core.assessTaskPrecision(base,metric);
+  assert.equal(narrow.safe,false);
+  assert.match(narrow.message,/أقل من 20ms/);
+  const narrowExplicit=core.assessTaskPrecision({...base,narrowAttemptApproved:true},metric);
+  assert.equal(narrowExplicit.safe,true);
+  assert.equal(narrowExplicit.highRisk,true);
+  const cancel=core.assessTaskPrecision({...base,kind:'cancel',marginMs:32},metric);
+  assert.equal(cancel.safe,false);
+});
+test('unreliable calibration does not bypass 32ms guard or send',()=>{
+  const history=[110,130,600,180,100].map((arrivalDeltaMs,i)=>({
+    sourceId:String(i),nativeTravelMs:100000,arrivalDeltaMs}));
+  const result=core.assessTaskPrecision({
+    kind:'support',sourceId:'500',marginMs:32,calibrationApproved:true
+  },{maxDeviation:5,nativeResiduals:[386],timingHistory:history});
+  assert.equal(result.safe,false);
+  assert.match(result.message,/لم تجمع عينات مستقرة/);
+});
+test('approved experimental execution requires real native calibration at confirmation',()=>{
+  assert.match(src,/const precisionVerdict=assessTaskPrecision\(task,metric\)/);
+  assert.match(src,/if\(!precisionVerdict\.safe\)return stopMission/);
+  assert.match(src,/if\(precisionVerdict\.experimentalOverride&&confirmed\.calibrationOffsetMs<1\)/);
+  assert.match(src,/precisionOverrideRequired:precisionVerdict\.experimentalOverride/);
+  assert.match(src,/task\.precisionOverrideRequired===true&&/);
+  assert.match(src,/NEXT_EXPERIMENTAL_RISK/);
+  assert.match(src,/PRECISION_EXPERIMENT_ALLOWED/);
+  assert.match(src,/narrowAttemptApproved:options\.allowNarrowAttempt===true&&task\.marginMs<20/);
 });
