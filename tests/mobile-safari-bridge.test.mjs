@@ -50,8 +50,7 @@ test('legacy desktop mouse panels support touch-only drag without disturbing the
  const sources=[
   ['scripts/alg-attacks.js',1],
   ['scripts/alg-balance.js',2],
-  ['scripts/alg-coins.js',1],
-  ['scripts/mass-scavenge-v1.js',1]
+  ['scripts/alg-coins.js',1]
  ];
  for(const [path,requiredCalls] of sources){
   const code=readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -86,4 +85,17 @@ test('all independently floating official engines constrain iOS zoomed drags',()
  assert.match(builder,/function visibleMobileBounds\(\)/);
  assert.match(builder,/const bounds=visibleMobileBounds\(\)/);
  assert.match(builder,/panel\.style\.left=clamp\(nx,bounds\.left\+4/);
+});
+
+test('mass-scavenge panel uses native mouse/touch pointer controls and persistent fold',()=>{
+ const code=readFileSync(new URL('../scripts/mass-scavenge-v1.js',import.meta.url),'utf8');
+ new vm.Script(code);
+ assert.match(code,/function setupMassPanelControls\(panel,header,body,button\)/);
+ assert.match(code,/header\.addEventListener\('pointerdown'/);
+ assert.match(code,/header\.addEventListener\('pointermove'/);
+ assert.match(code,/header\.addEventListener\('pointerup'/);
+ assert.match(code,/button\.addEventListener\('click'/);
+ assert.match(code,/setCollapsed\(previous\?\.collapsed===true\)/);
+ assert.match(code,/localStorage\.setItem\(storageKey/);
+ assert.doesNotMatch(code,/\$\('#algzawy-panel'\)\.draggable/);
 });
