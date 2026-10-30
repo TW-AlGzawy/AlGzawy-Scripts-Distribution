@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         [AlGzawy QA] الإغارات الجماعية — الجدولة الثابتة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/scavenge-sleep
-// @version      1.0.6
+// @version      1.0.7
 // @description  AlGzawy Cloud — اشتراك وجهاز معتمد
 // @include      https://*.tribalwars.*/game.php?*screen=scavenge_mass*
 // @include      https://*.tribalwars.*/game.php?*mode=scavenge_mass*
