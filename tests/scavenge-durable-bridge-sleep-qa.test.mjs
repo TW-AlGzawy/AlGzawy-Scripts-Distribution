@@ -188,3 +188,72 @@ test('stored 15–25 minute interval survives reload at 7 minutes without a send
  assert.equal(reloaded.reloaded,0);
  assert.equal(reloaded.api.readCycleState().nextRunAt,initial.nextRunAt);
 });
+
+test('header tap toggles once; dragging more than 7px moves without toggling and persists',()=>{
+ const start=engine.indexOf('function setupMassPanelControls(panel,header,body){');
+ const end=engine.indexOf('    // ========================================================================\\n    // --- الإعدادات الافتراضية ---',start);
+ assert.ok(start>0&&end>start,'isolated panel interaction code is available');
+ const store=new Map();
+ const localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,String(v))};
+ const window={game_data:{player:{id:12345}},innerWidth:950,innerHeight:800,addEventListener(){}};
+ const location={host:'ae101.tribalwars.ae'};
+ const createSetup=new Function('window','location','localStorage',
+   engine.slice(start,end)+'\\nreturn setupMassPanelControls;');
+ const setup=createSetup(window,location,localStorage);
+ const makeElement=()=>{
+   const handlers=new Map(),attrs=new Map();
+   const el={style:{left:'40px',top:'70px'},dataset:{},hidden:false,
+     offsetWidth:310,offsetHeight:270,
+     addEventListener(type,fn){handlers.set(type,[...(handlers.get(type)||[]),fn]);},
+     emit(type,e){for(const fn of handlers.get(type)||[])fn(e);},
+     setAttribute(k,v){attrs.set(k,String(v));},
+     attr(k){return attrs.get(k);},
+     getBoundingClientRect(){return {left:Number.parseInt(el.style.left,10)||40,
+       top:Number.parseInt(el.style.top,10)||70};},
+     setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
+   return el;
+ };
+ const panel=makeElement(),header=makeElement(),body=makeElement();
+ setup(panel,header,body);
+ assert.equal(body.hidden,false);
+ assert.equal(header.attr('aria-expanded'),'true');
+ const pt=(x,y)=>({pointerId:7,pointerType:'mouse',button:0,isPrimary:true,
+   clientX:x,clientY:y,target:{closest:()=>null},cancelable:true,preventDefault(){}});
+ header.emit('pointerdown',pt(125,110));
+ header.emit('pointerup',pt(125,110));
+ assert.equal(body.hidden,true,'a tap on the header collapses the panel');
+ assert.equal(header.attr('aria-expanded'),'false');
+ header.emit('pointerdown',pt(125,110));
+ header.emit('pointermove',pt(126,113)); // under 7px: still a tap
+ assert.equal(panel.style.left,'40px');
+ header.emit('pointermove',pt(165,130)); // 44px: a drag
+ header.emit('pointerup',pt(165,130));
+ assert.equal(body.hidden,true,'drag does not expand');
+ assert.equal(panel.style.left,'80px');
+ assert.equal(panel.style.top,'90px');
+ const payload=JSON.parse([...store.values()][0]);
+ assert.deepEqual(payload,{left:80,top:90,collapsed:true});
+ // Reload reproduces both the collapsed state and the last panel position.
+ const reloadPanel=makeElement(),reloadHeader=makeElement(),reloadBody=makeElement();
+ setup(reloadPanel,reloadHeader,reloadBody);
+ assert.equal(reloadBody.hidden,true);
+ assert.equal(reloadPanel.style.left,'80px');
+ reloadHeader.emit('keydown',{target:reloadHeader,key:'Enter',preventDefault(){}});
+ assert.equal(reloadBody.hidden,false,'keyboard opens the header');
+ reloadHeader.emit('pointerdown',pt(125,110));
+ reloadHeader.emit('pointercancel',pt(125,110));
+ assert.equal(reloadBody.hidden,false,'cancelled touch never toggles');
+});
+
+test('header is the only collapse control; UI redesign retains all scheduler inputs',()=>{
+ assert.match(engine,/id="algzawy-header" role="button" tabindex="0" aria-expanded="true"/);
+ assert.match(engine,/class="algzawy-panel-title"/);
+ assert.match(engine,/class="algzawy-card-label"/);
+ assert.match(engine,/id="algzawy-mass-timing"/);
+ assert.doesNotMatch(engine,/id="algzawy-panel-collapse"/);
+ for(const id of ['minReload','maxReload','delayUiLoad','delayAfterCalc','delayBetweenGroups','toggle-bot-btn']){
+   assert.ok(engine.includes('id="'+id+'"'),id+' remains operable');
+ }
+ assert.match(engine,/function isCurrentCycleClaim\(\)/);
+ assert.match(engine,/lastStartedAt===cycleStartedAt/);
+});
