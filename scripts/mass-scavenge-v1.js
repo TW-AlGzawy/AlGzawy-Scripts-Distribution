@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.4
+// @version      1.0.5
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -127,7 +127,7 @@ function setupMassPanelControls(panel,header,body,button){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" style="position: fixed; top: 100px; left: 10px; z-index: 9999; background: #102031; border: 2px solid #263c4f; border-radius: 5px; font-family: 'Trebuchet MS', sans-serif; width: 250px;">
+            <div id="algzawy-panel" data-algzawy-scheduler-qa="1.0.5" style="position: fixed; top: 100px; left: 10px; z-index: 9999; background: #102031; border: 2px solid #263c4f; border-radius: 5px; font-family: 'Trebuchet MS', sans-serif; width: 250px;">
                 <div id="algzawy-header" style="background: #123e3d; padding: 8px; display: flex; justify-content: space-between; align-items: center; cursor: move;">
                     <div id="panel-controls" style="order:1;flex:0 0 auto" data-no-drag>
                         <button id="algzawy-panel-collapse" type="button" aria-expanded="true" aria-label="طي قائمة الإغارات"
@@ -175,6 +175,14 @@ function setupMassPanelControls(panel,header,body,button){
                 .settings-input.full-width { width: 115px; }
             </style>
         `;
+        if(document.getElementById('algzawy-panel')){
+            const existing=document.getElementById('algzawy-panel');
+            existing.insertAdjacentHTML('afterbegin',
+                '<div data-algzawy-duplicate-warning role="alert" style="padding:8px;background:#8c2028;color:white;font-weight:bold;direction:rtl">'+
+                '⚠️ توجد نسختان من الإغارات على هذا التبويب. أوقف النسخة القديمة في Tampermonkey ثم حدّث الصفحة؛ نسخة QA لن ترسل قوات عند التعارض.</div>');
+            console.error('[AlGzawy QA] Another mass-scavenge panel exists; this instance is blocked.');
+            return false;
+        }
         $('body').append(panelHTML);
         setupMassPanelControls(
             document.getElementById('algzawy-panel'),
@@ -259,6 +267,7 @@ function setupMassPanelControls(panel,header,body,button){
         });
 
         updateButtonState();
+        return true;
     }
 
     function injectScript(url) {
@@ -281,10 +290,22 @@ function setupMassPanelControls(panel,header,body,button){
     const pageLoadedAt=Date.now();
     const tabToken=window.crypto?.randomUUID?.()||
         Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
-    let cycleTimer=null,cycleBusy=false,cycleSucceeded=false;
+    let cycleTimer=null,cycleBusy=false,cycleSucceeded=false,cycleStartedAt=null;
+    let panelOwnershipValid=false;
+    function ownsOnlyQaPanel(){
+        if(!panelOwnershipValid)return false;
+        const panels=document.querySelectorAll('#algzawy-panel');
+        return panels.length===1&&panels[0].dataset.algzawySchedulerQa==='1.0.5';
+    }
     function isCycleEnabled(){
-        return GM_getValue('isBotEnabled',true)===true &&
+        return GM_getValue('isBotEnabled',true)===true&&ownsOnlyQaPanel()&&
           localStorage.getItem('algzawy_human_verification_pause')!=='1';
+    }
+    function isCurrentCycleClaim(){
+        if(!cycleBusy||!isCycleEnabled()||!Number.isSafeInteger(cycleStartedAt))return false;
+        const state=readCycleState();
+        return state?.status==='running'&&state.claimedBy===tabToken&&
+          state.lastStartedAt===cycleStartedAt;
     }
     function nextIntervalMs(){
         const min=Math.max(1,Math.min(1440,Number(settings.minReload)||25));
@@ -352,7 +373,7 @@ function setupMassPanelControls(panel,header,body,button){
     function armCycleTimer(){
         clearTimeout(cycleTimer);cycleTimer=null;
         renderCycleSchedule();
-        if(!GM_getValue('isBotEnabled',true))return;
+        if(!isCycleEnabled())return;
         const state=ensureCycleSchedule();
         if(!state)return;
         // Timers are best-effort in hidden/suspended tabs. Never run early.
@@ -407,7 +428,9 @@ function setupMassPanelControls(panel,header,body,button){
                 // Claim the scheduled cycle BEFORE any network/UI action,
                 // preventing replays on reload or another tab.
                 const intervalMs=nextIntervalMs();
-                saveCycleState({...actual,status:'running',lastStartedAt:now,
+                cycleStartedAt=now;
+                saveCycleState({...actual,status:'running',claimedBy:tabToken,
+                    dueAt:actual.nextRunAt,lastStartedAt:now,
                     nextRunAt:now+intervalMs,intervalMs});
                 cycleSucceeded=false;
                 await executeScavengeCycle();
@@ -419,9 +442,10 @@ function setupMassPanelControls(panel,header,body,button){
             });
         }catch(error){
             console.error('[AlGzawy] Scavenge cycle error:',error);
-        }finally{cycleBusy=false;armCycleTimer();}
+        }finally{cycleBusy=false;cycleStartedAt=null;armCycleTimer();}
     }
     function schedulePageReload(){
+        if(!isCurrentCycleClaim())return;
         // Legacy name retained for compatibility with group-dispatch tests.
         // No reload is scheduled here: the next absolute time was reserved
         // at cycle start and is adjusted from completion after real dispatch.
@@ -444,7 +468,7 @@ function setupMassPanelControls(panel,header,body,button){
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
             const interval = setInterval(() => {
-                if (!GM_getValue('isBotEnabled', true)) {
+                if (!isCurrentCycleClaim()) {
                     clearInterval(interval);
                     return reject(new Error('تم إيقاف البوت يدوياً.'));
                 }
@@ -463,7 +487,8 @@ function setupMassPanelControls(panel,header,body,button){
     }
 
     $(document).ready(function() {
-        buildControlPanel();
+        panelOwnershipValid=buildControlPanel()===true;
+        if(!panelOwnershipValid)return;
         ensureCycleSchedule();
         renderCycleSchedule();
         armCycleTimer();
@@ -472,14 +497,15 @@ function setupMassPanelControls(panel,header,body,button){
     });
 
     async function executeScavengeCycle() {
-        if(!isCycleEnabled())return;
+        if(!isCurrentCycleClaim())return;
         console.log(`[سكربت الغزاوي] الإصدار ${GM_info.script.version} — بدأت الدورة في موعدها المحفوظ.`);
         try {
             await injectScript(SCRIPT_URL);
+            if(!isCurrentCycleClaim())return;
             console.log("[سكربت الغزاوي] تم تحميل الواجهة بنجاح.");
 
             await new Promise(resolve => setTimeout(resolve, settings.delayUiLoad));
-
+            if(!isCurrentCycleClaim())return;
             console.log("[سكربت الغزاوي] البحث عن زر 'حساب المدة'...");
             await waitAndClick('#sendMass');
 
@@ -497,7 +523,7 @@ function setupMassPanelControls(panel,header,body,button){
                 let consecutiveEmptyChecks = 0;
                 let indexBase = null; // preserve 0-based/1-based choice after first row disappears
                 for (let n = 0; n < 120; n++) { // allow slow group calculations
-                    if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
+                    if (!isCurrentCycleClaim()) return;
                     if (hasHumanCheck()) {
                         localStorage.setItem('algzawy_human_verification_pause', '1');
                         document.dispatchEvent(new Event('algzawy-human-verification'));
@@ -532,6 +558,7 @@ function setupMassPanelControls(panel,header,body,button){
                     consecutiveEmptyChecks = 0;
                     const task = tasks.find(task => !attempted.has(task.index) && isReady(task.button));
                     if (!task) { if (tasks.every(x => attempted.has(x.index))) break; await wait(500); continue; }
+                    if(!isCurrentCycleClaim())return;
                     attempted.add(task.index); // one attempt per group per run
                     console.log('[AlGzawy] Group '+(task.index+1)+' click requested');
                     task.button.click();
@@ -540,7 +567,7 @@ function setupMassPanelControls(panel,header,body,button){
                     let removed = false;
                     for (let retry = 0; retry < 20; retry++) {
                         await wait(250);
-                        if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
+                        if (!isCurrentCycleClaim()) return;
                         if (task.row && !task.row.isConnected) { removed = true; break; }
                         if (!task.row && (!task.button.isConnected || task.button.disabled)) { removed = true; break; }
                     }
@@ -550,7 +577,7 @@ function setupMassPanelControls(panel,header,body,button){
                     }
                     await wait(Math.max(350, settings.delayBetweenGroups));
                 }
-                if (GM_getValue('isBotEnabled',true) && attempted.size>0) schedulePageReload();
+                if (isCurrentCycleClaim() && attempted.size>0) schedulePageReload();
             }
             await dispatchAvailableGroups();
 
