@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.6
+// @version      1.0.7
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -24,6 +24,7 @@ function setupMassPanelControls(panel,header,body){
     if(!panel||!header||!body)return;
     const storageKey='algzawy_mass_panel_ui_v2_'+location.host+'_'+
         String(window.game_data?.player?.id||'unknown');
+    const minWidth=218,minHeight=195,margin=8;
     const bounds=()=>{
         const v=window.visualViewport;
         const left=v?.offsetLeft||0,top=v?.offsetTop||0;
@@ -31,30 +32,54 @@ function setupMassPanelControls(panel,header,body){
             bottom:top+(v?.height||window.innerHeight)};
     };
     const clamp=(x,min,max)=>Math.max(min,Math.min(x,Math.max(min,max)));
-    const limitPosition=()=>{
-        const box=bounds(),margin=8;
-        const rect=panel.getBoundingClientRect();
-        const left=clamp(rect.left,box.left+margin,box.right-panel.offsetWidth-margin);
-        const top=clamp(rect.top,box.top+margin,box.bottom-panel.offsetHeight-margin);
-        panel.style.left=Math.round(left)+'px';
-        panel.style.top=Math.round(top)+'px';
-        panel.style.right='auto';
+    const available=bounds=>{
+        return {width:Math.max(1,bounds.right-bounds.left-2*margin),
+            height:Math.max(1,bounds.bottom-bounds.top-2*margin)};
     };
-    let collapsed=false,drag=null;
+    // The original storage key is retained so user position/collapse state
+    // survives updates. Width/height are optional additions to that schema.
+    let collapsed=false,drag=null,resize=null,expandedHeight=null;
+    const rectOf=()=>panel.getBoundingClientRect();
+    const applyGeometry=(left,top,width,height)=>{
+        const box=bounds(),space=available(box);
+        const w=clamp(width,Math.min(minWidth,space.width),space.width);
+        const h=height===null?null:
+            clamp(height,Math.min(minHeight,space.height),space.height);
+        panel.style.width=Math.round(w)+'px';
+        panel.style.height=h===null?'auto':Math.round(h)+'px';
+        panel.style.left=Math.round(clamp(left,box.left+margin,box.right-margin-w))+'px';
+        panel.style.top=Math.round(clamp(top,box.top+margin,
+            box.bottom-margin-(h===null?panel.offsetHeight:h)))+'px';
+        panel.style.right='auto';
+        return {width:w,height:h};
+    };
+    const limitPosition=()=>{
+        const r=rectOf();
+        const currentWidth=panel.offsetWidth||r.width||288;
+        const savedHeight=collapsed?null:expandedHeight;
+        const result=applyGeometry(r.left,r.top,currentWidth,savedHeight);
+        if(!collapsed&&expandedHeight!==null)expandedHeight=result.height;
+    };
     const persist=()=>{
         try{
-            const rect=panel.getBoundingClientRect();
+            const r=rectOf();
             localStorage.setItem(storageKey,JSON.stringify({
-                left:Math.round(rect.left),top:Math.round(rect.top),collapsed}));
-        }catch(_){/* storage is optional for panel position */}
+                left:Math.round(r.left),top:Math.round(r.top),
+                width:Math.round(panel.offsetWidth||r.width),
+                height:expandedHeight===null?null:Math.round(expandedHeight),
+                collapsed}));
+        }catch(_){/* display state is not used by the dispatch scheduler */}
     };
     const setCollapsed=next=>{
         collapsed=!!next;
         body.hidden=collapsed;
         body.style.display=collapsed?'none':'';
+        panel.style.height=collapsed?'auto':
+            (expandedHeight===null?'auto':Math.round(expandedHeight)+'px');
         panel.dataset.collapsed=String(collapsed);
         header.setAttribute('aria-expanded',String(!collapsed));
-        header.title=collapsed?'اضغط لفتح الإغارات':'اضغط لطي القائمة أو اسحب لتحريكها';
+        header.title=collapsed?'اضغط لفتح الإغارات':
+            'اضغط لطي القائمة أو اسحب لتحريكها';
         limitPosition();
         persist();
     };
@@ -69,16 +94,22 @@ function setupMassPanelControls(panel,header,body){
     });
     let previous=null;
     try{previous=JSON.parse(localStorage.getItem(storageKey)||'null');}catch(_){}
-    if(previous&&Number.isFinite(previous.left)&&Number.isFinite(previous.top)){
-        panel.style.left=Math.round(previous.left)+'px';
-        panel.style.top=Math.round(previous.top)+'px';
-        panel.style.right='auto';
+    if(previous){
+        if(Number.isFinite(previous.width)&&previous.width>0)
+            panel.style.width=Math.round(previous.width)+'px';
+        if(Number.isFinite(previous.height)&&previous.height>0)
+            expandedHeight=Math.round(previous.height);
+        if(Number.isFinite(previous.left)&&Number.isFinite(previous.top)){
+            panel.style.left=Math.round(previous.left)+'px';
+            panel.style.top=Math.round(previous.top)+'px';
+            panel.style.right='auto';
+        }
     }
     setCollapsed(previous?.collapsed===true);
     header.addEventListener('pointerdown',e=>{
         if(e.isPrimary===false||(e.pointerType==='mouse'&&e.button!==0)||
             e.target?.closest?.('button,input,select,textarea,a,[data-no-drag]'))return;
-        const rect=panel.getBoundingClientRect();
+        const rect=rectOf();
         drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top,moved:false};
         try{header.setPointerCapture(e.pointerId);}catch(_){}
         if(e.cancelable)e.preventDefault();
@@ -89,11 +120,11 @@ function setupMassPanelControls(panel,header,body){
         if(!drag.moved&&Math.hypot(dx,dy)<7)return;
         drag.moved=true;
         panel.dataset.dragging='true';
-        const box=bounds(),margin=8;
+        const box=bounds(),w=panel.offsetWidth,h=panel.offsetHeight;
         panel.style.left=Math.round(clamp(drag.left+dx,
-            box.left+margin,box.right-panel.offsetWidth-margin))+'px';
+            box.left+margin,box.right-w-margin))+'px';
         panel.style.top=Math.round(clamp(drag.top+dy,
-            box.top+margin,box.bottom-panel.offsetHeight-margin))+'px';
+            box.top+margin,box.bottom-h-margin))+'px';
         panel.style.right='auto';
         if(e.cancelable)e.preventDefault();
     });
@@ -111,6 +142,72 @@ function setupMassPanelControls(panel,header,body){
     header.addEventListener('pointerup',e=>release(e,false));
     header.addEventListener('pointercancel',e=>release(e,true));
     header.addEventListener('lostpointercapture',e=>release(e,true));
+
+    // Eight independent grips: top/bottom/left/right + four corners.
+    // Anchor the opposite edge so dragging top/left correctly adjusts origin.
+    // Resize events never bubble to the header toggle or dispatch controls.
+    const directionSet=new Set(['n','s','e','w','ne','nw','se','sw']);
+    const grips=panel.querySelectorAll('.algzawy-resize-handle');
+    for(const grip of grips){
+        const dir=grip.dataset.edge;
+        if(!directionSet.has(dir))continue;
+        grip.addEventListener('pointerdown',e=>{
+            if(e.isPrimary===false||(e.pointerType==='mouse'&&e.button!==0))return;
+            e.stopPropagation();
+            const r=rectOf();
+            const left=r.left,top=r.top;
+            const width=panel.offsetWidth||r.width,height=panel.offsetHeight||r.height;
+            resize={id:e.pointerId,dir,x:e.clientX,y:e.clientY,
+                left,top,width,height};
+            try{grip.setPointerCapture(e.pointerId);}catch(_){}
+            if(e.cancelable)e.preventDefault();
+        });
+        grip.addEventListener('pointermove',e=>{
+            if(!resize||resize.id!==e.pointerId)return;
+            const item=resize,box=bounds(),space=available(box);
+            const dx=e.clientX-item.x,dy=e.clientY-item.y;
+            const right=item.left+item.width,bottom=item.top+item.height;
+            let left=item.left,top=item.top,width=item.width,height=item.height;
+            const safeMinWidth=Math.min(minWidth,space.width);
+            const safeMinHeight=Math.min(minHeight,space.height);
+            if(item.dir.includes('w')){
+                left=clamp(item.left+dx,box.left+margin,right-safeMinWidth);
+                width=right-left;
+            }else if(item.dir.includes('e')){
+                width=clamp(item.width+dx,safeMinWidth,box.right-margin-item.left);
+            }
+            if(!collapsed){
+                if(item.dir.includes('n')){
+                    top=clamp(item.top+dy,box.top+margin,bottom-safeMinHeight);
+                    height=bottom-top;
+                }else if(item.dir.includes('s')){
+                    height=clamp(item.height+dy,safeMinHeight,
+                        box.bottom-margin-item.top);
+                }
+            }
+            // n/s are disabled in collapsed state to protect the compact bar.
+            if(collapsed&&(item.dir==='n'||item.dir==='s'))return;
+            panel.style.left=Math.round(left)+'px';
+            panel.style.top=Math.round(top)+'px';
+            panel.style.width=Math.round(width)+'px';
+            panel.style.right='auto';
+            if(!collapsed){
+                expandedHeight=height;
+                panel.style.height=Math.round(height)+'px';
+            }
+            if(e.cancelable)e.preventDefault();
+        });
+        const finish=(e)=>{
+            if(!resize||resize.id!==e.pointerId)return;
+            resize=null;
+            persist();
+            try{if(grip.hasPointerCapture(e.pointerId))
+                grip.releasePointerCapture(e.pointerId);}catch(_){}
+        };
+        grip.addEventListener('pointerup',finish);
+        grip.addEventListener('pointercancel',finish);
+        grip.addEventListener('lostpointercapture',finish);
+    }
     window.addEventListener('resize',()=>{limitPosition();persist();});
     window.visualViewport?.addEventListener('resize',()=>{limitPosition();persist();});
 }
@@ -135,13 +232,12 @@ function setupMassPanelControls(panel,header,body){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" data-algzawy-scheduler-qa="1.0.6" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
+            <div id="algzawy-panel" data-algzawy-scheduler-qa="1.0.7" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
                 <div id="algzawy-header" role="button" tabindex="0" aria-expanded="true" aria-controls="algzawy-body"
                     aria-label="الإغارات الجماعية، اضغط للطي أو الفتح واسحب لتحريك النافذة">
                     <span class="algzawy-brand-mark" aria-hidden="true">✦</span>
                     <div class="algzawy-header-copy">
                         <div class="algzawy-panel-title">الغزاوي | الإغارات الجماعية</div>
-                        <div class="algzawy-panel-subtitle">لوحة التحكم والجدولة الذكية</div>
                     </div>
                     <span class="algzawy-title-chevron" aria-hidden="true"></span>
                 </div>
@@ -178,42 +274,50 @@ function setupMassPanelControls(panel,header,body){
                     </div>
                     <p class="algzawy-panel-footer">AlGzawy · 2026 · BETA</p>
                 </div>
+                <span class="algzawy-resize-handle" data-edge="n" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="s" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="e" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="w" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="ne" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="nw" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="se" aria-hidden="true"></span>
+                <span class="algzawy-resize-handle" data-edge="sw" aria-hidden="true"></span>
             </div>
             <style>
-                #algzawy-panel {box-sizing:border-box;width:min(314px,calc(100vw - 20px));max-width:calc(100vw - 16px);
+                #algzawy-panel {box-sizing:border-box;width:min(288px,calc(100vw - 20px));max-width:calc(100vw - 16px);min-width:0;min-height:0;
+                    display:flex;flex-direction:column;
                     border:1px solid #277f82;border-radius:15px;background:#101e2b;color:#eaf7fa;
                     font-family:Tahoma,Arial,sans-serif;font-size:12px;box-shadow:0 18px 46px #00101585,0 0 0 1px #4bd6c51d;overflow:hidden;}
                 #algzawy-panel *{box-sizing:border-box;}
-                #algzawy-header{display:flex;align-items:center;gap:10px;min-height:65px;
-                    padding:11px 13px;background:linear-gradient(125deg,#144d52,#102d40 72%);
-                    border-bottom:1px solid #2d6974;cursor:grab;outline-offset:-3px;}
+                #algzawy-header{display:flex;align-items:center;gap:8px;min-height:52px;
+                    padding:8px 11px;background:linear-gradient(125deg,#144d52,#102d40 72%);
+                    border-bottom:1px solid #2d6974;cursor:grab;outline-offset:-3px;flex:0 0 auto;}
                 #algzawy-header:focus-visible{outline:2px solid #75f4df;}
                 #algzawy-panel[data-dragging="true"] #algzawy-header{cursor:grabbing;}
                 #algzawy-panel[data-collapsed="true"] #algzawy-header{border-bottom:0;}
-                #algzawy-header .algzawy-brand-mark{display:grid;place-items:center;flex:0 0 33px;
-                    height:33px;border-radius:10px;background:linear-gradient(145deg,#26aa9c,#12717c);
-                    font-size:21px;color:#e7fff8;box-shadow:inset 0 1px 0 #b5fff34d;}
+                #algzawy-header .algzawy-brand-mark{display:grid;place-items:center;flex:0 0 29px;
+                    height:29px;border-radius:10px;background:linear-gradient(145deg,#26aa9c,#12717c);
+                    font-size:18px;color:#e7fff8;box-shadow:inset 0 1px 0 #b5fff34d;}
                 #algzawy-header .algzawy-header-copy{flex:1;min-width:0;text-align:right;}
-                #algzawy-header .algzawy-panel-title{font-size:13px;font-weight:800;color:#f4fffe;line-height:1.5;}
-                #algzawy-header .algzawy-panel-subtitle{font-size:10px;color:#a9d5d2;line-height:1.5;}
+                #algzawy-header .algzawy-panel-title{font-size:12px;font-weight:800;color:#f4fffe;line-height:1.5;}
                 #algzawy-header .algzawy-title-chevron{width:8px;height:8px;border-left:2px solid #8ce3cf;
                     border-bottom:2px solid #8ce3cf;transform:rotate(-45deg);margin:0 4px 5px 5px;transition:transform .16s ease;}
                 #algzawy-panel[data-collapsed="true"] .algzawy-title-chevron{transform:rotate(135deg);margin-bottom:0;}
-                #algzawy-body{padding:12px;max-height:min(72vh,610px);overflow-y:auto;scrollbar-width:thin;
+                #algzawy-body{padding:10px;flex:1 1 auto;min-height:0;max-height:min(70vh,610px);overflow-y:auto;scrollbar-width:thin;
                     scrollbar-color:#347d81 #112735;}
                 #algzawy-panel .algzawy-action-btn{display:block;width:100%;padding:11px 12px;
                     margin:0 0 12px;border-radius:9px;border:1px solid #4e8190;font-weight:700;
                     color:#fff;background:#a04c5b;cursor:pointer;}
                 #algzawy-panel .algzawy-action-btn[data-active="false"]{background:#116c66;border-color:#2ba796;}
                 #algzawy-panel .algzawy-action-btn:hover{filter:brightness(1.1);}
-                #algzawy-panel #settings-section{padding:12px;border:1px solid #244a59;border-radius:11px;
+                #algzawy-panel #settings-section{padding:10px;border:1px solid #244a59;border-radius:11px;
                     background:linear-gradient(180deg,#142d3b,#102530);}
                 #algzawy-panel #settings-section h5{margin:0 0 12px;text-align:right;font-size:12px;color:#8fe9dd;}
                 #algzawy-panel .setting-row{display:flex;align-items:center;justify-content:space-between;
-                    flex-wrap:wrap;gap:5px;margin-bottom:9px;line-height:1.5;}
+                    flex-wrap:wrap;gap:5px;margin-bottom:7px;line-height:1.5;}
                 #algzawy-panel .setting-row:last-child{margin-bottom:0;}
                 #algzawy-panel .setting-row label{flex:1 0 100%;text-align:right;color:#c9e2e7;font-size:11px;}
-                #algzawy-panel .settings-input{width:calc(50% - 12px);min-width:0;padding:6px 7px;
+                #algzawy-panel .settings-input{width:calc(50% - 12px);min-width:0;padding:5px 7px;
                     border:1px solid #366472;border-radius:7px;background:#091925;color:#f4ffff;
                     font:inherit;text-align:center;direction:ltr;}
                 #algzawy-panel .settings-input.full-width{width:100%;}
@@ -228,7 +332,21 @@ function setupMassPanelControls(panel,header,body){
                     background:#153542;color:#85eddd;cursor:pointer;padding:7px 9px;font-size:11px;}
                 #algzawy-panel .algzawy-version{font:10px Tahoma,Arial,sans-serif;color:#adccd4;direction:ltr;}
                 #algzawy-panel .algzawy-panel-footer{text-align:center;color:#6f97a2;font-size:10px;
-                    margin:13px 0 0;}
+                    margin:10px 0 0;}
+                #algzawy-panel .algzawy-resize-handle{position:absolute;z-index:3;
+                    background:transparent;touch-action:none;user-select:none;}
+                #algzawy-panel [data-edge="n"]{left:14px;right:14px;top:0;height:7px;cursor:ns-resize;}
+                #algzawy-panel [data-edge="s"]{left:14px;right:14px;bottom:0;height:7px;cursor:ns-resize;}
+                #algzawy-panel [data-edge="w"]{left:0;top:14px;bottom:14px;width:8px;cursor:ew-resize;}
+                #algzawy-panel [data-edge="e"]{right:0;top:14px;bottom:14px;width:8px;cursor:ew-resize;}
+                #algzawy-panel [data-edge="nw"]{top:0;left:0;width:17px;height:17px;cursor:nwse-resize;}
+                #algzawy-panel [data-edge="se"]{bottom:0;right:0;width:17px;height:17px;cursor:nwse-resize;}
+                #algzawy-panel [data-edge="ne"]{top:0;right:0;width:17px;height:17px;cursor:nesw-resize;}
+                #algzawy-panel [data-edge="sw"]{bottom:0;left:0;width:17px;height:17px;cursor:nesw-resize;}
+                #algzawy-panel .algzawy-resize-handle:hover{background:#69edd530;}
+                #algzawy-panel[data-collapsed="true"] [data-edge="n"],
+                #algzawy-panel[data-collapsed="true"] [data-edge="s"]{display:none;}
+                #algzawy-panel:not([data-collapsed="true"]) #algzawy-body{height:100%;}
                 @media (prefers-reduced-motion:reduce){
                     #algzawy-panel .algzawy-title-chevron{transition:none;}
                 }
@@ -351,7 +469,7 @@ function setupMassPanelControls(panel,header,body){
     function ownsOnlyQaPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawySchedulerQa==='1.0.6';
+        return panels.length===1&&panels[0].dataset.algzawySchedulerQa==='1.0.7';
     }
     function isCycleEnabled(){
         return GM_getValue('isBotEnabled',true)===true&&ownsOnlyQaPanel()&&
