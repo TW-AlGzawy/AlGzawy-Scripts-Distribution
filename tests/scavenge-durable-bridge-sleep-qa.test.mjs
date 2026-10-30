@@ -191,14 +191,14 @@ test('stored 15–25 minute interval survives reload at 7 minutes without a send
 
 test('header tap toggles once; dragging more than 7px moves without toggling and persists',()=>{
  const start=engine.indexOf('function setupMassPanelControls(panel,header,body){');
- const end=engine.indexOf('    // ========================================================================\\n    // --- الإعدادات الافتراضية ---',start);
+ const end=engine.indexOf('    // ========================================================================',start);
  assert.ok(start>0&&end>start,'isolated panel interaction code is available');
  const store=new Map();
  const localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,String(v))};
  const window={game_data:{player:{id:12345}},innerWidth:950,innerHeight:800,addEventListener(){}};
  const location={host:'ae101.tribalwars.ae'};
  const createSetup=new Function('window','location','localStorage',
-   engine.slice(start,end)+'\\nreturn setupMassPanelControls;');
+   engine.slice(start,end)+'\nreturn setupMassPanelControls;');
  const setup=createSetup(window,location,localStorage);
  const makeElement=()=>{
    const handlers=new Map(),attrs=new Map();
