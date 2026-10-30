@@ -259,3 +259,78 @@ test('header is the only collapse control; UI redesign retains all scheduler inp
  assert.match(engine,/function isCurrentCycleClaim\(\)/);
  assert.match(engine,/lastStartedAt===cycleStartedAt/);
 });
+
+test('all eight edge/corner resize grips preserve opposite anchors and restore geometry',()=>{
+ const start=engine.indexOf('function setupMassPanelControls(panel,header,body){');
+ const end=engine.indexOf('    // ========================================================================',start);
+ const local=new Map();
+ const localStorage={getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,String(v))};
+ const window={game_data:{player:{id:51}},innerWidth:1100,innerHeight:900,addEventListener(){}};
+ const setup=new Function('window','location','localStorage',
+   engine.slice(start,end)+'\nreturn setupMassPanelControls;')
+   (window,{host:'ae101.tribalwars.ae'},localStorage);
+ function el(){
+   const events=new Map(),attrs=new Map();
+   const node={style:{},dataset:{},hidden:false,
+     get offsetWidth(){return Number.parseInt(node.style.width,10)||288;},
+     get offsetHeight(){return Number.parseInt(node.style.height,10)||400;},
+     getBoundingClientRect(){return {left:Number.parseInt(node.style.left,10)||60,
+       top:Number.parseInt(node.style.top,10)||75,width:node.offsetWidth,height:node.offsetHeight};},
+     addEventListener(name,fn){events.set(name,[...(events.get(name)||[]),fn]);},
+     emit(name,e){for(const fn of events.get(name)||[])fn(e);},
+     setAttribute(name,value){attrs.set(name,String(value));},
+     setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
+   return node;
+ }
+ const dirs=['n','s','e','w','ne','nw','se','sw'];
+ const drag=(grip,dx,dy)=>{
+    const event=(x,y)=>({isPrimary:true,pointerType:'mouse',button:0,pointerId:9,
+      clientX:x,clientY:y,stopPropagation(){},
+      cancelable:true,preventDefault(){}});
+    grip.emit('pointerdown',event(300,300));
+    grip.emit('pointermove',event(300+dx,300+dy));
+    grip.emit('pointerup',event(300+dx,300+dy));
+ };
+ for(const dir of dirs){
+   local.clear();
+   const panel=el(),header=el(),body=el();
+   panel.style.left='60px';panel.style.top='75px';
+   const grips=dirs.map(d=>Object.assign(el(),{dataset:{edge:d}}));
+   panel.querySelectorAll=()=>grips;
+   setup(panel,header,body);
+   const before={left:60,top:75,width:288,height:400};
+   drag(grips[dirs.indexOf(dir)],dir.includes('w')?-25:dir.includes('e')?25:0,
+     dir.includes('n')?-35:dir.includes('s')?35:0);
+   const after={left:Number.parseInt(panel.style.left,10),top:Number.parseInt(panel.style.top,10),
+     width:panel.offsetWidth,height:panel.offsetHeight};
+   assert.equal(after.width,before.width+(dir.includes('w')||dir.includes('e')?25:0),dir+' width');
+   assert.equal(after.height,before.height+(dir.includes('n')||dir.includes('s')?35:0),dir+' height');
+   assert.equal(after.left,before.left+(dir.includes('w')?-25:0),dir+' anchored right');
+   assert.equal(after.top,before.top+(dir.includes('n')?-35:0),dir+' anchored bottom');
+   assert.equal(after.left+after.width,dir.includes('w')?before.left+before.width:
+     before.left+before.width+(dir.includes('e')?25:0),dir+' opposite side');
+   assert.equal(after.top+after.height,dir.includes('n')?before.top+before.height:
+     before.top+before.height+(dir.includes('s')?35:0),dir+' opposite top/bottom');
+   const saved=JSON.parse([...local.values()][0]);
+   assert.equal(saved.width,after.width,dir+' saved width');
+   assert.equal(saved.height,after.height,dir+' saved height');
+   const reopened=el(),reopenHeader=el(),reopenBody=el();
+   reopened.querySelectorAll=()=>[];
+   setup(reopened,reopenHeader,reopenBody);
+   assert.equal(reopened.offsetWidth,after.width,dir+' restored width');
+   assert.equal(reopened.offsetHeight,after.height,dir+' restored height');
+ }
+});
+
+test('scavenge UI remains compact and previous 15-25 minute schedule is unchanged',()=>{
+ assert.match(engine,/width:min\(288px,calc\(100vw - 20px\)\)/);
+ assert.doesNotMatch(engine,/لوحة التحكم والجدولة الذكية/);
+ for(const edge of ['n','s','e','w','ne','nw','se','sw']){
+   assert.ok(engine.includes('data-edge="'+edge+'"'));
+ }
+ assert.match(engine,/expandedHeight===null\?'auto'/);
+ assert.match(engine,/const minWidth=218,minHeight=195,margin=8/);
+ assert.match(engine,/const scheduleKey='algzawy_mass_scavenge_schedule_v2_'/);
+ assert.match(engine,/nextRunAt:now\+intervalMs/);
+ assert.match(engine,/isCurrentCycleClaim\(\)/);
+});
