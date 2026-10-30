@@ -17,7 +17,7 @@ const end=engine.indexOf('    function waitAndClick(',begin);
 assert.ok(begin>0&&end>begin,'schedule functions extracted from live engine');
 const code=engine.slice(begin,end);
 
-function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,0)}}={}){
+function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,0)},minReload=25,maxReload=35}={}){
  const map=shared||new Map(),session=new Map();
  const storage=m=>({
    getItem:k=>m.get(k)??null,
@@ -46,7 +46,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
      claimActive:()=>isCurrentCycleClaim()};
    `);
  const api=setup(window,location,navigator,local,sess,document,
-   ()=>enabled,{minReload:25,maxReload:35},(fn,ms)=>{timers.push({fn,ms});return timers.length;},
+   ()=>enabled,{minReload,maxReload},(fn,ms)=>{timers.push({fn,ms});return timers.length;},
    ()=>{},FakeDate,math,{log(){},error(){}},finish=>{
       sent++;if(complete)finish();
    });
@@ -177,10 +177,10 @@ test('QA refuses a second mass-scavenge panel and has a persistent direct click 
 });
 test('stored 15–25 minute interval survives reload at 7 minutes without a send',async()=>{
  const clock={time:Date.UTC(2026,9,31,0)};
- const original=harness(null,{clock});
+ const original=harness(null,{clock,minReload:15,maxReload:25});
  // Test the exact user's lower bound without touching persisted state after it is saved.
  const initial=original.api.ensureCycleSchedule();
- assert.ok(initial.nextRunAt-clock.time>=15*60000);
+ assert.equal(initial.nextRunAt-clock.time,15*60000);
  clock.time+=7*60000;
  const reloaded=harness(original.map,{clock});
  await reloaded.api.checkCycleDue();
