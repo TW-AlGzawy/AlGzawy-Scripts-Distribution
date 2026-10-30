@@ -165,8 +165,10 @@ function enableMobileTouchDrag(panel,handle,onDone){
                 GM_setValue(key, value);
                 settings[key.replace('Reload', 'Reload').replace('delay', 'delay')] = value; // تحديث الكائن المحلي
                 console.log(`[سكربت الغزاوي] تم حفظ الإعداد: ${key} = ${value}`);
-                // Existing nextRunAt stays fixed; new range applies after the next cycle.
-                renderCycleSchedule();
+                // A user-edited interval deliberately replans the NEXT
+                // deadline. Routine page reloads never replan it.
+                if(key==='minReload'||key==='maxReload')replanCycleInterval();
+                else renderCycleSchedule();
             }
         });
 
@@ -268,6 +270,19 @@ function enableMobileTouchDrag(panel,handle,onDone){
         }
         return state;
     }
+    function replanCycleInterval(){
+        const current=ensureCycleSchedule();
+        if(!current)return;
+        if(current.status==='running'){renderCycleSchedule();return;}
+        const intervalMs=nextIntervalMs(),now=Date.now();
+        const base=Number.isSafeInteger(current.lastCompletedAt)&&
+            current.lastCompletedAt>0?current.lastCompletedAt:now;
+        const intended=base+intervalMs;
+        // Never accidentally start an overdue cycle because an option changed.
+        const nextRunAt=intended>now?intended:now+intervalMs;
+        saveCycleState({...current,nextRunAt,intervalMs,status:'waiting'});
+        armCycleTimer();
+    }
     function renderCycleSchedule(){
         const el=document.getElementById('algzawy-mass-timing');
         if(!el)return;
@@ -280,7 +295,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
         const hh=String(Math.floor(remaining/3600)).padStart(2,'0');
         const mm=String(Math.floor((remaining%3600)/60)).padStart(2,'0');
         const ss=String(remaining%60).padStart(2,'0');
-        el.textContent='آخر دورة إغارات: '+fmt(state.lastCompletedAt)+
+        el.textContent='آخر دورة مؤكدة من الواجهة: '+fmt(state.lastCompletedAt)+
             '\nالدورة التالية: '+fmt(state.nextRunAt)+
             '\nالمتبقي: '+hh+':'+mm+':'+ss+
             (GM_getValue('isBotEnabled',true)?'':'\n⏸ الإغارات متوقفة');
