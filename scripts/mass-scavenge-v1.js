@@ -309,7 +309,9 @@ function enableMobileTouchDrag(panel,handle,onDone){
         // Timers are best-effort in hidden/suspended tabs. Never run early.
         const remaining=state.nextRunAt-Date.now();
         const delay=Math.max(250,Math.min(remaining>0?remaining:250,30000));
-        cycleTimer=setTimeout(()=>void checkCycleDue(),delay);
+        // Do not spin every 250ms while CAPTCHA is active or the tab sleeps.
+        const sleeping=document.visibilityState==='hidden'||!isCycleEnabled();
+        cycleTimer=setTimeout(()=>void checkCycleDue(),sleeping?30000:delay);
     }
     async function withCycleLease(fn){
         const leaseName='algzawy-scavenge-'+location.host+'-'+playerId;
