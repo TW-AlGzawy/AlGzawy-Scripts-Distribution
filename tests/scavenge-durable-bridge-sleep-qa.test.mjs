@@ -33,26 +33,15 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
  const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){}};
- const create=new Function('window','location','navigator','localStorage','sessionStorage',
-   'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
-   code+\`
-   let testComplete=${complete};
-   async function executeScavengeCycle(){harnessCalls++;if(testComplete)schedulePageReload();}
-   return {ensureCycleSchedule,readCycleState,checkCycleDue,armCycleTimer,
-     setEnabled:v=>harnessEnabled=v, getCalls:()=>harnessCalls};
-   \`);
- // Lexical globals for executeScavengeCycle function are captured in a separate
- // invocation so the test uses exactly the production scheduling functions.
- let harnessCalls=0,harnessEnabled=true;
  const setup=new Function('window','location','navigator','localStorage','sessionStorage',
    'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
    'onDispatch',
-   code+\`
+   code+`
    async function executeScavengeCycle(){
      onDispatch(schedulePageReload);
    }
    return {ensureCycleSchedule,readCycleState,checkCycleDue,armCycleTimer,renderCycleSchedule};
-   \`);
+   `);
  const api=setup(window,location,navigator,local,sess,document,
    ()=>enabled,{minReload:25,maxReload:35},(fn,ms)=>{timers.push({fn,ms});return timers.length;},
    ()=>{},FakeDate,math,{log(){},error(){}},finish=>{
