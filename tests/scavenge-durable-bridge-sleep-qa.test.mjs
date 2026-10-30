@@ -319,6 +319,15 @@ test('all eight edge/corner resize grips preserve opposite anchors and restore g
    setup(reopened,reopenHeader,reopenBody);
    assert.equal(reopened.offsetWidth,after.width,dir+' restored width');
    assert.equal(reopened.offsetHeight,after.height,dir+' restored height');
+   assert.equal(reopenBody.style.maxHeight,'none',dir+' scrolling fills the resized area');
+   // Shrink from every side/corner as well; the original opposite side
+   // must remain anchored when the grip is dragged back.
+   drag(grips[dirs.indexOf(dir)],dir.includes('w')?25:dir.includes('e')?-25:0,
+     dir.includes('n')?35:dir.includes('s')?-35:0);
+   assert.equal(panel.offsetWidth,before.width,dir+' returns to compact width');
+   assert.equal(panel.offsetHeight,before.height,dir+' returns to compact height');
+   assert.equal(Number.parseInt(panel.style.left,10),before.left,dir+' restores left');
+   assert.equal(Number.parseInt(panel.style.top,10),before.top,dir+' restores top');
  }
 });
 
