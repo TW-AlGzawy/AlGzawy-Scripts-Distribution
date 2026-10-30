@@ -32,7 +32,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time},addEventListener(){}};
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
- const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawySchedulerQa:'1.0.5'}}]}};
+ const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawySchedulerQa:'1.0.6'}}]}};
  const setup=new Function('window','location','navigator','localStorage','sessionStorage',
    'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
    'onDispatch',
@@ -56,7 +56,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
 
 test('QA installers have independent updates, valid syntax, and authorized engine source',()=>{
  new vm.Script(mass);new vm.Script(bridge);new vm.Script(engine);
- assert.match(mass,/@version\s+1\.0\.5/);
+ assert.match(mass,/@version\s+1\.0\.6/);
  assert.match(mass,/qa\/scavenge-schedule-bridge-sleep-20261030\/scripts\/mass-scavenge-v1\.js/);
  assert.match(mass,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev/);
  assert.match(bridge,/@version\s+2\.4\.12/);
