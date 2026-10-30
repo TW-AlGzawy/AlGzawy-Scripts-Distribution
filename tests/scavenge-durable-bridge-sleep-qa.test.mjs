@@ -32,15 +32,18 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time},addEventListener(){}};
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
- const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){}};
+ const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawySchedulerQa:'1.0.5'}}]}};
  const setup=new Function('window','location','navigator','localStorage','sessionStorage',
    'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
    'onDispatch',
    code+`
+   panelOwnershipValid=true;
    async function executeScavengeCycle(){
      onDispatch(schedulePageReload);
    }
-   return {ensureCycleSchedule,readCycleState,checkCycleDue,armCycleTimer,renderCycleSchedule};
+   return {ensureCycleSchedule,readCycleState,checkCycleDue,armCycleTimer,renderCycleSchedule,
+     setQaPanelOwned:v=>{panelOwnershipValid=v;},
+     claimActive:()=>isCurrentCycleClaim()};
    `);
  const api=setup(window,location,navigator,local,sess,document,
    ()=>enabled,{minReload:25,maxReload:35},(fn,ms)=>{timers.push({fn,ms});return timers.length;},
@@ -53,7 +56,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
 
 test('QA installers have independent updates, valid syntax, and authorized engine source',()=>{
  new vm.Script(mass);new vm.Script(bridge);new vm.Script(engine);
- assert.match(mass,/@version\s+1\.0\.3/);
+ assert.match(mass,/@version\s+1\.0\.5/);
  assert.match(mass,/qa\/scavenge-schedule-bridge-sleep-20261030\/scripts\/mass-scavenge-v1\.js/);
  assert.match(mass,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev/);
  assert.match(bridge,/@version\s+2\.4\.12/);
@@ -134,7 +137,7 @@ test('manual stop does not clear stored deadline or start a send',async()=>{
 });
 
 test('mass groups only mark successful cycles; failed or absent groups do not rerun immediately',()=>{
- assert.match(engine,/if \(GM_getValue\('isBotEnabled',true\) && attempted\.size>0\) schedulePageReload\(\)/);
+ assert.match(engine,/if \(isCurrentCycleClaim\(\) && attempted\.size>0\) schedulePageReload\(\)/);
  assert.match(engine,/attempted\.add\(task\.index\)/);
  assert.match(engine,/if \(!removed\) \{/);
  assert.match(engine,/lastCompletedAt:now,status:'waiting'/);
@@ -153,8 +156,35 @@ test('QA sleep installers for licensed engines retain their original engine and 
    assert.match(source,/وضع سكون الجسر/);
    assert.doesNotMatch(source,/window\.location\.reload\s*\(/);
    assert.ok(source.includes(qaRoot+name),'QA update must not switch back to production');
-   assert.ok(source.includes('/main/scripts/'+id+'.js')||
-     source.includes('/main/pilots/engines/')||
-     source.includes('/main/scripts/'),'original licensed game engine must be preserved');
+   const original=read('loaders/'+id+'.user.js');
+   const engineOf=code=>code.match(/const SOURCE_URL\s*=\s*"([^"]+)"/)?.[1];
+   assert.equal(engineOf(source),engineOf(original),
+     id+' QA wrapper must preserve the same authorized engine URL');
+   assert.equal(source.match(/const ID\s*=\s*"([^"]+)"/)?.[1],id);
  }
+});
+
+test('QA refuses a second mass-scavenge panel and has a persistent direct click guard',()=>{
+ assert.match(engine,/if\(document\.getElementById\('algzawy-panel'\)\)/);
+ assert.match(engine,/data-algzawy-duplicate-warning/);
+ assert.match(engine,/ownsOnlyQaPanel\(\)/);
+ assert.match(engine,/status:'running',claimedBy:tabToken/);
+ assert.match(engine,/if\(!isCurrentCycleClaim\(\)\)return;.*?attempted\.add\(task\.index\)/s);
+ const h=harness();
+ h.api.ensureCycleSchedule();
+ h.api.setQaPanelOwned(false);
+ return h.api.checkCycleDue().then(()=>assert.equal(h.sent,0));
+});
+test('stored 15–25 minute interval survives reload at 7 minutes without a send',async()=>{
+ const clock={time:Date.UTC(2026,9,31,0)};
+ const original=harness(null,{clock});
+ // Test the exact user's lower bound without touching persisted state after it is saved.
+ const initial=original.api.ensureCycleSchedule();
+ assert.ok(initial.nextRunAt-clock.time>=15*60000);
+ clock.time+=7*60000;
+ const reloaded=harness(original.map,{clock});
+ await reloaded.api.checkCycleDue();
+ assert.equal(reloaded.sent,0);
+ assert.equal(reloaded.reloaded,0);
+ assert.equal(reloaded.api.readCycleState().nextRunAt,initial.nextRunAt);
 });
