@@ -413,7 +413,7 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
    // The QA branch tests a newer scavenge engine without publishing it to the
    // main catalog or changing the production customer-facing loader version.
    if(id==='mass-scavenge-v1'&&engine.includes('algzawy_mass_scavenge_schedule_v2_')){
-     assert.equal(engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],'1.0.5');
+     assert.equal(engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],'1.0.6');
      assert.equal(item.version,'1.0.2');
    }else{
      assert.equal(item.version,engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/engine version');
