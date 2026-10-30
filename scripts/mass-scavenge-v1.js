@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.0.3
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -91,7 +91,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
                     <div id="settings-section" style="border-top: 1px solid #123e3d; padding-top: 10px; margin-top: 5px; text-align: left; font-size: 12px;">
                         <h5 style="text-align: center; margin: 0 0 10px 0; color: #eaf3f8;">الإعدادات</h5>
                         <div class="setting-row">
-                            <label>إعادة التحميل (دقائق):</label>
+                            <label>الفاصل بين الإغارات (دقائق):</label>
                             <input type="number" id="minReload" class="settings-input" value="${settings.minReload}" title="أقل مدة"> -
                             <input type="number" id="maxReload" class="settings-input" value="${settings.maxReload}" title="أقصى مدة">
                         </div>
@@ -109,6 +109,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
                         </div>
                     </div>
 
+                    <div id="algzawy-mass-timing" style="border-top:1px solid #31565a;padding-top:8px;margin-top:10px;text-align:right;color:#d3fff4;font-size:11px;line-height:1.8;white-space:pre-line" aria-live="off">حالة الجدولة قيد التحميل...</div>
                     <div id="update-section" style="border-top: 1px solid #123e3d; padding-top: 10px; margin-top: 10px;">
                          <button id="check-update-btn" class="btn" style="background: none; border: none; color: #40e1bf; cursor: pointer; text-decoration: underline; padding: 0;">التحقق من التحديثات</button>
                          <span style="font-size: 11px; color: #eaf3f8; display: block; margin-top: 5px;">الإصدار: ${GM_info.script.version}</span>
@@ -146,11 +147,14 @@ function enableMobileTouchDrag(panel,handle,onDone){
             GM_setValue('isBotEnabled', !currentState);
             updateButtonState();
             if (!currentState) {
-                alert('تم تفعيل البوت. سيتم بدء التشغيل عند إعادة تحميل الصفحة التالية.');
-                location.reload();
+                // Explicitly enabling never bypasses a stored deadline.
+                // An overdue disabled schedule starts a new waiting interval.
+                ensureCycleSchedule(true);
+                armCycleTimer();
             } else {
-                alert('تم إيقاف البوت. سيتوقف عن العمل ولن يتم إعادة تحميل الصفحة.');
+                clearTimeout(cycleTimer);cycleTimer=null;
             }
+            renderCycleSchedule();
         });
 
         // حفظ الإعدادات عند تغييرها
@@ -161,6 +165,8 @@ function enableMobileTouchDrag(panel,handle,onDone){
                 GM_setValue(key, value);
                 settings[key.replace('Reload', 'Reload').replace('delay', 'delay')] = value; // تحديث الكائن المحلي
                 console.log(`[سكربت الغزاوي] تم حفظ الإعداد: ${key} = ${value}`);
+                // Existing nextRunAt stays fixed; new range applies after the next cycle.
+                renderCycleSchedule();
             }
         });
 
@@ -215,20 +221,158 @@ function enableMobileTouchDrag(panel,handle,onDone){
         });
     }
 
-    function schedulePageReload() {
-        if (GM_getValue('isBotEnabled', true)) {
-            const reloadInterval = (Math.random() * (settings.maxReload - settings.minReload) + settings.minReload) * 60 * 1000;
-            const reloadInMinutes = (reloadInterval / 60000).toFixed(2);
-            console.log(`[سكربت الغزاوي] تم جدولة إعادة تحميل الصفحة خلال ${reloadInMinutes} دقيقة.`);
-            setTimeout(() => {
-                if (!GM_getValue('isBotEnabled', true) || localStorage.getItem('algzawy_human_verification_pause') === '1') return;
-                console.log("[سكربت الغزاوي] جاري إعادة تحميل الصفحة الآن...");
-                location.reload();
-            }, reloadInterval);
-        } else {
-            console.log("[سكربت الغزاوي] البوت متوقف، لن يتم إعادة تحميل الصفحة.");
+    // This schedule is shared between the player's tabs on the same game
+    // world. A saved absolute deadline is NEVER reset by page refresh.
+    const playerId=String(window.game_data?.player?.id||'');
+    const scheduleKey='algzawy_mass_scavenge_schedule_v2_'+location.host+'_'+playerId;
+    const leaseKey=scheduleKey+'_lease';
+    const reloadMarker=scheduleKey+'_refreshed_deadline';
+    const pageLoadedAt=Date.now();
+    const tabToken=window.crypto?.randomUUID?.()||
+        Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
+    let cycleTimer=null,cycleBusy=false,cycleSucceeded=false;
+    function isCycleEnabled(){
+        return GM_getValue('isBotEnabled',true)===true &&
+          localStorage.getItem('algzawy_human_verification_pause')!=='1';
+    }
+    function nextIntervalMs(){
+        const min=Math.max(1,Math.min(1440,Number(settings.minReload)||25));
+        const max=Math.max(min,Math.min(1440,Number(settings.maxReload)||35));
+        return Math.round((min+Math.random()*(max-min))*60000);
+    }
+    function readCycleState(){
+        try{
+            const v=JSON.parse(localStorage.getItem(scheduleKey)||'null');
+            if(v?.version!==2||!Number.isSafeInteger(v.nextRunAt)||
+               v.nextRunAt<=0||v.nextRunAt>Date.now()+86400000)return null;
+            return v;
+        }catch(_){return null;}
+    }
+    function saveCycleState(state){
+        localStorage.setItem(scheduleKey,JSON.stringify(state));
+        renderCycleSchedule();
+    }
+    function ensureCycleSchedule(whenEnabled=false){
+        if(!playerId)return null; // avoid sharing unknown player data
+        let state=readCycleState();
+        const now=Date.now();
+        if(!state){
+            const intervalMs=nextIntervalMs();
+            state={version:2,lastStartedAt:null,lastCompletedAt:null,
+                nextRunAt:now+intervalMs,intervalMs,status:'waiting'};
+            saveCycleState(state);
+        }else if(whenEnabled&&state.nextRunAt<=now){
+            const intervalMs=nextIntervalMs();
+            state={...state,nextRunAt:now+intervalMs,intervalMs,status:'waiting'};
+            saveCycleState(state);
+        }
+        return state;
+    }
+    function renderCycleSchedule(){
+        const el=document.getElementById('algzawy-mass-timing');
+        if(!el)return;
+        if(!playerId){el.textContent='⚠️ تعذر تحديد حساب اللعبة؛ الإرسال متوقف احترازيًا.';return;}
+        const state=readCycleState();
+        if(!state){el.textContent='لم تُجهّز جدولة الإغارات بعد.';return;}
+        const fmt=n=>Number.isSafeInteger(n)&&n>0?
+            new Date(n).toLocaleString('ar',{hour12:false}):'لا توجد دورة مكتملة';
+        const remaining=Math.max(0,Math.ceil((state.nextRunAt-Date.now())/1000));
+        const hh=String(Math.floor(remaining/3600)).padStart(2,'0');
+        const mm=String(Math.floor((remaining%3600)/60)).padStart(2,'0');
+        const ss=String(remaining%60).padStart(2,'0');
+        el.textContent='آخر دورة إغارات: '+fmt(state.lastCompletedAt)+
+            '\nالدورة التالية: '+fmt(state.nextRunAt)+
+            '\nالمتبقي: '+hh+':'+mm+':'+ss+
+            (GM_getValue('isBotEnabled',true)?'':'\n⏸ الإغارات متوقفة');
+    }
+    function armCycleTimer(){
+        clearTimeout(cycleTimer);cycleTimer=null;
+        renderCycleSchedule();
+        if(!GM_getValue('isBotEnabled',true))return;
+        const state=ensureCycleSchedule();
+        if(!state)return;
+        // Timers are best-effort in hidden/suspended tabs. Never run early.
+        const remaining=state.nextRunAt-Date.now();
+        const delay=Math.max(250,Math.min(remaining>0?remaining:250,30000));
+        cycleTimer=setTimeout(()=>void checkCycleDue(),delay);
+    }
+    async function withCycleLease(fn){
+        const leaseName='algzawy-scavenge-'+location.host+'-'+playerId;
+        if(navigator.locks?.request){
+            return navigator.locks.request(leaseName,
+                {mode:'exclusive',ifAvailable:true},
+                lock=>lock?fn():null);
+        }
+        // Older Safari fallback: short cross-tab lease, with a post-write
+        // ownership check. Durable nextRunAt is the authoritative guard.
+        let holder=null;
+        try{holder=JSON.parse(localStorage.getItem(leaseKey)||'null');}catch(_){}
+        if(holder?.until>Date.now())return null;
+        localStorage.setItem(leaseKey,JSON.stringify({token:tabToken,until:Date.now()+300000}));
+        await new Promise(r=>setTimeout(r,120));
+        try{holder=JSON.parse(localStorage.getItem(leaseKey)||'null');}catch(_){return null;}
+        if(holder?.token!==tabToken)return null;
+        try{return await fn();}
+        finally{
+            try{
+                const latest=JSON.parse(localStorage.getItem(leaseKey)||'null');
+                if(latest?.token===tabToken)localStorage.removeItem(leaseKey);
+            }catch(_){}
         }
     }
+    async function checkCycleDue(){
+        if(cycleBusy||!isCycleEnabled()){armCycleTimer();return;}
+        const state=ensureCycleSchedule();
+        if(!state||state.nextRunAt>Date.now()){armCycleTimer();return;}
+        if(document.visibilityState==='hidden'){armCycleTimer();return;}
+        // Only the scavenge page is refreshed, and only when the saved deadline
+        // is actually due. A manual reload at any earlier time merely waits.
+        if(pageLoadedAt<state.nextRunAt-1000&&
+           sessionStorage.getItem(reloadMarker)!==String(state.nextRunAt)){
+            sessionStorage.setItem(reloadMarker,String(state.nextRunAt));
+            location.reload();
+            return;
+        }
+        cycleBusy=true;
+        try{
+            await withCycleLease(async()=>{
+                const actual=readCycleState(),now=Date.now();
+                if(!actual||actual.nextRunAt>now||!isCycleEnabled())return;
+                // Claim the scheduled cycle BEFORE any network/UI action,
+                // preventing replays on reload or another tab.
+                const intervalMs=nextIntervalMs();
+                saveCycleState({...actual,status:'running',lastStartedAt:now,
+                    nextRunAt:now+intervalMs,intervalMs});
+                cycleSucceeded=false;
+                await executeScavengeCycle();
+                if(!cycleSucceeded){
+                    const current=readCycleState();
+                    if(current?.lastStartedAt===now)
+                        saveCycleState({...current,status:'waiting'});
+                }
+            });
+        }catch(error){
+            console.error('[AlGzawy] Scavenge cycle error:',error);
+        }finally{cycleBusy=false;armCycleTimer();}
+    }
+    function schedulePageReload(){
+        // Legacy name retained for compatibility with group-dispatch tests.
+        // No reload is scheduled here: the next absolute time was reserved
+        // at cycle start and is adjusted from completion after real dispatch.
+        cycleSucceeded=true;
+        const current=readCycleState();
+        if(!current)return;
+        const now=Date.now(),intervalMs=nextIntervalMs();
+        saveCycleState({...current,lastCompletedAt:now,status:'waiting',
+            nextRunAt:now+intervalMs,intervalMs});
+        armCycleTimer();
+    }
+    document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible')void checkCycleDue();
+    });
+    window.addEventListener('storage',event=>{
+        if(event.key===scheduleKey||event.key===leaseKey)armCycleTimer();
+    });
 
     function waitAndClick(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
@@ -252,16 +396,18 @@ function enableMobileTouchDrag(panel,handle,onDone){
         });
     }
 
-    $(document).ready(async function() {
+    $(document).ready(function() {
         buildControlPanel();
+        ensureCycleSchedule();
+        renderCycleSchedule();
+        armCycleTimer();
+        setInterval(renderCycleSchedule,1000);
+        console.log('[AlGzawy] Page loaded: saved scavenge deadline preserved. No immediate dispatch.');
+    });
 
-        if (!GM_getValue('isBotEnabled', true)) {
-            console.log("[سكربت الغزاوي] البوت متوقف حالياً. اضغط على 'تشغيل' من لوحة التحكم.");
-            return;
-        }
-
-        console.log(`[سكربت الغزاوي] الإصدار ${GM_info.script.version} يعمل.`);
-
+    async function executeScavengeCycle() {
+        if(!isCycleEnabled())return;
+        console.log(`[سكربت الغزاوي] الإصدار ${GM_info.script.version} — بدأت الدورة في موعدها المحفوظ.`);
         try {
             await injectScript(SCRIPT_URL);
             console.log("[سكربت الغزاوي] تم تحميل الواجهة بنجاح.");
@@ -338,7 +484,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
                     }
                     await wait(Math.max(350, settings.delayBetweenGroups));
                 }
-                if (GM_getValue('isBotEnabled',true)) schedulePageReload();
+                if (GM_getValue('isBotEnabled',true) && attempted.size>0) schedulePageReload();
             }
             await dispatchAvailableGroups();
 
@@ -350,7 +496,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
                 console.log("[سكربت الغزاوي] تم إيقاف سلسلة الأتمتة بنجاح.");
             }
         }
-    });
+    }
 
 })(jQuery);
 
