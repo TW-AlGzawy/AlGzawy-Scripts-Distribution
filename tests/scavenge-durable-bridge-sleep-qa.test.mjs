@@ -29,7 +29,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const timers=[];
  const FakeDate=class extends Date {static now(){return clock.time;}};
  const math=Object.create(Math);math.random=()=>0;
- const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time}};
+ const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time},addEventListener(){}};
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
  const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){}};
