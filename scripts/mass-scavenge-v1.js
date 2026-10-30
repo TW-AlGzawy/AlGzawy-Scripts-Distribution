@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.3
+// @version      1.0.4
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -18,42 +18,93 @@
 (function($ ) {
     'use strict';
 
-// Touch-only drag for Safari; keep the existing desktop mouse implementation.
-function enableMobileTouchDrag(panel,handle,onDone){
-    if(!panel||!handle)return;
-    handle.style.touchAction='none';
-    let gesture=null;
-    const visible=()=>{
+// Independent mouse/touch controls: jQuery UI is not required to move or
+// collapse this panel. An unavailable .draggable() must never break startup.
+function setupMassPanelControls(panel,header,body,button){
+    if(!panel||!header||!body||!button)return;
+    const storageKey='algzawy_mass_panel_ui_v2_'+location.host+'_'+
+        String(window.game_data?.player?.id||'unknown');
+    const bounds=()=>{
         const v=window.visualViewport;
         const left=v?.offsetLeft||0,top=v?.offsetTop||0;
-        return {left,top,right:left+(v?.width||window.innerWidth),bottom:top+(v?.height||window.innerHeight)};
+        return {left,top,right:left+(v?.width||window.innerWidth),
+            bottom:top+(v?.height||window.innerHeight)};
     };
-    const clamp=(x,a,b)=>Math.min(Math.max(a,b),Math.max(a,x));
-    handle.addEventListener('pointerdown',e=>{
-        if(e.pointerType!=='touch'||e.button!==0||gesture||
-           e.target.closest('button,input,select,textarea,a,#alg-refine-min-btn,#panel-controls'))return;
+    const clamp=(x,min,max)=>Math.max(min,Math.min(x,Math.max(min,max)));
+    const limitPosition=()=>{
+        const box=bounds(),margin=8;
         const rect=panel.getBoundingClientRect();
-        gesture={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
-        panel.style.transform='none';
-        panel.style.left=rect.left+'px';panel.style.top=rect.top+'px';panel.style.right='auto';
-        handle.setPointerCapture?.(e.pointerId);
-        if(e.cancelable)e.preventDefault();
-    });
-    handle.addEventListener('pointermove',e=>{
-        if(!gesture||e.pointerId!==gesture.id)return;
-        const b=visible(),margin=8;
-        panel.style.left=clamp(gesture.left+e.clientX-gesture.x,b.left+margin,b.right-panel.offsetWidth-margin)+'px';
-        panel.style.top=clamp(gesture.top+e.clientY-gesture.y,b.top+margin,b.bottom-panel.offsetHeight-margin)+'px';
-        if(e.cancelable)e.preventDefault();
-    });
-    const finish=e=>{
-        if(!gesture||e.pointerId!==gesture.id)return;
-        gesture=null;
-        if(handle.hasPointerCapture?.(e.pointerId))handle.releasePointerCapture(e.pointerId);
-        onDone?.();
+        const left=clamp(rect.left,box.left+margin,box.right-panel.offsetWidth-margin);
+        const top=clamp(rect.top,box.top+margin,box.bottom-panel.offsetHeight-margin);
+        panel.style.left=Math.round(left)+'px';
+        panel.style.top=Math.round(top)+'px';
+        panel.style.right='auto';
     };
-    handle.addEventListener('pointerup',finish);
-    handle.addEventListener('pointercancel',finish);
+    let collapsed=false,drag=null;
+    const persist=()=>{
+        try{
+            const rect=panel.getBoundingClientRect();
+            localStorage.setItem(storageKey,JSON.stringify({
+                left:Math.round(rect.left),top:Math.round(rect.top),collapsed}));
+        }catch(_){/* storage is optional for panel position */}
+    };
+    const setCollapsed=next=>{
+        collapsed=!!next;
+        body.style.display=collapsed?'none':'';
+        button.textContent=collapsed?'▢':'−';
+        button.title=collapsed?'فتح قائمة الإغارات':'طي قائمة الإغارات';
+        button.setAttribute('aria-label',button.title);
+        button.setAttribute('aria-expanded',String(!collapsed));
+        limitPosition();
+        persist();
+    };
+    header.style.touchAction='none';
+    header.style.userSelect='none';
+    header.style.webkitUserSelect='none';
+    header.style.cursor='grab';
+    button.addEventListener('click',e=>{
+        e.stopPropagation();
+        setCollapsed(!collapsed);
+    });
+    let previous=null;
+    try{previous=JSON.parse(localStorage.getItem(storageKey)||'null');}catch(_){}
+    if(previous&&Number.isFinite(previous.left)&&Number.isFinite(previous.top)){
+        panel.style.left=Math.round(previous.left)+'px';
+        panel.style.top=Math.round(previous.top)+'px';
+        panel.style.right='auto';
+    }
+    setCollapsed(previous?.collapsed===true);
+    header.addEventListener('pointerdown',e=>{
+        if(e.isPrimary===false||(e.pointerType==='mouse'&&e.button!==0)||
+            e.target?.closest?.('button,input,select,textarea,a,[data-no-drag]'))return;
+        const rect=panel.getBoundingClientRect();
+        drag={id:e.pointerId,x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
+        header.style.cursor='grabbing';
+        try{header.setPointerCapture(e.pointerId);}catch(_){}
+        if(e.cancelable)e.preventDefault();
+    });
+    header.addEventListener('pointermove',e=>{
+        if(!drag||drag.id!==e.pointerId)return;
+        const box=bounds(),margin=8;
+        panel.style.left=Math.round(clamp(drag.left+e.clientX-drag.x,
+            box.left+margin,box.right-panel.offsetWidth-margin))+'px';
+        panel.style.top=Math.round(clamp(drag.top+e.clientY-drag.y,
+            box.top+margin,box.bottom-panel.offsetHeight-margin))+'px';
+        panel.style.right='auto';
+        if(e.cancelable)e.preventDefault();
+    });
+    const release=e=>{
+        if(!drag||drag.id!==e.pointerId)return;
+        drag=null;
+        header.style.cursor='grab';
+        persist();
+        try{if(header.hasPointerCapture(e.pointerId))
+            header.releasePointerCapture(e.pointerId);}catch(_){}
+    };
+    header.addEventListener('pointerup',release);
+    header.addEventListener('pointercancel',release);
+    header.addEventListener('lostpointercapture',release);
+    window.addEventListener('resize',()=>{limitPosition();persist();});
 }
 
     // ========================================================================
@@ -78,9 +129,9 @@ function enableMobileTouchDrag(panel,handle,onDone){
         const panelHTML = `
             <div id="algzawy-panel" style="position: fixed; top: 100px; left: 10px; z-index: 9999; background: #102031; border: 2px solid #263c4f; border-radius: 5px; font-family: 'Trebuchet MS', sans-serif; width: 250px;">
                 <div id="algzawy-header" style="background: #123e3d; padding: 8px; display: flex; justify-content: space-between; align-items: center; cursor: move;">
-                    <div id="panel-controls" style="cursor: pointer; order: 1;">
-                        <span id="minimize-btn" title="تصغير" style="font-weight: bold; font-size: 16px;">—</span>
-                        <span id="maximize-btn" title="تكبير" style="display: none; font-weight: bold; font-size: 16px;">+</span>
+                    <div id="panel-controls" style="order:1;flex:0 0 auto" data-no-drag>
+                        <button id="algzawy-panel-collapse" type="button" aria-expanded="true" aria-label="طي قائمة الإغارات"
+                            title="طي القائمة" style="min-width:32px;min-height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #2b8778;border-radius:6px;background:#164a43;color:#eafff6;font-size:19px;font-weight:bold;cursor:pointer">−</button>
                     </div>
                     <h4 style="margin:0; color: #eaf3f8; order: 2; font-size: 14px;">الغزااوي | الإغارات الجماعية</h4>
                 </div>
@@ -125,16 +176,14 @@ function enableMobileTouchDrag(panel,handle,onDone){
             </style>
         `;
         $('body').append(panelHTML);
-        $('#algzawy-panel').draggable({ handle: '#algzawy-header' });
-        enableMobileTouchDrag(document.getElementById('algzawy-panel'),document.getElementById('algzawy-header'),()=>{});
+        setupMassPanelControls(
+            document.getElementById('algzawy-panel'),
+            document.getElementById('algzawy-header'),
+            document.getElementById('algzawy-body'),
+            document.getElementById('algzawy-panel-collapse'));
 
         // --- وظائف لوحة التحكم ---
         const $toggleBtn = $('#toggle-bot-btn');
-        const $panelBody = $('#algzawy-body');
-
-        $('#minimize-btn').on('click', () => { $panelBody.slideUp(); $('#minimize-btn').hide(); $('#maximize-btn').show(); });
-        $('#maximize-btn').on('click', () => { $panelBody.slideDown(); $('#maximize-btn').hide(); $('#minimize-btn').show(); });
-
         function updateButtonState() {
             if (GM_getValue('isBotEnabled', true)) {
                 $toggleBtn.text('إيقاف البوت').css({ 'background-color': '#965160', 'color': 'white' });
