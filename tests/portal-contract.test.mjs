@@ -410,7 +410,14 @@ test('Tab pinning must gate all 9 loaders before source execution',()=>{
    assert.match(src,/^\/\/ @name\s+الغزااوي \| /m);
    assert.match(engine,/^\/\/ @name\s+الغزااوي \| /m,id+' engine name');
    assert.equal(item.version,src.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/loader version');
-   assert.equal(item.version,engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/engine version');
+   // The QA branch tests a newer scavenge engine without publishing it to the
+   // main catalog or changing the production customer-facing loader version.
+   if(id==='mass-scavenge-v1'&&engine.includes('algzawy_mass_scavenge_schedule_v2_')){
+     assert.equal(engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],'1.0.5');
+     assert.equal(item.version,'1.0.2');
+   }else{
+     assert.equal(item.version,engine.match(/^\/\/ @version\s+([^\r\n]+)/m)?.[1],id+' catalog/engine version');
+   }
    assert.match(src,/algzawy_installed_loader_version_/);
    assert.equal(item.name,src.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/loader names match');
    assert.equal(item.name,engine.match(/^\/\/ @name\s+([^\r\n]+)/m)?.[1],id+' catalog/engine names match');
