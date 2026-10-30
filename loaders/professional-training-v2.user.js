@@ -256,15 +256,10 @@
       if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
       clearBlockedLauncher();
       if (revoked) {
-        // Old listeners in some source scripts cannot be unwired safely.
-        // Reload once to resume a clean lifecycle, without asking users to reinstall.
-        if (document.visibilityState === 'visible') {
-          const tag = 'algzawy_resume_' + ID + '_' + String(status.revision);
-          if (sessionStorage.getItem(tag) !== '1') {
-            sessionStorage.setItem(tag, '1');
-            window.location.reload();
-          }
-        }
+        // Sleep mode: central permission checks may NEVER reload the game.
+        // A stopped engine can retain listeners; restarting it in-place is
+        // unsafe. Require an explicit USER page refresh after re-approval.
+        message('🛌 وضع سكون الجسر: تمت استعادة الصلاحية، لكن أُوقِف المحرك سابقًا. حدّث هذا التبويب يدويًا عند رغبتك في تشغيله.');
         return;
       }
       if (!everStarted && !executing) {
