@@ -32,7 +32,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time},addEventListener(){}};
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
- const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawySchedulerQa:'1.0.6'}}]}};
+ const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawySchedulerQa:'1.0.7'}}]}};
  const setup=new Function('window','location','navigator','localStorage','sessionStorage',
    'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
    'onDispatch',
@@ -56,7 +56,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
 
 test('QA installers have independent updates, valid syntax, and authorized engine source',()=>{
  new vm.Script(mass);new vm.Script(bridge);new vm.Script(engine);
- assert.match(mass,/@version\s+1\.0\.6/);
+ assert.match(mass,/@version\s+1\.0\.7/);
  assert.match(mass,/qa\/scavenge-schedule-bridge-sleep-20261030\/scripts\/mass-scavenge-v1\.js/);
  assert.match(mass,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev/);
  assert.match(bridge,/@version\s+2\.4\.12/);
@@ -214,6 +214,7 @@ test('header tap toggles once; dragging more than 7px moves without toggling and
    return el;
  };
  const panel=makeElement(),header=makeElement(),body=makeElement();
+ panel.querySelectorAll=()=>[];
  setup(panel,header,body);
  assert.equal(body.hidden,false);
  assert.equal(header.attr('aria-expanded'),'true');
@@ -232,9 +233,10 @@ test('header tap toggles once; dragging more than 7px moves without toggling and
  assert.equal(panel.style.left,'80px');
  assert.equal(panel.style.top,'90px');
  const payload=JSON.parse([...store.values()][0]);
- assert.deepEqual(payload,{left:80,top:90,collapsed:true});
+ assert.deepEqual(payload,{left:80,top:90,width:310,height:null,collapsed:true});
  // Reload reproduces both the collapsed state and the last panel position.
  const reloadPanel=makeElement(),reloadHeader=makeElement(),reloadBody=makeElement();
+ reloadPanel.querySelectorAll=()=>[];
  setup(reloadPanel,reloadHeader,reloadBody);
  assert.equal(reloadBody.hidden,true);
  assert.equal(reloadPanel.style.left,'80px');
