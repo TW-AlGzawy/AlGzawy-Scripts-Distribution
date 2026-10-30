@@ -8,7 +8,7 @@ const end = source.indexOf('await dispatchAvailableGroups();', begin);
 assert.ok(begin >= 0 && end > begin, 'mass-scavenge group loop not found');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const run = new AsyncFunction(
-  'document','GM_getValue','localStorage','settings','schedulePageReload','console','setTimeout','Event',
+  'document','GM_getValue','localStorage','settings','schedulePageReload','console','setTimeout','Event','isCurrentCycleClaim',
   source.slice(begin, end) + '\nawait dispatchAvailableGroups();'
 );
 
@@ -34,7 +34,7 @@ async function simulate(ids, { remove=true, disabled=[] }={}) {
     querySelector:()=>null, dispatchEvent(){}
   };
   await run(document,()=>true,{getItem:()=>null,setItem(){}},{delayBetweenGroups:350},
-    ()=>reload++,{log(){},warn(){}},callback=>{callback();return 0;},class Event{});
+    ()=>reload++,{log(){},warn(){}},callback=>{callback();return 0;},class Event{},()=>true);
   return {calls,reload};
 }
 
