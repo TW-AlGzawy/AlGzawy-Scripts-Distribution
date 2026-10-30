@@ -76,6 +76,9 @@ function setupMassPanelControls(panel,header,body){
         body.style.display=collapsed?'none':'';
         panel.style.height=collapsed?'auto':
             (expandedHeight===null?'auto':Math.round(expandedHeight)+'px');
+        // An explicit resize owns the panel height; let the body scroll to
+        // exactly that height instead of leaving a blank strip after 70vh.
+        body.style.maxHeight=collapsed||expandedHeight===null?'':'none';
         panel.dataset.collapsed=String(collapsed);
         header.setAttribute('aria-expanded',String(!collapsed));
         header.title=collapsed?'اضغط لفتح الإغارات':
@@ -194,6 +197,7 @@ function setupMassPanelControls(panel,header,body){
             if(!collapsed){
                 expandedHeight=height;
                 panel.style.height=Math.round(height)+'px';
+                body.style.maxHeight='none';
             }
             if(e.cancelable)e.preventDefault();
         });
