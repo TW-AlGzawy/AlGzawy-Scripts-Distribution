@@ -142,3 +142,19 @@ test('mass groups only mark successful cycles; failed or absent groups do not re
  assert.match(engine,/location\.reload\(\)/);
  assert.match(engine,/pageLoadedAt<state\.nextRunAt-1000/);
 });
+
+test('QA sleep installers for licensed engines retain their original engine and have QA-only updates',()=>{
+ const qaRoot='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/qa/scavenge-schedule-bridge-sleep-20261030/';
+ for(const id of ids.filter(v=>v!=='mass-scavenge-v1')){
+   const name='pilots/algzawy-'+id+'-sleep-qa.user.js';
+   const source=read(name);
+   new vm.Script(source);
+   assert.match(source,/if \(revoked\) \{/);
+   assert.match(source,/وضع سكون الجسر/);
+   assert.doesNotMatch(source,/window\.location\.reload\s*\(/);
+   assert.ok(source.includes(qaRoot+name),'QA update must not switch back to production');
+   assert.ok(source.includes('/main/scripts/'+id+'.js')||
+     source.includes('/main/pilots/engines/')||
+     source.includes('/main/scripts/'),'original licensed game engine must be preserved');
+ }
+});
