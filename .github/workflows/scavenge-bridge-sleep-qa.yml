@@ -1,0 +1,23 @@
+name: Scavenge schedule and Bridge sleep QA
+on:
+  push:
+    branches:
+      - qa/scavenge-schedule-bridge-sleep-20261030
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax of engine and QA installers
+        run: |
+          node --check scripts/mass-scavenge-v1.js
+          node --check pilots/algzawy-mass-scavenge-schedule-qa.user.js
+          node --check pilots/algzawy-cloud-bridge-sleep-qa.user.js
+      - name: Run complete repository regression tests
+        run: node --test tests/*.test.mjs
