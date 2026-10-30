@@ -90,11 +90,16 @@ test('all independently floating official engines constrain iOS zoomed drags',()
 test('mass-scavenge panel uses native mouse/touch pointer controls and persistent fold',()=>{
  const code=readFileSync(new URL('../scripts/mass-scavenge-v1.js',import.meta.url),'utf8');
  new vm.Script(code);
- assert.match(code,/function setupMassPanelControls\(panel,header,body,button\)/);
+ assert.match(code,/function setupMassPanelControls\(panel,header,body\)/);
  assert.match(code,/header\.addEventListener\('pointerdown'/);
  assert.match(code,/header\.addEventListener\('pointermove'/);
  assert.match(code,/header\.addEventListener\('pointerup'/);
- assert.match(code,/button\.addEventListener\('click'/);
+ assert.match(code,/header\.addEventListener\('keydown'/);
+ assert.match(code,/header\.setAttribute\('aria-expanded'/);
+ assert.match(code,/Math\.hypot\(dx,dy\)<7/);
+ assert.match(code,/if\(moved\)persist\(\)/);
+ assert.doesNotMatch(code,/id="algzawy-panel-collapse"/);
+ assert.doesNotMatch(code,/id="panel-controls"/);
  assert.match(code,/setCollapsed\(previous\?\.collapsed===true\)/);
  assert.match(code,/localStorage\.setItem\(storageKey/);
  assert.doesNotMatch(code,/\$\('#algzawy-panel'\)\.draggable/);
