@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | تنبيه الهجمات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.5
+// @version      1.0.6
 // @description  AlGzawy Cloud — اشتراك وجهاز معتمد
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -30,7 +30,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.5';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.6';
 
     // QA-only, in-memory trace. Does not authenticate the loader or authorize engines.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -65,7 +65,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.5');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.6');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -266,15 +266,10 @@
       if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
       clearBlockedLauncher();
       if (revoked) {
-        // Old listeners in some source scripts cannot be unwired safely.
-        // Reload once to resume a clean lifecycle, without asking users to reinstall.
-        if (document.visibilityState === 'visible') {
-          const tag = 'algzawy_resume_' + ID + '_' + String(status.revision);
-          if (sessionStorage.getItem(tag) !== '1') {
-            sessionStorage.setItem(tag, '1');
-            window.location.reload();
-          }
-        }
+        // Sleep mode: permission synchronization must never reload a game tab.
+        // The stopped engine may retain listeners; only a manual refresh can
+        // safely restart it after the license and device are approved again.
+        message('🛌 وضع سكون الجسر: عادت الصلاحية، لكن المحرك توقف سابقًا. حدّث هذا التبويب يدويًا لاستئناف السكربت.');
         return;
       }
       if (!everStarted && !executing) {

@@ -61,7 +61,7 @@ test('production portal accepts nonce-matched install reports from the real Tamp
  assert.ok(start>0&&end>start,'extract actual production report receiver');
  const makeReceiver=new Function('state','renderScripts','probeInstalledScripts',
    code.slice(start,end)+';return receiveInstallationReport;');
- for(const entry of [...catalog,{id:'warehouse-alert-safe',version:'1.1.3'}]){
+ for(const entry of [...catalog,{id:'warehouse-alert-safe',version:'1.1.4'}]){
    const state={
      user:{id:'test-subscriber'},
      catalog:[{id:entry.id}],

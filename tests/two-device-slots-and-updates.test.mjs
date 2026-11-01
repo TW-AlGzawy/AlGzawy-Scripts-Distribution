@@ -12,7 +12,7 @@ const migration=read('portal/migrations/2026-10-26-two-device-slots.sql');
 
 test('version notices are UI-only and use official portal for bridge and script installation',()=>{
  new vm.Script(bridge);new vm.Script(portal);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.13$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
  assert.match(bridge,/^\/\/ @match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*$/m);
  assert.match(bridge,/@connect\s+raw\.githubusercontent\.com/);
  assert.match(bridge,/function pollReleaseUpdates\(\)/);
@@ -76,13 +76,13 @@ test('registered slots are limited by a D1 unique expression across approved and
 test('farm run state is persisted per game tab only and is not a security bypass',()=>{
  const farm=read('scripts/bot-farm-2.js');
  new vm.Script(farm);
- assert.match(farm,/^\/\/ @version\s+1\.0\.4$/m);
+ assert.match(farm,/^\/\/ @version\s+1\.0\.5$/m);
  assert.match(farm,/const RUN_KEY='algzawy_bot2_running_tab_v1'/);
  assert.match(farm,/sessionStorage\.setItem\(RUN_KEY,'1'\)/);
  assert.match(farm,/sessionStorage\.removeItem\(RUN_KEY\)/);
  assert.match(farm,/humanLocked\(\)/);
  assert.match(farm,/schedule\(Number\.isFinite\(remaining\)/);
  assert.match(farm,/if\(challengeDetected\(\)\)return stop/);
- assert.match(read('loaders/bot-farm-2.user.js'),/^\/\/ @version\s+1\.0\.4$/m);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.0.4');
+ assert.match(read('loaders/bot-farm-2.user.js'),/^\/\/ @version\s+1\.0\.5$/m);
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.0.5');
 });

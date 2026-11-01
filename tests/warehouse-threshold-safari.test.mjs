@@ -15,12 +15,12 @@ function localConfig(store){
    ';return {config,settingInteger,saveWarehouseSettings};')(store,'test-settings');
 }
 
-test('official warehouse release 1.1.3 is visible on the portal and installer probe',()=>{
+test('official warehouse release 1.1.4 is visible on the portal and installer probe',()=>{
  new vm.Script(engine);
  new vm.Script(loader);
- assert.match(loader,/^\/\/ @version\s+1\.1\.3$/m);
- assert.match(loader,/version:'1\.1\.3'/);
- assert.match(api,/items\.push\(\{id:'warehouse-alert-safe',version:'1\.1\.3'\}\)/);
+ assert.match(loader,/^\/\/ @version\s+1\.1\.4$/m);
+ assert.match(loader,/version:'1\.1\.4'/);
+ assert.match(api,/items\.push\(\{id:'warehouse-alert-safe',version:'1\.1\.4'\}\)/);
 });
 
 test('mobile entry saves 10% immediately and subsequent scans read the actual setting',()=>{

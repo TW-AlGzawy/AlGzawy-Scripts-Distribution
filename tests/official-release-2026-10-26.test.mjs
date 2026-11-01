@@ -7,7 +7,7 @@ const read = path => readFileSync(new URL('../'+path,import.meta.url),'utf8');
 test('official bridge keeps production device identity and exact Pages host',()=>{
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.13$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
  assert.match(bridge,/const PORTAL_ORIGIN='https:\/\/algzawy-cloud-control\.pages\.dev'/);
  assert.doesNotMatch(bridge,/algzawy_preview_/);
  assert.doesNotMatch(bridge,/feature-algzawy-quality-hard/);
@@ -24,7 +24,7 @@ test('production warehouse loader updates from main and never consumes isolated 
  const engine=read('scripts/warehouse-alert-safe.js');
  new vm.Script(loader);
  new vm.Script(engine);
- assert.match(loader,/^\/\/ @version\s+1\.1\.3$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.1\.4$/m);
  assert.match(loader,/AlGzawy-Scripts-Distribution\/main/);
  assert.match(loader,/\/scripts\/warehouse-alert-safe\.js/);
  assert.match(loader,/algzawy_portal_grant_/);

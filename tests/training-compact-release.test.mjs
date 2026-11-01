@@ -7,14 +7,14 @@ const engine=read('scripts/professional-training-v2.js');
 const loader=read('loaders/professional-training-v2.user.js');
 const catalog=JSON.parse(read('catalog.json'));
 
-test('training 1.0.5 is consistent across actual engine, installer, and catalog',()=>{
+test('training 1.0.6 is consistent across actual engine, installer, and catalog',()=>{
  new vm.Script(engine);
  new vm.Script(loader);
- assert.match(engine,/^\/\/ @version\s+1\.0\.5$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.5$/m);
- assert.match(loader,/algzawy_installed_loader_version_\x27\+ID,\x271\.0\.5\x27/);
+ assert.match(engine,/^\/\/ @version\s+1\.0\.6$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.6$/m);
+ assert.match(loader,/algzawy_installed_loader_version_\x27\+ID,\x271\.0\.6\x27/);
  const release=catalog.published_candidates.find(x=>x.id==='professional-training-v2');
- assert.equal(release.version,'1.0.5');
+ assert.equal(release.version,'1.0.6');
 });
 test('default production training UI is compact with priority and max batch controls only',()=>{
  assert.match(engine,/width:286px;min-width:0/);

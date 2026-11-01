@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | تنبيه المخازن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/warehouse-alert-safe-v2
-// @version      1.1.3
+// @version      1.1.4
 // @description  Licensed warehouse monitor for current village, production overview and Telegram alerts.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -29,7 +29,7 @@
   if(location.origin==='https://algzawy-cloud-control.pages.dev'
     &&location.pathname.startsWith('/v2/')){
     const report=nonce=>{
-      const payload={scope:'algzawy-installation-v1',type:'report',id:ID,version:'1.1.3',nonce};
+      const payload={scope:'algzawy-installation-v1',type:'report',id:ID,version:'1.1.4',nonce};
       window.postMessage(payload,location.origin);
       document.dispatchEvent(new CustomEvent('algzawy-installation-report-v1',{detail:payload}));
     };
@@ -261,15 +261,10 @@
       if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
       clearBlockedLauncher();
       if (revoked) {
-        // Old listeners in some source scripts cannot be unwired safely.
-        // Reload once to resume a clean lifecycle, without asking users to reinstall.
-        if (document.visibilityState === 'visible') {
-          const tag = 'algzawy_resume_' + ID + '_' + String(status.revision);
-          if (sessionStorage.getItem(tag) !== '1') {
-            sessionStorage.setItem(tag, '1');
-            window.location.reload();
-          }
-        }
+        // Sleep mode: permission synchronization must never reload a game tab.
+        // The stopped engine may retain listeners; only a manual refresh can
+        // safely restart it after the license and device are approved again.
+        message('🛌 وضع سكون الجسر: عادت الصلاحية، لكن المحرك توقف سابقًا. حدّث هذا التبويب يدويًا لاستئناف السكربت.');
         return;
       }
       if (!everStarted && !executing) {

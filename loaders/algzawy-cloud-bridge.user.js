@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.13
-// @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
+// @version      2.4.14
+// @description  AlGzawy Cloud Bridge Sleep: approved devices, licensed tab pins, Telegram alerts and no automatic page reload.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-start
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.13';
+  const BRIDGE_VERSION='2.4.14';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -375,28 +375,53 @@
     });
   });
 
-  let authorizing=null;
+  let authorizing=null,authorizingListener=null,authorizingTimeout=null;
+  function clearAuthorizationListener(){
+    if(authorizingListener){window.removeEventListener('message',authorizingListener);authorizingListener=null;}
+    if(authorizingTimeout){clearTimeout(authorizingTimeout);authorizingTimeout=null;}
+  }
   async function openAutoLicense(){
-    if(authorizing&&!authorizing.closed){authorizing.focus();return;}
-    const popup=window.open('about:blank','_blank');
-    if(!popup){showMessage('اسمح بفتح نافذة AlGzawy للربط التلقائي.');return;}
+    // Open directly inside the user gesture: asynchronous CryptoKey generation
+    // cannot be followed by a new window.open without risking popup blocking.
+    if(authorizing&&!authorizing.closed){
+      showMessage('نافذة الربط مفتوحة بالفعل. أكمل الموافقة فيها أو أغلقها قبل إعادة المحاولة.');
+      try{authorizing.focus();}catch(_){}
+      return;
+    }
+    clearAuthorizationListener();
+    const connectButton=document.getElementById('algzawy-cloud-connect');
+    const fallback=document.getElementById('algzawy-cloud-pair-fallback');
+    if(fallback)fallback.hidden=true;
+    let popup=null;
+    try{popup=window.open(PORTAL_ORIGIN+'/v2/','_blank');}catch(_){}
+    if(!popup){
+      showMessage('منع المتصفح فتح نافذة الربط. اسمح بالنوافذ المنبثقة لهذا العالم ثم اضغط ربط مجددًا، أو افتح حسابك من الرابط البديل.');
+      if(fallback)fallback.hidden=false;
+      return;
+    }
     authorizing=popup;
-    showMessage('جارٍ فتح موافقة الجهاز في حسابك على AlGzawy...');
+    if(connectButton)connectButton.disabled=true;
+    showMessage('تم فتح نافذة حساب AlGzawy. جارٍ تجهيز مفتاح الجهاز لطلب الموافقة...');
     try{
       const identity=await portableIdentity();
+      if(popup.closed)throw Error('أُغلقت نافذة الربط أثناء تجهيز هوية الجهاز');
       const nonce=crypto.randomUUID();
       const origin=location.origin;
-      // The page can only approve after an explicit click in the logged-in
-      // first-party site; URL parameters are untrusted until validated there.
+      // An explicit approval in the first-party portal is required.
+      // Never accept a response lacking the exact origin, popup and nonce.
       const payload={nonce,origin,publicKey:identity.publicKey};
       const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
       const listener=event=>{
         const data=event.data;
         if(event.origin!==PORTAL_ORIGIN||event.source!==popup
           ||data?.scope!=='algzawy-auto-license-v2'||data.nonce!==nonce)return;
-        window.removeEventListener('message',listener);
+        clearAuthorizationListener();
+        authorizing=null;
+        if(connectButton)connectButton.disabled=false;
         if(data.ok!==true||!/^[0-9a-f-]{36}$/i.test(data.deviceId||'')){
-          showMessage(data.error==='device_already_linked'?'يوجد جهاز مرتبط بهذا الاشتراك؛ تواصل مع الإدارة لاستبداله.':'تعذر اعتماد هذا المتصفح: '+(data.error||'غير معروف'));
+          showMessage(data.error==='device_already_linked'
+            ?'جهاز من النوع نفسه مرتبط بالفعل؛ راجع اعتماد الأجهزة في الإدارة.'
+            :'تعذر اعتماد هذا المتصفح: '+(data.error||'غير معروف'));
           return;
         }
         connection.device=data.deviceId;connection.last=0;
@@ -404,13 +429,26 @@
         GM_setValue(keys.last,0);GM_setValue('algzawy_cloud_counter',0);
         stopAll();renderLinked();void synchronize(true);checkPublisher();
         showMessage(data.status==='pending_approval'
-          ?'أُرسل طلب الجهاز إلى المالك. السكربتات متوقفة حتى الاعتماد؛ ثم اضغط مزامنة.'
-          :'تم التحقق من الجهاز. جارٍ مزامنة السكربتات.',data.status!=='pending_approval');
+          ?'أُرسل طلب الجهاز إلى الإدارة. بعد الاعتماد اضغط مزامنة.'
+          :'تم اعتماد الجهاز. جارٍ مزامنة السكربتات.',data.status!=='pending_approval');
       };
+      authorizingListener=listener;
       window.addEventListener('message',listener);
-      setTimeout(()=>window.removeEventListener('message',listener),5*60*1000);
+      authorizingTimeout=setTimeout(()=>{
+        clearAuthorizationListener();
+        authorizing=null;
+        showMessage('انتهت مهلة الربط دون تأكيد. افحص نافذة الحساب وتسجيل الدخول، ثم أعد المحاولة.');
+      },5*60*1000);
       popup.location.href=PORTAL_ORIGIN+'/v2/?alg_auto='+encodeURIComponent(encoded);
-    }catch(err){popup.close();showMessage('تعذر تجهيز الربط الآمن: '+err.message);}
+      showMessage('طلب الربط جاهز. أكمل تسجيل الدخول والموافقة في نافذة AlGzawy المفتوحة.');
+    }catch(err){
+      clearAuthorizationListener();authorizing=null;
+      try{if(!popup.closed)popup.close();}catch(_){}
+      showMessage('تعذر تجهيز الربط الآمن: '+String(err?.message||'خطأ غير معروف'));
+      if(fallback)fallback.hidden=false;
+    }finally{
+      if(connectButton)connectButton.disabled=false;
+    }
   }
   function request(path,opts={}){
     const send=(headers,swift=false)=>new Promise((resolve,reject)=>{
@@ -672,10 +710,10 @@
     card=document.createElement('section');
     card.id='algzawy-cloud-pair-panel';card.dir='rtl';
     card.style.cssText='position:fixed;bottom:16px;left:15px;z-index:2147482010;display:flex;flex-direction:column;box-sizing:border-box;width:300px;height:auto;min-width:0;min-height:0;max-width:none;max-height:none;resize:none;overflow:hidden;background:#101d2c;color:#e4f4ff;border:1px solid #2d8576;border-radius:11px;box-shadow:0 10px 28px #0007;font:11px/1.65 Tahoma,Arial';
-    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none;-webkit-user-select:none;user-select:none;flex:0 0 auto;min-height:39px;box-sizing:border-box"><strong style="min-width:0;flex:1">☁ AlGzawy Cloud Bridge</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
-      '<div id="algzawy-cloud-body" style="padding:10px 10px 23px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;box-sizing:border-box"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5"></div>'+
+    card.innerHTML='<header id="algzawy-cloud-hdr" style="background:#153f41;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none;-webkit-user-select:none;user-select:none;flex:0 0 auto;min-height:39px;box-sizing:border-box"><strong style="min-width:0;flex:1">☁ AlGzawy Cloud Bridge 💤</strong><button id="algzawy-cloud-min" type="button" style="color:white;background:none;border:0;font-size:16px">−</button></header>'+
+      '<div id="algzawy-cloud-body" style="padding:10px 10px 23px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;box-sizing:border-box"><div id="algzawy-cloud-status" style="min-height:24px;color:#b5c8d5" role="status" aria-live="polite"></div><div style="padding:4px 0;color:#8cdec5;font-size:10px">💤 وضع السكون: مزامنة الترخيص لا تعيد تحميل الصفحة. استئناف سكربت موقوف أمنيًا يحتاج تحديثًا يدويًا.</div>'+
       '<div id="algzawy-cloud-pair"><p style="color:#46e8ae">التحقق من الموقع والترخيص يتم تلقائيًا بعد الربط الأول.</p>'+
-      '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button></div>'+
+      '<button id="algzawy-cloud-connect" type="button" style="width:100%;margin-top:8px;padding:8px;background:#3be0ac;color:#06312b;font-weight:bold;border:0;border-radius:7px;cursor:pointer">ربط تلقائي عبر حساب AlGzawy</button><a id="algzawy-cloud-pair-fallback" href="https://algzawy-cloud-control.pages.dev/v2/" target="_blank" rel="noopener noreferrer" hidden style="margin-top:8px;color:#76efd9;text-align:center;text-decoration:underline">فتح حساب AlGzawy يدويًا ↗</a></div>'+
       '<div id="algzawy-cloud-linked" style="display:none"><button id="algzawy-cloud-sync" type="button" style="padding:7px;border:1px solid #379a80;border-radius:7px;color:#a2ffe0;background:#174238">مزامنة الآن</button> <button id="algzawy-cloud-unlink" type="button" style="padding:7px;border:1px solid #a65d64;border-radius:7px;color:#ffd6d6;background:#49252a">إلغاء ربط هذا المتصفح</button></div>'+
       '<div id="algzawy-cloud-pins" style="margin-top:8px;border-top:1px solid #29565f;padding-top:7px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0"><strong style="font-size:12px;flex:0 0 auto">📌 تثبيت السكربتات في هذا التبويب</strong><div id="algzawy-cloud-tab-list" style="flex:1 1 auto;min-height:65px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch"></div></div>'+
       '<div id="algzawy-cloud-script-retry" style="display:none;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #29565f">'+
@@ -1094,6 +1132,8 @@
     setInterval(checkHumanGuard,1500);
   }
   function start(){
+    // Official sleep mode: periodic sync never refreshes or restarts a game tab.
+    // Game engines alone own their own scheduling and any scoped page updates.
     render();
     setupHumanGuard();
     pollReleaseUpdates();
