@@ -188,7 +188,7 @@ test('professional smart mode fails closed if native home troop counts are unava
  app.createRow('barbarian-7');app.run();
  app.q('toggle').click();app.tick();
  assert.deepEqual(app.state.clicked,[]);
- assert.match(app.q('status').textContent,/لا توجد بيانات مؤكدة/);
+ assert.match(app.q('status').textContent,/لا إرسال قبل اكتمالها/);
  assert.ok(app.timers.size>0,'no empty busy-loop when native army status unavailable');
 });
 
