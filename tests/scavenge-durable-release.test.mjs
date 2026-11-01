@@ -64,6 +64,7 @@ test('official v1.0.8 loader, catalog, and schedule engine agree on publication'
  assert.match(mass,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev/);
  assert.match(mass,/algzawy_tab_pin_v1_/);
  assert.match(engine,/data-algzawy-scheduler="1\.0\.8"/);
+ assert.match(engine,/panels\[0\]\.dataset\.algzawyScheduler==='1\.0\.8'/);
  assert.match(engine,/isCurrentCycleClaim\(\)/);
 });
 
