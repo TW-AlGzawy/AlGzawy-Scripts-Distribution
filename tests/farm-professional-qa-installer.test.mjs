@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+test('farm professional QA installer runs QA engine and remains license-controlled',()=>{
+ const source=read('pilots/algzawy-farm-professional-v110-qa.user.js');
+ const official=read('loaders/bot-farm-2.user.js');
+ const branch='feature/farm-professional-v110-20261101';
+ new vm.Script(source);
+ assert.match(source,/^\/\/ @version\s+1\.1\.0$/m);
+ assert.match(source,/^\/\/ @namespace\s+.*\/qa-farm-professional-v110$/m);
+ assert.ok(source.includes('/'+branch+'/scripts/bot-farm-2.js'));
+ assert.ok(source.includes('/'+branch+'/pilots/algzawy-farm-professional-v110-qa.user.js'));
+ assert.ok(source.includes('const ID = "bot-farm-2";'));
+ assert.ok(source.includes('hasPortalLicense'));
+ assert.ok(source.includes('algzawy_human_verification_pause'));
+ assert.ok(!source.includes('Scripts-Distribution/main/scripts/bot-farm-2.js'));
+ assert.ok(official.includes('Scripts-Distribution/main/scripts/bot-farm-2.js'));
+});
