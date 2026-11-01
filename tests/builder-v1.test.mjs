@@ -27,14 +27,14 @@ test('builder QA release advertises matching Cloud Bridge versions and no obsole
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  const center=read('loaders/algzawy-control-center.user.js');
  const engine=read('scripts/algzawy-builder-v1.js');
- assert.ok(bridge.includes('@version      2.4.14'));
+ assert.ok(bridge.includes('@version      2.4.15'));
  assert.ok(center.includes('@version      1.1.1'));
  assert.ok(engine.includes("'v1.0.6'"));
   assert.ok(!engine.includes('AlGzawy Scripts · BETA'));
  assert.ok(!engine.includes('TRADITIONAL BUILDER · V2'));
 });
 
-test('Cloud Bridge v2.4.14 preserves integrated launcher and one active builder',()=>{
+test('Cloud Bridge v2.4.15 preserves integrated launcher and one active builder',()=>{
  const bridge=read('loaders/algzawy-cloud-bridge.user.js');
  const center=read('loaders/algzawy-control-center.user.js');
  new vm.Script(bridge);new vm.Script(center);
