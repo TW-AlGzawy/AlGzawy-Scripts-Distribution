@@ -18,10 +18,10 @@ function extracted(name,to,args=[]){
 }
 test('production bridge v2.4.15 has a complete, unique approved theme palette with a distinctive bridge',()=>{
  new vm.Script(bridge);new vm.Script(builder);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.15$/m);
  assert.equal(palettes.length,13);
- assert.equal(new Set(palettes.map(x=>x[1])).size,12);
- assert.equal(new Set(palettes.map(x=>x[5])).size,12);
+ assert.equal(new Set(palettes.map(x=>x[1])).size,13);
+ assert.equal(new Set(palettes.map(x=>x[5])).size,13);
  for(const [name,color] of [
   ['algzawy-panel','#17DB9A'],['algzawy-bot2-panel','#FF4D55'],
   ['alg-window','#268DFF'],['training-bot-panel','#FF9D19'],
