@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.1.0
+// @version      1.1.1
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -69,7 +69,8 @@
     paintTelemetry();
   }
 
-  let troopSnapshot=null,troopReadAt=0,troopRequest=null;
+  let troopSnapshot=null,troopReadAt=0,troopRequest=null,troopWaiting=false;
+  let previousFarmTroopSignature=null;
   function nativeVillageJSON(html){
     const match=/\bvar\s+village\s*=\s*/.exec(html);
     if(!match)return null;
@@ -97,7 +98,7 @@
     if(!settings.smart||!settings.enabled||humanLocked()||
        villageId==='unknown'||playerId==='anonymous'||typeof fetch!=='function')
       return Promise.resolve(null);
-    if(Date.now()-troopReadAt<45000)return Promise.resolve(troopSnapshot);
+    if(troopSnapshot&&Date.now()-troopReadAt<45000)return Promise.resolve(troopSnapshot);
     troopReadAt=Date.now();
     const signal=typeof AbortSignal!=='undefined'&&AbortSignal.timeout?
       AbortSignal.timeout(6000):undefined;
@@ -114,15 +115,56 @@
         paintTelemetry();
         return troopSnapshot;
       }).catch(error=>{
+        troopReadAt=0; // A transient network/HTML error must not lock out fresh attempts.
         console.warn('[AlGzawy] Home troop read failed:',String(error));
         return null;
       }).finally(()=>{troopRequest=null;});
     return troopRequest;
   }
+
+  // The Farm Assistant displays a native "from this village" troop row.
+  // Read only unit-labelled table cells; do not treat other table numbers as armies.
+  function nativeFarmTroops(){
+    const units=['spear','sword','axe','archer','light','marcher','heavy'];
+    const rows=typeof document.querySelectorAll==='function'?
+      document.querySelectorAll('tr'):[];
+    for(const row of rows){
+      const cells=Array.from(row.cells||[]);
+      if(!cells.some(cell=>/^(?:من هذه القرية|from this village|aus diesem dorf|uit dit dorp)$/i
+        .test(String(cell.textContent||'').trim())))continue;
+      const table=row.closest?.('table');
+      if(!table||typeof table.querySelectorAll!=='function')continue;
+      const headings=Array.from(table.querySelectorAll('tr')).filter(tr=>tr!==row);
+      for(const head of headings){
+        const columns=Array.from(head.cells||[]);
+        if(columns.length!==cells.length)continue;
+        const counts={},mapped=new Set();
+        for(let i=0;i<columns.length;i++){
+          const el=columns[i].querySelector?.('img[src*="unit_"],[data-unit]');
+          const explicit=el?.getAttribute?.('data-unit');
+          const source=el?.getAttribute?.('src')||'';
+          const name=explicit||(source.match(/unit_([a-z]+)\.(?:png|webp)/i)||[])[1];
+          if(!units.includes(name)||mapped.has(name))continue;
+          const value=String(cells[i].textContent||'').trim();
+          if(!/^\d{1,7}$/.test(value))continue;
+          counts[name]=Number(value);mapped.add(name);
+        }
+        if(mapped.size>=3)return counts;
+      }
+    }
+    return null;
+  }
+  function troopFingerprint(troops){
+    return troops?JSON.stringify(Object.keys(troops).sort().map(k=>[k,troops[k]])):null;
+  }
+
   function readHomeTroops(){
     // Only authoritative home counts are accepted. Unknown means unknown,
     // never "all troops free". Native farm buttons remain the final gate.
-    const counts=troopSnapshot||(actions===0?window.game_data?.village?.unit_counts_home:null);
+    const native=nativeFarmTroops();
+    const nativeFresh=native&&troopFingerprint(native)!==previousFarmTroopSignature;
+    const counts=troopSnapshot||(nativeFresh?native:null)||
+      (actions===0?window.game_data?.village?.unit_counts_home:null);
     if(!counts||typeof counts!=='object')return null;
     const allowed=['spear','sword','axe','archer','light','marcher','heavy'];
     const result={};let valid=false;
@@ -301,6 +343,7 @@
     store();
     if (timer) clearTimeout(timer);
     timer = null;
+    troopWaiting=false;
     updateButton();
     status(msg || 'متوقف');
   }
@@ -349,7 +392,28 @@
     const rawRows=Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
     const troops=readHomeTroops();
     if(settings.smart){
-      if(!troops){void refreshHomeTroops();return retryLater('قراءة القوات المؤكدة قيد التحديث؛ لا إرسال قبل اكتمالها');}
+      if(!troops){
+        if(troopWaiting)return;
+        troopWaiting=true;
+        status('تحديث القوات من اللعبة للتحقق قبل الإرسال التالي…');
+        // Wait for the request itself, not an unrelated 15s page reload.
+        // A fresh confirmed snapshot resumes after the configured delay.
+        void refreshHomeTroops().then(snapshot=>{
+          if(!settings.enabled||challengeDetected())return;
+          if(snapshot||readHomeTroops()){
+            status('تم تحديث القوات؛ متابعة أهداف النهب');
+            if(!timer)schedule();
+          }else{
+            status('تعذر قراءة القوات من اللعبة؛ إعادة الفحص دون إرسال أو إعادة تحميل الصفحة');
+            timer=setTimeout(step,Math.max(10000,settings.maxDelay));
+          }
+        }).catch(error=>{
+          console.warn('[AlGzawy] Troop follow-up:',error);
+          if(settings.enabled&&!challengeDetected())
+            timer=setTimeout(step,Math.max(10000,settings.maxDelay));
+        }).finally(()=>{troopWaiting=false;});
+        return;
+      }
       const available=Object.values(troops).reduce((sum,n)=>sum+n,0);
       if(available<settings.minimumTroops)return retryLater('القوات المتاحة أقل من الحد المسموح');
     }
@@ -376,6 +440,8 @@
     if (challengeDetected()) return stop('تم إيقاف النهب بسبب التحقق البشري');
     if(!claim(claimKey))return retryLater('الهدف قيد المعالجة في تبويب آخر');
     try {
+      const beforeFarmTroops=nativeFarmTroops();
+      previousFarmTroopSignature=troopFingerprint(beforeFarmTroops);
       const previousCommand=selectedRow.getAttribute('data-confirmed-command-id');
       // Clicking the game's own farm action is only a *request*. It does
       // not prove a troop dispatch was accepted, much less a successful haul.
