@@ -8,7 +8,7 @@ const portal=read('portal/v2/app.js');
 const page=read('portal/v2/index.html');
 test('bridge 2.4.15 advertises update notices only, with a portal link',()=>{
  new vm.Script(bridge);new vm.Script(portal);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.15$/m);
  assert.match(bridge,/@match\s+https:\/\/algzawy-cloud-control\.pages\.dev\/v2\/\*/);
  assert.match(bridge,/function pollReleaseUpdates\(\)/);
  assert.match(bridge,/function paintUpdateNotices\(\)/);
