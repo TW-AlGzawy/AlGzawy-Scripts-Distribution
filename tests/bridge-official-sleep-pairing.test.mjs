@@ -47,12 +47,12 @@ function pairingHarness({blocked=false}={}){
   const storage=new Map(),connection={device:'',last:0};
   let stops=0,rendered=0,synced=0,publisherChecks=0;
   const PORTAL_ORIGIN='https://algzawy-cloud-control.pages.dev',keys={device:'device',mode:'mode',last:'last'};
-  const setup=new Function('window','document','PORTAL_ORIGIN','showMessage','portableIdentity','crypto',
+  const setup=new Function('window','document','location','PORTAL_ORIGIN','showMessage','portableIdentity','crypto',
     'btoa','unescape','encodeURIComponent','setTimeout','clearTimeout','GM_setValue','keys','stopAll',
     'renderLinked','synchronize','checkPublisher','connection',text+'; return {openAutoLicense};');
   const {openAutoLicense}=setup(window,{getElementById(id){
       return id==='algzawy-cloud-connect'?button:id==='algzawy-cloud-pair-fallback'?fallback:null;
-    }},PORTAL_ORIGIN,(message)=>messages.push(message),
+    }},{origin:'https://example.tribalwars.ae'},PORTAL_ORIGIN,(message)=>messages.push(message),
     async()=>({publicKey:{kty:'EC',crv:'P-256',x:'x'.repeat(43),y:'y'.repeat(43)}}),
     {randomUUID:()=> '00000000-0000-4000-8000-000000000001'},
     value=>Buffer.from(value,'binary').toString('base64'),decodeURIComponent,encodeURIComponent,
