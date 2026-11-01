@@ -10,7 +10,7 @@ const ids=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
   'alg-coins','tribal-wars-helper','smart-defense-ultimate'];
 const manifest=JSON.parse(read('catalog.json')).published_candidates;
 
-test('official installer is sleep bridge v2.4.14 and does not reload game pages',()=>{
+test('official installer is sleep bridge v2.4.15 and does not reload game pages',()=>{
   new vm.Script(bridge);
   assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
   assert.match(bridge,/const BRIDGE_VERSION='2\.4\.14'/);
