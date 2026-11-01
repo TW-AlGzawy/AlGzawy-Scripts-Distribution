@@ -56,6 +56,15 @@ test('legacy desktop mouse panels support touch-only drag without disturbing the
  for(const [path,requiredCalls] of sources){
   const code=readFileSync(new URL('../'+path,import.meta.url),'utf8');
   new vm.Script(code);
+  if(path==='scripts/mass-scavenge-v1.js'){
+   // v1.0.8 uses a unified mouse/touch pointer controller instead of the legacy touch-only helper.
+   assert.match(code,/function setupMassPanelControls\(panel,header,body\)/);
+   assert.match(code,/header\.addEventListener\('pointerdown'/);
+   assert.match(code,/header\.setPointerCapture\(e\.pointerId\)/);
+   assert.match(code,/window\.visualViewport/);
+   assert.match(code,/e\.target\?\.closest\?\.\('button,input,select,textarea,a,\[data-no-drag\]'/);
+   continue;
+  }
   assert.match(code,/function enableMobileTouchDrag\(panel,handle,onDone\)/,path);
   assert.match(code,/e\.pointerType!=='touch'/,path);
   assert.match(code,/window\.visualViewport/,path);

@@ -9,10 +9,10 @@
     {
       "id": "mass-scavenge-v1",
       "name": "الغزااوي | الإغارات الجماعية",
-      "version": "1.0.3",
+      "version": "1.0.8",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
-      "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
+      "note": "Official v1.0.8: durable per-player cycle deadlines, duplicate-run prevention across tabs, eight-direction resize and saved UI state; automated tests required, live game execution not yet verified.",
       "approved_for_final": true
     },
     {
