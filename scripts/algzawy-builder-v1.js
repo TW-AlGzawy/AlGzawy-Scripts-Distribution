@@ -1,5 +1,5 @@
 // @name         الغزااوي | البناء المتطور
-// @version      1.0.5
+// @version      1.0.6
 // Licensed AlG Builder v1.0. The browser receives executable source: public JS is inspectable.
 (function () {
   'use strict';
