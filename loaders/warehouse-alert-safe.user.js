@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | تنبيه المخازن
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/warehouse-alert-safe-v2
-// @version      1.1.3
+// @version      1.1.4
 // @description  Licensed warehouse monitor for current village, production overview and Telegram alerts.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
