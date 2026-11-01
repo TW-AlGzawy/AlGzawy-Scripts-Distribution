@@ -29,7 +29,7 @@
   if(location.origin==='https://algzawy-cloud-control.pages.dev'
     &&location.pathname.startsWith('/v2/')){
     const report=nonce=>{
-      const payload={scope:'algzawy-installation-v1',type:'report',id:ID,version:'1.1.3',nonce};
+      const payload={scope:'algzawy-installation-v1',type:'report',id:ID,version:'1.1.4',nonce};
       window.postMessage(payload,location.origin);
       document.dispatchEvent(new CustomEvent('algzawy-installation-report-v1',{detail:payload}));
     };
