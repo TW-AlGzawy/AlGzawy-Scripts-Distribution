@@ -49,8 +49,8 @@ function mockDock(initialSide=null){
 
 test('official builder installer and catalog advertise v1.0.6 without changing script identity',()=>{
  new vm.Script(engine);new vm.Script(loader);
- assert.match(engine,/^\/\/ @version\s+1\.0\.5$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.5$/m);
+ assert.match(engine,/^\/\/ @version\s+1\.0\.6$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.6$/m);
  const item=catalog.published_candidates.find(x=>x.id==='algzawy-builder-v1');
  assert.equal(item.version,'1.0.6');
  assert.equal(item.installer,
