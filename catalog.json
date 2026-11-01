@@ -18,10 +18,10 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.0.5",
+      "version": "1.1.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
-      "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
+      "note": "Pro QA v1.1.0: optional conservative target scoring, troop-ready smart mode, village template mapping, verified-only command receipts, statistics/log and five-tab controls; live game QA pending.",
       "approved_for_final": false
     },
     {
