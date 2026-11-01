@@ -49,7 +49,7 @@ function harness(){
 
 test('bridge 2.4.14 compiles and central guard maintains a single lock across repeated scans',()=>{
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.13$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
  const h=harness();h.guard.setupHumanGuard();
  h.setCaptcha(true);h.guard.checkHumanGuard();h.guard.checkHumanGuard();
  assert.equal(h.local.get('algzawy_human_verification_pause'),'1');
