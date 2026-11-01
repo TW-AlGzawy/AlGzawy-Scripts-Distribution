@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.1.1
+// @version      1.1.2
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -194,8 +194,12 @@
   }
   function chosenTemplate(row){
     const villageOverride=settings.villageTemplates[villageId];
-    if(cols[villageOverride])return villageOverride;
-    if(!settings.smart)return settings.template;
+    const selected=(cols[villageOverride]||villageOverride==='AUTO')?
+      villageOverride:settings.template;
+    // An explicit A/B/C selection must ALWAYS win, including when smart
+    // priority and troop checks are enabled. Never silently replace C with A.
+    if(cols[selected])return selected;
+    if(selected!=='AUTO')return null;
     const loot=numericAttr(row,'data-loot-total');
     // C uses a recent scout report; never select C from its icon alone.
     const scout=row.querySelector?.('[data-scout-report-id]');
@@ -253,8 +257,10 @@
     const target=document.getElementById('algzawy-bot2-target-summary');
     if(target){
       const rows=[...document.querySelectorAll('#plunder_list tr')].slice(1);
-      const available=rows.filter(row=>['A','B',...(settings.allowC?['C']:[])]
-        .some(name=>availableTemplate(row,name))).length;
+      const available=rows.filter(row=>{
+        const chosen=chosenTemplate(row);
+        return !!(chosen&&availableTemplate(row,chosen));
+      }).length;
       target.textContent='قرى ظاهرة: '+rows.length+' | أهداف بقالب متاح: '+available+
         '\nالأولوية تستخدم بيانات الموارد والمخاطر حين تعرضها اللعبة، وإلا تظل ترتيبًا محافظًا.';
     }
@@ -278,10 +284,10 @@
     '<button type="button" id="algzawy-bot2-tab-stats">الإحصاءات</button>'+
     '<button type="button" id="algzawy-bot2-tab-log">السجل</button></nav>'+
     '<div id="algzawy-bot2-page-home">'+
-    '<label>قالب النهب <select id="algzawy-bot2-template" style="width:100%;padding:4px;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"><option>A</option><option>B</option><option>C</option></select></label>'+
+    '<label>قالب النهب <select id="algzawy-bot2-template" style="width:100%;padding:4px;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"><option>A</option><option>B</option><option>C</option><option value="AUTO">تلقائي (A/B/C)</option></select></label>'+
     '<div style="display:flex;gap:7px;margin-top:7px"><label style="flex:1">أقل تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-min-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label><label style="flex:1">أقصى تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-max-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label></div>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-smart"> اختيار ذكي للأهداف والقالب</label>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-allow-c"> السماح بالقالب C عند توفر تقرير استطلاع</label>'+
+    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-smart"> ترتيب ذكي للأهداف + فحص القوات (لا يغيّر القالب المحدد)</label>'+
+    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-allow-c"> السماح باختيار C في الوضع التلقائي فقط</label>'+
     '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-per-village"> حفظ القالب لهذه القرية فقط</label>'+
     '<label>الحد الأدنى للقوات المؤكدة (الوضع الذكي)<input type="number" min="1" max="100000" id="algzawy-bot2-min-troops" style="width:95%;background:#07111c;color:white"></label>'+
     '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-switch" style="accent-color:#40e1bf;color-scheme:dark"> التنقل بين القرى تلقائيًا</label>'+
@@ -307,11 +313,13 @@
     else{sessionStorage.removeItem(RUN_KEY);sessionStorage.removeItem(NEXT_KEY);}
   };
   const bounded = n => Math.min(60000,Math.max(500,Number(n)||1000));
-  q('template').value = cols[settings.villageTemplates[villageId]]?
-    settings.villageTemplates[villageId]:(cols[settings.template]?settings.template:'A');
+  q('template').value = (cols[settings.villageTemplates[villageId]]||
+    settings.villageTemplates[villageId]==='AUTO')?settings.villageTemplates[villageId]:
+    ((cols[settings.template]||settings.template==='AUTO')?settings.template:'A');
   q('smart').checked=settings.smart===true;
   q('allow-c').checked=settings.allowC===true;
-  q('per-village').checked=cols[settings.villageTemplates[villageId]]!==undefined;
+  q('per-village').checked=Boolean(cols[settings.villageTemplates[villageId]]||
+    settings.villageTemplates[villageId]==='AUTO');
   q('min-troops').value=Math.max(1,Number(settings.minimumTroops)||1);
   q('min-delay').value = bounded(settings.minDelay);
   q('max-delay').value = bounded(settings.maxDelay);
@@ -322,7 +330,8 @@
     q('toggle').style.color = settings.enabled ? '#f2abb1' : '#06332f';
   }
   function saveInputs() {
-    const chosen=q('template').value in cols?q('template').value:'A';
+    const option=q('template').value;
+    const chosen=(cols[option]||option==='AUTO')?option:'A';
     if(q('per-village').checked!==true)settings.template=chosen;
     settings.smart=q('smart').checked===true;
     settings.allowC=q('allow-c').checked===true;
