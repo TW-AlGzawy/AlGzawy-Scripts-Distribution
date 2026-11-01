@@ -84,6 +84,15 @@
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/tribal-wars-helper.user.js",
       "approved_for_final": true
+    },
+    {
+      "id": "smart-defense-ultimate",
+      "name": "الغزااوي | القائد الذكي للدفاع والقنص",
+      "version": "2.1.5",
+      "test_status": "qa-user-trial-not-live-certified",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/smart-defense-ultimate.user.js",
+      "note": "Beta 2.1.5 from validated QA branch; local tests pass, live precision remains experimental. Requires individual account entitlement, approved device and active tab pin. Disable standalone QA before official install.",
+      "approved_for_final": false
     }
   ],
   "held_for_review": [
