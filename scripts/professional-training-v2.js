@@ -289,7 +289,7 @@
       }).join('');
       const targetControls=shown.map(([id,u])=>'<label class="tr-goal"><span>'+safe(u.name)+'</span><input type="number" min="0" max="1000000" title="الهدف الإجمالي (0=بلا سقف)" data-unit="'+id+'" data-field="targetCount" value="'+u.targetCount+'"></label>').join('');
       panel.innerHTML=
-        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>v1.0.5 · قرية '+safe(VILLAGE)+'</small></span>'
+        '<header class="tr-head" data-training-drag><b class="tr-logo">AlG</b><span class="tr-title">الغزااوي | بوت التدريب<small>v1.0.6 · قرية '+safe(VILLAGE)+'</small></span>'
         +'<button class="tr-fold" type="button" data-training-action="fold" aria-label="طي أو فتح النافذة">'+(panel.dataset.collapsed==='1'?'＋':'−')+'</button></header>'
         +'<div class="tr-body"><div class="tr-status"><label><input id="algzawy-training-enabled" type="checkbox" '+(CONFIG.AUTO_TRAIN?'checked':'')+'>تدريب تلقائي</label>'
         +'<strong id="bot-status">'+(CONFIG.AUTO_TRAIN?'نشط':'متوقف')+'</strong></div>'
