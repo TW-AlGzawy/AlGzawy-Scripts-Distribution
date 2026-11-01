@@ -152,7 +152,7 @@
           void this.checkAndClaimRewards(true);
         });
         body.append(run,create('div','alg-reward-note','يعمل فقط داخل التبويب المعتمد في الجسر السحابي'));
-        body.append(create('footer','alg-reward-footer','BETA · v1.2.4 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
+        body.append(create('footer','alg-reward-footer','BETA · v1.2.5 · © 2026 الغزااوي — جميع الحقوق محفوظة'));
         box.append(body);
         const draw=()=>{
           body.hidden=cfg.collapsed;body.style.display=cfg.collapsed?'none':'grid';
