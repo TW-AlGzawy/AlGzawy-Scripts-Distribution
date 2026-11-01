@@ -122,7 +122,7 @@
   function readHomeTroops(){
     // Only authoritative home counts are accepted. Unknown means unknown,
     // never "all troops free". Native farm buttons remain the final gate.
-    const counts=window.game_data?.village?.unit_counts_home||troopSnapshot;
+    const counts=troopSnapshot||(actions===0?window.game_data?.village?.unit_counts_home:null);
     if(!counts||typeof counts!=='object')return null;
     const allowed=['spear','sword','axe','archer','light','marcher','heavy'];
     const result={};let valid=false;
@@ -225,7 +225,7 @@
   const panel = document.createElement('section');
   panel.id = 'algzawy-bot2-panel';
   panel.setAttribute('dir','rtl');
-  panel.style.cssText = 'position:fixed;top:145px;right:15px;z-index:999991;width:235px;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:12px;box-shadow:0 8px 22px #0004;font:12px/1.6 Tahoma,Arial;overflow:hidden';
+  panel.style.cssText = 'position:fixed;top:145px;right:15px;z-index:999991;width:320px;max-width:calc(100vw - 12px);max-height:85vh;background:#102031;color:#eaf3f8;border:1px solid #263c4f;border-radius:12px;box-shadow:0 8px 22px #0004;font:12px/1.6 Tahoma,Arial;overflow:auto';
   panel.innerHTML =
     '<header id="algzawy-bot2-header" style="background:#123e3d;color:#eaf3f8;padding:9px;cursor:move;touch-action:none;user-select:none;display:flex;justify-content:space-between"><b>الغزااوي | بوت النهب</b><button id="algzawy-bot2-min" type="button" style="color:#40e1bf;background:transparent;border:0">−</button></header>'+
     '<div id="algzawy-bot2-body" style="padding:10px">'+
@@ -251,6 +251,11 @@
     '<section id="algzawy-bot2-page-log" style="display:none"><div id="algzawy-bot2-log-summary" style="white-space:pre-line;max-height:210px;overflow-y:auto"></div></section>'+
     '<div id="algzawy-bot2-status" aria-live="polite" style="font-size:11px;color:#95acbc;margin-top:6px"></div></div>';
   document.body.appendChild(panel);
+  const farmStyle=document.createElement('style');
+  farmStyle.textContent='#algzawy-bot2-panel nav button{flex:1 0 auto;font:inherit;color:#c5e8e5;background:#19354a;border:1px solid #2b5261;border-radius:6px;padding:5px;cursor:pointer}'+
+    '#algzawy-bot2-panel nav button[aria-pressed="true"]{background:#176359;color:#fff;border-color:#40e1bf}'+
+    '#algzawy-bot2-panel :is(button,input,select):focus-visible{outline:2px solid #40e1bf;outline-offset:2px}';
+  document.body.appendChild(farmStyle);
   const q = id => document.getElementById('algzawy-bot2-'+id);
   const status = msg => { q('status').textContent = msg; };
   const store = () => localStorage.setItem(KEY,JSON.stringify({...settings,enabled:false}));
@@ -380,7 +385,9 @@
       attempted.add(key);
       attemptedRows.add(selectedRow);
       actions++;
-      status('القالب '+settings.template+' | محاولات الإرسال: '+actions+' (غير مؤكدة من الخادم)');
+      // Re-read authoritative home troops before another smart dispatch.
+      if(settings.smart){troopSnapshot=null;troopReadAt=0;}
+      status('القالب '+selectedTemplate+' | محاولات الإرسال: '+actions+' (غير مؤكدة من الخادم)');
       // Keep every village row visible until the game itself changes it.
       // Do not fake a success by deleting/hiding the target row.
     } catch (e) {
