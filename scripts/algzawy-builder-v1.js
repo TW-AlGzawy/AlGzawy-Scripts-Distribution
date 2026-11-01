@@ -705,7 +705,7 @@
     const head=node('header','alg-head');
     const logo=node('span','alg-logo','AlG');
     const title=node('span','alg-title','الغزااوي | البناء المتطور');
-    title.append(node('small','alg-subtitle','v1.0.5'));
+    title.append(node('small','alg-subtitle','v1.0.6'));
     elements.min=button('−','alg-min',()=>setMinimized(!layout.minimized),'تصغير / تكبير');
     head.append(logo,title,elements.min);
     body=node('div','alg-body');
