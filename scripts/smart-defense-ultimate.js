@@ -2672,7 +2672,14 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       if(mission&&!['done','stopped','cancel_clicked'].includes(mission.phase))stopMission('طلب تحقق بشري');
     });
     doc.addEventListener(STOP_EVENT,()=>{
-      if(mission&&!['done','stopped','cancel_clicked'].includes(mission.phase))stopMission('أوقف نظام الترخيص المهمة');
+      if(mission&&!['done','stopped','cancel_clicked'].includes(mission.phase))
+        stopMission('أوقف نظام الترخيص المهمة');
+      // A revoked entitlement must not leave interactive planning controls or
+      // passive monitoring running in an already-started game tab.
+      clearTimeout(timer);timer=null;
+      clearInterval(uiTick);clearInterval(monitorTimer);
+      uiTick=0;monitorTimer=0;
+      doc.getElementById(uiId)?.remove();
     });
     doc.addEventListener('visibilitychange',()=>{
       if(mission?.phase==='armed'||mission?.phase==='cancel_wait')schedule();
