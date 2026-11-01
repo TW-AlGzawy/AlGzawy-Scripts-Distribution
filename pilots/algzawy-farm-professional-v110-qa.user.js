@@ -11,7 +11,7 @@
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @grant        GM_xmlhttpRequest
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/farm-professional-v110-20261101/pilots/algzawy-farm-professional-v110-qa.user.js
-// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/farm-professional-v110-20261101/loaders/bot-farm-2.user.js
+// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/feature/farm-professional-v110-20261101/pilots/algzawy-farm-professional-v110-qa.user.js
 // ==/UserScript==
 (function () {
   'use strict';
