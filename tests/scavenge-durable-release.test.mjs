@@ -58,13 +58,13 @@ test('official v1.0.8 loader, catalog, and schedule engine agree on publication'
  new vm.Script(engine);new vm.Script(mass);
  const item=JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='mass-scavenge-v1');
  assert.equal(item.version,'1.0.8');
- assert.match(mass,/^\/\/ @version\\s+1\\.0\\.8$/m);
- assert.match(engine,/^\/\/ @version\\s+1\\.0\\.8$/m);
- assert.match(mass,/main\/scripts\/mass-scavenge-v1\\.js/);
- assert.match(mass,/algzawy-control-api\\.karm-saleh-usa2\\.workers\\.dev/);
+ assert.match(mass,/^\/\/ @version\s+1\.0\.8$/m);
+ assert.match(engine,/^\/\/ @version\s+1\.0\.8$/m);
+ assert.match(mass,/main\/scripts\/mass-scavenge-v1\.js/);
+ assert.match(mass,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev/);
  assert.match(mass,/algzawy_tab_pin_v1_/);
- assert.match(engine,/data-algzawy-scheduler="1\\.0\\.8"/);
- assert.match(engine,/isCurrentCycleClaim\\(\\)/);
+ assert.match(engine,/data-algzawy-scheduler="1\.0\.8"/);
+ assert.match(engine,/isCurrentCycleClaim\(\)/);
 });
 
 test('initial schedule is 25min ahead, not immediate, and manual reload cannot reset it',()=>{
