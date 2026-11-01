@@ -10,8 +10,8 @@ const catalog=JSON.parse(read('catalog.json'));
 
 test('production balance script and installer are consistent at v1.0.5',()=>{
  new vm.Script(source);new vm.Script(loader);
- assert.match(source,/^\/\/ @version\s+1\.0\.4$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.4$/m);
+ assert.match(source,/^\/\/ @version\s+1\.0\.5$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.5$/m);
  assert.equal(catalog.published_candidates.find(x=>x.id==='alg-balance').version,'1.0.5');
 });
 test('opening mini panel ignores persisted autoEnabled=true until user explicitly starts',()=>{
