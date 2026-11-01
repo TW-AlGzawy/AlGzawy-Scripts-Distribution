@@ -3,7 +3,11 @@ on:
   push:
     paths:
       - "portal/**"
+      - "catalog.json"
       - "loaders/algzawy-cloud-bridge.user.js"
+      - "loaders/smart-defense-ultimate.user.js"
+      - "scripts/smart-defense-ultimate.js"
+      - "tests/smart-defense-official-215*.test.mjs"
       - "tests/portal-contract.test.mjs"
       - "tests/portal-v2-contract.test.mjs"
       - "tests/portal-quality.test.mjs"
@@ -12,7 +16,11 @@ on:
   pull_request:
     paths:
       - "portal/**"
+      - "catalog.json"
       - "loaders/algzawy-cloud-bridge.user.js"
+      - "loaders/smart-defense-ultimate.user.js"
+      - "scripts/smart-defense-ultimate.js"
+      - "tests/smart-defense-official-215*.test.mjs"
       - "tests/portal-contract.test.mjs"
       - "tests/portal-v2-contract.test.mjs"
       - "tests/portal-quality.test.mjs"
@@ -34,7 +42,11 @@ jobs:
           node --check portal/v2/app.js
           node --check "portal/functions/api/[[path]].js"
           node --check loaders/algzawy-cloud-bridge.user.js
+          node --check loaders/smart-defense-ultimate.user.js
+          node --check scripts/smart-defense-ultimate.js
       - name: Portal and D1 contract tests
         run: node --test tests/portal-contract.test.mjs tests/portal-v2-contract.test.mjs tests/portal-quality.test.mjs
       - name: Licensing and free-polling regression checks
         run: node --test tests/portal-licensing-static.test.mjs
+      - name: Smart Defense 2.1.5 QA precision and lifecycle regressions
+        run: node --test tests/smart-defense-official-215.test.mjs tests/smart-defense-official-215-lifecycle.test.mjs
