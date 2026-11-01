@@ -84,5 +84,5 @@ test('farm run state is persisted per game tab only and is not a security bypass
  assert.match(farm,/schedule\(Number\.isFinite\(remaining\)/);
  assert.match(farm,/if\(challengeDetected\(\)\)return stop/);
  assert.match(read('loaders/bot-farm-2.user.js'),/^\/\/ @version\s+1\.1\.0$/m);
- assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.0.5');
+ assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.1.0');
 });
