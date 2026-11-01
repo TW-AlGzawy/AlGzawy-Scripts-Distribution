@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.8
+// @version      1.0.9
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -236,7 +236,7 @@ function setupMassPanelControls(panel,header,body){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" data-algzawy-scheduler="1.0.8" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
+            <div id="algzawy-panel" data-algzawy-scheduler="1.0.9" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
                 <div id="algzawy-header" role="button" tabindex="0" aria-expanded="true" aria-controls="algzawy-body"
                     aria-label="الإغارات الجماعية، اضغط للطي أو الفتح واسحب لتحريك النافذة">
                     <span class="algzawy-brand-mark" aria-hidden="true">✦</span>
@@ -459,12 +459,99 @@ function setupMassPanelControls(panel,header,body){
         });
     }
 
+
+    // Extract only JSON arguments from the game's own initialization script.
+    // Never execute source text, and never trust an empty checkbox alone.
+    let cachedMassSource=null,cachedMassData=null;
+    function readMassScavengeData(){
+        const scripts=Array.from(document.querySelectorAll('script:not([src])'));
+        const script=scripts.find(s=>s.textContent?.includes('new ScavengeMassScreen('));
+        if(!script)return null;
+        if(script===cachedMassSource)return cachedMassData;
+        cachedMassSource=script;cachedMassData=null;
+        const text=script.textContent,mark=/new\s+ScavengeMassScreen\s*\(/.exec(text);
+        if(!mark)return null;
+        const args=[];let start=mark.index+mark[0].length,depth=0,quote='',escaped=false;
+        for(let i=start;i<text.length&&args.length<5;i++){
+            const ch=text[i];
+            if(quote){
+                if(escaped){escaped=false;continue;}
+                if(ch==='\\'){escaped=true;continue;}
+                if(ch===quote)quote='';
+            }else if(ch==='"'||ch==="'"){quote=ch;}
+            else if(ch==='{'||ch==='['||ch==='(')depth++;
+            else if(ch==='}'||ch===']'||ch===')'){
+                if(depth===0)break;
+                depth--;
+            }else if(ch===','&&depth===0){args.push(text.slice(start,i).trim());start=i+1;}
+        }
+        try{
+            if(args.length!==5)return null;
+            const units=JSON.parse(args[1]),villages=JSON.parse(args[4]);
+            if(!units||!Array.isArray(villages))return null;
+            cachedMassData={units,villages};
+        }catch(error){console.warn('[AlGzawy] Mass scavenge data unavailable:',error);}
+        return cachedMassData;
+    }
+    function massElementVisible(el){
+        if(!el||el.hidden||el.isConnected===false)return false;
+        const css=window.getComputedStyle?.(el);
+        if(css&&(css.display==='none'||css.visibility==='hidden'||css.visibility==='collapse'))return false;
+        return typeof el.getClientRects!=='function'||el.getClientRects().length>0;
+    }
+    function availableScavengeOpportunities(){
+        const data=readMassScavengeData();
+        if(!data)return [];
+        const villages=new Map(data.villages.map(v=>[String(v.village_id),v]));
+        const supported=['spear','sword','axe','archer','light','marcher','heavy','knight'];
+        const result=[];
+        for(const row of document.querySelectorAll('table.mass-scavenge-table tr[data-id]')){
+            if(typeof row.querySelector!=='function')continue;
+            const village=villages.get(String(row.dataset?.id));
+            if(!village||!village.unit_counts_home||!village.options)continue;
+            const capacity=supported.reduce((sum,id)=>{
+                const count=Number(village.unit_counts_home[id]),carry=Number(data.units[id]?.carry);
+                return sum+(Number.isFinite(count)&&count>0&&Number.isFinite(carry)&&carry>0?count*carry:0);
+            },0);
+            if(capacity<=0)continue;
+            for(let option=1;option<=4;option++){
+                const cell=row.querySelector('td.option.option-'+option);
+                const status=village.options[String(option)];
+                if(!cell||!status||status.is_locked||status.unlock_time!=null||status.scavenging_squad)continue;
+                if(['option-active','option-locked','option-unlocking','option-unavailable'].some(c=>cell.classList.contains(c)))continue;
+                const input=cell.querySelector('input.status-inactive');
+                if(!input||input.disabled||!massElementVisible(input))continue;
+                if(massElementVisible(cell.querySelector('img.status-active'))||
+                   massElementVisible(cell.querySelector('.status-unavailable'))||
+                   massElementVisible(cell.querySelector('.status-locked'))||
+                   massElementVisible(cell.querySelector('.status-unlocking')))continue;
+                result.push({key:String(village.village_id)+':'+option,villageId:String(village.village_id),option,capacity});
+            }
+        }
+        return result;
+    }
+    function nextScavengeSquadReturn(){
+        const data=readMassScavengeData();
+        if(!data)return null;
+        let soonest=null;
+        for(const village of data.villages){
+            for(const option of Object.values(village.options||{})){
+                const seconds=Number(option?.scavenging_squad?.return_time);
+                if(!Number.isFinite(seconds)||seconds<=0)continue;
+                const at=seconds*1000+1500;
+                if(at>pageLoadedAt&&(!soonest||at<soonest))soonest=at;
+            }
+        }
+        return soonest;
+    }
+
     // This schedule is shared between the player's tabs on the same game
     // world. A saved absolute deadline is NEVER reset by page refresh.
     const playerId=String(window.game_data?.player?.id||'');
     const scheduleKey='algzawy_mass_scavenge_schedule_v2_'+location.host+'_'+playerId;
     const leaseKey=scheduleKey+'_lease';
     const reloadMarker=scheduleKey+'_refreshed_deadline';
+    const returnReloadMarker=scheduleKey+'_refreshed_return';
     const pageLoadedAt=Date.now();
     const tabToken=window.crypto?.randomUUID?.()||
         Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
@@ -473,7 +560,7 @@ function setupMassPanelControls(panel,header,body){
     function ownsOnlyMassPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.8';
+        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.9';
     }
     function isCycleEnabled(){
         return GM_getValue('isBotEnabled',true)===true&&ownsOnlyMassPanel()&&
@@ -556,7 +643,9 @@ function setupMassPanelControls(panel,header,body){
         if(!state)return;
         // Timers are best-effort in hidden/suspended tabs. Never run early.
         const remaining=state.nextRunAt-Date.now();
-        const delay=Math.max(250,Math.min(remaining>0?remaining:250,30000));
+        const returnAt=nextScavengeSquadReturn();
+        const untilReturn=returnAt?Math.max(250,returnAt-Date.now()):10000;
+        const delay=Math.max(250,Math.min(remaining>0?remaining:250,10000,untilReturn));
         // Do not spin every 250ms while CAPTCHA is active or the tab sleeps.
         const sleeping=document.visibilityState==='hidden'||!isCycleEnabled();
         cycleTimer=setTimeout(()=>void checkCycleDue(),sleeping?30000:delay);
@@ -587,12 +676,25 @@ function setupMassPanelControls(panel,header,body){
     }
     async function checkCycleDue(){
         if(cycleBusy||!isCycleEnabled()){armCycleTimer();return;}
-        const state=ensureCycleSchedule();
-        if(!state||state.nextRunAt>Date.now()){armCycleTimer();return;}
+        const state=ensureCycleSchedule(),now=Date.now();
+        if(!state){armCycleTimer();return;}
         if(document.visibilityState==='hidden'){armCycleTimer();return;}
+        const pending=availableScavengeOpportunities().filter(item=>
+            !Number.isFinite(state.instantClaims?.[item.key])||
+            state.instantClaims[item.key]<=now);
+        const isDue=state.nextRunAt<=now;
+        // On a game-reported squad return, refresh THIS scavenge tab once
+        // to obtain up-to-date troops; never refresh other game tabs.
+        const returnAt=nextScavengeSquadReturn();
+        if(!isDue&&returnAt&&returnAt<=now&&pageLoadedAt<returnAt&&
+           sessionStorage.getItem(returnReloadMarker)!==String(returnAt)){
+            sessionStorage.setItem(returnReloadMarker,String(returnAt));
+            location.reload();return;
+        }
+        if(!isDue&&!pending.length){armCycleTimer();return;}
         // Only the scavenge page is refreshed, and only when the saved deadline
         // is actually due. A manual reload at any earlier time merely waits.
-        if(pageLoadedAt<state.nextRunAt-1000&&
+        if(isDue&&pageLoadedAt<state.nextRunAt-1000&&
            sessionStorage.getItem(reloadMarker)!==String(state.nextRunAt)){
             sessionStorage.setItem(reloadMarker,String(state.nextRunAt));
             location.reload();
@@ -602,14 +704,26 @@ function setupMassPanelControls(panel,header,body){
         try{
             await withCycleLease(async()=>{
                 const actual=readCycleState(),now=Date.now();
-                if(!actual||actual.nextRunAt>now||!isCycleEnabled())return;
+                if(!actual||!isCycleEnabled())return;
+                const dueNow=actual.nextRunAt<=now;
+                const readyNow=dueNow?[]:availableScavengeOpportunities().filter(item=>
+                    !Number.isFinite(actual.instantClaims?.[item.key])||
+                    actual.instantClaims[item.key]<=now);
+                if(!dueNow&&!readyNow.length)return;
                 // Claim the scheduled cycle BEFORE any network/UI action,
                 // preventing replays on reload or another tab.
                 const intervalMs=nextIntervalMs();
                 cycleStartedAt=now;
+                const claims={...(actual.instantClaims||{})};
+                for(const key of Object.keys(claims)){
+                    if(!Number.isFinite(claims[key])||claims[key]<now-600000)delete claims[key];
+                }
+                // Claim all currently free options for 3 minutes across tabs:
+                // a reload cannot repeatedly click the same empty checkbox.
+                for(const item of readyNow)claims[item.key]=now+180000;
                 saveCycleState({...actual,status:'running',claimedBy:tabToken,
                     dueAt:actual.nextRunAt,lastStartedAt:now,
-                    nextRunAt:now+intervalMs,intervalMs});
+                    nextRunAt:now+intervalMs,intervalMs,instantClaims:claims});
                 cycleSucceeded=false;
                 await executeScavengeCycle();
                 if(!cycleSucceeded){
@@ -670,6 +784,7 @@ function setupMassPanelControls(panel,header,body){
         ensureCycleSchedule();
         renderCycleSchedule();
         armCycleTimer();
+        void checkCycleDue();
         setInterval(renderCycleSchedule,1000);
         console.log('[AlGzawy] Page loaded: saved scavenge deadline preserved. No immediate dispatch.');
     });
