@@ -8,7 +8,7 @@ test('farm professional QA installer runs QA engine and remains license-controll
  const official=read('loaders/bot-farm-2.user.js');
  const branch='feature/farm-professional-v110-20261101';
  new vm.Script(source);
- assert.match(source,/^\/\/ @version\s+1\.1\.0$/m);
+ assert.match(source,/^\/\/ @version\s+1\.1\.1$/m);
  assert.match(source,/^\/\/ @namespace\s+.*\/qa-farm-professional-v110$/m);
  assert.ok(source.includes('/'+branch+'/scripts/bot-farm-2.js'));
  assert.equal(source.split('/'+branch+'/pilots/algzawy-farm-professional-v110-qa.user.js').length-1,2,'both Tampermonkey update and download stay in QA');
