@@ -233,3 +233,44 @@ test('five professional navigation pages keep safe state and are independently d
   assert.equal(app.q('toggle').textContent,'تشغيل النهب');
  }
 });
+
+
+test('smart mode reads only matching own-village JSON from a same-origin game page',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:false,minimumTroops:2});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340}};
+ const row=app.createRow('barb-safe');
+ let requested='';
+ app.ctx.fetch=async(url,init)=>{
+  requested=String(url);
+  assert.equal(init.credentials,'same-origin');
+  return {ok:true,async text(){
+   return '<script>var village = {"village_id":1340,"player_id":1703609,'+
+    '"unit_counts_home":{"spear":3,"light":3},"other":{"nested":"escaped,colon"}};</script>';
+  }};
+ };
+ app.run();app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[],'first step waits for real game data');
+ assert.match(requested,/village=1340.*screen=place.*mode=scavenge/);
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barb-safe',template:'A'}]);
+ assert.match(app.q('stat-summary').textContent,/محاولات: 1/);
+ assert.deepEqual(app.state.removed,[]);
+});
+
+test('smart mode rejects a troop snapshot belonging to another account',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:false});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340}};
+ app.createRow('barb-untrusted');
+ app.ctx.console={warn(){}};
+ app.ctx.fetch=async()=>({ok:true,async text(){
+  return '<script>var village={"village_id":1340,"player_id":22,'+
+  '"unit_counts_home":{"spear":9000}};</script>';
+ }});
+ app.run();app.q('toggle').click();app.tick();
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ app.tick();
+ assert.equal(app.state.clicked.length,0);
+});
