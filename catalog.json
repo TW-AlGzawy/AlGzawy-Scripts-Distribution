@@ -18,10 +18,10 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.0.5",
+      "version": "1.1.2",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
-      "note": "Updated beta engine; JS syntax checked, game execution not yet validated",
+      "note": "QA v1.1.2: honor explicitly selected A/B/C even with smart target sorting enabled; template selection changes only when AUTO is explicitly selected; live game QA required.",
       "approved_for_final": false
     },
     {
