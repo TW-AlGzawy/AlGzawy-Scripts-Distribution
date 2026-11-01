@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | مركز السكربتات
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.1.0
+// @version      1.1.1
 // @description  لوحة محلية موحدة لتشغيل وإيقاف السكربتات المثبتة ومراقبة التحقق البشري؛ بلا صلاحيات إدارة Cloudflare
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -33,7 +33,8 @@
     ['send-automation','الغزااوي | الإرساليات الدقيقة'],
     ['alg-attacks','الغزااوي | تنبيه الهجمات'],
     ['alg-coins','الغزااوي | الصقل المتطور'],
-    ['tribal-wars-helper','الغزااوي | جامع الجوائز']
+    ['tribal-wars-helper','الغزااوي | جامع الجوائز'],
+    ['smart-defense-ultimate','الغزااوي | القائد الذكي للدفاع والقنص']
   ];
   const key = id => 'algzawy_local_enabled_' + id;
   const host = document.createElement('section');
