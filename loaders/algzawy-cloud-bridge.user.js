@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.11
+// @version      2.4.13
 // @description  Official AlGzawy Cloud Bridge: signed device, tab pins, Telegram alerts and resizable window.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.11';
+  const BRIDGE_VERSION='2.4.13';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
