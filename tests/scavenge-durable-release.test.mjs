@@ -32,7 +32,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time},addEventListener(){}};
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
- const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawyScheduler:'1.0.8'}}]}};
+ const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawyScheduler:'1.0.9'}}]}};
  const setup=new Function('window','location','navigator','localStorage','sessionStorage',
    'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
    'onDispatch',
@@ -54,10 +54,10 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
    set enabled(v){enabled=v;},timers,local,sess};
 }
 
-test('official v1.0.8 loader, catalog, and schedule engine agree on publication',()=>{
+test('official v1.0.9 loader, catalog, and schedule engine agree on publication',()=>{
  new vm.Script(engine);new vm.Script(mass);
  const item=JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='mass-scavenge-v1');
- assert.equal(item.version,'1.0.8');
+ assert.equal(item.version,'1.0.9');
  assert.match(mass,/^\/\/ @version\s+1\.0\.8$/m);
  assert.match(engine,/^\/\/ @version\s+1\.0\.8$/m);
  assert.match(mass,/main\/scripts\/mass-scavenge-v1\.js/);
