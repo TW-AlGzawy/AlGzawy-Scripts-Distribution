@@ -182,14 +182,16 @@ test('CAPTCHA or central verification lock cancels saved running state after nav
 });
 
 
-test('professional smart mode fails closed if native home troop counts are unavailable',()=>{
+test('professional smart mode fails closed if native home troop counts are unavailable',async()=>{
  const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
   switchVillages:false,smart:true,allowC:false,minimumTroops:1});
  app.createRow('barbarian-7');app.run();
  app.q('toggle').click();app.tick();
  assert.deepEqual(app.state.clicked,[]);
- assert.match(app.q('status').textContent,/لا إرسال قبل اكتمالها/);
- assert.ok(app.timers.size>0,'no empty busy-loop when native army status unavailable');
+ assert.match(app.q('status').textContent,/تحديث القوات من اللعبة/);
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ assert.match(app.q('status').textContent,/تعذر قراءة القوات/);
+ assert.ok(app.timers.size>0,'failed verification must backoff safely without sending');
 });
 
 test('professional smart mode uses confirmed home count and chooses B for explicit high-loot target',()=>{
@@ -273,4 +275,74 @@ test('smart mode rejects a troop snapshot belonging to another account',async()=
  for(let i=0;i<5;i++)await new Promise(setImmediate);
  app.tick();
  assert.equal(app.state.clicked.length,0);
+});
+
+
+test('smart mode continues two raids on same village after fetching fresh troops without a page reload',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:true,minimumTroops:2});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340,
+  unit_counts_home:{spear:15,axe:20}}};
+ app.createRow('barbarian-1');
+ app.createRow('barbarian-2');
+ let requests=0;
+ app.ctx.fetch=async(url,init)=>{
+  requests++;
+  assert.match(url,/mode=scavenge/);
+  assert.equal(init.credentials,'same-origin');
+  return {ok:true,async text(){
+   return '<script>var village = {"village_id":1340,"player_id":1703609,'+
+    '"unit_counts_home":{"spear":13,"axe":17}};</script>';
+  }};
+ };
+ app.run();app.q('toggle').click();
+ app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barbarian-1',template:'A'}]);
+ // The next scheduled tick waits on the real snapshot, not retryLater
+ // (which used to unconditionally reload the active village).
+ app.tick();
+ assert.equal(app.reloaded,0);
+ assert.equal(requests,1);
+ assert.equal(app.timers.size,0,'no duplicate send while fetch is in flight');
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ assert.equal(app.timers.size,1,'a successful troop refresh schedules the next dispatch');
+ app.tick();
+ assert.deepEqual(app.state.clicked,[
+  {id:'barbarian-1',template:'A'},
+  {id:'barbarian-2',template:'A'}
+ ]);
+ assert.equal(app.reloaded,0);
+ assert.match(app.q('stat-summary').textContent,/محاولات: 2/);
+ assert.match(app.q('stat-summary').textContent,/الموارد المؤكدة: غير متاحة/);
+});
+
+test('changing native Farm Assistant home troop row supports second send without network',()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:false,minimumTroops:2});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340}};
+ const names=['spear','axe','light'];
+ const createColumn=name=>({querySelector:()=>({
+   getAttribute:key=>key==='data-unit'?name:null
+ })});
+ const header={cells:[{querySelector:()=>null},...names.map(createColumn)]};
+ const values=[
+  {textContent:'من هذه القرية'},
+  {textContent:'20'},{textContent:'30'},{textContent:'10'}
+ ];
+ const home={cells:values,closest:()=>table};
+ const table={querySelectorAll:()=>[header,home]};
+ const query=app.ctx.document.querySelectorAll;
+ app.ctx.document.querySelectorAll=sel=>sel==='tr'?[home]:query(sel);
+ app.createRow('barbarian-A',{A:{onClick:()=>{
+   values[1].textContent='17';values[2].textContent='28';
+ }}});
+ app.createRow('barbarian-B');
+ app.run();app.q('toggle').click();app.tick();
+ assert.equal(app.state.clicked.length,1);
+ app.tick();
+ assert.deepEqual(app.state.clicked,[
+  {id:'barbarian-A',template:'A'},
+  {id:'barbarian-B',template:'A'}
+ ]);
+ assert.equal(app.reloaded,0);
 });
