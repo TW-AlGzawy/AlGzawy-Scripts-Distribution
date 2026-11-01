@@ -72,8 +72,8 @@ function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:50
 }
 test('farm release is 1.0.5 in engine, installer and catalog',()=>{
  new vm.Script(script);new vm.Script(loader);
- assert.match(script,/^\/\/ @version\s+1\.0\.4$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.4$/m);
+ assert.match(script,/^\/\/ @version\s+1\.0\.5$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.5$/m);
  assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.0.5');
 });
 test('previous ON state is always cleared without erasing template or delays; no farm click on opening',()=>{
