@@ -68,10 +68,61 @@
     }catch(_){/* Logs must never force another send. */}
     paintTelemetry();
   }
+
+  let troopSnapshot=null,troopReadAt=0,troopRequest=null;
+  function nativeVillageJSON(html){
+    const match=/\bvar\s+village\s*=\s*/.exec(html);
+    if(!match)return null;
+    const text=html.slice(match.index+match[0].length);
+    if(text[0]!=='{')return null;
+    let depth=0,quote='',escaped=false;
+    for(let i=0;i<text.length;i++){
+      const ch=text[i];
+      if(quote){
+        if(escaped){escaped=false;continue;}
+        if(ch==='\\'){escaped=true;continue;}
+        if(ch===quote)quote='';
+      }else if(ch==='"'||ch==="'")quote=ch;
+      else if(ch==='{')depth++;
+      else if(ch==='}'){
+        if(--depth===0){
+          try{return JSON.parse(text.slice(0,i+1));}catch(_){return null;}
+        }
+      }
+    }
+    return null;
+  }
+  function refreshHomeTroops(){
+    if(troopRequest)return troopRequest;
+    if(!settings.smart||!settings.enabled||humanLocked()||
+       villageId==='unknown'||playerId==='anonymous'||typeof fetch!=='function')
+      return Promise.resolve(null);
+    if(Date.now()-troopReadAt<45000)return Promise.resolve(troopSnapshot);
+    troopReadAt=Date.now();
+    const signal=typeof AbortSignal!=='undefined'&&AbortSignal.timeout?
+      AbortSignal.timeout(6000):undefined;
+    const url='/game.php?village='+encodeURIComponent(villageId)+'&screen=place&mode=scavenge';
+    troopRequest=fetch(url,{credentials:'same-origin',cache:'no-store',signal})
+      .then(async response=>{
+        if(!response.ok)throw Error('scavenge_source_unavailable');
+        const html=await response.text();
+        const village=nativeVillageJSON(html);
+        if(String(village?.village_id)!==villageId||String(village?.player_id)!==playerId||
+           !village.unit_counts_home||typeof village.unit_counts_home!=='object')
+          throw Error('invalid_village_troop_snapshot');
+        troopSnapshot=village.unit_counts_home;
+        paintTelemetry();
+        return troopSnapshot;
+      }).catch(error=>{
+        console.warn('[AlGzawy] Home troop read failed:',String(error));
+        return null;
+      }).finally(()=>{troopRequest=null;});
+    return troopRequest;
+  }
   function readHomeTroops(){
     // Only authoritative home counts are accepted. Unknown means unknown,
     // never "all troops free". Native farm buttons remain the final gate.
-    const counts=window.game_data?.village?.unit_counts_home;
+    const counts=window.game_data?.village?.unit_counts_home||troopSnapshot;
     if(!counts||typeof counts!=='object')return null;
     const allowed=['spear','sword','axe','archer','light','marcher','heavy'];
     const result={};let valid=false;
@@ -224,12 +275,13 @@
     q('toggle').style.color = settings.enabled ? '#f2abb1' : '#06332f';
   }
   function saveInputs() {
-    settings.template = q('template').value in cols ? q('template').value : 'A';
+    const chosen=q('template').value in cols?q('template').value:'A';
+    if(q('per-village').checked!==true)settings.template=chosen;
     settings.smart=q('smart').checked===true;
     settings.allowC=q('allow-c').checked===true;
     settings.perVillage=q('per-village').checked===true;
     settings.minimumTroops=Math.min(100000,Math.max(1,Number(q('min-troops').value)||1));
-    if(settings.perVillage)settings.villageTemplates[villageId]=settings.template;
+    if(settings.perVillage)settings.villageTemplates[villageId]=chosen;
     else delete settings.villageTemplates[villageId];
     settings.minDelay = bounded(q('min-delay').value);
     settings.maxDelay = Math.max(settings.minDelay,bounded(q('max-delay').value));
@@ -292,7 +344,7 @@
     const rawRows=Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
     const troops=readHomeTroops();
     if(settings.smart){
-      if(!troops)return retryLater('لا توجد بيانات مؤكدة عن القوات في هذه القرية؛ الاختيار الذكي متوقف احترازيًا');
+      if(!troops){void refreshHomeTroops();return retryLater('قراءة القوات المؤكدة قيد التحديث؛ لا إرسال قبل اكتمالها');}
       const available=Object.values(troops).reduce((sum,n)=>sum+n,0);
       if(available<settings.minimumTroops)return retryLater('القوات المتاحة أقل من الحد المسموح');
     }
