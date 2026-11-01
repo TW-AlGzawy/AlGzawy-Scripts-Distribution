@@ -11,7 +11,7 @@ test('farm professional QA installer runs QA engine and remains license-controll
  assert.match(source,/^\/\/ @version\s+1\.1\.0$/m);
  assert.match(source,/^\/\/ @namespace\s+.*\/qa-farm-professional-v110$/m);
  assert.ok(source.includes('/'+branch+'/scripts/bot-farm-2.js'));
- assert.ok(source.includes('/'+branch+'/pilots/algzawy-farm-professional-v110-qa.user.js'));
+ assert.equal(source.split('/'+branch+'/pilots/algzawy-farm-professional-v110-qa.user.js').length-1,2,'both Tampermonkey update and download stay in QA');
  assert.ok(source.includes('const ID = "bot-farm-2";'));
  assert.ok(source.includes('hasPortalLicense'));
  assert.ok(source.includes('algzawy_human_verification_pause'));
