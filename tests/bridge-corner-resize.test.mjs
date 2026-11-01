@@ -15,7 +15,7 @@ function geometry(){
 }
 test('Bridge 2.4.15 corners support two-axis resize in all four directions',()=>{
  new vm.Script(bridge);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.15$/m);
  const {visibleBounds,nextCornerGeometry}=geometry();
  const bounds=visibleBounds();
  const start={left:180,top:100,width:260,height:300};
