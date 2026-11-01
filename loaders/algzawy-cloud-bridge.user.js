@@ -45,7 +45,7 @@
     return;
   }
   const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
-  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper"];
+  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper","smart-defense-ultimate"];
   // Notify only: all install/update actions are performed on the subscriber
   // portal. This never upgrades, injects or restarts live game scripts.
   const RELEASES_URL='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/catalog.json';
@@ -116,7 +116,7 @@
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
+  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز","smart-defense-ultimate":"الغزااوي | القائد الذكي للدفاع والقنص"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
@@ -1127,9 +1127,10 @@
  ['send-automation','الغزااوي | الإرساليات الدقيقة','⇢'],
  ['alg-attacks','الغزااوي | تنبيه الهجمات','⚑'],
  ['alg-coins','الغزااوي | الصقل المتطور','◉'],
- ['tribal-wars-helper','الغزااوي | جامع الجوائز','✦']
+ ['tribal-wars-helper','الغزااوي | جامع الجوائز','✦'],
+  ['smart-defense-ultimate','الغزااوي | القائد الذكي للدفاع والقنص','🛡']
  ];
- const oldBridgeLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز"};
+ const oldBridgeLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز","smart-defense-ultimate":"الغزااوي | القائد الذكي للدفاع والقنص"};
  const css=[
  '#algzawy-smart-launcher-qa{position:fixed;right:15px;bottom:15px;z-index:2147482100;width:354px;max-width:calc(100vw - 12px);max-height:86vh;display:flex;flex-direction:column;background:#091e2c;color:#e0f9f2;border:1px solid #2c9388;border-radius:12px;box-shadow:0 15px 38px #000c;overflow:hidden;font:12px/1.6 Tahoma,Arial;direction:rtl}',
  '#algzawy-smart-launcher-qa *{box-sizing:border-box}',
