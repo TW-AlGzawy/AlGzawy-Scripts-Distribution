@@ -180,3 +180,56 @@ test('CAPTCHA or central verification lock cancels saved running state after nav
  assert.equal(tab.has('algzawy_bot2_running_tab_v1'),false,'human-check stop invalidates restart consent');
  assert.match(paused.q('status').textContent,/الفحص البشري/);
 });
+
+
+test('professional smart mode fails closed if native home troop counts are unavailable',()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  switchVillages:false,smart:true,allowC:false,minimumTroops:1});
+ app.createRow('barbarian-7');app.run();
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[]);
+ assert.match(app.q('status').textContent,/لا توجد بيانات مؤكدة/);
+ assert.ok(app.timers.size>0,'no empty busy-loop when native army status unavailable');
+});
+
+test('professional smart mode uses confirmed home count and chooses B for explicit high-loot target',()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  switchVillages:false,smart:true,allowC:false,minimumTroops:3});
+ app.ctx.window.game_data={player:{id:990},village:{id:123,
+  unit_counts_home:{spear:2,light:3}}};
+ const row=app.createRow('barbarian-8');
+ const original=row.getAttribute;
+ row.getAttribute=k=>k==='data-loot-total'?'7000':original(k);
+ app.run();
+ assert.equal(app.q('smart').checked,true);
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barbarian-8',template:'B'}]);
+ assert.match(app.q('stat-summary').textContent,/محاولات: 1/);
+ assert.match(app.q('stat-summary').textContent,/الموارد المؤكدة: غير متاحة/);
+ assert.match(app.q('log-summary').textContent,/attempt/);
+ assert.deepEqual(app.state.removed,[],'real game owns each row');
+});
+
+test('source village template override stays local and selects C only as an explicit user choice',()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  switchVillages:false,smart:false,villageTemplates:{'112':'C'}});
+ app.ctx.window.game_data={player:{id:990},village:{id:112}};
+ app.createRow('barbarian-5');
+ app.run();
+ assert.equal(app.q('template').value,'C');
+ assert.equal(app.q('per-village').checked,true);
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barbarian-5',template:'C'}]);
+ const saved=JSON.parse(app.store.get('algzawy_bot2_settings_v02'));
+ assert.equal(saved.villageTemplates['112'],'C');
+});
+
+test('five professional navigation pages keep safe state and are independently displayed',()=>{
+ const app=simulation({enabled:false,switchVillages:false,template:'A'});
+ app.createRow('barbarian-5');app.run();
+ for(const active of ['targets','army','stats','log','home']){
+  app.q('tab-'+active).click();
+  assert.equal(app.q('page-'+active).style.display,'');
+  assert.equal(app.q('toggle').textContent,'تشغيل النهب');
+ }
+});
