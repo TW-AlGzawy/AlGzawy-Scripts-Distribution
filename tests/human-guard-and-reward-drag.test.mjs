@@ -47,7 +47,7 @@ function harness(){
   setCaptcha:v=>{captcha=v;},get requests(){return requests;}};
 }
 
-test('bridge 2.4.13 compiles and central guard maintains a single lock across repeated scans',()=>{
+test('bridge 2.4.14 compiles and central guard maintains a single lock across repeated scans',()=>{
  new vm.Script(bridge);
  assert.match(bridge,/^\/\/ @version\s+2\.4\.13$/m);
  const h=harness();h.guard.setupHumanGuard();
