@@ -16,19 +16,21 @@ function extracted(name,to,args=[]){
  assert.ok(first>=0&&last>first,name+' is present');
  return new Function(...args,shelf.slice(first,last)+';return '+name.replace('function ','').split('(')[0]+';');
 }
-test('production bridge v2.4.14 has a complete, unique approved theme palette with a distinctive bridge',()=>{
+test('production bridge v2.4.15 has a complete, unique approved theme palette with a distinctive bridge',()=>{
  new vm.Script(bridge);new vm.Script(builder);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
- assert.equal(palettes.length,12);
- assert.equal(new Set(palettes.map(x=>x[1])).size,12);
- assert.equal(new Set(palettes.map(x=>x[5])).size,12);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.15$/m);
+ assert.equal(palettes.length,13);
+ assert.equal(new Set(palettes.map(x=>x[1])).size,13);
+ assert.equal(new Set(palettes.map(x=>x[5])).size,13);
  for(const [name,color] of [
   ['algzawy-panel','#17DB9A'],['algzawy-bot2-panel','#FF4D55'],
   ['alg-window','#268DFF'],['training-bot-panel','#FF9D19'],
   ['alg-atk-panel','#F7D31D'],['algzawy-warehouse-qa','#FF478D'],
-  ['algzawy-reward-panel','#8FE82D'],['algzawy-cloud-pair-panel','#6964FF']]){
+  ['algzawy-reward-panel','#8FE82D'],['algzawy-cloud-pair-panel','#6964FF'],
+  ['algzawy-smart-defense-ultimate-v210','#B49AFF']]){
   assert.equal(palettes.find(x=>x[1]===name)?.[5],color,name+' follows mockup');
  }
+ assert.match(shelf,/\['algzawy-smart-defense-ultimate-v210','header','القائد الذكي للدفاع والقنص','🛡','#B49AFF'/);
  assert.match(shelf,/\.alg-edge-dock-bridge\{border-width:3px/);
  assert.match(shelf,/#algzawy-traditional-builder-v2\{--alg-skin-accent:#B343FF/);
  assert.match(shelf,/const native=document\.getElementById\('algzawy-builder-edge-tab-v1'\)/);

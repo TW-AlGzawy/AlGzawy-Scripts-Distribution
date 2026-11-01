@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.14
+// @version      2.4.15
 // @description  AlGzawy Cloud Bridge Sleep: approved devices, licensed tab pins, Telegram alerts and no automatic page reload.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.14';
+  const BRIDGE_VERSION='2.4.15';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -1608,7 +1608,8 @@ const designs=[
  ['alg-atk-panel','#alg-atk-hdr','تنبيه الهجمات','⚑','#F7D31D','#211E09','#4D410A','#E3BE08'],
  ['algzawy-refine-panel','#alg-refine-header','الصقل المتطور','◉','#00CBF2','#071D2C','#09435F','#04AEDD'],
  ['algzawy-reward-panel','.alg-reward-head','جامع الجوائز','✧','#8FE82D','#082016','#125228','#75D824'],
- ['algzawy-warehouse-qa','header[data-drag]','تنبيه المخازن','⬡','#FF478D','#2A101F','#57213A','#E42B71']
+ ['algzawy-warehouse-qa','header[data-drag]','تنبيه المخازن','⬡','#FF478D','#2A101F','#57213A','#E42B71'],
+ ['algzawy-smart-defense-ultimate-v210','header','القائد الذكي للدفاع والقنص','🛡','#B49AFF','#102031','#172A41','#40E1BF']
 ].map(([id,handle,name,icon,color,bg,header,action,bridge])=>({id,handle,name,icon,color,bg,header,action,bridge:!!bridge}));
 const managed=new Map(),KEY='algzawy_edge_shelf_v1_',GAP=4;
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(n,Math.max(lo,hi)));
