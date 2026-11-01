@@ -12,7 +12,8 @@ const GROUPS = [
   ['alg-attacks','الغزااوي | تنبيه الهجمات','military','تنبيه الهجمات الواردة'],
   ['warehouse-alert-safe','الغزااوي | تنبيه المخازن','resources','تنبيه المخازن عند اقتراب الامتلاء وإرساله إلى Telegram'],
   ['alg-coins','الغزااوي | الصقل المتطور','resources','الصقل المتطور'],
-  ['tribal-wars-helper','الغزااوي | جامع الجوائز','tools','جمع جوائز المهمات']
+  ['tribal-wars-helper','الغزااوي | جامع الجوائز','tools','جمع جوائز المهمات'],
+  ['smart-defense-ultimate','الغزااوي | القائد الذكي للدفاع والقنص','military','🧪 إصدار تجريبي 2.1.5 — رادار قطارات النبلاء وخطط الدعم والقنص والإلغاء؛ الدقة غير مضمونة']
 ];
 const IDS = new Set(GROUPS.map(x=>x[0]));
 const FAV = new Set(GROUPS.map(x=>x[0]));
