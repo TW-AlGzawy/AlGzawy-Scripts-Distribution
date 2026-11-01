@@ -473,7 +473,7 @@ function setupMassPanelControls(panel,header,body){
     function ownsOnlyMassPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawySchedulerQa==='1.0.8';
+        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.8';
     }
     function isCycleEnabled(){
         return GM_getValue('isBotEnabled',true)===true&&ownsOnlyMassPanel()&&
