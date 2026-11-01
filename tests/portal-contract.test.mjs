@@ -135,13 +135,13 @@ async function api(db,path,{method='GET',token='',cookie='',body,headers={}}={})
  const r=await onRequest({request,env:env(db)});return {status:r.status,json:await r.json(),setCookie:r.headers.get('Set-Cookie')};
 }
 function base64url(bytes){return Buffer.from(bytes).toString('base64url');}
-test('No content before login and 9 catalog script IDs match the bridge',async()=>{
+test('No content before login and 10 catalog script IDs match the bridge',async()=>{
  assert.match(html,/<div class="app-shell" hidden>/);
  assert.match(bridge,/GRANT_PREFIX='algzawy_portal_grant_'/);
  assert.match(bridge,/stopAll\(\);/);
  assert.match(html,/<body class="auth-locked">/);
  assert.match(html,/id="loginOverlay" class="modal-overlay" hidden/);
- assert.equal(catalog.length,9);
+ assert.equal(catalog.length,10);
  for(const x of catalog)assert.ok(bridge.includes("'"+x.id+"'"),x.id);
  for(const [,id] of ui.matchAll(/\$\('([a-zA-Z0-9-]+)'\)/g))assert.ok(html.includes('id="'+id+'"'),id);
 });
@@ -295,7 +295,7 @@ test('Admin per-script OFF overrides grants and preferences without changing glo
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2','alg-balance']}});
  assert.equal((await api(db,'scripts/bot-farm-2',{token,method:'PUT',body:{enabled:true}})).status,200);
  const baseline=db.global.revision;
- assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,10);
+ assert.equal((await api(db,'admin/scripts',{token:admin})).json.scripts.length,11);
  const off=await api(db,'admin/scripts',{token:admin,method:'PUT',body:{id:'bot-farm-2',enabled:false}});
  assert.equal(off.status,200);
  const status=await api(db,'me',{token});
@@ -340,7 +340,7 @@ test('Catalog is private and subscriber-visible entries come solely from per-use
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
  list=await api(db,'catalog',{token:userToken});
  assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
- assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,10);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,11);
  await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
  assert.equal((await api(db,'catalog',{token:userToken})).status,403);
 });
@@ -396,9 +396,9 @@ test('Only disabled accounts can be archived or deleted, and restore leaves them
  assert.ok(db.users.some(x=>x.id===other));
  assert.equal(db.global.revision,globalBefore);
 });
-test('Tab pinning must gate all 9 loaders before source execution',()=>{
+test('Tab pinning must gate all 10 loaders before source execution',()=>{
  const ids=catalog.map(x=>x.id);
- assert.equal(ids.length,9);
+ assert.equal(ids.length,10);
  for(const id of ids){
    const src=read('loaders/'+id+'.user.js');
    assert.match(src,/const hasTabPin=/);

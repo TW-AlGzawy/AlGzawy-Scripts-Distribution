@@ -5,14 +5,14 @@ import {readFileSync, existsSync} from 'node:fs';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const manifest=JSON.parse(read('catalog.json'));
 const api=read('portal/functions/api/[[path]].js');
-const EXPECTED=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1','professional-training-v2','send-automation','alg-attacks','alg-coins','tribal-wars-helper'];
+const EXPECTED=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1','professional-training-v2','send-automation','alg-attacks','alg-coins','tribal-wars-helper','smart-defense-ultimate'];
 const DIST='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main';
 
 function metadata(js,key){
   return [...js.matchAll(new RegExp('^//\\s*@'+key+'\\s+(\\S+)$','gm'))].map(m=>m[1]);
 }
 
-test('public manifest matches the nine server licensed script IDs exactly',()=>{
+test('public manifest matches the ten server licensed script IDs exactly',()=>{
   assert.equal(manifest.schema,1);
   assert.equal(manifest.published_candidates.length,EXPECTED.length);
   const actual=manifest.published_candidates.map(item=>item.id);
