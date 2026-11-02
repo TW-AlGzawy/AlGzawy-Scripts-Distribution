@@ -84,6 +84,8 @@
   if(!get('safetyInitialized',false)){
     CFG.DRY_RUN=true;set('cfg',{...CFG});set('on',false);set('safetyInitialized',true);
   }
+  // Each new game-page session starts in preview even when a prior tab was explicitly LIVE.
+  if(!CFG.DRY_RUN){ CFG.DRY_RUN=true; set('cfg',{...CFG}); set('on',false); }
   // External notification credentials are intentionally not read from a public game-page runtime.
   // Telegram/Discord delivery must be routed through server-side protected endpoints before activation.
   CFG.TG_TOKEN='';CFG.DC_HOOK='';CFG.TG_CMD=false;
@@ -1297,6 +1299,9 @@
         const k = i.dataset.k, t = ALLKEYS.find(f => f[0] === k)[2];
         CFG[k] = t === 'b' ? i.checked : t === 'n' ? (+i.value || 0) : i.value.trim();
       });
+      // LIVE can only be enabled via the dedicated confirmation on the main tab.
+      if(!CFG.DRY_RUN){ CFG.DRY_RUN=true; log('🔒 التفعيل الفعلي يتطلب تأكيدًا من زر المعاينة في الرئيسية'); }
+      sessionStorage.removeItem(P+'liveConfirmed');
       const o = {}; ALLKEYS.forEach(([k]) => o[k] = CFG[k]);
       set('cfg', o); set('txtT', 0); set('idleUntil', 0); log('✔ تم حفظ الإعدادات');
       tab = 'main'; box.querySelectorAll('.brp-tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === 'main'));
@@ -1325,7 +1330,7 @@
              `<button class="brp-x" data-x="${m.k}" title="إلغاء الحجز">✕</button></div>`;
     }).join('') : '<div class="brp-empty">لا حجوزات مسجّلة بواسطة السكربت</div>';
     const candHtml = cands.length ? cands.map(c =>
-      `<div class="brp-li"><span class="c">${tk.has(key(c.x, c.y)) ? '🔒 ' : ''}${key(c.x, c.y)}</span><span>${c.fresh ? '🆕' : ''}${c.kind}</span><span>${c.pts} ن</span><span>${c.d.toFixed(1)} ح</span><button class="brp-sm" data-rs="${key(c.x, c.y)}" title="احجز الآن">⚡</button><button class="brp-sm" data-sw="${key(c.x, c.y)}" title="بدل أضعف حجز">🔁</button><button class="brp-sm" data-ig="${key(c.x, c.y)}" title="تجاهل (قائمة سوداء)">🚫</button></div>` + (tk.has(key(c.x, c.y)) && ti[key(c.x, c.y)] ? `<div class="brp-empty" style="padding:0 4px 4px;font-size:10px">🔒 ${esc(ti[key(c.x, c.y)].slice(0, 90))}</div>` : '')).join('')
+      `<div class="brp-li"><span class="c">${tk.has(key(c.x, c.y)) ? '🔒 ' : ''}${key(c.x, c.y)}</span><span>${c.fresh ? '🆕' : ''}${esc(c.kind)}</span><span>${c.pts} ن</span><span>${c.d.toFixed(1)} ح</span><button class="brp-sm" data-rs="${key(c.x, c.y)}" title="احجز الآن">⚡</button><button class="brp-sm" data-sw="${key(c.x, c.y)}" title="بدل أضعف حجز">🔁</button><button class="brp-sm" data-ig="${key(c.x, c.y)}" title="تجاهل (قائمة سوداء)">🚫</button></div>` + (tk.has(key(c.x, c.y)) && ti[key(c.x, c.y)] ? `<div class="brp-empty" style="padding:0 4px 4px;font-size:10px">🔒 ${esc(ti[key(c.x, c.y)].slice(0, 90))}</div>` : '')).join('')
       : '<div class="brp-empty">لا مرشحين ضمن الشروط الحالية</div>';
     const mode = get('scoutMode', 'grid'), L = scoutList();
     const opt = (arr, cur) => arr.map(v => `<option ${v === cur ? 'selected' : ''}>${v}</option>`).join('');
@@ -1334,12 +1339,12 @@
     if (mode === 'grid') {
       sc += `<label class="brp-f"><span>عدد الخرائط</span><select id="brp-sn">${opt([2, 3, 4, 6, 8, 9, 12, 15], get('scoutN', 4))}</select></label>`;
     } else {
-      sc += `<label class="brp-f"><span>القارات<small>مثال: 44,45,54,55</small></span><input type="text" id="brp-sc" value="${String(get('scoutConts', '')).replace(/"/g, '')}"></label>` +
+      sc += `<label class="brp-f"><span>القارات<small>مثال: 44,45,54,55</small></span><input type="text" id="brp-sc" value="${esc(String(get('scoutConts', '')))}"></label>` +
         `<label class="brp-f"><span>كشاف لكل قارة</span><select id="brp-sp">${opt([1, 2, 3, 4, 6], get('scoutPer', 2))}</select></label>` +
         `<label class="brp-f"><span>كشاف إضافي حول قريتي</span><input type="checkbox" id="brp-smid" ${get('scoutMid', true) ? 'checked' : ''}></label>`;
     }
     sc += `<div class="brp-empty">المجموع: ${L.length} كشاف${L.length >= MAX_SCOUTS ? ' (الحد الأقصى)' : ''}</div><div>`;
-    L.forEach(t => { sc += `<a class="brp-a" target="_blank" href="${scoutUrl(t)}">${t.i}. ${t.label} (${t.cx}|${t.cy})</a>`; });
+    L.forEach(t => { sc += `<a class="brp-a" target="_blank" href="${scoutUrl(t)}">${t.i}. ${esc(t.label)} (${t.cx}|${t.cy})</a>`; });
     sc += '</div>' + (L.length ? '<div class="brp-row" style="margin-top:6px"><button class="brp-btn sec" id="brp-all">🚀 فتح الكل (قد يحجب المتصفح بعضها)</button></div>' : '') +
       '<div class="brp-empty">الكشافة تلتقط البربر ضمن «أقصى مسافة» فقط، فاجعلها 0 لتشمل كل الخريطة. مع الكشافة الكثيرة ارفع «تحديث الخريطة» إلى 15–20 ثانية لتخفيف الحمل. التبويبات المخفية يبطئها المتصفح، فالأفضل نوافذ منفصلة.</div>';
     body.innerHTML =
@@ -1533,6 +1538,7 @@
     const p = get('profiles', {})[name];
     if (!p) return false;
     profKeys().forEach(k => { if (k in p) CFG[k] = p[k]; });
+    CFG.DRY_RUN=true;sessionStorage.removeItem(P+'liveConfirmed');
     persistCfg(); set('curProf', name); set('txtT', 0);
     log('📂 طُبّق ملف: ' + name);
     return true;
@@ -1563,7 +1569,7 @@
     body.querySelector('#brp-im').onclick = () => {
       try {
         const j = JSON.parse(val('#brp-io'));
-        if (j.cfg) { profKeys().forEach(k => { if (k in j.cfg) CFG[k] = j.cfg[k]; }); persistCfg(); }
+        if (j.cfg) { profKeys().forEach(k => { if (k in j.cfg) CFG[k] = j.cfg[k]; }); CFG.DRY_RUN=true;sessionStorage.removeItem(P+'liveConfirmed');persistCfg(); }
         if (j.profiles) set('profiles', { ...get('profiles', {}), ...j.profiles });
         log('✔ تم الاستيراد'); renderCfg();
       } catch (e) { log('✖ JSON غير صالح'); }
@@ -2460,7 +2466,7 @@
     const lastHtml = evh.slice(-12).reverse().map(e =>
       `<div class="brp-li"><span>${new Date(e.t).toLocaleTimeString('en-GB').slice(0, 5)}</span><span>${esc(e.type)}</span><span class="c">${esc(e.k)}</span><span>${e.pts || ''}</span></div>`).join('') || '<div class="brp-empty">لا أحداث بعد</div>';
     const watchHtml = get('watch', []).slice(0, 8).map(w =>
-      `<div class="brp-li"><span class="c" style="direction:rtl;text-align:right">${esc(w.name)}</span><span>${w.why}</span><span>${(w.idle / DAY).toFixed(1)}ي</span></div>`).join('') || '<div class="brp-empty">لا لاعبين تحت المراقبة</div>';
+      `<div class="brp-li"><span class="c" style="direction:rtl;text-align:right">${esc(w.name)}</span><span>${esc(w.why)}</span><span>${(w.idle / DAY).toFixed(1)}ي</span></div>`).join('') || '<div class="brp-empty">لا لاعبين تحت المراقبة</div>';
     const lr = get('lastRep', null);
     const lg = (c, t) => `<span style="display:inline-block;width:10px;height:10px;background:${c};border-radius:2px;margin:0 3px 0 2px"></span>${t}`;
     const sq = 'class="brp-ib" style="padding:4px 12px;font-size:16px"';
