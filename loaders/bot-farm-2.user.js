@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.3.0
+// @version      1.3.1
 // @description  AlGzawy Cloud — المرخص للمشترك والجهاز المعتمد
 // @include      https://*.tribalwars.*/game.php?*screen=am_farm*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -60,7 +60,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.3.0');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.3.1');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -90,7 +90,7 @@
   const STOP_MESSAGE='تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const guard=document.documentElement,guardKey='data-algzawy-loader-'+ID;
   if(guard?.hasAttribute(guardKey))return; // Never run two farm engines in the same tab.
-  guard?.setAttribute(guardKey,'1.3.0');
+  guard?.setAttribute(guardKey,'1.3.1');
   let state='init',reason=null,revoked=false,everStarted=false;
   let pending=false,rerun=false,failures=0,lastGoodAt=0,lastRevision='initial';
   let retryTimer=null,lastError=null;
@@ -108,7 +108,7 @@
     if(!hasTabPin())return 'local';
     if(!hasPortalLicense())return 'license';
     if(localStorage.getItem(LOCAL_KEY)==='false')return 'local';
-    if(localStorage.getItem(HUMAN_KEY)==='1')return 'human';
+    if(localStorage.getItem(HUMAN_KEY)==='1'||sessionStorage.getItem(HUMAN_KEY)==='1')return 'human';
     return null;
   }
   function report(reason){
@@ -133,9 +133,13 @@
     // Before the first authorized engine start, even a denied license must
     // be a recoverable BLOCK: the Cloud Bridge may be pairing this new tab.
     if (revoked) { report('sleep'); return; }
-    if(everStarted&&(why==='disabled'||why==='license'||why==='human'||
-       why==='integrity'||why==='engine-error'))return hardStop(why);
-    if(state==='running'&&capabilities.pause){
+    // An expired short-lived local grant, a temporary network outage and
+    // CAPTCHA are suspensions, never permission to keep sending. Only a
+    // confirmed publisher OFF/integrity failure is final.
+    if(everStarted&&(why==='disabled'||why==='integrity'||why==='engine-error'))
+      return hardStop(why);
+    if((state==='running'||state==='paused')&&capabilities.pause){
+      if(state==='paused'){reason=why;report(why);return;}
       document.dispatchEvent(new Event(PAUSE_EVENT));state='paused';reason=why;
     }else if(everStarted)return hardStop(why);
     else{state='blocked';reason=why;}
@@ -267,7 +271,7 @@
   });
   document.addEventListener('algzawy-loader-diagnostics-request',()=>{
     document.dispatchEvent(new CustomEvent('algzawy-loader-diagnostics',
-      {detail:JSON.stringify({id:ID,version:'1.3.0',state,reason,everStarted,revoked,
+      {detail:JSON.stringify({id:ID,version:'1.3.1',state,reason,everStarted,revoked,
         capabilities,failures,lastRevision,lastGoodAgeMs:lastGoodAt?Date.now()-lastGoodAt:null,
         lastError,gates:{tab:hasTabPin(),license:hasPortalLicense(),
           human:localStorage.getItem(HUMAN_KEY)==='1'},trace:notes.slice(-20)})}));
