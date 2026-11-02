@@ -70,11 +70,11 @@ function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:50
  };
  return {run,tick,rows,createRow,state,store,sharedSession,q,timers,ctx,get reloaded(){return reloaded;}};
 }
-test('farm release is 1.0.5 in engine, installer and catalog',()=>{
+test('farm release is 1.3.0 in engine, installer and catalog',()=>{
  new vm.Script(script);new vm.Script(loader);
- assert.match(script,/^\/\/ @version\s+1\.0\.5$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.5$/m);
- assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.0.5');
+ assert.match(script,/^\/\/ @version\s+1\.3\.0$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.3\.0$/m);
+ assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.3.0');
 });
 test('previous ON state is always cleared without erasing template or delays; no farm click on opening',()=>{
  const app=simulation({enabled:true,template:'B',minDelay:2100,maxDelay:2800,switchVillages:false});
@@ -179,4 +179,220 @@ test('CAPTCHA or central verification lock cancels saved running state after nav
  assert.equal(paused.timers.size,0);
  assert.equal(tab.has('algzawy_bot2_running_tab_v1'),false,'human-check stop invalidates restart consent');
  assert.match(paused.q('status').textContent,/الفحص البشري/);
+});
+
+
+test('professional smart mode fails closed if native home troop counts are unavailable',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  switchVillages:false,smart:true,allowC:false,minimumTroops:1});
+ app.createRow('barbarian-7');app.run();
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[]);
+ assert.match(app.q('status').textContent,/تحديث القوات من اللعبة/);
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ assert.match(app.q('status').textContent,/تعذر قراءة القوات/);
+ assert.ok(app.timers.size>0,'failed verification must backoff safely without sending');
+});
+
+test('AUTO template chooses B for explicit high-loot target with verified home troops',()=>{
+ const app=simulation({enabled:false,template:'AUTO',minDelay:500,maxDelay:500,
+  switchVillages:false,smart:true,allowC:false,minimumTroops:3});
+ app.ctx.window.game_data={player:{id:990},village:{id:123,
+  unit_counts_home:{spear:2,light:3}}};
+ const row=app.createRow('barbarian-8');
+ const original=row.getAttribute;
+ row.getAttribute=k=>k==='data-loot-total'?'7000':original(k);
+ app.run();
+ assert.equal(app.q('smart').checked,true);
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barbarian-8',template:'B'}]);
+ assert.match(app.q('stat-summary').textContent,/محاولات: 1/);
+ assert.match(app.q('stat-summary').textContent,/موارد مثبتة بتقارير تحتوي أرقامًا: غير متاحة/);
+ assert.match(app.q('log-summary').textContent,/attempt/);
+ assert.deepEqual(app.state.removed,[],'real game owns each row');
+});
+
+test('source village template override stays local and selects C only as an explicit user choice',()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  switchVillages:false,smart:false,villageTemplates:{'112':'C'}});
+ app.ctx.window.game_data={player:{id:990},village:{id:112}};
+ app.createRow('barbarian-5');
+ app.run();
+ assert.equal(app.q('template').value,'C');
+ assert.equal(app.q('per-village').checked,true);
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barbarian-5',template:'C'}]);
+ const saved=JSON.parse(app.store.get('algzawy_bot2_settings_v02'));
+ assert.equal(saved.villageTemplates['112'],'C');
+});
+
+test('five professional navigation pages keep safe state and are independently displayed',()=>{
+ const app=simulation({enabled:false,switchVillages:false,template:'A'});
+ app.createRow('barbarian-5');app.run();
+ for(const active of ['targets','army','stats','log','home']){
+  app.q('tab-'+active).click();
+  assert.equal(app.q('page-'+active).style.display,'');
+  assert.equal(app.q('toggle').textContent,'تشغيل النهب');
+ }
+});
+
+
+test('smart mode reads only matching own-village JSON from a same-origin game page',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:false,minimumTroops:2});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340}};
+ const row=app.createRow('barb-safe');
+ let requested='';
+ app.ctx.fetch=async(url,init)=>{
+  requested=String(url);
+  assert.equal(init.credentials,'same-origin');
+  return {ok:true,async text(){
+   return '<script>var village = {"village_id":1340,"player_id":1703609,'+
+    '"unit_counts_home":{"spear":3,"light":3},"other":{"nested":"escaped,colon"}};</script>';
+  }};
+ };
+ app.run();app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[],'first step waits for real game data');
+ assert.match(requested,/village=1340.*screen=place.*mode=scavenge/);
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barb-safe',template:'A'}]);
+ assert.match(app.q('stat-summary').textContent,/محاولات: 1/);
+ assert.deepEqual(app.state.removed,[]);
+});
+
+test('smart mode rejects a troop snapshot belonging to another account',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:false});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340}};
+ app.createRow('barb-untrusted');
+ app.ctx.console={warn(){}};
+ app.ctx.fetch=async()=>({ok:true,async text(){
+  return '<script>var village={"village_id":1340,"player_id":22,'+
+  '"unit_counts_home":{"spear":9000}};</script>';
+ }});
+ app.run();app.q('toggle').click();app.tick();
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ app.tick();
+ assert.equal(app.state.clicked.length,0);
+});
+
+
+test('smart mode continues two raids on same village after fetching fresh troops without a page reload',async()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:true,minimumTroops:2});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340,
+  unit_counts_home:{spear:15,axe:20}}};
+ app.createRow('barbarian-1');
+ app.createRow('barbarian-2');
+ let requests=0;
+ app.ctx.fetch=async(url,init)=>{
+  requests++;
+  assert.match(url,/mode=scavenge/);
+  assert.equal(init.credentials,'same-origin');
+  return {ok:true,async text(){
+   return '<script>var village = {"village_id":1340,"player_id":1703609,'+
+    '"unit_counts_home":{"spear":13,"axe":17}};</script>';
+  }};
+ };
+ app.run();app.q('toggle').click();
+ app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barbarian-1',template:'A'}]);
+ // The next scheduled tick waits on the real snapshot, not retryLater
+ // (which used to unconditionally reload the active village).
+ app.tick();
+ assert.equal(app.reloaded,0);
+ assert.equal(requests,1);
+ assert.equal(app.timers.size,0,'no duplicate send while fetch is in flight');
+ for(let i=0;i<5;i++)await new Promise(setImmediate);
+ assert.equal(app.timers.size,1,'a successful troop refresh schedules the next dispatch');
+ app.tick();
+ assert.deepEqual(app.state.clicked,[
+  {id:'barbarian-1',template:'A'},
+  {id:'barbarian-2',template:'A'}
+ ]);
+ assert.equal(app.reloaded,0);
+ assert.match(app.q('stat-summary').textContent,/محاولات: 2/);
+ assert.match(app.q('stat-summary').textContent,/موارد مثبتة بتقارير تحتوي أرقامًا: غير متاحة/);
+});
+
+test('changing native Farm Assistant home troop row supports second send without network',()=>{
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,
+  smart:true,switchVillages:false,minimumTroops:2});
+ app.ctx.window.game_data={player:{id:1703609},village:{id:1340}};
+ const names=['spear','axe','light'];
+ const createColumn=name=>({querySelector:()=>({
+   getAttribute:key=>key==='data-unit'?name:null
+ })});
+ const header={cells:[{querySelector:()=>null},...names.map(createColumn)]};
+ const values=[
+  {textContent:'من هذه القرية'},
+  {textContent:'20'},{textContent:'30'},{textContent:'10'}
+ ];
+ const home={cells:values,closest:()=>table};
+ const table={querySelectorAll:()=>[header,home]};
+ const query=app.ctx.document.querySelectorAll;
+ app.ctx.document.querySelectorAll=sel=>sel==='tr'?[home]:query(sel);
+ app.createRow('barbarian-A',{A:{onClick:()=>{
+   values[1].textContent='17';values[2].textContent='28';
+ }}});
+ app.createRow('barbarian-B');
+ app.run();app.q('toggle').click();app.tick();
+ assert.equal(app.state.clicked.length,1);
+ app.tick();
+ assert.deepEqual(app.state.clicked,[
+  {id:'barbarian-A',template:'A'},
+  {id:'barbarian-B',template:'A'}
+ ]);
+ assert.equal(app.reloaded,0);
+});
+
+
+test('explicit C takes precedence over smart mode even when AUTO-only C permission is off',()=>{
+ const app=simulation({enabled:false,template:'C',smart:true,allowC:false,
+  minDelay:500,maxDelay:500,switchVillages:false,minimumTroops:1});
+ app.ctx.window.game_data={player:{id:991},village:{id:1380,unit_counts_home:{spear:5,axe:30}}};
+ app.createRow('barb-1');
+ app.run();
+ assert.equal(app.q('smart').checked,true);
+ assert.equal(app.q('allow-c').checked,false);
+ assert.equal(app.q('template').value,'C');
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barb-1',template:'C'}]);
+ assert.match(app.q('log-summary').textContent,/attempt · C/);
+ const stored=JSON.parse(app.store.get('algzawy_bot2_settings_v02'));
+ assert.equal(stored.template,'C');
+});
+test('smart target sorting never overrides a manually selected A or B',()=>{
+ for(const template of ['A','B']){
+  const app=simulation({enabled:false,template,smart:true,allowC:true,
+   minDelay:500,maxDelay:500,switchVillages:false,minimumTroops:1});
+  app.ctx.window.game_data={player:{id:991},village:{id:1380,unit_counts_home:{spear:5,axe:30}}};
+  const row=app.createRow('barb-2');
+  const previous=row.getAttribute;
+  row.getAttribute=k=>k==='data-loot-total'?'9000':previous(k);
+  app.run();app.q('toggle').click();app.tick();
+  assert.deepEqual(app.state.clicked,[{id:'barb-2',template}]);
+ }
+});
+test('C disabled in the game must be skipped instead of silently sending A',()=>{
+ const app=simulation({enabled:false,template:'C',smart:true,allowC:false,
+  minDelay:500,maxDelay:500,switchVillages:false,minimumTroops:1});
+ app.ctx.window.game_data={player:{id:991},village:{id:1380,unit_counts_home:{spear:5}}};
+ app.createRow('barb-C-disabled',{C:{disabled:true}});
+ app.run();app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[]);
+ assert.ok(app.timers.size>0,'no native C action means retry/wait, not A');
+});
+test('per-village explicit C overrides AUTO, even with smart mode',()=>{
+ const app=simulation({enabled:false,template:'AUTO',smart:true,allowC:false,
+  villageTemplates:{'112':'C'},minDelay:500,maxDelay:500,switchVillages:false,minimumTroops:1});
+ app.ctx.window.game_data={player:{id:991},village:{id:112,unit_counts_home:{spear:6}}};
+ app.createRow('barb-village-C');
+ app.run();
+ assert.equal(app.q('template').value,'C');
+ app.q('toggle').click();app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'barb-village-C',template:'C'}]);
+ const stored=JSON.parse(app.store.get('algzawy_bot2_settings_v02'));
+ assert.equal(stored.villageTemplates['112'],'C');
 });
