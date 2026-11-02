@@ -130,10 +130,11 @@
     report(why);log('stopped',why);
   }
   function halt(why){
-    // CAPTCHA and central OFF are irreversible until user refreshes.
-    if(why==='disabled'||why==='license'||why==='human'||why==='integrity'||why==='engine-error')
-      return hardStop(why);
+    // Before the first authorized engine start, even a denied license must
+    // be a recoverable BLOCK: the Cloud Bridge may be pairing this new tab.
     if (revoked) { report('sleep'); return; }
+    if(everStarted&&(why==='disabled'||why==='license'||why==='human'||
+       why==='integrity'||why==='engine-error'))return hardStop(why);
     if(state==='running'&&capabilities.pause){
       document.dispatchEvent(new Event(PAUSE_EVENT));state='paused';reason=why;
     }else if(everStarted)return hardStop(why);
