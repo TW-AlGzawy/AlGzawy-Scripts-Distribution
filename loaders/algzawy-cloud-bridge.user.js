@@ -45,7 +45,7 @@
     return;
   }
   const keys={device:'algzawy_cloud_device_token',last:'algzawy_cloud_last_success',mode:'algzawy_cloud_identity_mode',portable:'algzawy_cloud_portable_private_jwk_v2'};
-  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper","smart-defense-ultimate"];
+  const known=["mass-scavenge-v1","bot-farm-2","alg-balance","algzawy-builder-v1","professional-training-v2","send-automation","alg-attacks","warehouse-alert-safe","alg-coins","tribal-wars-helper","smart-defense-ultimate","barb-auto-reserver"];
   // Notify only: all install/update actions are performed on the subscriber
   // portal. This never upgrades, injects or restarts live game scripts.
   const RELEASES_URL='https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/catalog.json';
@@ -116,7 +116,7 @@
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
-  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز","smart-defense-ultimate":"الغزااوي | القائد الذكي للدفاع والقنص"};
+  const scriptLabels={"mass-scavenge-v1":"الغزااوي | الإغارات الجماعية","bot-farm-2":"الغزااوي | بوت النهب","alg-balance":"الغزااوي | موازنة الموارد","algzawy-builder-v1":"الغزااوي | البناء المتطور","professional-training-v2":"الغزااوي | بوت التدريب","send-automation":"الغزااوي | الإرساليات الدقيقة","alg-attacks":"الغزااوي | تنبيه الهجمات","warehouse-alert-safe":"الغزااوي | تنبيه المخازن","alg-coins":"الغزااوي | الصقل المتطور","tribal-wars-helper":"الغزااوي | جامع الجوائز","smart-defense-ultimate":"الغزااوي | القائد الذكي للدفاع والقنص","barb-auto-reserver":"الغزااوي | الحجز التلقائي"};
   let tabId=sessionStorage.getItem(TAB_ID_KEY)||crypto.randomUUID();
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
