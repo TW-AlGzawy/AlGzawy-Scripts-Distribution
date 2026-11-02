@@ -43,7 +43,7 @@ function harness(shared=null){
  'deviceProof','request','Event','tabReady','licensedPins','pinned','GRANT_PREFIX',
  'LICENSE_ID','LICENSE_UNTIL','synchronize',
  bridge.slice(start,end)+
- ';return {checkHumanGuard,setupHumanGuard,challengeVisible,alertHumanOnce,createGuardBanner};');
+ ';return {checkHumanGuard,setupHumanGuard,challengeVisible,alertHumanOnce,createGuardBanner,applyHumanRecovery};');
  const guard=create(doc,win,storage(local),storage(session),known,
   {randomUUID:()=> 'a93c6570-f22c-4ac4-87ca-8be701763481'}, {device:'device-1'},win,
   ()=>({display:'block',visibility:'visible'}),Observer,()=>{},()=>{},
