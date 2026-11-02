@@ -9,8 +9,8 @@ const mass=read('scripts/mass-scavenge-v1.js');
 test('official bridge and scavenge versions compile with preserved enforcement guards',()=>{
  new vm.Script(bridge);
  new vm.Script(mass);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.17$/m);
- assert.match(bridge,/const BRIDGE_VERSION='2\.4\.17'/);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.18$/m);
+ assert.match(bridge,/const BRIDGE_VERSION='2\.4\.18'/);
  assert.match(bridge,/function stopAll\(\)/);
  assert.match(bridge,/function checkPublisher\(\)/);
  assert.match(bridge,/checkHumanGuard/);

@@ -443,7 +443,7 @@ $('adminGlobalRefresh').addEventListener('click',()=>adminGlobal(null));
 $('adminGlobalOn').addEventListener('click',()=>{if(confirm('تشغيل جميع سكربتات الزبائن المتصلة بالمنظومة؟'))adminGlobal(true);});
 $('adminGlobalOff').addEventListener('click',()=>{if(confirm('إيقاف جميع سكربتات الزبائن المرتبطة بالنظام؟'))adminGlobal(false);});
 
-const scriptCategory={raids:['الإغارات','♜'],build:['البناء','▦'],training:['التدريب','♟'],resources:['الموارد','◈'],military:['الإرساليات والتنبيهات','⚑'],tools:['الأدوات','✦']};
+const scriptCategory={raids:['الإغارات','♜'],build:['البناء','▦'],training:['التدريب','♟'],resources:['الموارد','◈'],military:['الإرساليات والتنبيهات','⚑'],reservation:['الحجز وإدارة القرى','🏴'],tools:['الأدوات','✦']};
 const globalScriptView={all:[],filter:'',category:'all'};
 async function loadScriptControls(){
  const data=await api('admin/scripts');globalScriptView.all=data.scripts||[];renderScriptControls();
