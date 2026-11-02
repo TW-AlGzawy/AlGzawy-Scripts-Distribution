@@ -22,7 +22,7 @@ const state={user:null,prefs:{},catalog:[],global:null,csrf:'',expiresAt:0,subsc
 const group={
  raids:{title:'الإغارات والنهب',symbol:'⚔'},build:{title:'البناء',symbol:'⚒'},
  training:{title:'التدريب',symbol:'♜'},resources:{title:'الموارد',symbol:'◇'},
- military:{title:'الهجمات والإرسال',symbol:'➤'},tools:{title:'أدوات إضافية',symbol:'✧'}
+ military:{title:'الهجمات والإرسال',symbol:'➤'},reservation:{title:'الحجز وإدارة القرى',symbol:'🏴'},tools:{title:'أدوات إضافية',symbol:'✧'}
 };
 const names={dashboard:'لوحة القيادة',scripts:'مركز البوتات',tasks:'مركز المهام',villages:'القرى والمزامنة',activity:'سجل هذه الجلسة',connect:'ربط اللعبة',account:'حسابي والاشتراك',telegram:'تنبيهات Telegram'};
 const routeFromHash=()=>{
