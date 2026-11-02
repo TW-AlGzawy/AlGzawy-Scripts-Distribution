@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.16
+// @version      2.4.17
 // @description  AlGzawy Cloud Bridge Sleep: approved devices, licensed tab pins, Telegram alerts and no automatic page reload.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.16';
+  const BRIDGE_VERSION='2.4.17';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -1018,6 +1018,9 @@
   const HUMAN_LOCK='algzawy_human_verification_pause';
   const HUMAN_EVENT='algzawy_human_verification_incident_v1';
   const HUMAN_SENT='algzawy_human_verification_notified_v1';
+  const HUMAN_RECOVER='algzawy_human_recovery_epoch_v1';
+  const TAB_HUMAN_SNAPSHOT='algzawy_human_snapshot_v1';
+  const TAB_HUMAN_RECOVERED='algzawy_human_recovery_seen_v1';
   const HUMAN_SELECTORS='#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection,[id*="captcha"],[class*="captcha"],.g-recaptcha';
   let humanBanner=null,humanAlertPending=false,humanRetryAfter=0,humanStopApplied=false;
   function challengeVisible(){
@@ -1030,7 +1033,76 @@
     }
     return false;
   }
+  function rememberHumanIntent(){
+    // Snapshot tab-local running consent BEFORE any old loader/engine stop event
+    // clears it. Existing queue/task/ACK states remain untouched on disk.
+    let saved=null;
+    try{saved=JSON.parse(sessionStorage.getItem(TAB_HUMAN_SNAPSHOT)||'null');}catch(_){}
+    if(saved?.incident)return;
+    const game=unsafeWindow?.game_data||window.game_data;
+    const village=String(game?.village?.id||'');
+    const builderKey=village?'algzawy_builder_v23_tab_running_'+village:null;
+    const farmKey='algzawy_bot2_running_tab_v1';
+    const intent={
+      incident:localStorage.getItem(HUMAN_EVENT)||crypto.randomUUID(),
+      village, builder:!!builderKey&&sessionStorage.getItem(builderKey)==='1',
+      farm:sessionStorage.getItem(farmKey)==='1',at:Date.now()
+    };
+    try{sessionStorage.setItem(TAB_HUMAN_SNAPSHOT,JSON.stringify(intent));}catch(_){}
+  }
+  function canRecoverHumanTab(){
+    if(!tabReady||!connection.device||!localStorage.getItem(LICENSE_ID)||
+       Number(localStorage.getItem(LICENSE_UNTIL)||0)<=Date.now())return false;
+    return known.some(id=>pinned(id)&&licensedPins.has(id)&&
+      localStorage.getItem(GRANT_PREFIX+id)==='1'&&
+      localStorage.getItem('algzawy_local_enabled_'+id)!=='false');
+  }
+  function restoreHumanIntent(){
+    let snapshot;
+    try{snapshot=JSON.parse(sessionStorage.getItem(TAB_HUMAN_SNAPSHOT)||'null');}catch(_){}
+    if(!snapshot?.incident)return;
+    const game=unsafeWindow?.game_data||window.game_data;
+    const village=String(game?.village?.id||'');
+    // Only same-village tab consent is restored; never activate another village.
+    if(snapshot.builder&&snapshot.village&&snapshot.village===village&&
+       pinned('algzawy-builder-v1')&&
+       localStorage.getItem(GRANT_PREFIX+'algzawy-builder-v1')==='1')
+      sessionStorage.setItem('algzawy_builder_v23_tab_running_'+village,'1');
+    if(snapshot.farm&&pinned('bot-farm-2')&&
+       localStorage.getItem(GRANT_PREFIX+'bot-farm-2')==='1')
+      sessionStorage.setItem('algzawy_bot2_running_tab_v1','1');
+  }
+  function applyHumanRecovery(){
+    const epoch=localStorage.getItem(HUMAN_RECOVER);
+    if(!epoch||sessionStorage.getItem(TAB_HUMAN_RECOVERED)===epoch||
+       !sessionStorage.getItem(TAB_HUMAN_SNAPSHOT))return false;
+    if(localStorage.getItem(HUMAN_LOCK)==='1'||challengeVisible()||!canRecoverHumanTab())
+      return false;
+    // Mark BEFORE reloading, so late storage/focus callbacks cannot cause a
+    // refresh storm. A new incident writes a different epoch.
+    sessionStorage.setItem(TAB_HUMAN_RECOVERED,epoch);
+    sessionStorage.removeItem(HUMAN_LOCK);
+    restoreHumanIntent();
+    sessionStorage.removeItem(TAB_HUMAN_SNAPSHOT);
+    location.reload();
+    return true;
+  }
+  function requestHumanRecovery(){
+    if(challengeVisible())return false;
+    if(localStorage.getItem(HUMAN_LOCK)!=='1')return false;
+    if(!window.confirm('هل أكملت CAPTCHA يدويًا؟ سيتم تحديث تبويبات اللعبة المرخّصة واستعادة المهام المحفوظة.'))return false;
+    // Never acknowledge a completed CAPTCHA without a fresh user action.
+    localStorage.removeItem(HUMAN_LOCK);
+    localStorage.removeItem(HUMAN_EVENT);
+    localStorage.removeItem(HUMAN_SENT);
+    humanStopApplied=false;
+    const epoch=crypto.randomUUID();
+    localStorage.setItem(HUMAN_RECOVER,epoch);
+    void synchronize();
+    return applyHumanRecovery();
+  }
   function stopScriptsForHuman(){
+    rememberHumanIntent();
     // Engines and official loaders already check this legacy lock. Dispatch
     // their stop events immediately as well, never waiting for a 2-min poll.
     for(const id of known)document.dispatchEvent(new Event('__algzawy_stop_'+id));
@@ -1053,14 +1125,11 @@
         description.textContent='لا يزال الفحص البشري ظاهرًا. أكمله أولًا.';
         return;
       }
-      if(!window.confirm('هل أكملت الفحص البشري وتريد السماح بإعادة تشغيل السكربتات يدويًا؟'))return;
-      localStorage.removeItem(HUMAN_LOCK);
-      sessionStorage.removeItem(HUMAN_LOCK);
-      localStorage.removeItem(HUMAN_EVENT);
-      localStorage.removeItem(HUMAN_SENT);
-      humanStopApplied=false;
-      root.remove();humanBanner=null;
-      document.dispatchEvent(new Event('algzawy-local-control-changed'));
+      requestHumanRecovery();
+      if(localStorage.getItem(HUMAN_LOCK)!=='1'){
+        root.remove();humanBanner=null;
+        document.dispatchEvent(new Event('algzawy-local-control-changed'));
+      }
     });
     root.append(title,description,button);document.body.append(root);
     humanBanner=root;
@@ -1100,17 +1169,22 @@
   function checkHumanGuard(){
     if(challengeVisible()){blockForHuman();return;}
     if(localStorage.getItem(HUMAN_LOCK)==='1'||sessionStorage.getItem(HUMAN_LOCK)==='1'){
+      // Any previously blocked tab is allowed to refresh only once after
+      // explicit recovery was issued and verified for the same game origin.
+      if(localStorage.getItem(HUMAN_LOCK)!=='1'&&applyHumanRecovery())return;
       sessionStorage.setItem(HUMAN_LOCK,'1');
       createGuardBanner();
       void alertHumanOnce();
     }
   }
   function setupHumanGuard(){
+    document.addEventListener('algzawy-human-recovery-request',()=>requestHumanRecovery());
     document.addEventListener('algzawy-human-verification',()=>{
       if(localStorage.getItem(HUMAN_LOCK)!=='1'||!localStorage.getItem(HUMAN_EVENT))
         blockForHuman();
     });
     window.addEventListener('storage',e=>{
+      if(e.key===HUMAN_RECOVER){applyHumanRecovery();return;}
       if(e.key!==HUMAN_LOCK)return;
       if(e.newValue==='1'){
         sessionStorage.setItem(HUMAN_LOCK,'1');
@@ -1118,9 +1192,9 @@
         createGuardBanner();
         void alertHumanOnce();
       }else if(e.newValue===null){
-        // Cross-tab unlocking requires an explicit action in the active tab;
-        // until then each tab's session guard remains fail-closed.
-        createGuardBanner();
+        // Lock removal alone is NOT permission: wait for explicit recovery
+        // epoch, live licensing, and local absence of a visible challenge.
+        applyHumanRecovery();
       }
     });
     checkHumanGuard();
@@ -1131,7 +1205,9 @@
       setTimeout(()=>{scanPending=false;if(challengeVisible())checkHumanGuard();},200);
     });
     observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden']});
-    setInterval(checkHumanGuard,1500);
+    setInterval(()=>{if(!applyHumanRecovery())checkHumanGuard();},1500);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')applyHumanRecovery();});
+    window.addEventListener('focus',applyHumanRecovery);
   }
   function start(){
     // Official sleep mode: periodic sync never refreshes or restarts a game tab.
