@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.1
+// @version      1.0.2
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -1307,13 +1307,22 @@
       '<div class="brp-row" style="margin-top:12px"><button class="brp-btn go" id="brp-save">💾 حفظ</button>' +
       '<button class="brp-btn sec" id="brp-test">🔔 اختبار</button><button class="brp-btn stop" id="brp-reset">↺ افتراضي</button></div>';
     body.querySelector('#brp-save').onclick = () => {
+      const wasDry = CFG.DRY_RUN;
       body.querySelectorAll('[data-k]').forEach(i => {
         const k = i.dataset.k, t = ALLKEYS.find(f => f[0] === k)[2];
         CFG[k] = t === 'b' ? i.checked : t === 'n' ? (+i.value || 0) : i.value.trim();
       });
-      // LIVE can only be enabled via the dedicated confirmation on the main tab.
-      if(!CFG.DRY_RUN){ CFG.DRY_RUN=true; log('🔒 التفعيل الفعلي يتطلب تأكيدًا من زر المعاينة في الرئيسية'); }
-      sessionStorage.removeItem(P+'liveConfirmed');
+      // The preview checkbox follows the same guarded path as the main-tab toggle:
+      // staying in the current mode is silent, turning preview ON is always allowed,
+      // and turning it OFF (live) needs authorization + explicit confirmation.
+      const wantDry = CFG.DRY_RUN;
+      CFG.DRY_RUN = wasDry;
+      if (wantDry !== wasDry) {
+        if (wantDry) { CFG.DRY_RUN = true; sessionStorage.removeItem(P+'liveConfirmed'); log('🟡 تم تفعيل وضع المعاينة'); }
+        else if (authorized() && navigator.locks?.request && confirm('تفعيل الحجز الفعلي في هذا التبويب فقط؟ كل تبديل يُفحص قبل وبعد العملية، وأي نتيجة غير مؤكدة توقف السكربت.')) {
+          CFG.DRY_RUN = false; sessionStorage.setItem(P+'liveConfirmed', '1'); log('🔴 تم تفعيل الحجز الفعلي في هذا التبويب');
+        } else log('🔒 بقي السكربت في المعاينة: التفعيل الفعلي يحتاج ترخيصًا وتأكيدك');
+      }
       const o = {}; ALLKEYS.forEach(([k]) => o[k] = CFG[k]);
       set('cfg', o); set('txtT', 0); set('idleUntil', 0); log('✔ تم حفظ الإعدادات');
       tab = 'main'; box.querySelectorAll('.brp-tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === 'main'));
