@@ -18,10 +18,10 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
-      "note": "Hotfix v1.3.1: distinguish user STOP and publisher-revoked from recoverable TTL/CAPTCHA pauses; preserve tab-local run intent and next absolute time. No browser-background timing guarantee; live game QA required.",
+      "note": "v1.4.0: smart ranking from real farm-list values (resources/distance/wall), skip villages with an attack already on the way, optional hourly send cap, passive reading of server answers with automatic back-off after repeated refusals, exponential idle waits. Human-verification pause behaviour unchanged. Live game QA required.",
       "approved_for_final": false
     },
     {
