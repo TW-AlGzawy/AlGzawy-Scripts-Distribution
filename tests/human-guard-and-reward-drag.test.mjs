@@ -11,6 +11,7 @@ assert.ok(start>0&&end>start,'must test actual official central guard');
 
 function harness(shared=null){
  const local=shared||new Map(),session=new Map(),listeners=new Map(),events=[],elements=[];
+ session.set('algzawy_tab_pins_ready_v1','tab-a');
  let reloads=0,syncs=0;
  local.set('algzawy_portal_approved_device','device-1');
  local.set('algzawy_portal_device_authorized_until',String(Date.now()+120000));
@@ -41,7 +42,7 @@ function harness(shared=null){
  const create=new Function('document','window','localStorage','sessionStorage','known','crypto',
  'connection','unsafeWindow','getComputedStyle','MutationObserver','setInterval','setTimeout','location',
  'deviceProof','request','Event','tabReady','licensedPins','pinned','GRANT_PREFIX',
- 'LICENSE_ID','LICENSE_UNTIL','synchronize',
+ 'LICENSE_ID','LICENSE_UNTIL','synchronize','tabVerified','TAB_READY_KEY','tabId',
  bridge.slice(start,end)+
  ';return {checkHumanGuard,setupHumanGuard,challengeVisible,alertHumanOnce,createGuardBanner,applyHumanRecovery};');
  const guard=create(doc,win,storage(local),storage(session),known,
@@ -52,7 +53,8 @@ function harness(shared=null){
   class Event{constructor(type){this.type=type;}},
   true,new Set(['bot-farm-2','algzawy-builder-v1','alg-balance','tribal-wars-helper']),()=>true,
   'algzawy_portal_grant_','algzawy_portal_approved_device',
-  'algzawy_portal_device_authorized_until',()=>{syncs++;});
+  'algzawy_portal_device_authorized_until',()=>{syncs++;},
+  true,'algzawy_tab_pins_ready_v1','tab-a');
  return {guard,local,session,doc,events,elements,listeners,
   get reloads(){return reloads;},get syncs(){return syncs;},
   setCaptcha:v=>{captcha=v;},get requests(){return requests;}};
