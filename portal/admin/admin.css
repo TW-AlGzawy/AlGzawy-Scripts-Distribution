@@ -108,3 +108,10 @@
 .owner-password-control>button{flex:none;min-height:42px;padding:6px 12px;border:1px solid #3b6576;border-radius:8px;color:#bffbe5;background:#16463e;cursor:pointer}
 #ownerLoginModeStatus{min-height:24px;color:#a6ddcf;overflow-wrap:anywhere}
 #ownerAuthSubmit:disabled{opacity:.6;cursor:not-allowed}
+
+/* Barb Control — isolated owner-only styling. */
+#adminBarbControl textarea{width:100%;box-sizing:border-box;max-width:100%;min-height:68px;background:#0b1f31;color:#d9fff1;border:1px solid #3e6570;border-radius:8px;padding:9px;direction:ltr;text-align:left}
+#adminBarbDeviceSecret code{display:block;direction:ltr;unicode-bidi:plaintext;overflow-wrap:anywhere;user-select:all;margin-top:8px}
+.barb-audit-feed{display:grid;gap:8px;max-height:330px;overflow:auto}
+.barb-audit-entry{display:grid;gap:4px;padding:9px 12px;border:1px solid #31585b;border-radius:8px;background:#0d2630;overflow-wrap:anywhere}
+.barb-audit-entry strong{font-size:12px}.barb-audit-entry span{font-size:12px;white-space:pre-wrap}
