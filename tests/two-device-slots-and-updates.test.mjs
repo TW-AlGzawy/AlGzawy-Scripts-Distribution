@@ -82,7 +82,8 @@ test('farm run state is persisted per game tab only and is not a security bypass
  assert.match(farm,/sessionStorage\.removeItem\(RUN_KEY\)/);
  assert.match(farm,/humanLocked\(\)/);
  assert.match(farm,/schedule\(Number\.isFinite\(remaining\)/);
- assert.match(farm,/if\(policyPaused\|\|terminated\|\|challengeDetected\(\)\)return stop/);
+ assert.match(farm,/if\(policyPaused\|\|terminated\|\|challengeDetected\(\)\)\{/);
+ assert.match(farm,/pauseForSafety\('لا يمكن التشغيل قبل إكمال الفحص البشري'\)/);
  assert.match(read('loaders/bot-farm-2.user.js'),/^\/\/ @version\s+1\.3\.1$/m);
  assert.equal(JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.3.1');
 });
