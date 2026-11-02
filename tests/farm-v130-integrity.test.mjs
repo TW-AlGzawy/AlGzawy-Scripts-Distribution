@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-test('farm v1.3.1 source matches exact SHA-256 pinned in loader',()=>{
+test('farm v1.4.0 source matches exact SHA-256 pinned in loader',()=>{
  const loader=read('loaders/bot-farm-2.user.js');
  const engine=read('scripts/bot-farm-2.js');
  const digest=createHash('sha256').update(engine,'utf8').digest('hex');

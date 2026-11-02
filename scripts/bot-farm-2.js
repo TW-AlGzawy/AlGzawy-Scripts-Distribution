@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.3.1
+// @version      1.4.0
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -41,7 +41,7 @@
   const HUMAN_KEY='algzawy_human_verification_pause';
   const humanLocked=()=>localStorage.getItem(HUMAN_KEY)==='1'||
     sessionStorage.getItem(HUMAN_KEY)==='1';
-  const defaults = {enabled:false,template:'A',minDelay:1000,maxDelay:2000,switchVillages:true,smart:false,allowC:false,perVillage:false,minimumTroops:1,villageTemplates:{}};
+  const defaults = {enabled:false,template:'A',minDelay:1000,maxDelay:2000,switchVillages:true,smart:false,allowC:false,perVillage:false,minimumTroops:1,villageTemplates:{},skipIncoming:true,maxPerHour:0};
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { saved = null; }
   let settings = Object.assign({},defaults,saved || {});
@@ -55,6 +55,7 @@
   if(humanLocked()&&resumeRequested){policyPaused=true;runBeforePause=true;}
   let timer = null;
   let actions = 0;
+  let skippedIncoming=0;
   const attempted = new Set();
   let attemptedRows = new WeakSet();
   // Select Tribal Wars' actual farm actions by type, not fragile table columns.
@@ -229,12 +230,59 @@
     const value=row.getAttribute?.(key),n=Number(value);
     return value!=null&&value!==''&&Number.isFinite(n)&&n>=0?n:null;
   };
+  // ---- v1.4.0: native Farm Assistant row readers. Every reader is optional:
+  // when the page does not expose a value it stays "unknown" (null/false) and
+  // the engine behaves exactly like v1.3.1. Nothing here is ever estimated.
+  const toInt=text=>{
+    const n=parseInt(String(text||'').replace(/[^\d]/g,''),10);
+    return Number.isFinite(n)?n:null;
+  };
+  const SEL_INCOMING='img[src*="command/attack"],img[src*="attack_small"]';
+  const SEL_FULL_LOOT='img[src*="max_loot/1"]';
+  function rowResources(row){
+    const cell=row?.querySelector?.('td[colspan="3"]');
+    const spans=cell?.querySelectorAll?.('span.nowrap');
+    if(!spans||spans.length<3)return null;
+    const nums=[];
+    for(let i=0;i<3;i++){
+      const holder=spans[i]?.querySelector?.('.res,.warn_90,.warn_100,.warn_75,.warn_50')||spans[i];
+      const n=toInt(holder?.textContent);
+      if(n===null)return null;
+      nums.push(n);
+    }
+    return {wood:nums[0],stone:nums[1],iron:nums[2],total:nums[0]+nums[1]+nums[2]};
+  }
+  function rowWall(row){
+    const cells=row?.querySelectorAll?.('td');
+    if(!cells)return null;
+    for(const cell of Array.from(cells)){
+      const text=String(cell?.textContent||'').trim();
+      if(/^\d{1,2}$/.test(text)&&Number(text)<=20&&cell?.style?.textAlign==='center')return Number(text);
+    }
+    return null;
+  }
+  function ownCoord(){
+    const m=String(window.game_data?.village?.coord||'').match(/(\d{1,3})\|(\d{1,3})/);
+    return m?{x:+m[1],y:+m[2]}:null;
+  }
+  function rowDistance(row){
+    const own=ownCoord();
+    const m=own&&String(row?.textContent||'').match(/(\d{1,3})\|(\d{1,3})/);
+    return m?Math.hypot(+m[1]-own.x,+m[2]-own.y):null;
+  }
+  const rowIncoming=row=>!!row?.querySelector?.(SEL_INCOMING);
+  const rowFullLoot=row=>!!row?.querySelector?.(SEL_FULL_LOOT);
   function targetPriority(row){
-    // Explicit native row metadata only. Unknown risk/loot has neutral score.
+    // Explicit native row metadata first (v1.3.1 contract). Unknown = neutral.
     const priority=numericAttr(row,'data-raid-priority');
     const loot=numericAttr(row,'data-loot-total');
     const risk=numericAttr(row,'data-raid-risk');
-    return (priority??0)*100+Math.min(10000,loot??0)/100-(risk??0)*25;
+    if(priority!==null||loot!==null||risk!==null)
+      return (priority??0)*100+Math.min(10000,loot??0)/100-(risk??0)*25;
+    // Otherwise rank only by values the game itself shows in the row.
+    const res=rowResources(row),dist=rowDistance(row),wall=rowWall(row),full=rowFullLoot(row);
+    if(!res&&dist===null&&wall===null&&!full)return 0;
+    return Math.min(10000,res?.total??0)/100+(full?20:0)-(dist??0)-(wall??0)*3;
   }
   function chosenTemplate(row){
     const villageOverride=settings.villageTemplates[villageId];
@@ -244,7 +292,7 @@
     // priority and troop checks are enabled. Never silently replace C with A.
     if(cols[selected])return selected;
     if(selected!=='AUTO')return null;
-    const loot=numericAttr(row,'data-loot-total');
+    const loot=numericAttr(row,'data-loot-total')??rowResources(row)?.total??null;
     // C uses a recent scout report; never select C from its icon alone.
     const scout=row.querySelector?.('[data-scout-report-id]');
     if(settings.allowC&&scout&&availableTemplate(row,'C'))return 'C';
@@ -252,6 +300,66 @@
     if(availableTemplate(row,'A'))return 'A';
     if(availableTemplate(row,'B'))return 'B';
     return null;
+  }
+  // ---- v1.4.0: server answers, error back-off and hourly cap ----
+  const BACKOFF_KEY='algzawy_bot2_server_backoff_until_v1';
+  const IDLE_KEY='algzawy_bot2_idle_streak_v1';
+  const HOURLY='algzawy_bot2_hourly_v1_'+scope;
+  let rejectStreak=0;
+  const hourlyStamps=()=>{
+    try{
+      const list=JSON.parse(localStorage.getItem(HOURLY)||'[]'),cut=Date.now()-3600000;
+      return Array.isArray(list)?list.filter(t=>Number.isFinite(t)&&t>cut):[];
+    }catch(_){return [];}
+  };
+  function recordSend(){
+    try{
+      const list=hourlyStamps();list.push(Date.now());
+      localStorage.setItem(HOURLY,JSON.stringify(list.slice(-3000)));
+    }catch(_){/* A counter failure must never trigger another send. */}
+  }
+  function backoffRemaining(){
+    try{return Math.max(0,Number(sessionStorage.getItem(BACKOFF_KEY)||0)-Date.now());}
+    catch(_){return 0;}
+  }
+  function serverRejected(message){
+    rejectStreak++;
+    appendEvent({kind:'rejected',message:String(message||'').slice(0,120)});
+    if(rejectStreak<3)return;
+    // 3 consecutive refusals: stop sending, wait 2,4,8..15 min. Never retry in a burst.
+    const wait=Math.min(15*60000,120000*Math.pow(2,Math.min(3,rejectStreak-3)));
+    try{sessionStorage.setItem(BACKOFF_KEY,String(Date.now()+wait));}catch(_){}
+  }
+  function serverAccepted(target){
+    rejectStreak=0;
+    try{sessionStorage.removeItem(BACKOFF_KEY);}catch(_){}
+    appendEvent({kind:'accepted',target:String(target||'')});
+  }
+  // Observe the game's own Farm Assistant AJAX answer. Passive: it never sends,
+  // never edits the request, and does nothing if jQuery or the URL differs.
+  function onFarmResponse(opts,xhr){
+    const url=String(opts?.url||''),data=typeof opts?.data==='string'?opts.data:'';
+    if(!/screen=am_farm/.test(url)||!/(ajaxaction=farm|template_id)/.test(url+'&'+data))return;
+    const status=Number(xhr?.status)||0;
+    const target=((url+'&'+data).match(/[?&]target=(\d+)/)||[])[1]||'';
+    if(status===429||status>=500)return serverRejected('http '+status);
+    let body=null;
+    try{body=JSON.parse(xhr?.responseText||'null');}catch(_){}
+    const payload=body&&typeof body==='object'?
+      (body.response&&typeof body.response==='object'?body.response:body):null;
+    if(!payload)return;
+    const err=payload.error!=null?payload.error:payload.errors;
+    if(err!=null&&err!==false&&err!=='')
+      return serverRejected(String(Array.isArray(err)?err.join(' '):err).replace(/<[^>]*>/g,''));
+    if(payload.success!=null&&payload.success!==false)serverAccepted(target);
+  }
+  function hookFarmAjax(){
+    try{
+      const jq=window.jQuery||window.$;
+      const handle=typeof jq==='function'?jq(document):null;
+      if(!handle||typeof handle.ajaxComplete!=='function')return;
+      handle.ajaxComplete((_event,xhr,opts)=>{try{onFarmResponse(opts,xhr);}catch(_){}});
+    }catch(_){/* Observation is optional; sending never depends on it. */}
   }
   function alreadyClaimed(key){
     try{return Number(localStorage.getItem(CLAIM+key)||0)>Date.now();}
@@ -298,7 +406,11 @@
       ' | أوامر مؤكدة: '+verified+' | تقارير: '+reports.length+
       ' | أخطاء: '+failures+'\nموارد مثبتة بتقارير تحتوي أرقامًا: '+
       (confirmedReports.length?resources:'غير متاحة')+
-      ' (لا تُحسب محاولات النقر كنجاحات)';
+      ' (لا تُحسب محاولات النقر كنجاحات)'+
+      '\nمقبول من الخادم: '+entries.filter(e=>e.kind==='accepted').length+
+      ' | مرفوض: '+entries.filter(e=>e.kind==='rejected').length+
+      ' | آخر ساعة: '+hourlyStamps().length+' إرسالًا'+(Number(settings.maxPerHour)>0?' من '+settings.maxPerHour:'')+
+      (skippedIncoming?'\nتخطّى '+skippedIncoming+' قرية فيها هجوم قادم':'');
     const army=document.getElementById('algzawy-bot2-army-summary');
     if(army){
       const counts=readHomeTroops();
@@ -342,6 +454,8 @@
     '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-allow-c"> السماح باختيار C في الوضع التلقائي فقط</label>'+
     '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-per-village"> حفظ القالب لهذه القرية فقط</label>'+
     '<label>الحد الأدنى للقوات المؤكدة (الوضع الذكي)<input type="number" min="1" max="100000" id="algzawy-bot2-min-troops" style="width:95%;background:#07111c;color:white"></label>'+
+    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-skip-incoming"> تخطّي القرى التي فيها هجوم قادم (لا إرسال مكرر)</label>'+
+    '<label>حد أقصى للإرسال بالساعة (0 = بلا حد)<input type="number" min="0" max="5000" id="algzawy-bot2-max-hour" style="width:95%;background:#07111c;color:white"></label>'+
     '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-switch" style="accent-color:#40e1bf;color-scheme:dark"> التنقل بين القرى تلقائيًا</label>'+
     '<button type="button" id="algzawy-bot2-toggle" style="width:100%;margin-top:9px;padding:8px;border:0;border-radius:7px;background:#40e1bf;color:#06332f;cursor:pointer"></button>'+
     '</div>'+
@@ -373,6 +487,8 @@
   q('per-village').checked=Boolean(cols[settings.villageTemplates[villageId]]||
     settings.villageTemplates[villageId]==='AUTO');
   q('min-troops').value=Math.max(1,Number(settings.minimumTroops)||1);
+  q('skip-incoming').checked=settings.skipIncoming!==false;
+  q('max-hour').value=Math.max(0,Math.min(5000,Number(settings.maxPerHour)||0));
   q('min-delay').value = bounded(settings.minDelay);
   q('max-delay').value = bounded(settings.maxDelay);
   q('switch').checked = settings.switchVillages !== false;
@@ -390,6 +506,8 @@
     settings.allowC=q('allow-c').checked===true;
     settings.perVillage=q('per-village').checked===true;
     settings.minimumTroops=Math.min(100000,Math.max(1,Number(q('min-troops').value)||1));
+    settings.skipIncoming=q('skip-incoming').checked!==false;
+    settings.maxPerHour=Math.max(0,Math.min(5000,Number(q('max-hour').value)||0));
     if(settings.perVillage)settings.villageTemplates[villageId]=chosen;
     else delete settings.villageTemplates[villageId];
     settings.minDelay = bounded(q('min-delay').value);
@@ -436,12 +554,18 @@
   }
   function retryLater(message) {
     if (!settings.enabled||policyPaused||terminated) return;
+    // v1.4.0: idle checks back off 1x,2x,4x..16x (max 5 min) instead of a fixed
+    // reload every ~15s; any real attempt resets the streak.
+    let streak=0;
+    try{streak=Math.min(4,Number(sessionStorage.getItem(IDLE_KEY)||0)||0);
+      sessionStorage.setItem(IDLE_KEY,String(streak+1));}catch(_){}
+    const idleWait=Math.min(300000,Math.max(15000,settings.maxDelay)*Math.pow(2,streak));
     status(message+' — إعادة الفحص تلقائيًا');
     timer=setTimeout(()=>{
       if (!settings.enabled||policyPaused||terminated||challengeDetected()) return;
       attempted.clear();attemptedRows=new WeakSet();
       if(settings.switchVillages) location.reload(); else step();
-    },Math.max(15000,settings.maxDelay));
+    },idleWait);
   }
   function nextVillage() {
     if (!settings.switchVillages) return retryLater('لا توجد أهداف قابلة للنهب حاليًا');
@@ -461,6 +585,22 @@
       pauseForSafety('تم رصد تحقق بشري؛ حُفظت نية التشغيل، ولا إرسال حتى التحقق');
       alert('AlGzawy: مطلوب تحقق بشري. تم إيقاف النهب.');
       return;
+    }
+    const backoffMs=backoffRemaining();
+    if(backoffMs>0){
+      status('الخادم رفض عدة طلبات متتالية — توقف مؤقت '+Math.ceil(backoffMs/1000)+'ث دون إرسال');
+      timer=setTimeout(step,Math.min(backoffMs+500,30000));
+      return;
+    }
+    const hourCap=Number(settings.maxPerHour)||0;
+    if(hourCap>0){
+      const stamps=hourlyStamps();
+      if(stamps.length>=hourCap){
+        const waitMs=Math.max(5000,Math.min(...stamps)+3600000-Date.now()+500);
+        status('بلغ الإرسال الحد الساعي ('+hourCap+') — انتظار '+Math.ceil(waitMs/1000)+'ث');
+        timer=setTimeout(step,Math.min(waitMs,120000));
+        return;
+      }
     }
     observeNativeReports();
     const rawRows=Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
@@ -497,6 +637,7 @@
     let found = null, key = '',selectedRow=null,selectedTemplate='A',claimKey='';
     for (let i=0;i<trs.length;i++) {
       const row = trs[i];
+      if(settings.skipIncoming!==false&&rowIncoming(row)){skippedIncoming++;continue;}
       const targetTemplate=chosenTemplate(row);
       const targetClass=cols[targetTemplate];
       const link = targetClass&&row.querySelector('a.'+targetClass);
@@ -520,6 +661,8 @@
       // Clicking the game's own farm action is only a *request*. It does
       // not prove a troop dispatch was accepted, much less a successful haul.
       found.click();
+      recordSend();
+      try{sessionStorage.removeItem(IDLE_KEY);}catch(_){}
       observeConfirmation(selectedRow,claimKey,selectedTemplate,previousCommand);
       appendEvent({kind:'attempt',target:claimKey,template:selectedTemplate});
       attempted.add(key);
@@ -549,7 +692,7 @@
     settings.enabled=true;rememberRun();updateButton();attempted.clear();attemptedRows=new WeakSet();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
     schedule();
   });
-  ['template','min-delay','max-delay','switch','smart','allow-c','per-village','min-troops']
+  ['template','min-delay','max-delay','switch','smart','allow-c','per-village','min-troops','skip-incoming','max-hour']
     .forEach(id=>q(id).addEventListener('change',saveInputs));
   const pages=['home','targets','army','stats','log'];
   pages.forEach(active=>q('tab-'+active).addEventListener('click',()=>{
@@ -612,6 +755,7 @@
   // Loader listens before engine construction; announce capabilities after
   // initialization, never as a security authorization token.
   dispatchCap();
+  hookFarmAjax();
   // Wait for the installer to authorize this browser/tab before constructing
   // the engine. A refreshed authorized tab keeps its explicit run intent and
   // the remaining delay; an expired delay schedules a *new* interval.
