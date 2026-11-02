@@ -9,7 +9,7 @@ const loader=read('loaders/bot-farm-2.user.js');
 const catalog=JSON.parse(read('catalog.json'));
 function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:500,switchVillages:false},sharedSession=new Map()){
  const store=new Map([['algzawy_bot2_settings_v02',JSON.stringify(previous)]]);
- const handlers=new Map(), timers=new Map(),nodes=new Map();
+ const handlers=new Map(), timers=new Map(),nodes=new Map(),docEvents=new Map();
  let nextTimer=0,reloaded=0;
  const state={clicked:[],removed:[],gameLinkEvents:0};
  function element(id=''){
@@ -53,7 +53,11 @@ function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:50
    },
    querySelector:()=>null,
    querySelectorAll:selector=>selector==='#plunder_list tr'?[{id:'header'},...rows]:[],
-   addEventListener(){},dispatchEvent(){}
+   addEventListener(type,fn){
+     if(!docEvents.has(type))docEvents.set(type,[]);
+     docEvents.get(type).push(fn);
+   },
+   dispatchEvent(event){for(const cb of docEvents.get(event.type)||[])cb(event);}
  };
  const localStorage={getItem:key=>store.get(key)||null,setItem:(key,val)=>store.set(key,String(val)),removeItem:key=>store.delete(key)};
  const sessionStorage={getItem:key=>sharedSession.get(key)||null,setItem:(key,val)=>sharedSession.set(key,String(val)),removeItem:key=>sharedSession.delete(key)};
@@ -70,11 +74,11 @@ function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:50
  };
  return {run,tick,rows,createRow,state,store,sharedSession,q,timers,ctx,get reloaded(){return reloaded;}};
 }
-test('farm release is 1.3.0 in engine, installer and catalog',()=>{
+test('farm release is 1.3.1 in engine, installer and catalog',()=>{
  new vm.Script(script);new vm.Script(loader);
- assert.match(script,/^\/\/ @version\s+1\.3\.0$/m);
- assert.match(loader,/^\/\/ @version\s+1\.3\.0$/m);
- assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.3.0');
+ assert.match(script,/^\/\/ @version\s+1\.3\.1$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.3\.1$/m);
+ assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.3.1');
 });
 test('previous ON state is always cleared without erasing template or delays; no farm click on opening',()=>{
  const app=simulation({enabled:true,template:'B',minDelay:2100,maxDelay:2800,switchVillages:false});
@@ -166,19 +170,21 @@ test('running bot resumes safely after refresh with remaining countdown in same 
  const stopped=simulation(config,tab);stopped.run();
  assert.equal(stopped.timers.size,0,'stopped remains stopped after another refresh');
 });
-test('CAPTCHA or central verification lock cancels saved running state after navigation',()=>{
+test('CAPTCHA on reload preserves tab run intent but does not send until verified recovery',()=>{
  const tab=new Map([['algzawy_bot2_running_tab_v1','1']]);
- const c={enabled:false,template:'A',minDelay:2000,maxDelay:2000,switchVillages:false};
- const paused=simulation(c,tab);
- paused.store.set('algzawy_human_verification_pause','1');
- // A separately flagged instance can be tested with a tab-scoped lock as well.
- // Use local map if the engine's page was already stopped by Cloud Bridge.
- const storage=paused.ctx.localStorage;
- storage.setItem('algzawy_human_verification_pause','1');
- paused.run();
- assert.equal(paused.timers.size,0);
- assert.equal(tab.has('algzawy_bot2_running_tab_v1'),false,'human-check stop invalidates restart consent');
- assert.match(paused.q('status').textContent,/الفحص البشري/);
+ const config={enabled:false,template:'A',minDelay:2000,maxDelay:2000,switchVillages:false};
+ const app=simulation(config,tab);
+ app.ctx.localStorage.setItem('algzawy_human_verification_pause','1');
+ app.createRow('village-paused');app.run();
+ assert.equal(app.timers.size,0);
+ assert.equal(tab.get('algzawy_bot2_running_tab_v1'),'1','consent is kept only in this tab');
+ assert.match(app.q('status').textContent,/معلّق بسبب الفحص البشري/);
+ assert.equal(app.state.clicked.length,0);
+ app.ctx.localStorage.removeItem('algzawy_human_verification_pause');
+ app.ctx.document.dispatchEvent(new app.ctx.Event('__algzawy_resume_bot-farm-2'));
+ assert.equal(app.timers.size,1,'only an explicit authorized resume may schedule a fresh dispatch');
+ app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'village-paused',template:'A'}]);
 });
 
 
@@ -395,4 +401,35 @@ test('per-village explicit C overrides AUTO, even with smart mode',()=>{
  assert.deepEqual(app.state.clicked,[{id:'barb-village-C',template:'C'}]);
  const stored=JSON.parse(app.store.get('algzawy_bot2_settings_v02'));
  assert.equal(stored.villageTemplates['112'],'C');
+});
+
+
+test('a live CAPTCHA pauses running Farm without erasing intent, after recovery resumes once',()=>{
+ const tab=new Map();
+ const app=simulation({enabled:false,template:'C',minDelay:700,maxDelay:700,switchVillages:false},tab);
+ app.createRow('target-c');app.run();app.q('toggle').click();
+ assert.equal(app.timers.size,1);
+ app.ctx.localStorage.setItem('algzawy_human_verification_pause','1');
+ app.ctx.document.dispatchEvent(new app.ctx.Event('__algzawy_stop_bot-farm-2'));
+ app.ctx.document.dispatchEvent(new app.ctx.Event('algzawy-human-verification'));
+ assert.equal(app.timers.size,0);
+ assert.equal(tab.get('algzawy_bot2_running_tab_v1'),'1');
+ assert.match(app.q('toggle').textContent,/معلّق/);
+ assert.equal(app.state.clicked.length,0);
+ app.ctx.localStorage.removeItem('algzawy_human_verification_pause');
+ app.ctx.document.dispatchEvent(new app.ctx.Event('__algzawy_resume_bot-farm-2'));
+ assert.equal(app.timers.size,1);
+ app.tick();assert.deepEqual(app.state.clicked,[{id:'target-c',template:'C'}]);
+ app.ctx.document.dispatchEvent(new app.ctx.Event('__algzawy_resume_bot-farm-2'));
+ assert.equal(app.timers.size,1,'duplicate resume must not create multiple timer chains');
+});
+test('publisher-confirmed STOP differs from CAPTCHA pause, clears explicit RUN intent',()=>{
+ const tab=new Map();
+ const app=simulation({enabled:false,template:'A',minDelay:500,maxDelay:500,switchVillages:false},tab);
+ app.createRow('target-a');app.run();app.q('toggle').click();
+ assert.equal(tab.get('algzawy_bot2_running_tab_v1'),'1');
+ app.ctx.document.dispatchEvent(new app.ctx.Event('__algzawy_stop_bot-farm-2'));
+ assert.equal(app.timers.size,0);
+ assert.equal(tab.has('algzawy_bot2_running_tab_v1'),false);
+ assert.match(app.q('status').textContent,/التحكم المركزي/);
 });
