@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         الغزااوي | بوت النهب الاحترافي
+// @name         الغزااوي | بوت النهب
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      1.3.0
 // @description  AlGzawy Cloud — المرخص للمشترك والجهاز المعتمد
@@ -11,7 +11,7 @@
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @grant        GM_xmlhttpRequest
 // @grant        GM_info
-// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/pilots/algzawy-farm-professional-v110-qa.user.js
+// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js
 // @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/pilots/algzawy-farm-professional-v110-qa.user.js
 // ==/UserScript==
 (function () {
@@ -85,7 +85,7 @@
   const POLL_MS=120000,REQUEST_TIMEOUT=6000,RETRY_BASE_MS=5000,RETRY_MAX_MS=60000;
   const STOP_EVENT='__algzawy_stop_'+ID,PAUSE_EVENT='__algzawy_pause_'+ID,
     RESUME_EVENT='__algzawy_resume_'+ID;
-  const BLOCKED_PANEL_ID='algzawy-blocked-'+ID;
+  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
   const ATTEMPT_EVENT='__algzawy_attempt_bot-farm-2';
   const STOP_MESSAGE='تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const guard=document.documentElement,guardKey='data-algzawy-loader-'+ID;
@@ -133,13 +133,15 @@
     // CAPTCHA and central OFF are irreversible until user refreshes.
     if(why==='disabled'||why==='license'||why==='human'||why==='integrity'||why==='engine-error')
       return hardStop(why);
-    if(revoked)return report('sleep');
+    if (revoked) { report('sleep'); return; }
     if(state==='running'&&capabilities.pause){
       document.dispatchEvent(new Event(PAUSE_EVENT));state='paused';reason=why;
     }else if(everStarted)return hardStop(why);
     else{state='blocked';reason=why;}
     report(why);log('halt',why);
   }
+  // Compatibility with earlier loader gates; all paths delegate to one policy.
+  const stopCore=why=>halt(why);
   function requestText(url){
     return new Promise((resolve,reject)=>{
       GM_xmlhttpRequest({method:'GET',
@@ -244,6 +246,10 @@
     }
   }
   async function checkPolicy(){
+    // Verify synchronous tab/license guards before any async in-flight check.
+    // This also allows an immediate second pin event after initial unpinned start.
+    if(!hasTabPin()){stopCore('local');return;}
+    if(!hasPortalLicense()){stopCore('license');return;}
     if(pending){rerun=true;return;}
     pending=true;
     try{do{rerun=false;await evaluate();}while(rerun);}finally{pending=false;}
@@ -274,7 +280,7 @@
   document.addEventListener('algzawy-local-control-changed',()=>void checkPolicy());
   document.addEventListener('algzawy-human-verification',()=>{
     try{localStorage.setItem(HUMAN_KEY,'1');}catch(_){}
-    hardStop('human');
+    stopCore('human');
   });
   document.addEventListener('algzawy-tab-pin-changed',()=>void checkPolicy());
   document.addEventListener('algzawy-tab-pins-ready',()=>void checkPolicy());
