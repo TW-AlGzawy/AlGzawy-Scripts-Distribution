@@ -10,14 +10,16 @@ const ids=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
   'alg-coins','tribal-wars-helper','smart-defense-ultimate'];
 const manifest=JSON.parse(read('catalog.json')).published_candidates;
 
-test('official installer is sleep bridge v2.4.16 and does not reload game pages',()=>{
+test('official installer is sleep bridge v2.4.17 and reloads only once after explicit CAPTCHA recovery',()=>{
   new vm.Script(bridge);
-  assert.match(bridge,/^\/\/ @version\s+2\.4\.16$/m);
-  assert.match(bridge,/const BRIDGE_VERSION='2\.4\.16'/);
+  assert.match(bridge,/^\/\/ @version\s+2\.4\.17$/m);
+  assert.match(bridge,/const BRIDGE_VERSION='2\.4\.17'/);
   assert.match(bridge,/Cloud Bridge 💤/);
   assert.match(bridge,/وضع السكون/);
   assert.match(bridge,/const known=\[[^\n]*"smart-defense-ultimate"/);
-  assert.doesNotMatch(bridge,/\b(?:window\.)?location\.reload\s*\(/);
+  assert.match(bridge,/function applyHumanRecovery\(\)/);
+ assert.match(bridge,/sessionStorage\.setItem\(TAB_HUMAN_RECOVERED,epoch\)/);
+ assert.match(bridge,/if\(localStorage\.getItem\(HUMAN_LOCK\)==='1'\|\|challengeVisible\(\)/);
   assert.match(read('portal/v2/index.html'),/main\/loaders\/algzawy-cloud-bridge\.user\.js/);
 });
 
