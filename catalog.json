@@ -9,10 +9,10 @@
     {
       "id": "mass-scavenge-v1",
       "name": "الغزااوي | الإغارات الجماعية",
-      "version": "1.0.9",
+      "version": "1.0.10",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
-      "note": "Mass scavenge v1.0.9: detect idle unlocked options with game-provided home-unit counts, trigger immediate cycles under cross-tab claims, refresh only on squad return, retain durable scheduling. Live game test required.",
+      "note": "v1.0.10 background-safe scheduling: no visibility stop, absolute time deadlines, 1 lease per cycle; browser freeze/throttle remains best-effort; live QA pending.",
       "approved_for_final": true
     },
     {

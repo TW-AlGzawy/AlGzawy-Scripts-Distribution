@@ -70,5 +70,5 @@ test('The Cloud Bridge only lists scripts signed as ON, not merely subscribed/al
  assert.match(source,/sessionStorage\.removeItem\(TAB_PIN_PREFIX\+id\)/);
  assert.match(source,/document\.dispatchEvent\(new Event\('__algzawy_stop_'\+id\)\)/);
  assert.match(source,/if\(pinsChanged\)document\.dispatchEvent\(new Event\('algzawy-tab-pin-changed'\)\)/);
- assert.match(source,/setInterval\(\(\)=>\{if\(document\.visibilityState==='visible'\)void synchronize\(\);\},30000\)/);
+ assert.match(source,/setInterval\(\(\)=>\{void synchronize\(\);\},30000\)/);
 });

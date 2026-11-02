@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.9
+// @version      1.0.10
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -236,7 +236,7 @@ function setupMassPanelControls(panel,header,body){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" data-algzawy-scheduler="1.0.9" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
+            <div id="algzawy-panel" data-algzawy-scheduler="1.0.10" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
                 <div id="algzawy-header" role="button" tabindex="0" aria-expanded="true" aria-controls="algzawy-body"
                     aria-label="الإغارات الجماعية، اضغط للطي أو الفتح واسحب لتحريك النافذة">
                     <span class="algzawy-brand-mark" aria-hidden="true">✦</span>
@@ -560,7 +560,7 @@ function setupMassPanelControls(panel,header,body){
     function ownsOnlyMassPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.9';
+        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.10';
     }
     function isCycleEnabled(){
         return GM_getValue('isBotEnabled',true)===true&&ownsOnlyMassPanel()&&
@@ -646,9 +646,11 @@ function setupMassPanelControls(panel,header,body){
         const returnAt=nextScavengeSquadReturn();
         const untilReturn=returnAt?Math.max(250,returnAt-Date.now()):10000;
         const delay=Math.max(250,Math.min(remaining>0?remaining:250,10000,untilReturn));
-        // Do not spin every 250ms while CAPTCHA is active or the tab sleeps.
-        const sleeping=document.visibilityState==='hidden'||!isCycleEnabled();
-        cycleTimer=setTimeout(()=>void checkCycleDue(),sleeping?30000:delay);
+        // The browser may throttle timers when hidden. Do not voluntarily
+        // suspend the mission: use absolute deadlines and a modest floor.
+        // A late callback dispatches at most one reserved cycle.
+        const wait=document.visibilityState==='hidden'?Math.max(1000,delay):delay;
+        cycleTimer=setTimeout(()=>void checkCycleDue(),wait);
     }
     async function withCycleLease(fn){
         const leaseName='algzawy-scavenge-'+location.host+'-'+playerId;
@@ -678,7 +680,8 @@ function setupMassPanelControls(panel,header,body){
         if(cycleBusy||!isCycleEnabled()){armCycleTimer();return;}
         const state=ensureCycleSchedule(),now=Date.now();
         if(!state){armCycleTimer();return;}
-        if(document.visibilityState==='hidden'){armCycleTimer();return;}
+        // Hidden pages may still execute work. Authorization, CAPTCHA and
+        // the account-level cycle lease remain mandatory in either state.
         const pending=availableScavengeOpportunities().filter(item=>
             !Number.isFinite(state.instantClaims?.[item.key])||
             state.instantClaims[item.key]<=now);
