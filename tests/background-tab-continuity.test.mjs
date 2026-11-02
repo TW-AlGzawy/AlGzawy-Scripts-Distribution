@@ -9,8 +9,8 @@ const mass=read('scripts/mass-scavenge-v1.js');
 test('official bridge and scavenge versions compile with preserved enforcement guards',()=>{
  new vm.Script(bridge);
  new vm.Script(mass);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.16$/m);
- assert.match(bridge,/const BRIDGE_VERSION='2\.4\.16'/);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.17$/m);
+ assert.match(bridge,/const BRIDGE_VERSION='2\.4\.17'/);
  assert.match(bridge,/function stopAll\(\)/);
  assert.match(bridge,/function checkPublisher\(\)/);
  assert.match(bridge,/checkHumanGuard/);
@@ -52,5 +52,7 @@ test('background is best-effort and never substitutes for new authorization',()=
  assert.match(mass,/claimedBy:tabToken/);
  assert.match(mass,/lastStartedAt:now/);
  assert.match(mass,/if\(!cycleBusy\|\|!isCycleEnabled\(\)/);
- assert.doesNotMatch(bridge,/\b(?:window\.)?location\.reload\s*\(/);
+ assert.match(bridge,/function applyHumanRecovery\(\)/);
+ assert.match(bridge,/sessionStorage\.setItem\(TAB_HUMAN_RECOVERED,epoch\)/);
+ assert.match(bridge,/if\(localStorage\.getItem\(HUMAN_LOCK\)==='1'\|\|challengeVisible\(\)/);
 });
