@@ -106,7 +106,7 @@ test('Owner explicitly registers Preview webhook with server-only secret and pub
    if(operation==='setWebhook'){
      assert.equal(data.secret_token,env.ALG_TELEGRAM_WEBHOOK_SECRET);
      assert.equal(data.drop_pending_updates,false);
-     assert.deepEqual(data.allowed_updates,['message']);
+     assert.deepEqual(data.allowed_updates,['message','callback_query']);
      webhookUrl=data.url;
    }
    if(operation==='setMyCommands')menu=data.commands;
