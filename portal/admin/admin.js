@@ -26,7 +26,7 @@ function navigateOwner(page){
 
  closeOwnerSidebar();
  if(page==='session'&&csrfToken)void loadAuditEvents();
- if(page==='telegram'&&csrfToken)void loadTelegramAdmin();
+ if(page==='telegram'&&csrfToken){void loadTelegramAdmin();void loadBarbControl();}
 }
 ownerLinks.forEach(b=>b.addEventListener('click',()=>navigateOwner(b.dataset.ownerPage)));
 ownerToggle.addEventListener('click',()=>{const open=!ownerSidebar.classList.contains('is-open');ownerSidebar.classList.toggle('is-open',open);ownerBackdrop.hidden=!open;ownerToggle.setAttribute('aria-expanded',String(open));});
@@ -575,6 +575,61 @@ $('adminTelegramCommands').addEventListener('click',async()=>{
   finally{btn.disabled=false;}
 });
 
+// Barb Control owner UI. Included textually inside admin.js IIFE, after api/h/toast.
+let barbKeyVisible=false;
+const barb=id=>document.getElementById(id);
+async function loadBarbControl(){
+  barb('adminBarbStatus').textContent='جارٍ فحص Barb Control…';
+  try {
+    const d=await api('admin/barb/status'),device=d.device||{};
+    barb('adminBarbStatus').textContent='توكن: '+(d.tokenConfigured?'✓ مشفّر':'غير مضبوط')+' | مفتاح الجهاز: '+(device.keyConfigured?'موجود':'غير موجود')+' | السكربت: '+(device.connected?'🟢 متصل':'⚪ غير متصل')+(device.version?' | v'+device.version:'')+(device.lastSeen?' | آخر ظهور: '+new Date(device.lastSeen*1000).toLocaleString('ar'):'');
+    barb('adminBarbOwnerChat').value=d.ownerChatId||'';
+    barb('adminBarbAllowedChats').value=(d.allowedChatIds||[]).join('\n');
+    barb('adminBarbToken').value='';
+    if(!barbKeyVisible)barb('adminBarbDeviceSecret').hidden=true;
+    const list=barb('adminBarbRecent');list.replaceChildren();
+    for(const r of d.recent||[]){
+      const el=h('div','barb-audit-entry');
+      el.append(h('strong','',new Date((r.ts||0)*1000).toLocaleString('ar')+' · '+r.kind+' · '+r.status),
+        h('span','',String(r.text||'').slice(0,300)+' · Chat '+String(r.chatId||'')));
+      list.append(el);
+    }
+    if(!list.childElementCount)list.append(h('p','field-note','لا توجد أوامر بعد.'));
+  }catch(e){barb('adminBarbStatus').textContent='تعذر فحص Barb Control: '+String(e.message||e);}
+}
+const barbError=e=>toast('Barb Control: '+String(e.message||e),true);
+barb('adminBarbRefresh').addEventListener('click',()=>void loadBarbControl());
+barb('adminBarbDatabase').addEventListener('click',async()=>{
+  if(!confirm('إنشاء الجداول الإضافية في D1 بعد عمل نسخة احتياطية؟'))return;
+  try{await api('admin/barb/database',{method:'POST',body:{confirm:'initialize_barb_tables'}});toast('تم إنشاء جداول Barb Control');await loadBarbControl();}catch(e){barbError(e);}
+});
+barb('adminBarbSave').addEventListener('click',async()=>{
+  const ownerChatId=barb('adminBarbOwnerChat').value.trim(),token=barb('adminBarbToken').value.trim();
+  const chats=barb('adminBarbAllowedChats').value.split(/[\s,;]+/).filter(Boolean);
+  const body={ownerChatId,allowedChatIds:chats.length?chats:[ownerChatId]};
+  if(token)body.token=token;
+  try{await api('admin/barb/config',{method:'PUT',body});barb('adminBarbToken').value='';toast('✓ حُفظ إعداد Barb Control');await loadBarbControl();}catch(e){barbError(e);}
+});
+async function barbKeyAction(action){
+  if(action!=='generate'&&!confirm(action==='rotate'?'تدوير المفتاح يلغي المفتاح القديم فورًا. متابعة؟':'إلغاء المفتاح يوقف اتصال السكربت. متابعة؟'))return;
+  try{
+    const result=await api('admin/barb/key',{method:'POST',body:{action}});
+    const box=barb('adminBarbDeviceSecret');box.replaceChildren();
+    barbKeyVisible=!!result.deviceKey;box.hidden=!barbKeyVisible;
+    if(result.deviceKey)box.append(h('strong','','انسخ المفتاح الآن؛ لن يُعرض مرة أخرى.'),h('code','',result.deviceKey));
+    toast(result.revoked?'أُلغي المفتاح':'تم توليد المفتاح');await loadBarbControl();
+  }catch(e){barbError(e);}
+}
+for(const [id,action] of [['adminBarbGenerateKey','generate'],['adminBarbRotateKey','rotate'],['adminBarbRevokeKey','revoke']])
+  barb(id).addEventListener('click',()=>void barbKeyAction(action));
+barb('adminBarbTest').addEventListener('click',async()=>{
+  try{await api('admin/barb/test',{method:'POST',body:{}});toast('✓ أُرسلت رسالة الاختبار');}catch(e){barbError(e);}
+});
+barb('adminBarbWebhook').addEventListener('click',async()=>{
+  try{const d=await api('admin/barb/webhook'),w=d.webhook||{};
+    barb('adminBarbWebhookStatus').textContent='Webhook: '+(w.correctUrl?'✓ صحيح':'⚠ غير مطابق')+' | أزرار callback: '+(w.callbackEnabled?'✓ مفعلة':'⚠ أعد تسجيل webhook من إعداد Telegram')+' | الانتظار: '+String(w.pending||0)+(w.error?' | '+w.error:'');
+  }catch(e){barb('adminBarbWebhookStatus').textContent=String(e.message||e);}
+});
 const auditLabels={
   device_pair_requested:'طلب ربط جهاز',
   device_approved:'اعتماد جهاز',

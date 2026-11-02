@@ -1,5 +1,6 @@
 // Cloudflare Pages Functions — AlGzawy Cloud Portal (Free / D1)
 import {telegramSubscriber,telegramWebhook,telegramNotify,telegramPreviewHost,telegramOwner} from '../telegram-preview.js';
+import {barbApi,barbAdmin} from '../barb-control.js';
 // Endpoints under /api/*. Requires D1 binding DB, secrets PORTAL_HASH_PEPPER
 // and PORTAL_ADMIN_TOKEN. Does not change the existing Cloudflare global switch.
 const GROUPS = [
@@ -279,6 +280,7 @@ async function handler(req,env){
   // Restricted Telegram endpoints: never expose the bot token to clients.
   if(path[0]==='telegram'&&!telegramPreviewHost(req))return bad('not_found',404);
   if(!envOK(env))return reply({ok:false,error:'portal_not_configured',missing:setupMissing(env),hint:'Redeploy Production after saving DB binding and encrypted secret.'},503);
+  if(path[0]==='barb')return barbApi(req,env,path,{reply,bad});
   if(path[0]==='telegram'&&path[1]==='webhook'&&path.length===2){
     return telegramWebhook(req,env,{reply,bad,digest});
   }
@@ -408,6 +410,7 @@ async function handler(req,env){
     if(session&&req.method!=='GET'&&req.method!=='HEAD'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-ADMIN-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
     }
+    if(path[1]==='barb'&&path.length===3)return barbAdmin(req,env,path[2],{reply,bad});
     if(path[1]==='telegram'&&path.length===3){
       // Protected by existing owner session/Bearer and per-session CSRF,
       // Exact host allowlist and encrypted Telegram API credentials.

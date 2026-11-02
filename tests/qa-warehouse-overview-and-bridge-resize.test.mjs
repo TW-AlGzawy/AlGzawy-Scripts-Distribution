@@ -5,7 +5,8 @@ import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const engine=read('pilots/engines/warehouse-alert-safe-qa.js');
 const bridge=read('pilots/algzawy-cloud-bridge-preview-rc1.user.js');
-const server=read('portal/functions/telegram-preview.js');
+const barbUri='data:text/javascript;base64,'+Buffer.from(read('portal/functions/barb-control.js')).toString('base64');
+const server=read('portal/functions/telegram-preview.js').replace("from './barb-control.js'","from '"+barbUri+"'");
 const telegram=await import('data:text/javascript;base64,'+Buffer.from(server).toString('base64'));
 
 test('Bridge uses independent pointer-accessible side edges and stable script-pin grid',()=>{

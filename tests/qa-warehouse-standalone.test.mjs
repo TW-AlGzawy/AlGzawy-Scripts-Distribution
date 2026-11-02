@@ -8,8 +8,9 @@ const loader=read('pilots/algzawy-warehouse-alert-safe-preview-rc1.user.js');
 const bridge=read('pilots/algzawy-cloud-bridge-preview-rc1.user.js');
 const api=read('portal/functions/api/[[path]].js');
 const userUI=read('portal/v2/app.js');
+const barbUri='data:text/javascript;base64,'+Buffer.from(read('portal/functions/barb-control.js')).toString('base64');
 const alertsModule=await import('data:text/javascript;base64,'+
-  Buffer.from(read('portal/functions/telegram-preview.js')).toString('base64'));
+  Buffer.from(read('portal/functions/telegram-preview.js').replace("from './barb-control.js'","from '"+barbUri+"'")).toString('base64'));
 const host='https://feature-algzawy-quality-hard.algzawy-cloud-control.pages.dev';
 test('warehouse exists as separately licensed tenth QA script in administration and subscriber catalog',()=>{
   assert.match(api,/\['warehouse-alert-safe','الغزااوي \| تنبيه المخازن'/);

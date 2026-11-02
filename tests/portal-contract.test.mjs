@@ -5,10 +5,12 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 globalThis.crypto ??= webcrypto;
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const source=read('portal/functions/api/[[path]].js').replace(
-  "from '../telegram-preview.js'",
-  "from 'data:text/javascript;base64,"+Buffer.from(read('portal/functions/telegram-preview.js')).toString('base64')+"'"
-);
+const barbUri='data:text/javascript;base64,'+Buffer.from(read('portal/functions/barb-control.js')).toString('base64');
+const telegramSource=read('portal/functions/telegram-preview.js').replace("from './barb-control.js'","from '"+barbUri+"'");
+const telegramUri='data:text/javascript;base64,'+Buffer.from(telegramSource).toString('base64');
+const source=read('portal/functions/api/[[path]].js')
+  .replace("from '../telegram-preview.js'","from '"+telegramUri+"'")
+  .replace("from '../barb-control.js'","from '"+barbUri+"'");
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const ui=read('portal/assets/app.js'),html=read('portal/index.html');
 const ownerUi=read('portal/admin/admin.js'),ownerHtml=read('portal/admin/index.html');

@@ -82,6 +82,38 @@
     <p class="field-note">إذا كان للبوت Webhook على موقع آخر، ستظهر مطالبة تأكيد قبل استبداله؛ فقد يؤدي الاستبدال إلى إيقاف تكامل Telegram القديم. لا تُسجل Webhook قبل تدوير المفتاح المكشوف.</p>
     <p class="field-note">بعد التسجيل يمكنك إرسال /start أو /help للبوت، ثم من موقع المشترك الضغط على «ربط البوت» لإرسال رمز الربط الخاص بحسابك.</p>
   </div>
+
+  <section class="settings-card" id="adminBarbControl" aria-labelledby="barbControlTitle">
+    <h3 id="barbControlTitle">🏴 Barb Control — أوامر الحجز عبر Telegram</h3>
+    <p class="field-note">يعالج الخادم التوجيه فقط دون تعديل سكربت اللعبة. استخدم توكن بوت AlGzawy الحالي نفسه؛ سيُخزّن مشفرًا ولن يظهر بعد الحفظ.</p>
+    <p id="adminBarbStatus" class="field-note" role="status" aria-live="polite"></p>
+    <label for="adminBarbToken">توكن البوت (لا يُعاد عرضه)</label>
+    <input id="adminBarbToken" type="password" autocomplete="new-password" placeholder="توكن Telegram الحالي">
+    <label for="adminBarbOwnerChat">chat_id المالك</label>
+    <input id="adminBarbOwnerChat" type="text" maxlength="20" inputmode="numeric" autocomplete="off">
+    <label for="adminBarbAllowedChats">chat_id المسموحة — واحد لكل سطر (المالك فقط افتراضيًا)</label>
+    <textarea id="adminBarbAllowedChats" rows="3" spellcheck="false"></textarea>
+    <div class="bulk-controls">
+      <button id="adminBarbDatabase" type="button" class="button button-outline">تهيئة جداول Barb في D1</button>
+      <button id="adminBarbSave" type="button" class="button button-primary">حفظ الإعدادات</button>
+      <button id="adminBarbRefresh" type="button" class="button button-outline">تحديث الحالة والسجل</button>
+    </div>
+    <h4>مفتاح الجهاز (32 بايت — عرض لمرة واحدة)</h4>
+    <div class="bulk-controls">
+      <button id="adminBarbGenerateKey" type="button" class="button button-primary">توليد مفتاح</button>
+      <button id="adminBarbRotateKey" type="button" class="button button-outline">تدوير</button>
+      <button id="adminBarbRevokeKey" type="button" class="button button-danger">إلغاء</button>
+    </div>
+    <div id="adminBarbDeviceSecret" class="generated-secret" role="status" hidden></div>
+    <h4>اختبار البوت وWebhook</h4>
+    <div class="bulk-controls">
+      <button id="adminBarbTest" type="button" class="button button-outline">إرسال رسالة اختبار</button>
+      <button id="adminBarbWebhook" type="button" class="button button-outline">getWebhookInfo</button>
+    </div>
+    <p id="adminBarbWebhookStatus" class="field-note" role="status" aria-live="polite"></p>
+    <h4>آخر 50 أمرًا</h4>
+    <div id="adminBarbRecent" class="barb-audit-feed" role="status" aria-live="polite"></div>
+  </section>
 </section>
 <section class="owner-page-panel" data-owner-view="session" hidden><div class="owner-panel-kicker">النظام / جلسة الإدارة</div><div class="settings-card"><h3>جلسة الإدارة</h3><p class="field-note">يتم التحقق من كل عملية على الخادم بجلسة إدارة مستقلة.</p><button id="adminLoad" type="button" class="button button-primary">تحديث قائمة المشتركين</button></div><div class="settings-card"><h3>سجل أحداث الترخيص والأجهزة</h3><p class="field-note">آخر 40 حدثًا مسجلًا في النظام فقط. لا يمثل هذا السجل إثباتًا لتشغيل بوت داخل اللعبة، ولا يعرض عناوين IP.</p><button id="adminAuditReload" class="button button-outline" type="button">تحديث السجل</button><div id="adminAuditEvents" class="owner-audit-feed" role="status" aria-live="polite"><p class="field-note">افتح القسم لتحديث الأحداث.</p></div></div><div class="settings-card"><h3>المعلومات والأمان</h3><p class="field-note">يتم التحكم المركزي من القسم المخصص له داخل لوحة الإدارة الحالية. لا تحتاج للوحات قديمة أو روابط خارجية.</p></div></section>
       </main>

@@ -37,7 +37,8 @@ function buildHandler(){
       'const telegramNotify=()=>null;',
        'const telegramOwner=()=>null;'
     ].join('\n')
-  ).replace('export async function onRequest','async function onRequest');
+  ).replace("import {barbApi,barbAdmin} from '../barb-control.js';",'const barbApi=()=>null;const barbAdmin=()=>null;')
+    .replace('export async function onRequest','async function onRequest');
   const ctx=createContext({URL,Request,Response,TextEncoder,crypto:webcrypto,console});
   new Script(src,{filename:'portal-api.js'}).runInContext(ctx);
   return ctx.onRequest;

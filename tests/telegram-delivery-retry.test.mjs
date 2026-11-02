@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const source=readFileSync(new URL('../portal/functions/telegram-preview.js',import.meta.url),'utf8');
+const barbUri='data:text/javascript;base64,'+Buffer.from(
+  readFileSync(new URL('../portal/functions/barb-control.js',import.meta.url),'utf8')).toString('base64');
+const source=readFileSync(new URL('../portal/functions/telegram-preview.js',import.meta.url),'utf8')
+  .replace("from './barb-control.js'","from '"+barbUri+"'");
 const {telegramNotify,telegramSubscriber,formatTelegramAlert}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const host='https://algzawy-cloud-control.pages.dev';
 const envBase={

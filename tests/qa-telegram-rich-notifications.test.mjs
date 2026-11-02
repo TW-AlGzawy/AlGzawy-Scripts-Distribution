@@ -4,7 +4,8 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const module=await import('data:text/javascript;base64,'+Buffer.from(read('portal/functions/telegram-preview.js')).toString('base64'));
+const barbUri='data:text/javascript;base64,'+Buffer.from(read('portal/functions/barb-control.js')).toString('base64');
+const module=await import('data:text/javascript;base64,'+Buffer.from(read('portal/functions/telegram-preview.js').replace("from './barb-control.js'","from '"+barbUri+"'")).toString('base64'));
 const {formatTelegramAlert,telegramNotify}=module;
 const engine=read('pilots/engines/alg-attacks-qa.js');
 const warehouseEngine=read('pilots/engines/warehouse-alert-safe-qa.js');

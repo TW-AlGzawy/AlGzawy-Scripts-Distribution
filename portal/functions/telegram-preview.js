@@ -1,3 +1,4 @@
+import {barbWebhook} from './barb-control.js';
 // AlGzawy Cloud Telegram binding & delivery.
 // Bot token MUST be a Cloudflare encrypted secret, never client code or Git.
 // Disabled unless the explicit QA feature flag, token, username, webhook secret
@@ -407,6 +408,9 @@ export async function telegramWebhook(req,env,{reply,bad,digest}){
     for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.byteLength;}
     update=JSON.parse(new TextDecoder().decode(raw));
   }catch(_){return bad('invalid_json');}
+  // Pass only /barb and barb: callbacks into the isolated queue.
+  const barbResult=await barbWebhook(update,env,{reply,bad});
+  if(barbResult)return barbResult;
   const message=update?.message;
   if(message?.chat?.type!=='private'||typeof message.text!=='string'
     ||message.from?.is_bot===true)return reply({ok:true,ignored:true});
@@ -488,7 +492,7 @@ export async function telegramOwner(req,env,action,{reply,bad}){
           existingHost:(()=>{try{return new URL(existing).hostname;}catch(_){return 'unknown';}})()},409);
       await telegramAPI(env,'setWebhook',{
         url:new URL('/api/telegram/webhook',req.url).href,secret_token:env.ALG_TELEGRAM_WEBHOOK_SECRET,
-        allowed_updates:['message'],drop_pending_updates:false,max_connections:10
+        allowed_updates:['message','callback_query'],drop_pending_updates:false,max_connections:10
       });
       webhook=await telegramAPI(env,'getWebhookInfo',{});
       return reply({ok:true,webhookConfigured:webhook?.url===new URL('/api/telegram/webhook',req.url).href});
