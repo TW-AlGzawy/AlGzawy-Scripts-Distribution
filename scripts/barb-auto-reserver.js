@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.4
+// @version      1.0.5
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -1458,8 +1458,8 @@
     const head=document.createElement('div');head.className='brp-sec';head.textContent='🏴 Barb Control | Telegram';
     const state=document.createElement('p');state.className='brp-empty';state.textContent='حالة الاتصال: '+barbRelayStatus;
     const desc=document.createElement('p');desc.className='brp-empty';
-    desc.textContent='يُحفظ مفتاح الجهاز في تخزين Tampermonkey الخاص باللودر فقط. لا تضع Bot Token أو Discord Webhook هنا. استقبال الأوامر لا يفعّل السكربت تلقائيًا، وLIVE يُفعّل محليًا فقط.';
-    const open=document.createElement('button');open.type='button';open.className='brp-btn';open.textContent='🔑 إعداد مفتاح Barb Control';
+    desc.textContent='اضغط «ربط تيليجرام» ثم Start وأكّد الربط في بوت AlGzawy، فتتحكم بسكربتك بالأوامر من محادثتك (مثل /barb status). لا تضع Bot Token هنا. استقبال الأوامر لا يفعّل السكربت تلقائيًا، وLIVE يُفعّل محليًا فقط.';
+    const open=document.createElement('button');open.type='button';open.className='brp-btn';open.textContent='🔗 ربط تيليجرام';
     open.onclick=()=>document.dispatchEvent(new Event(RELAY_SETTINGS));
     const test=document.createElement('button');test.type='button';test.className='brp-btn sec';test.textContent='🧪 تشخيص الاتصال';
     test.onclick=()=>{log('🧪 Barb Control: '+barbRelayStatus+'؛ حالة الترخيص '+(authorized()?'سليم':'موقوف')+'؛ الوضع '+(CFG.DRY_RUN?'DRY_RUN':'LIVE')+'؛ تشغيل الحجز '+(get('on',false)?'ON':'OFF'));render();};

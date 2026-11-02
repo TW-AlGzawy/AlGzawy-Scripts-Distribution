@@ -380,6 +380,7 @@ async function handleBotCommand(env,chatId,text,helpers){
   }
   if(action==='unlink'){
     await env.DB.prepare('DELETE FROM portal_telegram_links WHERE chat_id=?').bind(chatId).run();
+    try{await env.DB.prepare('DELETE FROM barb_user_devices WHERE chat_id=?').bind(chatId).run();}catch(_){/* per-user Barb tables are optional */}
     await send(env,chatId,'✅ تم إلغاء ربط Telegram بحساب AlGzawy.\nللربط مجددًا، افتح موقع المشترك وأنشئ رابطًا جديدًا.');
     return true;
   }

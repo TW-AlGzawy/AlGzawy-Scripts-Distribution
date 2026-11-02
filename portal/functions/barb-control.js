@@ -26,7 +26,24 @@ const BARB_SQL = [
     callback_id TEXT, ts INTEGER NOT NULL, expires_at INTEGER NOT NULL,
     delivered_at INTEGER, replied_at INTEGER)`,
   `CREATE INDEX IF NOT EXISTS barb_commands_poll_idx ON barb_commands(delivered_at,expires_at,ts)`,
-  `CREATE INDEX IF NOT EXISTS barb_commands_recent_idx ON barb_commands(ts DESC)`
+  `CREATE INDEX IF NOT EXISTS barb_commands_recent_idx ON barb_commands(ts DESC)`,
+  `CREATE TABLE IF NOT EXISTS barb_user_links (
+    nonce_hash TEXT PRIMARY KEY, key_hash TEXT NOT NULL, created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL, user_id TEXT, chat_id TEXT, confirmed_at INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS barb_user_devices (
+    user_id TEXT PRIMARY KEY, key_hash TEXT NOT NULL, chat_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT 0, last_seen INTEGER NOT NULL DEFAULT 0,
+    version TEXT NOT NULL DEFAULT '', last_poll_ms INTEGER NOT NULL DEFAULT 0,
+    action_window_start INTEGER NOT NULL DEFAULT 0, action_count INTEGER NOT NULL DEFAULT 0)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS barb_user_devices_key ON barb_user_devices(key_hash)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS barb_user_devices_chat ON barb_user_devices(chat_id)`,
+  `CREATE TABLE IF NOT EXISTS barb_user_commands (
+    id TEXT PRIMARY KEY, update_id INTEGER NOT NULL UNIQUE, user_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('text','callback')),
+    text TEXT NOT NULL, chat_id TEXT NOT NULL, message_id INTEGER,
+    callback_id TEXT, ts INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+    delivered_at INTEGER, replied_at INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS barb_user_commands_poll_idx ON barb_user_commands(user_id,delivered_at,expires_at,ts)`
 ];
 const safeString = (s, max) => typeof s === 'string' && s.length <= max ? s : null;
 function safeEqual(a, b) {
@@ -245,9 +262,186 @@ export async function barbAdmin(req,env,action,{reply,bad}) {
   }
 }
 
+
+// ---------- Per-user relay: each subscriber links THEIR OWN Telegram chat (already paired with the
+// site bot) to THEIR OWN script by pressing one button. The device secret is generated locally in
+// Tampermonkey and only its SHA-256 reaches the server; the link is confirmed inside Telegram.
+const SCRIPT_ID = 'barb-auto-reserver';
+const LINK_TTL = 600;
+const NONCE_RE = /^[a-f0-9]{32}$/;
+async function userEntitled(env, userId) {
+  const sub = await env.DB.prepare('SELECT active,expires_at FROM portal_subscriptions WHERE user_id=?').bind(userId).first();
+  if (!sub || sub.active !== 1 || (sub.expires_at !== null && !(Number.isSafeInteger(sub.expires_at) && sub.expires_at > seconds()))) return false;
+  const grant = await env.DB.prepare('SELECT 1 AS ok FROM portal_entitlements WHERE user_id=? AND script_id=? AND allowed=1').bind(userId, SCRIPT_ID).first();
+  if (!grant) return false;
+  const off = await env.DB.prepare('SELECT 1 AS off FROM portal_script_controls WHERE script_id=? AND enabled=0').bind(SCRIPT_ID).first();
+  return !off;
+}
+function linkedUserByChat(env, chatId) {
+  return env.DB.prepare('SELECT l.user_id FROM portal_telegram_links l JOIN portal_users u ON u.id=l.user_id WHERE l.chat_id=? AND u.active=1').bind(chatId).first();
+}
+const confirmCode = nonceHash => String(parseInt(nonceHash.slice(0, 8), 16) % 10000).padStart(4, '0');
+const botTokenOf = env => (typeof env.ALG_TELEGRAM_BOT_TOKEN === 'string' && BOT_TOKEN.test(env.ALG_TELEGRAM_BOT_TOKEN)) ? env.ALG_TELEGRAM_BOT_TOKEN : null;
+async function linkBegin(req, env, headers, {reply}) {
+  const input = await parseJson(req, 400);
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(k => !['nonce', 'keyHash'].includes(k)) ||
+      !NONCE_RE.test(input.nonce || '') || !HEX_64.test(input.keyHash || ''))return badJson(reply, 'invalid_request', 400, headers);
+  const now = seconds();
+  await env.DB.prepare('DELETE FROM barb_user_links WHERE expires_at<?').bind(now - 600).run();
+  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM barb_user_links WHERE created_at>?').bind(now - 60).first();
+  if ((recent?.n || 0) >= 60)return badJson(reply, 'rate_limited', 429, {...headers, 'Retry-After': '60'});
+  const nonceHash = await sha256(input.nonce);
+  const saved = await env.DB.prepare('INSERT OR IGNORE INTO barb_user_links(nonce_hash,key_hash,created_at,expires_at) VALUES(?,?,?,?)')
+    .bind(nonceHash, input.keyHash, now, now + LINK_TTL).run();
+  if ((saved.meta?.changes || 0) !== 1)return badJson(reply, 'link_exists', 409, headers);
+  return reply({ok: true, expiresIn: LINK_TTL, code: confirmCode(nonceHash), bot: String(env.ALG_TELEGRAM_BOT_USERNAME || '').replace(/^@/, '')}, 200, headers);
+}
+async function linkStatus(req, env, headers, {reply}) {
+  const nonce = new URL(req.url).searchParams.get('n') || '';
+  if (!NONCE_RE.test(nonce))return badJson(reply, 'invalid_request', 400, headers);
+  const row = await env.DB.prepare('SELECT user_id,confirmed_at,expires_at FROM barb_user_links WHERE nonce_hash=?').bind(await sha256(nonce)).first();
+  const state = !row || row.expires_at <= seconds() ? 'expired' : row.confirmed_at ? 'linked' : row.user_id ? 'awaiting_confirm' : 'waiting';
+  return reply({ok: true, state}, 200, headers);
+}
+async function userAuthorize(req, env) {
+  const key = /^Bearer ([a-f0-9]{64})$/i.exec(req.headers.get('Authorization') || '')?.[1]?.toLowerCase();
+  if (!key)return null;
+  const hash = await sha256(key);
+  const row = await env.DB.prepare('SELECT d.user_id,d.key_hash,d.chat_id FROM barb_user_devices d JOIN portal_telegram_links l ON l.user_id=d.user_id AND l.chat_id=d.chat_id WHERE d.key_hash=?').bind(hash).first();
+  if (!row || !safeEqual(hash, row.key_hash))return null;
+  return {userId: row.user_id, hash, chatId: row.chat_id};
+}
+async function userRelay(req, env, path, dev, headers, {reply}) {
+  if (!(await userEntitled(env, dev.userId)))return badJson(reply, 'not_entitled', 403, headers);
+  const now = seconds();
+  if (path[1] === 'poll') {
+    const version = new URL(req.url).searchParams.get('v');
+    if (!SCRIPT_VERSION.test(version || ''))return badJson(reply, 'invalid_version', 400, headers);
+    const ms = Date.now();
+    const updated = await env.DB.prepare('UPDATE barb_user_devices SET last_seen=?,version=?,last_poll_ms=? WHERE user_id=? AND key_hash=? AND last_poll_ms<=?')
+      .bind(now, version, ms, dev.userId, dev.hash, ms - 2000).run();
+    if ((updated.meta?.changes || 0) !== 1)return badJson(reply, 'rate_limited', 429, {...headers, 'Retry-After': '2'});
+    const data = await env.DB.prepare('SELECT id,kind,text,chat_id,message_id,callback_id,ts FROM barb_user_commands WHERE user_id=? AND delivered_at IS NULL AND expires_at>? ORDER BY ts,id LIMIT 10')
+      .bind(dev.userId, now).all();
+    const commands = [];
+    for (const row of data.results || []) {
+      const claim = await env.DB.prepare('UPDATE barb_user_commands SET delivered_at=? WHERE id=? AND user_id=? AND delivered_at IS NULL AND expires_at>?')
+        .bind(now, row.id, dev.userId, now).run();
+      if ((claim.meta?.changes || 0) === 1)commands.push({id: row.id, kind: row.kind, text: row.text, chat_id: row.chat_id, message_id: row.message_id, callback_id: row.callback_id, ts: row.ts});
+    }
+    return reply({ok: true, commands, serverTime: now}, 200, headers);
+  }
+  const input = await parseJson(req, 24000);
+  if (!input || typeof input !== 'object' || Array.isArray(input))return badJson(reply, 'invalid_request', 400, headers);
+  let command;
+  if (path[1] === 'reply') {
+    if (!COMMAND_ID.test(input.commandId || '') || Object.keys(input).some(k => !['commandId', 'text', 'buttons'].includes(k)))return badJson(reply, 'invalid_request', 400, headers);
+    command = await env.DB.prepare('SELECT chat_id,delivered_at,replied_at,expires_at FROM barb_user_commands WHERE id=? AND user_id=?').bind(input.commandId, dev.userId).first();
+    if (!command)return badJson(reply, 'command_not_found', 404, headers);
+    if (command.replied_at !== null && command.replied_at !== undefined)return badJson(reply, 'already_replied_or_uncertain', 409, headers);
+    if (!command.delivered_at || command.expires_at <= now)return badJson(reply, 'command_unavailable', 410, headers);
+  } else if (Object.keys(input).some(k => !['text', 'buttons'].includes(k)))return badJson(reply, 'invalid_request', 400, headers);
+  if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 20000)return badJson(reply, 'invalid_text', 400, headers);
+  const buttons = validateButtons(input.buttons);
+  const rate = await env.DB.prepare(`UPDATE barb_user_devices SET
+    action_count=CASE WHEN action_window_start<=? THEN 1 ELSE action_count+1 END,
+    action_window_start=CASE WHEN action_window_start<=? THEN ? ELSE action_window_start END
+    WHERE user_id=? AND key_hash=? AND (action_window_start<=? OR action_count<30)`)
+    .bind(now - 60, now - 60, now, dev.userId, dev.hash, now - 60).run();
+  if ((rate.meta?.changes || 0) !== 1)return badJson(reply, 'rate_limited', 429, {...headers, 'Retry-After': '60'});
+  const token = botTokenOf(env);
+  if (!token)return badJson(reply, 'barb_unavailable', 503, headers);
+  let chat = dev.chatId;
+  if (command) {
+    const claim = await env.DB.prepare('UPDATE barb_user_commands SET replied_at=-1 WHERE id=? AND user_id=? AND replied_at IS NULL AND delivered_at IS NOT NULL AND expires_at>?')
+      .bind(input.commandId, dev.userId, now).run();
+    if ((claim.meta?.changes || 0) !== 1)return badJson(reply, 'already_replied_or_uncertain', 409, headers);
+    chat = command.chat_id;
+  }
+  await sendText(token, chat, input.text, buttons);
+  if (command)await env.DB.prepare('UPDATE barb_user_commands SET replied_at=? WHERE id=? AND user_id=? AND replied_at=-1').bind(now, input.commandId, dev.userId).run();
+  return reply({ok: true, sent: true, serverTime: now}, 200, headers);
+}
+// /start barbl_<nonce> and barbl: confirmation buttons. Returns null for anything else.
+async function barbLinkUpdate(update, env, {reply}) {
+  const token = botTokenOf(env);
+  const callback = update?.callback_query;
+  const message = callback?.message || update?.message;
+  if (!token || !message || (callback ? callback.from?.is_bot : message.from?.is_bot) || message.chat?.type !== 'private')return null;
+  const chatId = validateChat(message.chat?.id);
+  if (callback) {
+    const m = typeof callback.data === 'string' && callback.data.match(/^barbl:(ok|no):([a-f0-9]{16})$/);
+    if (!m)return null;
+    const answer = text => botCall(token, 'answerCallbackQuery', {callback_query_id: String(callback.id || '').slice(0, 160), text}).catch(() => {});
+    if (!chatId)return reply({ok: true, ignored: true});
+    const now = seconds();
+    const row = await env.DB.prepare('SELECT nonce_hash,key_hash,user_id FROM barb_user_links WHERE substr(nonce_hash,1,16)=? AND chat_id=? AND confirmed_at IS NULL AND expires_at>? AND user_id IS NOT NULL')
+      .bind(m[2], chatId, now).first();
+    if (!row) { await answer('انتهت صلاحية الطلب'); return reply({ok: true, handled: true}); }
+    if (m[1] === 'no') {
+      await env.DB.prepare('DELETE FROM barb_user_links WHERE nonce_hash=?').bind(row.nonce_hash).run();
+      await answer('أُلغي الطلب');
+      return reply({ok: true, handled: true});
+    }
+    const linked = await linkedUserByChat(env, chatId);
+    if (!linked || linked.user_id !== row.user_id || !(await userEntitled(env, row.user_id))) {
+      await answer('غير مصرح'); return reply({ok: true, handled: true});
+    }
+    await env.DB.prepare('DELETE FROM barb_user_devices WHERE chat_id=? AND user_id<>?').bind(chatId, row.user_id).run();
+    await env.DB.prepare(`INSERT INTO barb_user_devices(user_id,key_hash,chat_id,created_at) VALUES(?,?,?,?)
+      ON CONFLICT(user_id) DO UPDATE SET key_hash=excluded.key_hash,chat_id=excluded.chat_id,created_at=excluded.created_at,last_seen=0,version='',last_poll_ms=0,action_window_start=0,action_count=0`)
+      .bind(row.user_id, row.key_hash, chatId, now).run();
+    await env.DB.prepare('UPDATE barb_user_links SET confirmed_at=? WHERE nonce_hash=?').bind(now, row.nonce_hash).run();
+    await answer('تم الربط');
+    try { await sendText(token, chatId, '✅ تم ربط سكربت الحجز بهذه المحادثة.\nأرسل /barb help للأوامر، مثل: /barb status'); } catch (_) {}
+    return reply({ok: true, handled: true, linked: true});
+  }
+  const m = typeof message.text === 'string' && message.text.match(/^\/start(?:@([A-Za-z][A-Za-z0-9_]{4,31}))?\s+barbl_([a-f0-9]{32})$/i);
+  if (!m)return null;
+  if (m[1] && m[1].toLowerCase() !== String(env.ALG_TELEGRAM_BOT_USERNAME || '').toLowerCase())return null;
+  if (!chatId)return reply({ok: true, ignored: true});
+  const say = text => sendText(token, chatId, text, null).catch(() => {});
+  const user = await linkedUserByChat(env, chatId);
+  if (!user) { await say('🔒 اربط حساب AlGzawy بهذه المحادثة أولًا من موقع المشترك («ربط البوت»)، ثم اضغط زر الربط في السكربت من جديد.'); return reply({ok: true, handled: true}); }
+  if (!(await userEntitled(env, user.user_id))) { await say('⚠️ اشتراكك لا يشمل سكربت الحجز التلقائي أو أنه متوقف.'); return reply({ok: true, handled: true}); }
+  const nonceHash = await sha256(m[2].toLowerCase());
+  const now = seconds();
+  const claim = await env.DB.prepare('UPDATE barb_user_links SET user_id=?,chat_id=? WHERE nonce_hash=? AND user_id IS NULL AND confirmed_at IS NULL AND expires_at>?')
+    .bind(user.user_id, chatId, nonceHash, now).run();
+  if ((claim.meta?.changes || 0) !== 1) { await say('رابط الربط غير صالح أو منتهي. اضغط زر الربط في السكربت من جديد.'); return reply({ok: true, handled: true}); }
+  await sendText(token, chatId,
+    '🔗 طلب ربط سكربت الحجز بهذه المحادثة\nالرمز: ' + confirmCode(nonceHash) + '\nتأكد أنه يطابق الرمز الظاهر في لوحة السكربت داخل اللعبة. إن لم تطلب هذا فاضغط رفض.',
+    [[{text: '✅ تأكيد الربط', callback_data: 'barbl:ok:' + nonceHash.slice(0, 16)}, {text: '❌ رفض', callback_data: 'barbl:no:' + nonceHash.slice(0, 16)}]]);
+  return reply({ok: true, handled: true, awaitingConfirm: true});
+}
+// /barb <command> and barb: buttons from a chat that is linked to a subscriber's own script.
+async function userCommandIngest(update, env, chatId, text, kind, message, callback, {reply, bad}) {
+  const token = botTokenOf(env);
+  if (!token)return null;
+  const dev = await env.DB.prepare('SELECT d.user_id,d.last_seen FROM barb_user_devices d JOIN portal_telegram_links l ON l.user_id=d.user_id AND l.chat_id=d.chat_id WHERE d.chat_id=?').bind(chatId).first();
+  if (!dev || !(await userEntitled(env, dev.user_id)))return null;
+  const id = update?.update_id;
+  if (!Number.isSafeInteger(id) || id < 0 || typeof text !== 'string' || text.length > 1800)return bad('invalid_telegram_update', 400);
+  const now = seconds(), offline = !dev.last_seen || now - dev.last_seen > 30;
+  const msgId = Number.isSafeInteger(message.message_id) ? message.message_id : null;
+  const cbId = kind === 'callback' && safeString(callback.id, 160) ? callback.id : null;
+  if (kind === 'callback' && !cbId)return bad('invalid_telegram_update', 400);
+  const saved = await env.DB.prepare('INSERT OR IGNORE INTO barb_user_commands(id,update_id,user_id,kind,text,chat_id,message_id,callback_id,ts,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
+    .bind(crypto.randomUUID(), id, dev.user_id, kind, normalizeCoordinates(text), chatId, msgId, cbId, now, now + 120).run();
+  if ((saved.meta?.changes || 0) === 0)return reply({ok: true, handled: true, duplicate: true});
+  if (callback) { try { await botCall(token, 'answerCallbackQuery', {callback_query_id: cbId, text: offline ? 'السكربت غير متصل' : 'تم إرسال الأمر'}); } catch (_) {} }
+  if (offline) { try { await sendText(token, chatId, 'السكربت غير متصل، افتح صفحة اللعبة'); } catch (_) {} }
+  if (Math.random() < 0.02)await env.DB.prepare('DELETE FROM barb_user_commands WHERE expires_at<?').bind(now - 3600).run().catch(() => {});
+  return reply({ok: true, handled: true, queued: true, offline});
+}
+
 // Called only after the existing webhook has validated the Telegram secret header and parsed JSON.
 // Return null for every non-Barb message, preserving existing Telegram commands exactly.
 export async function barbWebhook(update,env,{reply,bad}) {
+  if(env.DB){
+    try{const linkResult=await barbLinkUpdate(update,env,{reply});if(linkResult)return linkResult;}
+    catch(_){/* migration not applied yet: fall through to the owner flow */}
+  }
   const callback=update?.callback_query;
   const message=callback?.message || update?.message;
   if(!message || (callback ? callback.from?.is_bot : message.from?.is_bot))return null;
@@ -263,8 +457,13 @@ export async function barbWebhook(update,env,{reply,bad}) {
   }
   const chatId=validateChat(message.chat?.id);
   if(!chatId)return reply({ok:true,ignored:true});
-  const config=await settingsRow(env);
-  if(!config || !chatsFromRow(config).includes(chatId) || !config.bot_cipher)return reply({ok:true,ignored:true});
+  const config=await settingsRow(env).catch(()=>null);
+  if(!config || !chatsFromRow(config).includes(chatId) || !config.bot_cipher){
+    // Not the owner relay: a subscriber's own linked chat may control only that subscriber's script.
+    try{const own=await userCommandIngest(update,env,chatId,text,kind,message,callback,{reply,bad});if(own)return own;}
+    catch(_){/* per-user tables missing or unavailable: behave exactly like before */}
+    return reply({ok:true,ignored:true});
+  }
   const token=await decryptToken(env,config);
   const id=update?.update_id;
   if(!Number.isSafeInteger(id) || id<0 || typeof text!=='string' || text.length>1800)
@@ -292,12 +491,26 @@ export async function barbApi(req,env,path,{reply,bad}) {
   const headers=cors(origin);
   if(req.method==='OPTIONS'&&path.length===2&&['poll','reply','event'].includes(path[1]))
     return reply({ok:true},200,headers);
+  if(path[1]==='link'&&path.length===3&&['begin','status'].includes(path[2])){
+    const wantsPost=path[2]==='begin';
+    if(req.method==='OPTIONS')return reply({ok:true},200,headers);
+    if((wantsPost&&req.method!=='POST')||(!wantsPost&&req.method!=='GET'))return badJson(reply,'method_not_allowed',405,headers);
+    try{return wantsPost?await linkBegin(req,env,headers,{reply}):await linkStatus(req,env,headers,{reply});}
+    catch(e){
+      if(['invalid_json','payload_too_large'].includes(e.message))return badJson(reply,e.message,e.message==='payload_too_large'?413:400,headers);
+      return badJson(reply,'barb_unavailable',503,headers);
+    }
+  }
   if(path.length!==2||!['poll','reply','event'].includes(path[1]))return badJson(reply,'not_found',404,headers);
   if((path[1]==='poll'&&req.method!=='GET')||(path[1]!=='poll'&&req.method!=='POST'))
     return badJson(reply,'method_not_allowed',405,headers);
   try {
     const hash=await authorize(req,env);
-    if(!hash)return badJson(reply,'unauthorized',401,headers);
+    if(!hash){
+      const dev=await userAuthorize(req,env).catch(()=>null);
+      if(!dev)return badJson(reply,'unauthorized',401,headers);
+      return userRelay(req,env,path,dev,headers,{reply});
+    }
     const now=seconds();
     if(path[1]==='poll'){
       const version=new URL(req.url).searchParams.get('v');
