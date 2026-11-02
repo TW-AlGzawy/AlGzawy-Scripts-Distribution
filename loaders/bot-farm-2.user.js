@@ -12,7 +12,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_info
 // @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js
-// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/pilots/algzawy-farm-professional-v110-qa.user.js
+// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js
 // ==/UserScript==
 (function () {
   'use strict';
