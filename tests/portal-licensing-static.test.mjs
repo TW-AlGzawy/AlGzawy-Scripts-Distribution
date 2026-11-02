@@ -16,7 +16,14 @@ test('all 10 distributed beta loaders require a fresh specific license grant',()
     assert.match(src,/const hasPortalLicense/,'no license function: '+id);
     assert.ok(src.includes("'algzawy_portal_grant_'+ID"),'missing per-script grant: '+id);
     assert.match(src,/POLL_MS\s*=\s*120000/,'excessive Worker polling: '+id);
-    assert.ok(src.includes("if(!hasPortalLicense()){stopCore('license');return;}"),'missing license preflight: '+id);
+    const gate=id==='mass-scavenge-v1'?
+      "if(!hasPortalLicense()){pauseCore('license');return;}":
+      "if(!hasPortalLicense()){stopCore('license');return;}";
+    assert.ok(src.includes(gate),'missing license preflight: '+id);
+    if(id==='mass-scavenge-v1'){
+      assert.match(src,/stopCore\('disabled'\)/,'central OFF must remain final');
+      assert.match(src,/document\.addEventListener\(STOP_EVENT/,'Bridge revocation must STOP the engine');
+    }
     assert.ok(bridge.includes("'"+id+"'"),'cloud bridge ignores script: '+id);
   }
 });
