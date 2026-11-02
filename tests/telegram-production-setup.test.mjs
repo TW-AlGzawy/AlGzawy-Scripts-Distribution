@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const source=read('portal/functions/telegram-preview.js');
+const barbUri='data:text/javascript;base64,'+Buffer.from(read('portal/functions/barb-control.js')).toString('base64');
+const source=read('portal/functions/telegram-preview.js').replace("from './barb-control.js'","from '"+barbUri+"'");
 const api=read('portal/functions/api/[[path]].js');
 const owner=read('portal/admin/admin.js');
 const ownerHTML=read('portal/admin/index.html');
