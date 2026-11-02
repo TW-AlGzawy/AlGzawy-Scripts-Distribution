@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.14
+// @version      2.4.16
 // @description  AlGzawy Cloud Bridge Sleep: approved devices, licensed tab pins, Telegram alerts and no automatic page reload.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.14';
+  const BRIDGE_VERSION='2.4.16';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -536,7 +536,9 @@
   const PUBLISHER_STATUS=PORTAL_ORIGIN+'/api/status';
   let publisherPending=false,publisherPreviouslyOn=null;
   function checkPublisher(){
-    if(!connection.device||publisherPending||document.visibilityState==='hidden')return;
+    // Background tabs still need central revocation checks. The browser can
+    // throttle timers, but visibility must never suppress safety polling.
+    if(!connection.device||publisherPending)return;
     publisherPending=true;
     const send=(swift=false)=>new Promise((resolve,reject)=>{
       const config={
@@ -1139,7 +1141,10 @@
     pollReleaseUpdates();
     setInterval(()=>{if(document.visibilityState==='visible')pollReleaseUpdates();},300000);
     if(connection.device){void synchronize(true);checkPublisher();}
-    timer=setInterval(()=>{if(document.visibilityState==='visible')void synchronize();},30000);
+    // A hidden tab remains an authorized tab: keep the license refreshed and
+    // accept explicit revocations while background timer callbacks run.
+    // Do not use this heartbeat to restart stopped jobs or reload pages.
+    timer=setInterval(()=>{void synchronize();},30000);
     setInterval(checkPublisher,15000);
     setInterval(()=>{if(connection.device&&Number(localStorage.getItem(LICENSE_UNTIL)||0)<Date.now())stopAll();},5000);
     window.addEventListener('focus',()=>void synchronize());
