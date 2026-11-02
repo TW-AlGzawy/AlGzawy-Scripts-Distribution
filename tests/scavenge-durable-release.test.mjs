@@ -17,7 +17,7 @@ const end=engine.indexOf('    function waitAndClick(',begin);
 assert.ok(begin>0&&end>begin,'schedule functions extracted from live engine');
 const code=engine.slice(begin,end);
 
-function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,0)},minReload=25,maxReload=35}={}){
+function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,0)},minReload=25,maxReload=35,hidden=false}={}){
  const map=shared||new Map(),session=new Map();
  const storage=m=>({
    getItem:k=>m.get(k)??null,
@@ -32,7 +32,7 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
  const window={game_data:{player:{id:12345}},crypto:{randomUUID:()=> 'test-'+clock.time},addEventListener(){}};
  const location={host:'ae101.tribalwars.ae',reload(){reloaded++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
- const document={visibilityState:'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawyScheduler:'1.0.9'}}]}};
+ const document={visibilityState:hidden?'hidden':'visible',getElementById(){return null;},addEventListener(){},querySelectorAll(){return [{dataset:{algzawyScheduler:'1.0.10'}}]}};
  const setup=new Function('window','location','navigator','localStorage','sessionStorage',
    'document','GM_getValue','settings','setTimeout','clearTimeout','Date','Math','console',
    'onDispatch',
@@ -54,17 +54,17 @@ function harness(shared=null,{complete=true,clock={time:Date.UTC(2026,9,30,18,0,
    set enabled(v){enabled=v;},timers,local,sess};
 }
 
-test('official v1.0.9 loader, catalog, and schedule engine agree on publication',()=>{
+test('official v1.0.10 loader, catalog, and schedule engine agree on publication',()=>{
  new vm.Script(engine);new vm.Script(mass);
  const item=JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='mass-scavenge-v1');
- assert.equal(item.version,'1.0.9');
- assert.match(mass,/^\/\/ @version\s+1\.0\.9$/m);
- assert.match(engine,/^\/\/ @version\s+1\.0\.9$/m);
+ assert.equal(item.version,'1.0.10');
+ assert.match(mass,/^\/\/ @version\s+1\.0\.10$/m);
+ assert.match(engine,/^\/\/ @version\s+1\.0\.10$/m);
  assert.match(mass,/main\/scripts\/mass-scavenge-v1\.js/);
  assert.match(mass,/algzawy-control-api\.karm-saleh-usa2\.workers\.dev/);
  assert.match(mass,/algzawy_tab_pin_v1_/);
- assert.match(engine,/data-algzawy-scheduler="1\.0\.9"/);
- assert.match(engine,/panels\[0\]\.dataset\.algzawyScheduler==='1\.0\.9'/);
+ assert.match(engine,/data-algzawy-scheduler="1\.0\.10"/);
+ assert.match(engine,/panels\[0\]\.dataset\.algzawyScheduler==='1\.0\.10'/);
  assert.match(engine,/isCurrentCycleClaim\(\)/);
 });
 
@@ -317,4 +317,37 @@ test('scavenge UI remains compact and previous 15-25 minute schedule is unchange
  assert.match(engine,/const scheduleKey='algzawy_mass_scavenge_schedule_v2_'/);
  assert.match(engine,/nextRunAt:now\+intervalMs/);
  assert.match(engine,/isCurrentCycleClaim\(\)/);
+});
+
+
+test('hidden scavenge tab stays scheduled and sends one due cycle after a scoped refresh',async()=>{
+ const clock={time:Date.UTC(2026,10,2,12)};
+ const first=harness(null,{clock,hidden:true});
+ const deadline=first.api.ensureCycleSchedule().nextRunAt;
+ const timers=first.timers;
+ first.api.armCycleTimer();
+ assert.equal(timers.length,1);
+ assert.ok(timers[0].ms<30000,'hidden scheduling must not unconditionally sleep 30 seconds');
+ clock.time=deadline;
+ await first.api.checkCycleDue();
+ assert.equal(first.reloaded,1,'expired DOM must be refreshed even in a hidden tab');
+ assert.equal(first.sent,0,'no stale-DOM dispatch before refresh');
+ const reloaded=harness(first.map,{clock,hidden:true});
+ await reloaded.api.checkCycleDue();
+ assert.equal(reloaded.sent,1,'fresh hidden tab may send with normal lease and safety gates');
+ await reloaded.api.checkCycleDue();
+ assert.equal(reloaded.sent,1,'missed timers never queue or replay extra cycles');
+ const other=harness(first.map,{clock,hidden:true});
+ await other.api.checkCycleDue();
+ assert.equal(other.sent,0,'a second hidden tab cannot duplicate the reservation');
+});
+
+test('background scheduler does not bypass manual stop even when overdue',async()=>{
+ const clock={time:Date.UTC(2026,10,2,12)};
+ const h=harness(null,{clock,hidden:true});
+ clock.time=h.api.ensureCycleSchedule().nextRunAt+360000;
+ h.enabled=false;
+ await h.api.checkCycleDue();
+ assert.equal(h.sent,0);
+ assert.equal(h.reloaded,0);
 });
