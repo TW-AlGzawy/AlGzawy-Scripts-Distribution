@@ -39,7 +39,7 @@ function harness({shared=new Map(),clock={t:Date.UTC(2026,10,1,18)},village=null
    if(sel==='table.mass-scavenge-table tr[data-id]')return [row];
    if(sel==='#algzawy-panel')return pinned?[{dataset:{algzawyScheduler:'1.0.11'}}]:[];
    return [];
-  },getElementById(){return null;},addEventListener(){}};
+  },getElementById(){return null;},addEventListener(){},dispatchEvent(){}};
  const window={game_data:{player:{id:1703609}},crypto:{randomUUID:()=> 't-'+Math.random()},
   getComputedStyle:el=>({display:el.hidden?'none':'block',visibility:'visible'}),
   addEventListener(){}};
