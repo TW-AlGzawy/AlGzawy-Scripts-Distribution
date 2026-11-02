@@ -31,7 +31,10 @@ test('all official licensed loaders require a manual page refresh after revocati
     assert.doesNotMatch(loader,/window\.location\.reload\s*\(/,id);
     assert.match(loader,/if \(revoked\) \{/,id);
     assert.match(loader,/وضع سكون|بعد الإيقاف الأمني|الترخيص/,id);
-    assert.match(loader,/if\(!hasPortalLicense\(\)\)\{stopCore\('license'\);return;\}/,id);
+    const expected=id==='mass-scavenge-v1'?
+      /if\(!hasPortalLicense\(\)\)\{pauseCore\('license'\);return;\}/:
+      /if\(!hasPortalLicense\(\)\)\{stopCore\('license'\);return;\}/;
+    assert.match(loader,expected,id);
     if(releases.has(id))assert.match(loader,new RegExp('^// @version\\s+'+releases.get(id).replaceAll('.','\\.')+'$', 'm'));
   }
 });
