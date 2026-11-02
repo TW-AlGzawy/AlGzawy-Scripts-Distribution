@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.2
+// @version      1.0.3
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -1084,17 +1084,19 @@
     color:#fff;font-size:20px;cursor:move;box-shadow:0 3px 12px #000a;display:none;touch-action:none}
   #brp-fab.show{display:block}
   #brp-fab i{position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;border:1px solid #000}
-  .brp-h{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#193b44;border-radius:10px 10px 0 0;border-bottom:1px solid #2ac6b4;cursor:move;touch-action:none;user-select:none}
+  .brp-h{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#193b44;border-radius:10px 10px 0 0;border-bottom:1px solid #2ac6b4;cursor:move;touch-action:none;user-select:none}
   .brp-h b{flex:1;font-size:14px}
   .brp-led{width:12px;height:12px;border-radius:50%;background:#888;flex:none}
   .brp-led.on{background:#3ecf5a;box-shadow:0 0 6px #3ecf5a}.brp-led.dry{background:#f0b429}
   .brp-led.sleep{background:#5b8def}.brp-led.off{background:#d9534f}
   .brp-st{font-size:12px;opacity:.9}
   .brp-ib{background:none;border:1px solid #2ac6b4;color:#fff;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:14px}
-  .brp-tabs{display:flex;background:#193b44;overflow-x:auto;scrollbar-width:thin}
-  .brp-tabs button{flex:0 0 auto;min-width:78px;padding:8px 4px;background:none;border:0;border-bottom:3px solid transparent;color:#e9f7f5;cursor:pointer;font-size:13px}
+  .brp-tabs{flex:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#193b44;border-bottom:1px solid #28555a}
+  .brp-tabs button{min-width:0;padding:7px 2px;background:none;border:0;border-bottom:3px solid transparent;color:#e9f7f5;cursor:pointer;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .brp-tabs button.on{border-bottom-color:#7fe2d1;font-weight:bold;background:#245761}
-  .brp-body{overflow-y:auto;padding:10px;flex:1}
+  .brp-body{overflow-y:auto;padding:10px;flex:1 1 auto;min-height:0}
+  .brp-adv{margin-top:12px;border:1px dashed #347f82;border-radius:8px;padding:2px 8px}
+  .brp-adv>summary{cursor:pointer;padding:8px 0;font-weight:bold;color:#7fe2d1}
   .brp-row{display:flex;gap:6px;margin-bottom:8px}
   .brp-btn{flex:1;padding:10px 6px;border-radius:8px;border:0;font-size:14px;font-weight:bold;cursor:pointer;color:#fff;background:#1c6867}
   .brp-btn.go{background:#2e9e48}.brp-btn.stop{background:#c9453f}.brp-btn.sec{background:#28545c}
@@ -1125,7 +1127,7 @@
   box.innerHTML = `
     <div class="brp-h" id="brp-hd"><span class="brp-led" id="brp-led"></span><b>الغزااوي | الحجز التلقائي</b><span class="brp-st" id="brp-st"></span>
       <button class="brp-ib" id="brp-home" title="إعادة الموضع">⌂</button><button class="brp-ib" id="brp-min" title="تصغير">—</button></div>
-    <div class="brp-tabs" role="tablist" aria-label="أقسام الحجز"><button data-t="main" class="on">الرئيسية</button><button data-t="targets">الأهداف</button><button data-t="reservations">الحجوزات</button><button data-t="scoutmap">الكشافة والخريطة</button><button data-t="stats">الإحصاءات</button><button data-t="tg">Telegram</button><button data-t="cfg">الإعدادات</button><button data-t="log">السجل</button></div>
+    <div class="brp-tabs" role="tablist" aria-label="أقسام الحجز"><button data-t="main" class="on">الرئيسية</button><button data-t="targets">الأهداف</button><button data-t="reservations">الحجوزات</button><button data-t="scoutmap">الخريطة</button><button data-t="stats">الإحصاءات</button><button data-t="tg">Telegram</button><button data-t="cfg">الإعدادات</button><button data-t="log">السجل</button></div>
     <div class="brp-body" id="brp-body"></div>`;
   const fab = document.createElement('button');
   fab.id = 'brp-fab'; fab.innerHTML = '🏴<i id="brp-fled"></i>';
@@ -1293,17 +1295,27 @@
     ]],
   ];
   const ALLKEYS = SCHEMA.flatMap(g => g[1]);
+  // Settings people actually change. All other keys stay fully functional but live in the collapsed "متقدمة" section.
+  const ESSENTIAL = new Set(['DRY_RUN','MAX_RES','RES_DAYS','SCOPE','MIN_PTS','MAX_PTS','MAX_DIST','NEW_BARBS','INACTIVE','INACTIVE_DAYS','EXCL','ONLY',
+    'REPLACE','SCHED_ON','SLEEP_FROM','SLEEP_TO','SOUND','NOTIFY_NEW','EXPIRY_ON','EXPIRY_WARN_H','AUTO_RENEW','REPORT_ON','REPORT_AT']);
 
   function renderCfg() {
     const body = q('#brp-body');
-    body.innerHTML = SCHEMA.map(([g, fs]) => `<div class="brp-g">${g}</div>` + fs.filter(([k])=>!['TG_TOKEN','DC_HOOK','TG_CMD'].includes(k)).map(f => {
+    const HIDDEN = ['TG_TOKEN','DC_HOOK','TG_CMD'];
+    const field = f => {
       const [k, l, t] = f, hint = t === 's' ? f[4] : f[3];
       let inp;
       if (t === 'b') inp = `<input type="checkbox" data-k="${k}" ${CFG[k] ? 'checked' : ''}>`;
       else if (t === 's') inp = `<select data-k="${k}">${f[3].map(o => `<option value="${o[0]}" ${CFG[k] === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
       else inp = `<input data-k="${k}" type="${t === 'n' ? 'number' : t === 'p' ? 'password' : t === 'time' ? 'time' : 'text'}" value="${esc(String(CFG[k]))}">`;
       return `<label class="brp-f"><span>${l}${hint ? `<small>${hint}</small>` : ''}</span>${inp}</label>`;
-    }).join('')).join('') +
+    };
+    const groups = pick => SCHEMA.map(([g, fs]) => {
+      const rows = fs.filter(f => !HIDDEN.includes(f[0]) && pick(f[0])).map(field).join('');
+      return rows ? `<div class="brp-g">${g}</div>` + rows : '';
+    }).join('');
+    body.innerHTML = groups(k => ESSENTIAL.has(k)) +
+      `<details class="brp-adv" id="brp-adv"${get('advOpen', false) ? ' open' : ''}><summary>⚙ إعدادات متقدمة (نادرًا ما تحتاجها)</summary>` + groups(k => !ESSENTIAL.has(k)) + '</details>' +
       '<div class="brp-row" style="margin-top:12px"><button class="brp-btn go" id="brp-save">💾 حفظ</button>' +
       '<button class="brp-btn sec" id="brp-test">🔔 اختبار</button><button class="brp-btn stop" id="brp-reset">↺ افتراضي</button></div>';
     body.querySelector('#brp-save').onclick = () => {
@@ -1328,6 +1340,7 @@
       tab = 'main'; box.querySelectorAll('.brp-tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === 'main'));
       render();
     };
+    const advEl = body.querySelector('#brp-adv'); if (advEl) advEl.addEventListener('toggle', () => set('advOpen', advEl.open));
     body.querySelector('#brp-test').onclick = () => { notify('🔔 اختبار تنبيه من حاجز البربر'); log('أُرسل تنبيه تجريبي'); };
     body.querySelector('#brp-reset').onclick = () => {
       if (!confirm('استرجاع الإعدادات الافتراضية؟')) return;
