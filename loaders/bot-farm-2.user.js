@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         الغزااوي | بوت النهب
+// @name         الغزااوي | بوت النهب الاحترافي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.5
+// @version      1.3.0
 // @description  AlGzawy Cloud — المرخص للمشترك والجهاز المعتمد
 // @include      https://*.tribalwars.*/game.php?*screen=am_farm*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -10,13 +10,13 @@
 // @connect      raw.githubusercontent.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @grant        GM_xmlhttpRequest
-// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js
-// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js
+// @grant        GM_info
+// @updateURL    https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/pilots/algzawy-farm-professional-v110-qa.user.js
+// @downloadURL  https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/pilots/algzawy-farm-professional-v110-qa.user.js
 // ==/UserScript==
 (function () {
   'use strict';
   // Policy-first: no engine source is executed until a valid ENABLED response is confirmed.
-  const ROOT_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main";
   const SOURCE_URL = "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/scripts/bot-farm-2.js";
   const STATUS_URL = 'https://algzawy-control-api.karm-saleh-usa2.workers.dev/status';
   const ID = "bot-farm-2";
@@ -25,7 +25,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.5';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.3.0';
 
     // QA-only transient diagnostics for the install handshake; not a license or execution authorization.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -60,7 +60,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.5');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.3.0');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -77,230 +77,211 @@
     const expires=Number(localStorage.getItem(LICENSE_UNTIL)||0);
     return !!localStorage.getItem(LICENSE_ID) && expires>Date.now() && expires<=Date.now()+180000 && localStorage.getItem('algzawy_portal_grant_'+ID)==='1';
   };
-  const HAS_GM_API = false;
-  const POLL_MS = 120000; // Bridge coordinates central status every 15s; this is defense-in-depth
-  const REQUEST_TIMEOUT = 6000;
-  const STOP_EVENT = '__algzawy_stop_' + ID.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
-  const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
-  const ATTEMPT_EVENT = '__algzawy_attempt_bot-farm-2';
-  const BLOCKED_PANEL_ID = 'algzawy-blocked-' + ID;
-  let active = false;
-  let executing = false;
-  let everStarted = false;
-  let revoked = false;
-  let stopExecution = () => {};
-  let checkInProgress = false;
-  let lastRevision = 'initial';
-  let automaticNoticeKey = null; // per page load, not persisted across page navigation
 
-  function requestText(url) {
-    return new Promise((resolve, reject) => {
-      GM_xmlhttpRequest({
-        method: 'GET',
-        url: url + (url.includes('?') ? '&' : '?') + '_alg_nonce=' + Date.now() + '_' + Math.random().toString(36).slice(2),
-        timeout: REQUEST_TIMEOUT,
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-        onload: r => r.status === 200 ? resolve(r.responseText) : reject(new Error('HTTP ' + r.status)),
-        ontimeout: () => reject(new Error('timeout')),
-        onerror: () => reject(new Error('network'))
-      });
+  // The newest supplied v1.2.0 loader's license-first state flow is retained.
+  // The source hash pins the exact production engine. Changing the engine
+  // requires a deliberate, atomic loader release.
+  const ENGINE_SHA256='12277bd49b6350f66887521849a1815c1c89fc8a1cb5d8eeedf5ee9011fd8429';
+  const POLL_MS=120000,REQUEST_TIMEOUT=6000,RETRY_BASE_MS=5000,RETRY_MAX_MS=60000;
+  const STOP_EVENT='__algzawy_stop_'+ID,PAUSE_EVENT='__algzawy_pause_'+ID,
+    RESUME_EVENT='__algzawy_resume_'+ID;
+  const BLOCKED_PANEL_ID='algzawy-blocked-'+ID;
+  const ATTEMPT_EVENT='__algzawy_attempt_bot-farm-2';
+  const STOP_MESSAGE='تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
+  const guard=document.documentElement,guardKey='data-algzawy-loader-'+ID;
+  if(guard?.hasAttribute(guardKey))return; // Never run two farm engines in the same tab.
+  guard?.setAttribute(guardKey,'1.3.0');
+  let state='init',reason=null,revoked=false,everStarted=false;
+  let pending=false,rerun=false,failures=0,lastGoodAt=0,lastRevision='initial';
+  let retryTimer=null,lastError=null;
+  let capabilities={pause:false};
+  const notes=[];
+  function log(code,detail){
+    notes.push({at:Date.now(),code,detail:String(detail||'').slice(0,160)});
+    if(notes.length>30)notes.shift();
+  }
+  function bridgeNotice(status,message){
+    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',
+      {detail:{id:ID,name:'الغزااوي | بوت النهب',state:status,message}}));
+  }
+  function gateReason(){
+    if(!hasTabPin())return 'local';
+    if(!hasPortalLicense())return 'license';
+    if(localStorage.getItem(LOCAL_KEY)==='false')return 'local';
+    if(localStorage.getItem(HUMAN_KEY)==='1')return 'human';
+    return null;
+  }
+  function report(reason){
+    const msg=reason==='disabled'?STOP_MESSAGE:
+      reason==='offline'?'تعذر التحقق من حالة السكربت. يتوقف الإرسال حتى عودة التحقق.':
+      reason==='integrity'?'فشل فحص سلامة محرك النهب SHA-256.':
+      reason==='engine-error'?'فشل تشغيل المحرك. يتطلب تحديث التبويب.':
+      reason==='sleep'?'وضع السكون: توقف المحرك سابقًا؛ يلزم تحديث التبويب يدويًا.':
+      'موقوف — إعادة فحص الترخيص من Cloud Bridge';
+    bridgeNotice(reason==='local'?'ready':'blocked',msg);
+    return msg;
+  }
+  function hardStop(why){
+    if(!revoked){
+      try{document.dispatchEvent(new Event(STOP_EVENT));}catch(_){}
+    }
+    revoked=true;state='stopped';reason=why;
+    try{sessionStorage.removeItem('algzawy_resume_'+ID+'_'+lastRevision);}catch(_){}
+    report(why);log('stopped',why);
+  }
+  function halt(why){
+    // CAPTCHA and central OFF are irreversible until user refreshes.
+    if(why==='disabled'||why==='license'||why==='human'||why==='integrity'||why==='engine-error')
+      return hardStop(why);
+    if(revoked)return report('sleep');
+    if(state==='running'&&capabilities.pause){
+      document.dispatchEvent(new Event(PAUSE_EVENT));state='paused';reason=why;
+    }else if(everStarted)return hardStop(why);
+    else{state='blocked';reason=why;}
+    report(why);log('halt',why);
+  }
+  function requestText(url){
+    return new Promise((resolve,reject)=>{
+      GM_xmlhttpRequest({method:'GET',
+        url:url+(url.includes('?')?'&':'?')+'_alg_nonce='+Date.now()+'_'+Math.random().toString(36).slice(2),
+        timeout:REQUEST_TIMEOUT,headers:{'Cache-Control':'no-store'},
+        onload:r=>r.status===200?resolve(r.responseText):reject(Error('HTTP '+r.status)),
+        onerror:()=>reject(Error('network')),ontimeout:()=>reject(Error('timeout'))});
     });
   }
-
-  function bridgeNotice(state,message){
-    document.dispatchEvent(new CustomEvent('algzawy-cloud-script-status',{detail:{id:ID,name:"الغزااوي | بوت النهب",state,message}}));
+  async function status(){
+    const r=JSON.parse(await requestText(STATUS_URL));
+    if(!r||r.schema!==1||!Number.isInteger(r.revision)||typeof r.enabled!=='boolean')
+      throw Error('invalid_status');
+    lastRevision=String(r.revision);
+    return r.enabled===true;
   }
-  function message(text,force=false){bridgeNotice('blocked',text);}
-  function ensureBlockedLauncher(){bridgeNotice('blocked','موقوف — إعادة فحص الترخيص من Cloud Bridge');}
-  function clearBlockedLauncher(){
-    document.getElementById(BLOCKED_PANEL_ID)?.remove();
-    bridgeNotice('ready','');
+  async function hash(data){
+    if(!crypto?.subtle||typeof TextEncoder==='undefined')throw Error('sha256_unavailable');
+    const raw=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(data));
+    return Array.from(new Uint8Array(raw),n=>n.toString(16).padStart(2,'0')).join('');
   }
-  function scopedClock() {
-    const intervals = new Set();
-    const timeouts = new Set();
-    const frames = new Set();
-    let allowed = true;
-    const setIntervalScoped = (fn, delay, ...args) => {
-      if (!allowed) return 0;
-      const id = window.setInterval((...values) => { if (allowed) typeof fn === 'function' && fn(...values); }, delay, ...args);
-      intervals.add(id); return id;
+  // Engine runs in page context and owns only the existing page's timers.
+  // Its cooperative Pause/Resume listeners keep the user running intent safe.
+  function pageRunner(code,stopEvent,id){
+    const timeouts=new Set(),intervals=new Set(),frames=new Set();let alive=true;
+    const setT=(cb,wait,...args)=>{
+      if(!alive)return 0;
+      const t=window.setTimeout(()=>{timeouts.delete(t);if(alive&&typeof cb==='function')cb(...args);},wait);
+      timeouts.add(t);return t;
     };
-    const setTimeoutScoped = (fn, delay, ...args) => {
-      if (!allowed) return 0;
-      const id = window.setTimeout((...values) => {
-        timeouts.delete(id);
-        if (allowed && typeof fn === 'function') fn(...values);
-      }, delay, ...args);
-      timeouts.add(id); return id;
+    const setI=(cb,wait,...args)=>{
+      if(!alive)return 0;
+      const t=window.setInterval(()=>{if(alive&&typeof cb==='function')cb(...args);},wait);
+      intervals.add(t);return t;
     };
-    const clearIntervalScoped = id => { intervals.delete(id); window.clearInterval(id); };
-    const clearTimeoutScoped = id => { timeouts.delete(id); window.clearTimeout(id); };
-    const rafScoped = callback => {
-      if (!allowed || typeof window.requestAnimationFrame !== 'function') return 0;
-      const id = window.requestAnimationFrame(timestamp => { frames.delete(id); if (allowed) callback(timestamp); });
-      frames.add(id); return id;
+    const clearT=t=>{timeouts.delete(t);window.clearTimeout(t);};
+    const clearI=t=>{intervals.delete(t);window.clearInterval(t);};
+    const raf=cb=>{
+      if(!alive||!window.requestAnimationFrame)return 0;
+      const t=window.requestAnimationFrame(v=>{frames.delete(t);if(alive)cb(v);});
+      frames.add(t);return t;
     };
-    const cafScoped = id => { frames.delete(id); if (typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(id); };
-    return {
-      functions: [setIntervalScoped, setTimeoutScoped, clearIntervalScoped, clearTimeoutScoped, rafScoped, cafScoped],
-      stop() {
-        allowed = false;
-        intervals.forEach(id => window.clearInterval(id));
-        timeouts.forEach(id => window.clearTimeout(id));
-        frames.forEach(id => { if (typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(id); });
-        intervals.clear(); timeouts.clear(); frames.clear();
-      }
-    };
-  }
-
-  // The page-context runner preserves page globals for @grant none legacy scripts.
-  // The sandbox runner keeps Tampermonkey GM_* permissions in the userscript world.
-  function pageRunner(code, stopEvent) {
-    const intervals = new Set(), timeouts = new Set(), frames = new Set();
-    let allowed = true;
-    const setI = (callback, wait, ...args) => {
-      if (!allowed) return 0;
-      const id = window.setInterval((...params) => { if (allowed && typeof callback === 'function') callback(...params); }, wait, ...args);
-      intervals.add(id); return id;
-    };
-    const setT = (callback, wait, ...args) => {
-      if (!allowed) return 0;
-      const id = window.setTimeout((...params) => {
-        timeouts.delete(id); if (allowed && typeof callback === 'function') callback(...params);
-      }, wait, ...args);
-      timeouts.add(id); return id;
-    };
-    const clearI = id => { intervals.delete(id); window.clearInterval(id); };
-    const clearT = id => { timeouts.delete(id); window.clearTimeout(id); };
-    const raf = cb => {
-      if (!allowed || !window.requestAnimationFrame) return 0;
-      const id = window.requestAnimationFrame(t => { frames.delete(id); if (allowed) cb(t); });
-      frames.add(id); return id;
-    };
-    const caf = id => { frames.delete(id); if (window.cancelAnimationFrame) window.cancelAnimationFrame(id); };
-    document.addEventListener(stopEvent, () => {
-      allowed = false;
-      intervals.forEach(window.clearInterval.bind(window));
-      timeouts.forEach(window.clearTimeout.bind(window));
-      frames.forEach(id => window.cancelAnimationFrame && window.cancelAnimationFrame(id));
-      intervals.clear(); timeouts.clear(); frames.clear();
-    }, { once: true });
-    try {
-      const program = new Function('setInterval', 'setTimeout', 'clearInterval', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', code);
-      program(setI, setT, clearI, clearT, raf, caf);
-    } catch (err) { console.error('[AlGzawy] page script failed: ', err); }
-  }
-
-  function startCore(code) {
-    everStarted = true;
-    if (HAS_GM_API) {
-      const clock = scopedClock();
-      stopExecution = clock.stop;
-      const gmNames = ['GM_xmlhttpRequest', 'GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_addStyle', 'GM_notification', 'GM_setClipboard', 'GM_info', 'unsafeWindow'];
-      const gmValues = [
-        typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : undefined,
-        typeof GM_getValue === 'function' ? GM_getValue : undefined,
-        typeof GM_setValue === 'function' ? GM_setValue : undefined,
-        typeof GM_deleteValue === 'function' ? GM_deleteValue : undefined,
-        typeof GM_addStyle === 'function' ? GM_addStyle : undefined,
-        typeof GM_notification === 'function' ? GM_notification : undefined,
-        typeof GM_setClipboard === 'function' ? GM_setClipboard : undefined,
-        typeof GM_info !== 'undefined' ? GM_info : undefined,
-        typeof unsafeWindow !== 'undefined' ? unsafeWindow : window
-      ];
-      // Preserve existing grants and DOM access. Only timer scheduling through local bindings is tracked.
-      const fn = new Function('setInterval', 'setTimeout', 'clearInterval', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', ...gmNames, code);
-      fn(...clock.functions, ...gmValues);
-    } else {
-      const content = '(' + pageRunner.toString() + ')(' + JSON.stringify(code) + ',' + JSON.stringify(STOP_EVENT) + ');';
-      const tag = document.createElement('script');
-      tag.textContent = content;
-      (document.documentElement || document.head).appendChild(tag);
-      tag.remove();
-      stopExecution = () => document.dispatchEvent(new Event(STOP_EVENT));
-    }
-    active = true;
-  }
-
-  function stopCore(reason) {
-    if (active || everStarted) {
-      // Immediately notify the training engine, including its pending submit guard.
-      try { document.dispatchEvent(new Event(STOP_EVENT)); } catch (e) { console.warn('[AlGzawy] stop event failed', e); }
-      try { stopExecution(); } catch (e) { console.warn('[AlGzawy] stop hook failed', e); }
-      if (everStarted) { revoked = true; sessionStorage.removeItem('algzawy_resume_' + ID + '_' + String(lastRevision)); }
-    }
-    active = false;
-    if (reason === 'local') clearBlockedLauncher();
-    else ensureBlockedLauncher();
-    if (reason === 'disabled') message(STOP_MESSAGE);
-    if (reason === 'offline') message('تعذر التحقق من حالة سكربتات الغزاوي، تم إيقافها مؤقتًا لحين عودة الاتصال.');
-  }
-
-  async function checkPolicy() {
-    if(!hasTabPin()){stopCore('local');return;}
-    if (checkInProgress) return;
-    checkInProgress = true;
-    try {
-      if(!hasPortalLicense()){stopCore('license');return;}
-      if(localStorage.getItem(LOCAL_KEY)==='false'){stopCore('local');return;}
-      if(localStorage.getItem(HUMAN_KEY)==='1'){stopCore('human');return;}
-      const text = await requestText(STATUS_URL);
-      const status = JSON.parse(text);
-      if (!status || status.schema !== 1 || !Number.isInteger(status.revision) || status.enabled !== true) {
-        if (status && Number.isInteger(status.revision)) lastRevision = String(status.revision);
-        stopCore('disabled'); return;
-      }
-      lastRevision = String(status.revision);
-      if (!hasPortalLicense()) { stopCore('license'); return; }
-      if (localStorage.getItem(HUMAN_KEY) === '1') { stopCore('human'); return; }
-      if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
-      clearBlockedLauncher();
-      if (revoked) {
-        // Sleep mode: permission synchronization must never reload a game tab.
-        // The stopped engine may retain listeners; only a manual refresh can
-        // safely restart it after the license and device are approved again.
-        message('🛌 وضع سكون الجسر: عادت الصلاحية، لكن المحرك توقف سابقًا. حدّث هذا التبويب يدويًا لاستئناف السكربت.');
-        return;
-      }
-      if (!everStarted && !executing) {
-        executing = true;
-        try {
-          const code = await requestText(SOURCE_URL);
-          const checkAgain = JSON.parse(await requestText(STATUS_URL));
-          if (!checkAgain || checkAgain.schema !== 1 || !Number.isInteger(checkAgain.revision) || checkAgain.enabled !== true) {
-            if (checkAgain && Number.isInteger(checkAgain.revision)) lastRevision = String(checkAgain.revision);
-            stopCore('disabled'); return;
-          }
-          lastRevision = String(checkAgain.revision);
-          if (!hasPortalLicense()) { stopCore('license'); return; }
-          if (localStorage.getItem(HUMAN_KEY) === '1') { stopCore('human'); return; }
-          if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
-          if(!hasTabPin()){stopCore('local');return;}
-          startCore(code);
-        } finally { executing = false; }
-      }
-    } catch (e) {
-      console.warn('[AlGzawy] control not reachable (fail closed): ', ID, e);
-      stopCore('offline');
-    } finally {
-      checkInProgress = false;
+    const caf=t=>{frames.delete(t);window.cancelAnimationFrame?.(t);};
+    document.addEventListener(stopEvent,()=>{
+      alive=false;
+      for(const t of timeouts)window.clearTimeout(t);
+      for(const t of intervals)window.clearInterval(t);
+      for(const t of frames)window.cancelAnimationFrame?.(t);
+      timeouts.clear();intervals.clear();frames.clear();
+    },{once:true});
+    try{
+      new Function('setTimeout','setInterval','clearTimeout','clearInterval',
+        'requestAnimationFrame','cancelAnimationFrame',code)(setT,setI,clearT,clearI,raf,caf);
+    }catch(error){
+      document.dispatchEvent(new CustomEvent('algzawy-engine-error',
+        {detail:JSON.stringify({id,message:String(error?.message||error)})}));
     }
   }
-  document.addEventListener(ATTEMPT_EVENT, () => message(STOP_MESSAGE, true));
-  window.addEventListener('storage', e => { if ((e.key===LICENSE_UNTIL || e.key===LICENSE_ID) && !hasPortalLicense()) stopCore('license'); });
-  window.addEventListener('storage', e => { if(e.key===HUMAN_KEY && e.newValue==='1') stopCore('human'); else if(e.key===LOCAL_KEY) void checkPolicy(); });
-  document.addEventListener('algzawy-local-control-changed', () => { void checkPolicy(); });
-  document.addEventListener('algzawy-human-verification', () => {
-    localStorage.setItem(HUMAN_KEY, '1');
-    stopCore('human');
+  function launch(code){
+    const node=document.createElement('script');
+    node.textContent='('+pageRunner.toString()+')('+JSON.stringify(code)+','+
+      JSON.stringify(STOP_EVENT)+','+JSON.stringify(ID)+');';
+    (document.documentElement||document.head).appendChild(node);node.remove();
+    everStarted=true;state='running';reason=null;bridgeNotice('ready','');
+  }
+  async function evaluate(){
+    const why=gateReason();if(why)return halt(why);
+    let allowed=false;
+    try{allowed=await status();}
+    catch(error){
+      lastError=String(error);
+      failures++;
+      halt('offline');
+      if(!revoked){
+        clearTimeout(retryTimer);
+        retryTimer=setTimeout(()=>void checkPolicy(),
+          Math.min(RETRY_MAX_MS,RETRY_BASE_MS*2**Math.min(failures,4)));
+      }
+      return;
+    }
+    if(!allowed)return halt('disabled');
+    failures=0;lastGoodAt=Date.now();clearTimeout(retryTimer);
+    if(gateReason())return halt(gateReason());
+    if(revoked)return report('sleep');
+    if(state==='paused'){
+      document.dispatchEvent(new Event(RESUME_EVENT));
+      state='running';reason=null;bridgeNotice('ready','');return;
+    }
+    if(everStarted)return bridgeNotice('ready','');
+    state='loading';
+    try{
+      const code=await requestText(SOURCE_URL);
+      if(!await status())return halt('disabled');
+      if(gateReason())return halt(gateReason());
+      const digest=await hash(code);
+      if(digest!==ENGINE_SHA256)return halt('integrity');
+      if(revoked)return report('sleep');
+      launch(code);
+    }catch(error){
+      log('load_error',error?.message||error);
+      if(!everStarted&&state!=='stopped'){state='blocked';report('offline');}
+    }
+  }
+  async function checkPolicy(){
+    if(pending){rerun=true;return;}
+    pending=true;
+    try{do{rerun=false;await evaluate();}while(rerun);}finally{pending=false;}
+  }
+  document.addEventListener('algzawy-engine-capabilities',e=>{
+    try{const cap=JSON.parse(e.detail);
+      if(cap?.id===ID)capabilities.pause=cap.pause===true;
+    }catch(_){}
+  });
+  document.addEventListener('algzawy-engine-error',e=>{
+    try{const data=JSON.parse(e.detail);
+      if(data?.id===ID)hardStop('engine-error');
+    }catch(_){}
+  });
+  document.addEventListener('algzawy-loader-diagnostics-request',()=>{
+    document.dispatchEvent(new CustomEvent('algzawy-loader-diagnostics',
+      {detail:JSON.stringify({id:ID,version:'1.3.0',state,reason,everStarted,revoked,
+        capabilities,failures,lastRevision,lastGoodAgeMs:lastGoodAt?Date.now()-lastGoodAt:null,
+        lastError,gates:{tab:hasTabPin(),license:hasPortalLicense(),
+          human:localStorage.getItem(HUMAN_KEY)==='1'},trace:notes.slice(-20)})}));
+  });
+  document.addEventListener(ATTEMPT_EVENT,()=>report('disabled'));
+  window.addEventListener('storage',e=>{
+    if(e.key===LICENSE_UNTIL||e.key===LICENSE_ID||e.key===HUMAN_KEY||
+      e.key===LOCAL_KEY||e.key==='algzawy_portal_grant_'+ID)
+      void checkPolicy();
+  });
+  document.addEventListener('algzawy-local-control-changed',()=>void checkPolicy());
+  document.addEventListener('algzawy-human-verification',()=>{
+    try{localStorage.setItem(HUMAN_KEY,'1');}catch(_){}
+    hardStop('human');
   });
   document.addEventListener('algzawy-tab-pin-changed',()=>void checkPolicy());
   document.addEventListener('algzawy-tab-pins-ready',()=>void checkPolicy());
+  window.addEventListener('focus',()=>void checkPolicy());
+  document.addEventListener('visibilitychange',()=>void checkPolicy());
+  // Background tabs keep policy checks running when the browser permits timer callbacks.
+  // No background tab can run after its authorization TTL or central OFF.
+  window.setInterval(()=>void checkPolicy(),POLL_MS);
   window.setTimeout(()=>void checkPolicy(),650);
-  // Active-tab checks only, to limit Cloudflare Free plan usage.
-  window.setInterval(() => { if (document.visibilityState !== 'hidden') void checkPolicy(); }, POLL_MS);
-  window.addEventListener('focus', () => { if (document.visibilityState === 'visible') void checkPolicy(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkPolicy(); });
 })();
