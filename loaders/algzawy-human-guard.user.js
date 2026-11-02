@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         تجريبي - الغزااوي - مراقبة التحقق البشري
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0
+// @version      1.1
 // @description  Always-on, local safety observer: pauses managed bot loaders if a human-verification challenge appears.
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://*.tribalwars.net/game.php*
@@ -51,8 +51,11 @@
     const status=document.createElement('div');status.style.cssText='font-size:11px;color:#fecaca;margin-top:6px';
     button.addEventListener('click',()=>{
       if(challengeVisible()){status.textContent='التحقق ما زال ظاهرًا. أكمله يدويًا أولًا.';return;}
-      localStorage.removeItem(KEY);
-      window.location.reload();
+      // Cloud Bridge is the only recovery coordinator. It validates the
+      // current tab, records a recovery epoch and reloads other approved tabs.
+      // Clearing only localStorage here used to leave other tabs blocked.
+      document.dispatchEvent(new Event('algzawy-human-recovery-request'));
+      status.textContent='تم إرسال طلب الاستئناف إلى Cloud Bridge. إن استمر الإيقاف فتحقق من ربط الجسر.';
     });
     banner.append(title,msg,button,status);
     document.body.appendChild(banner);

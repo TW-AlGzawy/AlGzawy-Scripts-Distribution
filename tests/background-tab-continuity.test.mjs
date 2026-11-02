@@ -9,8 +9,8 @@ const mass=read('scripts/mass-scavenge-v1.js');
 test('official bridge and scavenge versions compile with preserved enforcement guards',()=>{
  new vm.Script(bridge);
  new vm.Script(mass);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.16$/m);
- assert.match(bridge,/const BRIDGE_VERSION='2\.4\.16'/);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.17$/m);
+ assert.match(bridge,/const BRIDGE_VERSION='2\.4\.17'/);
  assert.match(bridge,/function stopAll\(\)/);
  assert.match(bridge,/function checkPublisher\(\)/);
  assert.match(bridge,/checkHumanGuard/);
@@ -52,5 +52,47 @@ test('background is best-effort and never substitutes for new authorization',()=
  assert.match(mass,/claimedBy:tabToken/);
  assert.match(mass,/lastStartedAt:now/);
  assert.match(mass,/if\(!cycleBusy\|\|!isCycleEnabled\(\)/);
- assert.doesNotMatch(bridge,/\b(?:window\.)?location\.reload\s*\(/);
+ assert.match(bridge,/function applyHumanRecovery\(\)/);
+ assert.match(bridge,/sessionStorage\.setItem\(TAB_HUMAN_RECOVERED,epoch\)/);
+ assert.match(bridge,/if\(localStorage\.getItem\(HUMAN_LOCK\)==='1'\|\|challengeVisible\(\)/);
+});
+
+
+test('newly opened game tab cannot erase licenses of other tabs or unlock loader before signed sync',()=>{
+ const startup=bridge.indexOf('  // Fail closed for THIS tab on load');
+ const init=bridge.indexOf('  async function synchronize(force=false)',startup);
+ assert.ok(startup>0&&init>startup);
+ const section=bridge.slice(startup,init);
+ assert.doesNotMatch(section,/\bstopAll\(\)/,'never globally revoke on mere navigation');
+ const tabInit=bridge.indexOf('  let tabReady=false,tabVerified=false;');
+ const tabWait=bridge.indexOf("  window.addEventListener('pagehide'",tabInit);
+ assert.ok(tabInit>0&&tabWait>tabInit);
+ const wait=bridge.slice(tabInit,tabWait);
+ assert.match(wait,/if\(tabVerified\)\{/);
+ assert.match(wait,/sessionStorage\.setItem\(TAB_READY_KEY,tabId\)/);
+ const signedStart=bridge.indexOf('      const activeIds=activeScriptIds(r);');
+ const signedEnd=bridge.indexOf('      connection.last=Date.now()',signedStart);
+ const signed=bridge.slice(signedStart,signedEnd);
+ assert.ok(signed.indexOf('localStorage.setItem(GRANT_PREFIX+id')>=0);
+ assert.ok(signed.indexOf('sessionStorage.setItem(TAB_READY_KEY,tabId)')>
+   signed.indexOf('localStorage.setItem(GRANT_PREFIX+id'),'signed grants must be applied before loader gate opens');
+});
+
+test('standalone human guard delegates recovery to the main bridge and cannot unlock on its own',()=>{
+ const guard=read('loaders/algzawy-human-guard.user.js');
+ assert.match(guard,/^\/\/ @version\s+1\.1$/m);
+ assert.match(guard,/algzawy-human-recovery-request/);
+ assert.doesNotMatch(guard,/localStorage\.removeItem\(KEY\)/);
+ assert.doesNotMatch(guard,/window\.location\.reload\(\)/);
+ assert.match(bridge,/document\.addEventListener\('algzawy-human-recovery-request'/);
+});
+
+test('CAPTCHA epoch is unique, tab-local and requires explicit confirmation, local clearance and license',()=>{
+ assert.match(bridge,/window\.confirm\('هل أكملت CAPTCHA يدويًا/);
+ assert.match(bridge,/const epoch=crypto\.randomUUID\(\)/);
+ assert.match(bridge,/if\(localStorage\.getItem\(HUMAN_LOCK\)==='1'\|\|challengeVisible\(\)\|\|!canRecoverHumanTab\(\)\)/);
+ assert.match(bridge,/sessionStorage\.setItem\(TAB_HUMAN_RECOVERED,epoch\)/);
+ assert.match(bridge,/sessionStorage\.removeItem\(TAB_HUMAN_SNAPSHOT\)/);
+ assert.match(bridge,/function rememberHumanIntent\(\)/);
+ assert.match(bridge,/function restoreHumanIntent\(\)/);
 });
