@@ -121,7 +121,7 @@
   sessionStorage.setItem(TAB_ID_KEY,tabId);
   sessionStorage.removeItem(TAB_READY_KEY);
   const processId=crypto.randomUUID();
-  let tabReady=false;
+  let tabReady=false,tabVerified=false;
   let licensedPins=new Set();
   const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('algzawy-tab-pins-bridge-v1'):null;
   function eraseClonedPins(){
@@ -142,8 +142,10 @@
     channel.postMessage({type:'probe',tabId,sender:processId});
     setTimeout(()=>{
       tabReady=true;
-      sessionStorage.setItem(TAB_READY_KEY,tabId);
-      document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
+      if(tabVerified){
+        sessionStorage.setItem(TAB_READY_KEY,tabId);
+        document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
+      }
       renderPinControls();
     },450);
   }
@@ -522,6 +524,8 @@
     localStorage.setItem(key,newVal);return true;
   }
   function stopAll(){
+    tabVerified=false;
+    sessionStorage.removeItem(TAB_READY_KEY);
     licensedPins.clear();
     renderPinControls();
     localStorage.removeItem(LICENSE_UNTIL);
@@ -591,10 +595,11 @@
   // Fail closed if cached authorization is stale. A live worker response is
   // always needed at least every 180s, while loaders independently enforce
   // the publisher's existing Cloudflare global switch.
-  // Fail closed immediately on page load, until signed device verification.
-  // Never reuse an authorization left in page storage at browser startup.
-  // Every new game page must get a fresh signed server decision first.
-  stopAll();
+  // Fail closed for THIS tab on load (TAB_READY_KEY was removed above).
+  // Never wipe localStorage grants from OTHER approved game tabs merely
+  // because this page was refreshed: their running tasks must not be stopped.
+  // A new page cannot execute any loader until its own signed sync succeeds.
+  tabVerified=false;
   // Revoke all retired builders, including installations predating this version.
   // Preserve saved queues so customers do not lose village data.
   for(const id of ["auto-builder-ar-v054","auto-builder-ar-v061","auto-builder-pro-algzawy-v3-0-free-finish","auto-builder-pro-algzawy-v3-3-fixed-queue","builder-v33-one-build-pilot"]){
@@ -616,6 +621,11 @@
       localStorage.setItem(LICENSE_ID,connection.device);
       const activeIds=activeScriptIds(r);
       licensedPins=activeIds;
+      tabVerified=true;
+      if(tabReady){
+        sessionStorage.setItem(TAB_READY_KEY,tabId);
+        document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
+      }
       let changed=false,pinsChanged=false;
       for(const id of known){
         const script=r.scripts[id],enabled=activeIds.has(id);
@@ -1066,10 +1076,12 @@
     // Only same-village tab consent is restored; never activate another village.
     if(snapshot.builder&&snapshot.village&&snapshot.village===village&&
        pinned('algzawy-builder-v1')&&
-       localStorage.getItem(GRANT_PREFIX+'algzawy-builder-v1')==='1')
+       localStorage.getItem(GRANT_PREFIX+'algzawy-builder-v1')==='1'&&
+       localStorage.getItem('algzawy_local_enabled_algzawy-builder-v1')!=='false')
       sessionStorage.setItem('algzawy_builder_v23_tab_running_'+village,'1');
     if(snapshot.farm&&pinned('bot-farm-2')&&
-       localStorage.getItem(GRANT_PREFIX+'bot-farm-2')==='1')
+       localStorage.getItem(GRANT_PREFIX+'bot-farm-2')==='1'&&
+       localStorage.getItem('algzawy_local_enabled_bot-farm-2')!=='false')
       sessionStorage.setItem('algzawy_bot2_running_tab_v1','1');
   }
   function applyHumanRecovery(){
