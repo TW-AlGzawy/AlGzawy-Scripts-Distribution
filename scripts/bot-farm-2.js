@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.3.0
+// @version      1.3.1
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -49,8 +49,10 @@
   // Tab-local run consent survives reload/village switching, but never leaks
   // into another normal tab or bypasses the Cloud Bridge's human check lock.
   const resumeRequested=sessionStorage.getItem(RUN_KEY)==='1';
-  settings.enabled=resumeRequested&&!humanLocked();
-  if(!settings.enabled)sessionStorage.removeItem(RUN_KEY);
+  // CAPTCHA is a temporary suspension, not a user STOP. Keep the original
+  // tab-local run intent so the Bridge can resume after verified recovery.
+  settings.enabled=resumeRequested;
+  if(humanLocked()&&resumeRequested){policyPaused=true;runBeforePause=true;}
   let timer = null;
   let actions = 0;
   const attempted = new Set();
@@ -375,7 +377,8 @@
   q('max-delay').value = bounded(settings.maxDelay);
   q('switch').checked = settings.switchVillages !== false;
   function updateButton() {
-    q('toggle').textContent = settings.enabled ? 'إيقاف النهب' : 'تشغيل النهب';
+    q('toggle').textContent = policyPaused?'النهب معلّق (حماية)':
+      settings.enabled ? 'إيقاف النهب' : 'تشغيل النهب';
     q('toggle').style.background = settings.enabled ? '#372330' : '#40e1bf';
     q('toggle').style.color = settings.enabled ? '#f2abb1' : '#06332f';
   }
@@ -406,12 +409,23 @@
     updateButton();
     status(msg || 'متوقف');
   }
+  function pauseForSafety(msg){
+    if(terminated)return;
+    runBeforePause=runBeforePause||settings.enabled;
+    policyPaused=true;
+    if(timer){clearTimeout(timer);timer=null;}
+    troopWaiting=false;
+    // Never clear RUN_KEY or NEXT_KEY here: they are the user's consent and
+    // next absolute deadline, not permission to bypass current CAPTCHA.
+    updateButton();
+    status(msg||'النهب معلّق مؤقتًا حتى يعود التفويض من Cloud Bridge');
+  }
   function challengeDetected() {
     return humanLocked()||!!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection,.bot-protection,[id*="captcha"],.g-recaptcha');
   }
   function schedule(remaining=null) {
     if (!settings.enabled||policyPaused||terminated||challengeDetected()){
-      if(challengeDetected())stop('متوقف بسبب الفحص البشري');
+      if(challengeDetected())pauseForSafety('معلّق بسبب الفحص البشري؛ الحالة محفوظة');
       return;
     }
     const delay=remaining!==null&&remaining>0?
@@ -444,7 +458,7 @@
     sessionStorage.removeItem(NEXT_KEY);
     if (challengeDetected()) {
       document.dispatchEvent(new Event('algzawy-human-verification'));
-      stop('تم رصد تحقق بشري. أُوقفت عمليات النهب.');
+      pauseForSafety('تم رصد تحقق بشري؛ حُفظت نية التشغيل، ولا إرسال حتى التحقق');
       alert('AlGzawy: مطلوب تحقق بشري. تم إيقاف النهب.');
       return;
     }
@@ -526,8 +540,12 @@
   }
   q('toggle').addEventListener('click',function(){
     saveInputs();
+    if(policyPaused||terminated||challengeDetected()){
+      if(challengeDetected())pauseForSafety('لا يمكن التشغيل قبل إكمال الفحص البشري');
+      else status('النهب معلّق بقرار حماية؛ انتظر عودة الترخيص');
+      return;
+    }
     if (settings.enabled) return stop('أوقفه المستخدم');
-    if(policyPaused||terminated||challengeDetected())return stop('لن يبدأ النهب قبل السماح من نظام الترخيص وإكمال الفحص البشري');
     settings.enabled=true;rememberRun();updateButton();attempted.clear();attemptedRows=new WeakSet();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
     schedule();
   });
@@ -563,24 +581,32 @@
     const pos=JSON.parse(localStorage.getItem(POS)||'null');
     if (pos && pos.top && pos.left) {panel.style.top=pos.top;panel.style.left=pos.left;panel.style.right='auto';}
   } catch (_) {}
-  document.addEventListener('algzawy-human-verification',()=>stop('توقف بسبب التحقق البشري'));
+  document.addEventListener('algzawy-human-verification',()=>pauseForSafety('معلّق بسبب الفحص البشري؛ حفظنا نية التشغيل'));
   document.addEventListener(PAUSE_EVENT,()=>{
     if(terminated||policyPaused)return;
-    runBeforePause=settings.enabled;
-    policyPaused=true;
-    if(timer){clearTimeout(timer);timer=null;}
-    troopWaiting=false;
-    status('أوقفه نظام التحكم مؤقتًا؛ لا إرسال حتى عودة التفويض.');
+    pauseForSafety('أوقفه نظام التحكم مؤقتًا؛ لا إرسال حتى عودة التفويض.');
   });
   document.addEventListener(RESUME_EVENT,()=>{
     if(terminated||!policyPaused||humanLocked())return;
     policyPaused=false;
-    if(runBeforePause&&settings.enabled&&!timer)schedule();
+    if(runBeforePause&&settings.enabled&&!timer){
+      const deadline=Number(sessionStorage.getItem(NEXT_KEY)||0);
+      const remaining=deadline-Date.now();
+      // Resume a future deadline; never burst-execute overdue commands.
+      schedule(Number.isFinite(remaining)&&remaining>0&&remaining<=60000?remaining:null);
+    }
     runBeforePause=false;
-    status('تم استئناف التفويض؛ متابعة النهب دون تكرار العمليات السابقة.');
+    updateButton();
+    status('تم استئناف التفويض؛ متابعة النهب بالمهلة المحفوظة دون تكرار.');
   });
   document.addEventListener(STOP_EVENT,()=>{
     if(terminated)return;
+    if(humanLocked()){
+      // Bridge v2.4.17 sends STOP to legacy engines on CAPTCHA. Farm is
+      // cooperative: retain intent but block all work until verified resume.
+      pauseForSafety('الفحص البشري أوقف النهب مؤقتًا؛ انتظار الاستعادة الآمنة');
+      return;
+    }
     terminated=true;policyPaused=true;stop('أوقفه نظام التحكم المركزي');
   });
   // Loader listens before engine construction; announce capabilities after
@@ -589,11 +615,12 @@
   // Wait for the installer to authorize this browser/tab before constructing
   // the engine. A refreshed authorized tab keeps its explicit run intent and
   // the remaining delay; an expired delay schedules a *new* interval.
-  if(settings.enabled){
+  if(settings.enabled&&!policyPaused){
     const oldDeadline=Number(sessionStorage.getItem(NEXT_KEY)||0);
     const remaining=oldDeadline-Date.now();
     schedule(Number.isFinite(remaining)&&remaining>0&&remaining<=60000?remaining:null);
     status('استعادة النهب في هذا التبويب — سيتم الإرسال حسب التأخير المحفوظ');
-  }else status(humanLocked()?'متوقف بسبب الفحص البشري':'متوقف — اضغط تشغيل النهب');
+  }else status(policyPaused?'معلّق بسبب الفحص البشري؛ نية التشغيل محفوظة':
+    'متوقف — اضغط تشغيل النهب');
   updateButton();
 })();
