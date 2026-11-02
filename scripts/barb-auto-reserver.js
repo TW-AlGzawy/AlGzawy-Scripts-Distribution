@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.3
+// @version      1.0.4
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -85,7 +85,6 @@
     SNIPE_ON: true, SNIPE_GAP_SEC: 2.5, TG_BTN: true,
     DIRECT_ON: true, DIRECT_SEC: 8, DIRECT_BATCH: 16, RES_MIN_GAP_SEC: 8,
     DIRECT_OCC: true, DIRECT_MARGIN: 1, DIRECT_WORLD: false, DIRECT_ADAPT: true, DIRECT_MIN_SEC: 5,
-    AUTO_PROF: false, PROF_DAY: '', PROF_NIGHT: '', NIGHT_FROM: '00:00', NIGHT_TO: '07:00',
   };
   const P = 'algzawy_barb_v1_'+location.host+'_'+String(gd.player.id)+'_';
   const get=(k,d)=>{try{const v=localStorage.getItem(P+k);return v===null?d:JSON.parse(v);}catch(_){return d;}};
@@ -1282,11 +1281,6 @@
       ['WATCH_DAYS', 'أيام بلا تغيّر للمراقبة', 'n', 'يُنبَّه عند عدم تغيّر بيانات لاعب هذه المدة'],
       ['WATCH_FRAC', 'نسبة الاقتراب من الخمول', 'n', '0.6 = عند 60% من مدة الخمول'],
     ]],
-    ['ملفات تلقائية (نهار/ليل)', [
-      ['AUTO_PROF', 'تبديل تلقائي', 'b', 'يحتاج ملفين محفوظين أسفل الصفحة'],
-      ['PROF_DAY', 'ملف النهار', 't'], ['PROF_NIGHT', 'ملف الليل', 't'],
-      ['NIGHT_FROM', 'الليل من', 'time'], ['NIGHT_TO', 'الليل إلى', 'time'],
-    ]],
     ['متقدم (بعضها يلزمه تحديث الصفحة)', [
       ['TICK_SEC', 'دورة الفحص (ثوانٍ)', 'n'], ['TXT_REFRESH_MIN', 'تحديث ملفات العالم (دقائق)', 'n'],
       ['JITTER', 'عشوائية الفواصل (%)', 'n'],
@@ -1296,8 +1290,12 @@
   ];
   const ALLKEYS = SCHEMA.flatMap(g => g[1]);
   // Settings people actually change. All other keys stay fully functional but live in the collapsed "متقدمة" section.
-  const ESSENTIAL = new Set(['DRY_RUN','MAX_RES','RES_DAYS','SCOPE','MIN_PTS','MAX_PTS','MAX_DIST','NEW_BARBS','INACTIVE','INACTIVE_DAYS','EXCL','ONLY',
-    'REPLACE','SCHED_ON','SLEEP_FROM','SLEEP_TO','SOUND','NOTIFY_NEW','EXPIRY_ON','EXPIRY_WARN_H','AUTO_RENEW','REPORT_ON','REPORT_AT']);
+  const ESSENTIAL_LAYOUT = [
+    ['عام', ['DRY_RUN','MAX_RES','RES_DAYS','SCOPE']],
+    ['الاستهداف', ['MIN_PTS','MAX_PTS','MAX_DIST','NEW_BARBS','INACTIVE','INACTIVE_DAYS','EXCL']],
+    ['الاستبدال والتنبيهات والنوم', ['REPLACE','SOUND','NOTIFY_NEW','EXPIRY_ON','AUTO_RENEW','REPORT_ON','SCHED_ON','SLEEP_FROM','SLEEP_TO']],
+  ];
+  const ESSENTIAL = new Set(ESSENTIAL_LAYOUT.flatMap(g => g[1]));
 
   function renderCfg() {
     const body = q('#brp-body');
@@ -1314,7 +1312,8 @@
       const rows = fs.filter(f => !HIDDEN.includes(f[0]) && pick(f[0])).map(field).join('');
       return rows ? `<div class="brp-g">${g}</div>` + rows : '';
     }).join('');
-    body.innerHTML = groups(k => ESSENTIAL.has(k)) +
+    const essentials = ESSENTIAL_LAYOUT.map(([g, keys]) => `<div class="brp-g">${g}</div>` + keys.map(k => ALLKEYS.find(f => f[0] === k)).filter(Boolean).map(field).join('')).join('');
+    body.innerHTML = essentials +
       `<details class="brp-adv" id="brp-adv"${get('advOpen', false) ? ' open' : ''}><summary>⚙ إعدادات متقدمة (نادرًا ما تحتاجها)</summary>` + groups(k => !ESSENTIAL.has(k)) + '</details>' +
       '<div class="brp-row" style="margin-top:12px"><button class="brp-btn go" id="brp-save">💾 حفظ</button>' +
       '<button class="brp-btn sec" id="brp-test">🔔 اختبار</button><button class="brp-btn stop" id="brp-reset">↺ افتراضي</button></div>';
@@ -1346,7 +1345,7 @@
       if (!confirm('استرجاع الإعدادات الافتراضية؟')) return;
       Object.assign(CFG, DEF); set('cfg', {}); set('txtT', 0); log('تم استرجاع الإعدادات'); renderCfg();
     };
-    profUI(body);
+    profUI(body.querySelector('#brp-adv') || body);
   }
 
   // ---- الرئيسية ----
@@ -1575,7 +1574,7 @@
   }
 
   // ---- إعدادات وملفات ----
-  const SECRET = new Set(['TG_TOKEN', 'TG_CHAT', 'DC_HOOK', 'AUTO_PROF', 'PROF_DAY', 'PROF_NIGHT', 'NIGHT_FROM', 'NIGHT_TO']);
+  const SECRET = new Set(['TG_TOKEN', 'TG_CHAT', 'DC_HOOK']);
   const profKeys = () => ALLKEYS.map(f => f[0]).filter(k => !SECRET.has(k));
   function persistCfg(){const o={};ALLKEYS.forEach(([k])=>o[k]=CFG[k]);
     o.TG_TOKEN='';o.DC_HOOK='';o.TG_CMD=false;set('cfg',o);}
@@ -1622,17 +1621,13 @@
     };
   }
 
-  // ---- خدمة دورية: مزامنة إعدادات، ملفات تلقائية، نبض، تقرير ----
+  // ---- خدمة دورية: مزامنة إعدادات، نبض، تقرير ----
   async function svc() {
     Object.assign(CFG,{...DEF,...get('cfg',{})});
     CFG.TG_TOKEN='';CFG.DC_HOOK='';CFG.TG_CMD=false;
     if(!authorized())return;
     const now = Date.now();
     if (!scout) set('mainAlive', now);
-    if (CFG.AUTO_PROF) {
-      const name = inWin(CFG.NIGHT_FROM, CFG.NIGHT_TO) ? CFG.PROF_NIGHT : CFG.PROF_DAY;
-      if (name && name !== get('curProf', '') && get('profiles', {})[name]) applyProfile(name);
-    }
     if (!get('on', false) || !isLeader()) return;
     if (CFG.HB_H > 0 && now - get('hbT', 0) > CFG.HB_H * HOUR && await claim('hb', CFG.HB_H * HOUR * 0.9)) { set('hbT', Date.now()); remote('💓 ' + statusText()); }
     if (CFG.NOBLE_CHECK && get('mine', []).length && now - ((get('nobM', null) || {}).t || 0) > CFG.NOBLE_TTL_SEC * 1000 && await claim('nob', CFG.NOBLE_TTL_SEC * 900)) await refreshNobles();

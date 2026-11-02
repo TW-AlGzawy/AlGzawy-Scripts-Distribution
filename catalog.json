@@ -97,10 +97,10 @@
     {
       "id": "barb-auto-reserver",
       "name": "الغزااوي | الحجز التلقائي",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/barb-auto-reserver.user.js",
-      "note": "v1.0.3: panel tabs wrap in two rows and never disappear when settings open; settings reduced to essentials with the rest under a collapsed advanced section. v1.0.2: fix settings save that silently reverted the preview checkbox (now follows the same guarded confirm path as the main toggle). v1.0.1 integrates source 0.10.1 diagnostics with Barb Control relay. Tampermonkey GM secret storage, no BotFather token, real reservations require local DRY_RUN opt-in and live-game verification.",
+      "note": "v1.0.4: settings trimmed to 20 essentials in three groups, profiles/import-export moved under advanced, day/night automatic profile switching removed. v1.0.3: panel tabs wrap in two rows and never disappear when settings open; settings reduced to essentials with the rest under a collapsed advanced section. v1.0.2: fix settings save that silently reverted the preview checkbox (now follows the same guarded confirm path as the main toggle). v1.0.1 integrates source 0.10.1 diagnostics with Barb Control relay. Tampermonkey GM secret storage, no BotFather token, real reservations require local DRY_RUN opt-in and live-game verification.",
       "approved_for_final": true
     }
   ],
