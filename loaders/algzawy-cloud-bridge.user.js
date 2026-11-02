@@ -621,11 +621,6 @@
       localStorage.setItem(LICENSE_ID,connection.device);
       const activeIds=activeScriptIds(r);
       licensedPins=activeIds;
-      tabVerified=true;
-      if(tabReady){
-        sessionStorage.setItem(TAB_READY_KEY,tabId);
-        document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
-      }
       let changed=false,pinsChanged=false;
       for(const id of known){
         const script=r.scripts[id],enabled=activeIds.has(id);
@@ -642,6 +637,13 @@
         if(!enabled&&(previousGrant||previousPin)){
           document.dispatchEvent(new Event('__algzawy_stop_'+id));
         }
+      }
+      // Publish the tab-ready gate only AFTER every signed grant and PIN
+      // revocation has been applied. No loader may see an old grant.
+      tabVerified=true;
+      if(tabReady){
+        sessionStorage.setItem(TAB_READY_KEY,tabId);
+        document.dispatchEvent(new Event('algzawy-tab-pins-ready'));
       }
       renderPinControls();
       if(pinsChanged)document.dispatchEvent(new Event('algzawy-tab-pin-changed'));
