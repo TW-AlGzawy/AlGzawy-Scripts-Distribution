@@ -795,8 +795,9 @@ function setupMassPanelControls(panel,header,body){
         executionStopped=true;executionPaused=true;
         clearTimeout(cycleTimer);cycleTimer=null;
     });
-    document.dispatchEvent(new CustomEvent('algzawy-engine-capabilities',
-      {detail:JSON.stringify({id:'mass-scavenge-v1',pause:true})}));
+    if(typeof CustomEvent==='function')
+      document.dispatchEvent(new CustomEvent('algzawy-engine-capabilities',
+        {detail:JSON.stringify({id:'mass-scavenge-v1',pause:true})}));
 
     function waitAndClick(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
