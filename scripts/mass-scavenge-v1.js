@@ -2,7 +2,7 @@
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
 // @version      1.0.11
-// @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
+// @description  AlGzawy Beta: group execution (all groups, no fixed count) with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
@@ -850,7 +850,7 @@ function setupMassPanelControls(panel,header,body){
             // MassScavenge generates one #sendRowN per village group.
             // Every group action has the SAME id="sendMass", so querySelector('#sendMass')
             // always repeats the FIRST action. Iterate the actual rows instead.
-            const maxGroupCount = 5;
+            // No fixed number of groups: dispatch whatever #sendRowN rows the page generated (5, 6, 12, ...).
             const isReady = el => !!el && el.getClientRects().length > 0 && !el.disabled;
             const hasHumanCheck = () => !!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection');
             const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -858,7 +858,7 @@ function setupMassPanelControls(panel,header,body){
                 const attempted = new Set();
                 let consecutiveEmptyChecks = 0;
                 let indexBase = null; // preserve 0-based/1-based choice after first row disappears
-                for (let n = 0; n < 120; n++) { // allow slow group calculations
+                for (let n = 0; n < 1200; n++) { // allow slow calculations and any number of groups; each group is still attempted once
                     if (!isCurrentCycleClaim()) return;
                     if (hasHumanCheck()) {
                         localStorage.setItem('algzawy_human_verification_pause', '1');
@@ -875,7 +875,7 @@ function setupMassPanelControls(panel,header,body){
                         row,
                         index: Number(row.id.slice('sendRow'.length)) - (indexBase || 0),
                         button: row.querySelector('[id="sendMass"]')
-                    })).filter(task => task.index >= 0 && task.index < maxGroupCount)
+                    })).filter(task => task.index >= 0)
                       .sort((a,b) => a.index - b.index);
                     if (!tasks.length) {
                         const buttons = [...document.querySelectorAll('[id="sendMass"]')]
@@ -883,7 +883,7 @@ function setupMassPanelControls(panel,header,body){
                             .filter(el => !/^(حساب|calculate|calcular|bereken)/i.test((el.value||el.textContent||'').trim()));
                         // One unmatched #sendMass can still be the calculator. Never
                         // repeat it blindly. Require 2+ group controls for fallback.
-                        if (buttons.length >= 2) tasks = buttons.slice(0, maxGroupCount)
+                        if (buttons.length >= 2) tasks = buttons
                             .map((button,index) => ({index,button,row:button.closest('tr')}));
                     }
                     if (!tasks.length) {
