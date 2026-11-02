@@ -2,7 +2,7 @@
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
 // @version      2.4.17
-// @description  AlGzawy Cloud Bridge Sleep: approved devices, licensed tab pins, Telegram alerts and no automatic page reload.
+// @description  AlGzawy Cloud Bridge: approved devices, licensed pins and one-shot verified CAPTCHA recovery across game tabs.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-start
@@ -1063,7 +1063,8 @@
     try{sessionStorage.setItem(TAB_HUMAN_SNAPSHOT,JSON.stringify(intent));}catch(_){}
   }
   function canRecoverHumanTab(){
-    if(!tabReady||!connection.device||!localStorage.getItem(LICENSE_ID)||
+    if(!tabReady||!tabVerified||sessionStorage.getItem(TAB_READY_KEY)!==tabId||
+       !connection.device||!localStorage.getItem(LICENSE_ID)||
        Number(localStorage.getItem(LICENSE_UNTIL)||0)<=Date.now())return false;
     return known.some(id=>pinned(id)&&licensedPins.has(id)&&
       localStorage.getItem(GRANT_PREFIX+id)==='1'&&
