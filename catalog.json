@@ -18,10 +18,10 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
-      "note": "Official v1.3.0: smart targeting, safe A/B/C or explicit AUTO, per-village presets, verified troop snapshots, report-backed analytics, cooperative pause/resume and SHA-256-pinned licensed loader. Live game QA required; no inferred loot confirmation.",
+      "note": "Hotfix v1.3.1: distinguish user STOP and publisher-revoked from recoverable TTL/CAPTCHA pauses; preserve tab-local run intent and next absolute time. No browser-background timing guarantee; live game QA required.",
       "approved_for_final": false
     },
     {
