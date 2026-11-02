@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.18
+// @version      2.4.19
 // @description  AlGzawy Cloud Bridge: approved devices, licensed pins and one-shot verified CAPTCHA recovery across game tabs.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.18';
+  const BRIDGE_VERSION='2.4.19';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -1127,17 +1127,19 @@
     if(humanBanner?.isConnected)return humanBanner;
     const root=document.createElement('div');
     root.id='algzawy-human-guard-banner';
-    root.style.cssText='position:fixed;right:12px;top:8px;z-index:2147483500;max-width:min(360px,calc(100vw - 24px));background:#341922;border:2px solid #ff6e86;border-radius:11px;padding:10px;color:#fff;font:13px/1.65 Tahoma,Arial;text-align:right;box-shadow:0 7px 22px #000b;direction:rtl';
+    root.style.cssText='position:fixed;right:12px;bottom:12px;z-index:2147483500;max-width:min(300px,calc(100vw - 24px));background:#341922;border:2px solid #ff6e86;border-radius:10px;padding:6px 8px;color:#fff;font:12px/1.5 Tahoma,Arial;text-align:right;box-shadow:0 5px 16px #000b;direction:rtl;cursor:move;touch-action:none;user-select:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
     const title=document.createElement('strong');
-    title.textContent='🛑 فحص بشري — تم إيقاف جميع السكربتات';
-    const description=document.createElement('div');
-    description.textContent='أكمل CAPTCHA داخل اللعبة يدويًا، ثم اضغط استئناف بعد اختفاء الفحص.';
+    title.textContent='🛑 فحص بشري — السكربتات متوقفة';
+    title.style.cssText='flex:1 1 auto;font-size:12px';
     const button=document.createElement('button');
-    button.type='button';button.textContent='التحقق ثم الاستئناف يدويًا';
-    button.style.cssText='margin-top:7px;padding:7px;background:#264d46;border:1px solid #77d7b9;border-radius:5px;color:#fff;cursor:pointer';
+    button.type='button';button.textContent='أكملت الفحص ▶';
+    button.title='أكمل الفحص داخل اللعبة أولًا ثم اضغط للاستئناف';
+    button.style.cssText='order:2;padding:4px 8px;background:#264d46;border:1px solid #77d7b9;border-radius:5px;color:#fff;cursor:pointer;font-size:12px';
+    const note=document.createElement('div');
+    note.style.cssText='flex:1 1 100%;order:3;font-size:11px;color:#ffc2cc;display:none';
     button.addEventListener('click',()=>{
       if(challengeVisible()){
-        description.textContent='لا يزال الفحص البشري ظاهرًا. أكمله أولًا.';
+        note.textContent='الفحص ما زال ظاهرًا. أكمله أولًا.';note.style.display='block';
         return;
       }
       requestHumanRecovery();
@@ -1146,7 +1148,25 @@
         document.dispatchEvent(new Event('algzawy-local-control-changed'));
       }
     });
-    root.append(title,description,button);document.body.append(root);
+    root.append(title,note,button);document.body.append(root);
+    // Draggable anywhere on the card (the button keeps its own click); position is remembered per browser.
+    const POS_KEY='algzawy_human_banner_pos_v1';
+    const clamp=(x,y)=>({x:Math.min(Math.max(0,x),Math.max(0,innerWidth-root.offsetWidth)),y:Math.min(Math.max(0,y),Math.max(0,innerHeight-root.offsetHeight))});
+    const place=(x,y)=>{const c=clamp(x,y);root.style.left=c.x+'px';root.style.top=c.y+'px';root.style.right='auto';root.style.bottom='auto';};
+    try{const saved=JSON.parse(localStorage.getItem(POS_KEY)||'null');if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))place(saved.x,saved.y);}catch(_){}
+    let drag=null;
+    root.addEventListener('pointerdown',event=>{
+      if(event.target===button)return;
+      const rect=root.getBoundingClientRect();
+      drag={dx:event.clientX-rect.left,dy:event.clientY-rect.top};
+      try{root.setPointerCapture(event.pointerId);}catch(_){}
+    });
+    root.addEventListener('pointermove',event=>{if(drag)place(event.clientX-drag.dx,event.clientY-drag.dy);});
+    const end=()=>{
+      if(!drag)return;drag=null;
+      try{const r=root.getBoundingClientRect();localStorage.setItem(POS_KEY,JSON.stringify({x:Math.round(r.left),y:Math.round(r.top)}));}catch(_){}
+    };
+    root.addEventListener('pointerup',end);root.addEventListener('pointercancel',end);
     humanBanner=root;
     return root;
   }
