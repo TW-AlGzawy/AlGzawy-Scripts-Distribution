@@ -73,5 +73,5 @@ test('publisher switch also retries on iOS without weakening global OFF',()=>{
   assert.match(source,/response=await send\(true\)/);
   assert.match(source,/if\(!enabled\)/);
   assert.match(source,/publisherPreviouslyOn=false;\s*stopAll\(\)/);
-  assert.match(bridge,/^\/\/ @version\s+2\.4\.14$/m);
+  assert.match(bridge,/^\/\/ @version\s+2\.4\.16$/m);
 });
