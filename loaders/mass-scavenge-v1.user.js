@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.10
+// @version      1.0.11
 // @description  AlGzawy Cloud — اشتراك وجهاز معتمد
 // @include      https://*.tribalwars.*/game.php?*screen=scavenge_mass*
 // @include      https://*.tribalwars.*/game.php?*mode=scavenge_mass*
@@ -31,7 +31,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.10';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.11';
 
     // QA-only, in-memory trace. Does not authenticate the loader or authorize engines.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -66,7 +66,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.10');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.11');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -84,6 +84,7 @@
   const POLL_MS = 120000; // Bridge coordinates central OFF every 15s
   const REQUEST_TIMEOUT = 6000;
   const STOP_EVENT = '__algzawy_stop_' + ID.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const PAUSE_EVENT='__algzawy_pause_'+ID,RESUME_EVENT='__algzawy_resume_'+ID;
   const STOP_MESSAGE = 'تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const CONTACT_URL = 'https://t.me/Karam_AlGzawy';
   const ATTEMPT_EVENT = '__algzawy_attempt_mass-scavenge-v1';
@@ -91,7 +92,7 @@
   let active = false;
   let executing = false;
   let everStarted = false;
-  let revoked = false;
+  let revoked = false,paused=false,stoppedExternally=false,canPause=false;
   let stopExecution = () => {};
   let checkInProgress = false;
   let lastRevision = 'initial';
@@ -227,6 +228,23 @@
     active = true;
   }
 
+  function pauseCore(reason){
+    if(revoked)return;
+    if(!everStarted){
+      ensureBlockedLauncher();return;
+    }
+    if(stoppedExternally||!canPause){
+      // A previously STOPped clock cannot be revived. Bridge will reload
+      // this exact tab once after explicit CAPTCHA clearance.
+      message('الإغارات معلّقة؛ استعادة الصفحة بعد تحقق Cloud Bridge');
+      return;
+    }
+    if(!paused){
+      paused=true;active=false;
+      document.dispatchEvent(new Event(PAUSE_EVENT));
+    }
+    message('الإغارات معلّقة حتى تجديد التفويض؛ الجدولة محفوظة');
+  }
   function stopCore(reason) {
     if (active || everStarted) {
       // Immediately notify the training engine, including its pending submit guard.
@@ -234,7 +252,7 @@
       try { stopExecution(); } catch (e) { console.warn('[AlGzawy] stop hook failed', e); }
       if (everStarted) { revoked = true; sessionStorage.removeItem('algzawy_resume_' + ID + '_' + String(lastRevision)); }
     }
-    active = false;
+    active = false;paused=false;
     if (reason === 'local') clearBlockedLauncher();
     else ensureBlockedLauncher();
     if (reason === 'disabled') message(STOP_MESSAGE);
@@ -246,9 +264,9 @@
     if (checkInProgress) return;
     checkInProgress = true;
     try {
-      if(!hasPortalLicense()){stopCore('license');return;}
+      if(!hasPortalLicense()){pauseCore('license');return;}
       if(localStorage.getItem(LOCAL_KEY)==='false'){stopCore('local');return;}
-      if(localStorage.getItem(HUMAN_KEY)==='1'){stopCore('human');return;}
+      if(localStorage.getItem(HUMAN_KEY)==='1'||sessionStorage.getItem(HUMAN_KEY)==='1'){pauseCore('human');return;}
       const text = await requestText(STATUS_URL);
       const status = JSON.parse(text);
       if (!status || status.schema !== 1 || !Number.isInteger(status.revision) || status.enabled !== true) {
@@ -256,8 +274,8 @@
         stopCore('disabled'); return;
       }
       lastRevision = String(status.revision);
-      if(!hasPortalLicense()){stopCore('license');return;}
-      if (localStorage.getItem(HUMAN_KEY) === '1') { stopCore('human'); return; }
+      if(!hasPortalLicense()){pauseCore('license');return;}
+      if (localStorage.getItem(HUMAN_KEY) === '1'||sessionStorage.getItem(HUMAN_KEY)==='1') { pauseCore('human'); return; }
       if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
       clearBlockedLauncher();
       if (revoked) {
@@ -265,6 +283,19 @@
         // The stopped engine may retain listeners; only a manual refresh can
         // safely restart it after the license and device are approved again.
         message('🛌 وضع سكون الجسر: عادت الصلاحية، لكن المحرك توقف سابقًا. حدّث هذا التبويب يدويًا لاستئناف السكربت.');
+        return;
+      }
+      if(paused){
+        if(stoppedExternally){
+          message('إيقاف حماية سابق؛ انتظر تحديث التبويب المنسق بواسطة الجسر');
+          return;
+        }
+        if(!canPause){
+          message('المحرك القديم يحتاج تحديثًا قبل الاستئناف');
+          return;
+        }
+        paused=false;active=true;
+        document.dispatchEvent(new Event(RESUME_EVENT));
         return;
       }
       if (!everStarted && !executing) {
@@ -277,8 +308,8 @@
             stopCore('disabled'); return;
           }
           lastRevision = String(checkAgain.revision);
-      if(!hasPortalLicense()){stopCore('license');return;}
-          if (localStorage.getItem(HUMAN_KEY) === '1') { stopCore('human'); return; }
+      if(!hasPortalLicense()){pauseCore('license');return;}
+          if (localStorage.getItem(HUMAN_KEY) === '1'||sessionStorage.getItem(HUMAN_KEY)==='1') { pauseCore('human'); return; }
           if (localStorage.getItem(LOCAL_KEY) === 'false') { stopCore('local'); return; }
           if(!hasTabPin()){stopCore('local');return;}
           startCore(code);
@@ -286,24 +317,42 @@
       }
     } catch (e) {
       console.warn('[AlGzawy] control not reachable (fail closed): ', ID, e);
-      stopCore('offline');
+      pauseCore('offline');
     } finally {
       checkInProgress = false;
     }
   }
+  document.addEventListener('algzawy-engine-capabilities',e=>{
+    try{
+      const data=JSON.parse(e.detail);
+      if(data?.id===ID)canPause=data.pause===true;
+    }catch(_){}
+  });
+  document.addEventListener(STOP_EVENT,()=>{
+    if(everStarted){stoppedExternally=true;active=false;paused=true;}
+  });
   document.addEventListener(ATTEMPT_EVENT, () => message(STOP_MESSAGE, true));
-  window.addEventListener('storage', e => {if((e.key===LICENSE_UNTIL||e.key===LICENSE_ID||e.key==='algzawy_portal_grant_'+ID)&&!hasPortalLicense())stopCore('license');});
-  window.addEventListener('storage', e => { if(e.key===HUMAN_KEY && e.newValue==='1') stopCore('human'); else if(e.key===LOCAL_KEY) void checkPolicy(); });
+  window.addEventListener('storage', e => {
+    if(e.key===LICENSE_UNTIL||e.key===LICENSE_ID||e.key==='algzawy_portal_grant_'+ID){
+      if(!hasPortalLicense())pauseCore('license');
+      else void checkPolicy();
+    }
+  });
+  window.addEventListener('storage', e => {
+    if(e.key===HUMAN_KEY&&e.newValue==='1')pauseCore('human');
+    else if(e.key===HUMAN_KEY||e.key===LOCAL_KEY)void checkPolicy();
+  });
   document.addEventListener('algzawy-local-control-changed', () => { void checkPolicy(); });
   document.addEventListener('algzawy-human-verification', () => {
     localStorage.setItem(HUMAN_KEY, '1');
-    stopCore('human');
+    pauseCore('human');
   });
   document.addEventListener('algzawy-tab-pin-changed',()=>void checkPolicy());
   document.addEventListener('algzawy-tab-pins-ready',()=>void checkPolicy());
   window.setTimeout(()=>void checkPolicy(),650);
-  // Active-tab checks only, to limit Cloudflare Free plan usage.
-  window.setInterval(() => { if (document.visibilityState !== 'hidden') void checkPolicy(); }, POLL_MS);
-  window.addEventListener('focus', () => { if (document.visibilityState === 'visible') void checkPolicy(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkPolicy(); });
+  // Browser timers may be delayed when hidden, but visibility is never
+  // itself a reason to stop entitlement checks or a stored game cycle.
+  window.setInterval(() => { void checkPolicy(); }, POLL_MS);
+  window.addEventListener('focus', () => { void checkPolicy(); });
+  document.addEventListener('visibilitychange', () => { void checkPolicy(); });
 })();

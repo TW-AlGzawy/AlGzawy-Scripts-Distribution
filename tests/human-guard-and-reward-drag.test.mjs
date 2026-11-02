@@ -94,7 +94,10 @@ test('central protection is shared with every official loader and never solves C
  for(const id of loaders){
   const loader=read('loaders/'+id+'.user.js');
   assert.match(loader,/algzawy_human_verification_pause/,id+' must honor central lock');
-  assert.match(loader,/stopCore\('human'\)/,id+' must stop its own engine');
+  assert.match(loader,id==='mass-scavenge-v1'?/pauseCore\('human'\)/:
+    /stopCore\('human'\)/,id+' must suspend or stop its own engine');
+  if(id==='mass-scavenge-v1')
+    assert.match(loader,/document\.addEventListener\(STOP_EVENT/,'Bridge STOP must remain effective');
  }
  assert.match(bridge,/document\.dispatchEvent\(new Event\('__algzawy_stop_'\+id\)\)/);
  assert.match(bridge,/window\.addEventListener\('storage',e=>\{/);

@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../scripts/mass-scavenge-v1.js',import.meta.url),'utf8');
 const start=source.indexOf('    // Extract only JSON arguments from the game');
 const end=source.indexOf('    function waitAndClick(',start);
-assert.ok(start>=0&&end>start,'v1.0.10 mass scheduler available');
+assert.ok(start>=0&&end>start,'v1.0.11 mass scheduler available');
 const code=source.slice(start,end);
 
 function harness({shared=new Map(),clock={t:Date.UTC(2026,10,1,18)},village=null,disabled=false,
@@ -37,14 +37,20 @@ function harness({shared=new Map(),clock={t:Date.UTC(2026,10,1,18)},village=null
   querySelectorAll(sel){
    if(sel==='script:not([src])')return [script];
    if(sel==='table.mass-scavenge-table tr[data-id]')return [row];
-   if(sel==='#algzawy-panel')return pinned?[{dataset:{algzawyScheduler:'1.0.10'}}]:[];
+   if(sel==='#algzawy-panel')return pinned?[{dataset:{algzawyScheduler:'1.0.11'}}]:[];
    return [];
-  },getElementById(){return null;},addEventListener(){}};
+  },getElementById(){return null;},addEventListener(){},dispatchEvent(){}};
  const window={game_data:{player:{id:1703609}},crypto:{randomUUID:()=> 't-'+Math.random()},
   getComputedStyle:el=>({display:el.hidden?'none':'block',visibility:'visible'}),
   addEventListener(){}};
  const storage=m=>({getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,String(v)),
   removeItem:k=>m.delete(k)});
+ shared.set('algzawy_portal_approved_device','test-device');
+ shared.set('algzawy_portal_grant_mass-scavenge-v1','1');
+ const session=new Map([
+  ['algzawy_tab_instance_v1','tab-test'],
+  ['algzawy_tab_pins_ready_v1','tab-test'],
+  ['algzawy_tab_pin_v1_mass-scavenge-v1','tab-test']]);
  const location={host:'ae101.tribalwars.ae',reload(){reloads++;}};
  const navigator={locks:{request:async(_key,_opts,callback)=>callback({})}};
  let sends=0,reloads=0,enabled=true;
@@ -56,7 +62,10 @@ function harness({shared=new Map(),clock={t:Date.UTC(2026,10,1,18)},village=null
   'async function executeScavengeCycle(){onDispatch(schedulePageReload);}\n'+
   'return {availableScavengeOpportunities,readMassScavengeData,nextScavengeSquadReturn,'+
   'ensureCycleSchedule,checkCycleDue,readCycleState,armCycleTimer};');
- const api=factory(window,doc,location,navigator,storage(shared),storage(new Map()),
+ const local=storage(shared);
+ local.getItem=k=>k==='algzawy_portal_device_authorized_until'?
+   String(clock.t+120000):shared.get(k)??null;
+ const api=factory(window,doc,location,navigator,local,storage(session),
   ()=>enabled,{minReload:15,maxReload:25},()=>1,()=>{},FakeDate,math,{warn(){},error(){}},
   fn=>{sends++;fn();});
  return {api,shared,clock,get sends(){return sends;},get reloads(){return reloads;},
@@ -107,14 +116,14 @@ test('disabled premium options and unpinned scripts block dispatch, including hi
  const h=harness();h.api.ensureCycleSchedule();h.enabled=false;
  await h.api.checkCycleDue();assert.equal(h.sends,0);
 });
-test('engine, licensed loader and catalog publish the same v1.0.10',()=>{
+test('engine, licensed loader and catalog publish the same v1.0.11',()=>{
  const loader=readFileSync(new URL('../loaders/mass-scavenge-v1.user.js',import.meta.url),'utf8');
  const item=JSON.parse(readFileSync(new URL('../catalog.json',import.meta.url),'utf8'))
   .published_candidates.find(v=>v.id==='mass-scavenge-v1');
  new vm.Script(source);new vm.Script(loader);
- assert.match(source,/^\/\/ @version\s+1\.0\.10$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.10$/m);
- assert.equal(item.version,'1.0.10');
+ assert.match(source,/^\/\/ @version\s+1\.0\.11$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.11$/m);
+ assert.equal(item.version,'1.0.11');
  assert.match(loader,/const ID = "mass-scavenge-v1";/);
  assert.match(loader,/hasPortalLicense\(\)/);
  assert.match(source,/if\(!isCurrentCycleClaim\(\)\)return;/);

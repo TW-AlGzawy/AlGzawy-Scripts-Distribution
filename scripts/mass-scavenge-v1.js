@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.10
+// @version      1.0.11
 // @description  AlGzawy Beta: group execution 1-5 with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -236,7 +236,7 @@ function setupMassPanelControls(panel,header,body){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" data-algzawy-scheduler="1.0.10" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
+            <div id="algzawy-panel" data-algzawy-scheduler="1.0.11" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
                 <div id="algzawy-header" role="button" tabindex="0" aria-expanded="true" aria-controls="algzawy-body"
                     aria-label="الإغارات الجماعية، اضغط للطي أو الفتح واسحب لتحريك النافذة">
                     <span class="algzawy-brand-mark" aria-hidden="true">✦</span>
@@ -556,15 +556,31 @@ function setupMassPanelControls(panel,header,body){
     const tabToken=window.crypto?.randomUUID?.()||
         Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
     let cycleTimer=null,cycleBusy=false,cycleSucceeded=false,cycleStartedAt=null;
+    let executionPaused=false,executionStopped=false;
     let panelOwnershipValid=false;
+    const pauseEvent='__algzawy_pause_mass-scavenge-v1';
+    const resumeEvent='__algzawy_resume_mass-scavenge-v1';
+    const stopEvent='__algzawy_stop_mass-scavenge-v1';
+    const authorizedTab=()=>{
+        const tab=sessionStorage.getItem('algzawy_tab_instance_v1');
+        const until=Number(localStorage.getItem('algzawy_portal_device_authorized_until')||0);
+        return !!tab&&sessionStorage.getItem('algzawy_tab_pins_ready_v1')===tab&&
+          sessionStorage.getItem('algzawy_tab_pin_v1_mass-scavenge-v1')===tab&&
+          !!localStorage.getItem('algzawy_portal_approved_device')&&
+          until>Date.now()&&until<=Date.now()+180000&&
+          localStorage.getItem('algzawy_portal_grant_mass-scavenge-v1')==='1'&&
+          localStorage.getItem('algzawy_local_enabled_mass-scavenge-v1')!=='false';
+    };
     function ownsOnlyMassPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.10';
+        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.11';
     }
     function isCycleEnabled(){
-        return GM_getValue('isBotEnabled',true)===true&&ownsOnlyMassPanel()&&
-          localStorage.getItem('algzawy_human_verification_pause')!=='1';
+        return !executionPaused&&!executionStopped&&authorizedTab()&&
+          GM_getValue('isBotEnabled',true)===true&&ownsOnlyMassPanel()&&
+          localStorage.getItem('algzawy_human_verification_pause')!=='1'&&
+          sessionStorage.getItem('algzawy_human_verification_pause')!=='1';
     }
     function isCurrentCycleClaim(){
         if(!cycleBusy||!isCycleEnabled()||!Number.isSafeInteger(cycleStartedAt))return false;
@@ -756,8 +772,32 @@ function setupMassPanelControls(panel,header,body){
         if(document.visibilityState==='visible')void checkCycleDue();
     });
     window.addEventListener('storage',event=>{
-        if(event.key===scheduleKey||event.key===leaseKey)armCycleTimer();
+        if(event.key===scheduleKey||event.key===leaseKey||
+           ['algzawy_portal_device_authorized_until','algzawy_portal_approved_device',
+            'algzawy_portal_grant_mass-scavenge-v1','algzawy_local_enabled_mass-scavenge-v1',
+            'algzawy_human_verification_pause'].includes(event.key))
+          armCycleTimer();
     });
+    document.addEventListener('algzawy-tab-pins-ready',()=>armCycleTimer());
+    document.addEventListener('algzawy-tab-pin-changed',()=>armCycleTimer());
+    document.addEventListener(pauseEvent,()=>{
+        executionPaused=true;
+        clearTimeout(cycleTimer);cycleTimer=null;
+    });
+    document.addEventListener(resumeEvent,()=>{
+        if(executionStopped)return;
+        executionPaused=false;
+        // Keep the stored deadline and cross-tab claims. If overdue,
+        // the scheduler handles at most one reserved cycle after revalidation.
+        armCycleTimer();
+    });
+    document.addEventListener(stopEvent,()=>{
+        executionStopped=true;executionPaused=true;
+        clearTimeout(cycleTimer);cycleTimer=null;
+    });
+    if(typeof CustomEvent==='function')
+      document.dispatchEvent(new CustomEvent('algzawy-engine-capabilities',
+        {detail:JSON.stringify({id:'mass-scavenge-v1',pause:true})}));
 
     function waitAndClick(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
