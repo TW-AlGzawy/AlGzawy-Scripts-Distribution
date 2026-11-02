@@ -340,7 +340,7 @@ test('Catalog is private and subscriber-visible entries come solely from per-use
  await api(db,'admin/users/'+id+'/entitlements',{token:admin,method:'PUT',body:{allowedIds:['bot-farm-2']}});
  list=await api(db,'catalog',{token:userToken});
  assert.equal(list.status,200);assert.deepEqual(list.json.items.map(x=>x.id),['bot-farm-2']);
- assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,11);
+ assert.equal((await api(db,'admin/catalog',{token:admin})).json.items.length,12);
  await api(db,'admin/users/'+id+'/subscription',{token:admin,method:'PUT',body:{active:false,expiresAt:null}});
  assert.equal((await api(db,'catalog',{token:userToken})).status,403);
 });
