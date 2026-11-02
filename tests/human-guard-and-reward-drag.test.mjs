@@ -14,7 +14,7 @@ function harness(shared=null){
  let reloads=0,syncs=0;
  local.set('algzawy_portal_approved_device','device-1');
  local.set('algzawy_portal_device_authorized_until',String(Date.now()+120000));
- for(const id of ['bot-farm-2','alg-balance','tribal-wars-helper'])
+ for(const id of ['bot-farm-2','algzawy-builder-v1','alg-balance','tribal-wars-helper'])
    local.set('algzawy_portal_grant_'+id,'1');
  const storage=map=>({getItem:key=>map.get(key)||null,
   setItem(key,value){map.set(key,String(value));},
@@ -37,7 +37,7 @@ function harness(shared=null){
  const win={confirm:()=>true,game_data:{village:{id:1340,name:'test',coord:'500|500'}},
   addEventListener(name,cb){if(!listeners.has('window-'+name))listeners.set('window-'+name,[]);listeners.get('window-'+name).push(cb);}};
  class Observer{observe(){}}
- const known=['bot-farm-2','alg-balance','tribal-wars-helper'];
+ const known=['bot-farm-2','algzawy-builder-v1','alg-balance','tribal-wars-helper'];
  const create=new Function('document','window','localStorage','sessionStorage','known','crypto',
  'connection','unsafeWindow','getComputedStyle','MutationObserver','setInterval','setTimeout','location',
  'deviceProof','request','Event','tabReady','licensedPins','pinned','GRANT_PREFIX',
@@ -50,7 +50,7 @@ function harness(shared=null){
   {search:'',hostname:'aep14.tribalwars.ae',reload(){reloads++;}},
   async()=>({}),async()=>{requests++;return {ok:true};},
   class Event{constructor(type){this.type=type;}},
-  true,new Set(['bot-farm-2','alg-balance','tribal-wars-helper']),()=>true,
+  true,new Set(['bot-farm-2','algzawy-builder-v1','alg-balance','tribal-wars-helper']),()=>true,
   'algzawy_portal_grant_','algzawy_portal_approved_device',
   'algzawy_portal_device_authorized_until',()=>{syncs++;});
  return {guard,local,session,doc,events,elements,listeners,
@@ -67,7 +67,7 @@ test('bridge 2.4.17 compiles and central guard maintains a single lock across re
  assert.equal(h.session.get('algzawy_human_verification_pause'),'1');
  assert.equal(h.local.get('algzawy_human_verification_incident_v1'),
   'a93c6570-f22c-4ac4-87ca-8be701763481');
- for(const id of ['bot-farm-2','alg-balance','tribal-wars-helper'])
+ for(const id of ['bot-farm-2','algzawy-builder-v1','alg-balance','tribal-wars-helper'])
   assert.equal(h.events.filter(e=>e==='__algzawy_stop_'+id).length,1,
    'repeated detection must not recursively re-dispatch stop events');
  assert.equal(h.events.filter(e=>e==='algzawy-human-verification').length,1);
