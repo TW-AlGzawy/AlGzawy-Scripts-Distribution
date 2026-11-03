@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.5
+// @version      1.0.6
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -91,12 +91,15 @@
   const set=(k,v)=>{try{localStorage.setItem(P+k,JSON.stringify(v));}catch(_){}};
   const CFG={...DEF,...get('cfg',{})};
   // A new official installation cannot inherit an unsafe LIVE state from earlier standalone builds.
-  sessionStorage.removeItem(P+'liveConfirmed');
-  if(!get('safetyInitialized',false)){
+  const freshInstall=!get('safetyInitialized',false);
+  if(freshInstall){
+    sessionStorage.removeItem(P+'liveConfirmed');
     CFG.DRY_RUN=true;set('cfg',{...CFG});set('on',false);set('safetyInitialized',true);
   }
-  // Each new game-page session starts in preview even when a prior tab was explicitly LIVE.
-  if(!CFG.DRY_RUN){ CFG.DRY_RUN=true; set('cfg',{...CFG}); set('on',false); }
+  // LIVE survives page reloads/navigation ONLY inside the same tab where the user explicitly confirmed it
+  // (sessionStorage is per-tab and dies with the tab). Any other page load (new tab, new session, no
+  // confirmation) starts in preview, exactly as before. Preview itself always persists.
+  if(!CFG.DRY_RUN&&sessionStorage.getItem(P+'liveConfirmed')!=='1'){ CFG.DRY_RUN=true; set('cfg',{...CFG}); set('on',false); }
   // External notification credentials are intentionally not read from a public game-page runtime.
   // Telegram/Discord delivery must be routed through server-side protected endpoints before activation.
   CFG.TG_TOKEN='';CFG.DC_HOOK='';CFG.TG_CMD=false;
