@@ -88,10 +88,10 @@
     {
       "id": "smart-defense-ultimate",
       "name": "الغزااوي | القائد الذكي للدفاع والقنص",
-      "version": "2.1.5",
+      "version": "2.2.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/smart-defense-ultimate.user.js",
-      "note": "Beta 2.1.5 from validated QA branch; local tests pass, live precision remains experimental. Requires individual account entitlement, approved device and active tab pin. Disable standalone QA before official install.",
+      "note": "v2.2.0: simplified UI — Home has scan + best plan, countdown, plan choice, itemised plan details, approve and stop; Nobles tab reorganised; units moved into Settings; Settings shortened; the task-slot system removed. Planning/timing engine unchanged. Beta 2.1.5 from validated QA branch; local tests pass, live precision remains experimental. Requires individual account entitlement, approved device and active tab pin. Disable standalone QA before official install.",
       "approved_for_final": false
     },
     {

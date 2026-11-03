@@ -439,7 +439,7 @@ test('calibrated experiments feed back estimated native uncorrected lag, not jus
   assert.match(src,/r\.arrivalDeltaMs\+\s*\(Number\.isSafeInteger\(r\.calibrationOffsetMs\)/);
 });
 
-test('v2.1.5 fixes 386ms max guard for explicitly opted-in 32ms experimental support',()=>{
+test('v2.2.0 fixes 386ms max guard for explicitly opted-in 32ms experimental support',()=>{
   const data=[139,188,386,126,177,118,315];
   const timingHistory=data.map((arrivalDeltaMs,i)=>({
     sourceId:String(1000+i),nativeTravelMs:2460000,arrivalDeltaMs}));
