@@ -14,6 +14,20 @@
     <div class="boot-logo">AlG</div>
     <p>جارٍ التحقق من الجلسة الآمنة...</p>
   </div>
+  <div id="pwGate" class="pw-gate" role="dialog" aria-modal="true" aria-labelledby="pwTitle" hidden>
+    <form id="pwForm" class="login-card">
+      <h2 id="pwTitle">اختر كلمة مرور جديدة</h2>
+      <p>كلمتك الحالية مؤقتة. اختر كلمة مرور خاصة بك (10 أحرف على الأقل) لمتابعة الدخول.</p>
+      <label for="pwCurrent">كلمة المرور المؤقتة</label>
+      <input id="pwCurrent" type="password" autocomplete="current-password">
+      <label for="pwNew">كلمة المرور الجديدة</label>
+      <input id="pwNew" type="password" autocomplete="new-password" minlength="10">
+      <label for="pwNew2">أعد كتابة الجديدة</label>
+      <input id="pwNew2" type="password" autocomplete="new-password" minlength="10">
+      <p id="pwError" class="feedback error-message" role="alert"></p>
+      <button class="btn primary block" id="pwButton" type="submit">حفظ ومتابعة</button>
+    </form>
+  </div>
   <section id="login" class="auth-wrap" hidden aria-labelledby="loginTitle">
     <div class="login-visual">
       <span class="kicker">ALGZAWY CLOUD CONTROL</span>
@@ -26,9 +40,15 @@
       <div class="login-card-top"><span class="logo-small">AlG</span><span class="pill neutral">دخول المشتركين</span></div>
       <span class="kicker">مرحبًا بك</span>
       <h2 id="loginTitle">تسجيل الدخول</h2>
-      <p>أدخل مفتاح المشترك الذي سلّمته لك الإدارة. لن يظهر المفتاح بعد تسجيل الدخول.</p>
-      <label for="accessKey">مفتاح الوصول</label>
-      <input id="accessKey" type="password" autocomplete="off" spellcheck="false" placeholder="alg_u_..." required>
+      <p>أدخل اسم المستخدم أو الإيميل وكلمة المرور التي أعطتك إياها الإدارة.</p>
+      <label for="loginId">اسم المستخدم أو الإيميل</label>
+      <input id="loginId" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="مثال: ali أو ali@mail.com">
+      <label for="loginPassword">كلمة المرور</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+      <details class="key-fallback"><summary>الدخول بمفتاح الوصول القديم</summary>
+        <label for="accessKey">مفتاح الوصول</label>
+        <input id="accessKey" type="password" autocomplete="off" spellcheck="false" placeholder="alg_u_...">
+      </details>
       <p id="loginError" class="feedback error-message" role="alert"></p>
       <button class="btn primary block" id="loginButton" type="submit">دخول مركز التحكم <span>←</span></button>
       <div class="login-help">لا تمتلك اشتراكًا؟ <a href="https://t.me/Karam_AlGzawy" target="_blank" rel="noopener noreferrer">تواصل مع الإدارة ↗</a></div>
