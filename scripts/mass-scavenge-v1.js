@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.11
+// @version      1.0.12
 // @description  AlGzawy Beta: group execution (all groups, no fixed count) with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -236,7 +236,7 @@ function setupMassPanelControls(panel,header,body){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" data-algzawy-scheduler="1.0.11" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
+            <div id="algzawy-panel" data-algzawy-scheduler="1.0.12" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
                 <div id="algzawy-header" role="button" tabindex="0" aria-expanded="true" aria-controls="algzawy-body"
                     aria-label="الإغارات الجماعية، اضغط للطي أو الفتح واسحب لتحريك النافذة">
                     <span class="algzawy-brand-mark" aria-hidden="true">✦</span>
@@ -387,7 +387,7 @@ function setupMassPanelControls(panel,header,body){
                 ensureCycleSchedule(true);
                 armCycleTimer();
             } else {
-                clearTimeout(cycleTimer);cycleTimer=null;
+                bgClock.clear(cycleTimer);cycleTimer=null;
             }
             renderCycleSchedule();
         });
@@ -555,6 +555,43 @@ function setupMassPanelControls(panel,header,body){
     const pageLoadedAt=Date.now();
     const tabToken=window.crypto?.randomUUID?.()||
         Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
+    // Background-tab clock. Browsers throttle page timers in hidden tabs (about 1/s, then about 1/min
+    // after a few minutes), which stalled cycles and the page refresh. A dedicated Worker keeps normal
+    // timing; if a Worker cannot be created (CSP/sandbox) everything falls back to page timers.
+    const bgClock=(()=>{
+        let worker=null,seq=0;const pending=new Map();
+        const native=(entry)=>{entry.native=entry.rep?setInterval(entry.fn,entry.ms):setTimeout(()=>{pending.delete(entry.id);entry.fn();},entry.ms);};
+        try{
+            const src='const t={};onmessage=e=>{const d=e.data;if(d.stop){clearTimeout(t[d.id]);clearInterval(t[d.id]);delete t[d.id];return;}'+
+                't[d.id]=d.rep?setInterval(()=>postMessage(d.id),d.ms):setTimeout(()=>{delete t[d.id];postMessage(d.id);},d.ms);};';
+            const url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));
+            worker=new Worker(url);URL.revokeObjectURL(url);
+            worker.onmessage=e=>{const entry=pending.get(e.data);if(!entry)return;if(!entry.rep)pending.delete(e.data);try{entry.fn();}catch(err){console.error('[AlGzawy] timer',err);}};
+            worker.onerror=()=>{worker=null;for(const entry of pending.values())native(entry);};
+        }catch(_){worker=null;}
+        function start(fn,ms,rep){
+            const entry={id:++seq,fn,ms:Math.max(0,Number(ms)||0),rep,native:null};
+            pending.set(entry.id,entry);
+            if(worker){try{worker.postMessage({id:entry.id,ms:entry.ms,rep});}catch(_){worker=null;native(entry);}}
+            else native(entry);
+            return entry.id;
+        }
+        return {
+            timeout:(fn,ms)=>start(fn,ms,false),
+            interval:(fn,ms)=>start(fn,ms,true),
+            sleep:ms=>new Promise(resolve=>start(resolve,ms,false)),
+            clear(id){
+                const entry=pending.get(id);if(!entry)return;pending.delete(id);
+                if(entry.native!==null){clearTimeout(entry.native);clearInterval(entry.native);}
+                else if(worker){try{worker.postMessage({id,stop:true});}catch(_){}}
+            }
+        };
+    })();
+    // A tab holding a Web Lock is not frozen by the browser while in the background.
+    try{
+        if(navigator.locks?.request)
+            navigator.locks.request('algzawy-keepalive-scavenge-'+location.host,()=>new Promise(()=>{})).catch(()=>{});
+    }catch(_){}
     let cycleTimer=null,cycleBusy=false,cycleSucceeded=false,cycleStartedAt=null;
     let executionPaused=false,executionStopped=false;
     let panelOwnershipValid=false;
@@ -574,7 +611,7 @@ function setupMassPanelControls(panel,header,body){
     function ownsOnlyMassPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.11';
+        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.12';
     }
     function isCycleEnabled(){
         return !executionPaused&&!executionStopped&&authorizedTab()&&
@@ -652,7 +689,7 @@ function setupMassPanelControls(panel,header,body){
             (GM_getValue('isBotEnabled',true)?'':'\n⏸ الإغارات متوقفة');
     }
     function armCycleTimer(){
-        clearTimeout(cycleTimer);cycleTimer=null;
+        bgClock.clear(cycleTimer);cycleTimer=null;
         renderCycleSchedule();
         if(!isCycleEnabled())return;
         const state=ensureCycleSchedule();
@@ -665,8 +702,7 @@ function setupMassPanelControls(panel,header,body){
         // The browser may throttle timers when hidden. Do not voluntarily
         // suspend the mission: use absolute deadlines and a modest floor.
         // A late callback dispatches at most one reserved cycle.
-        const wait=document.visibilityState==='hidden'?Math.max(1000,delay):delay;
-        cycleTimer=setTimeout(()=>void checkCycleDue(),wait);
+        cycleTimer=bgClock.timeout(()=>void checkCycleDue(),delay);
     }
     async function withCycleLease(fn){
         const leaseName='algzawy-scavenge-'+location.host+'-'+playerId;
@@ -681,7 +717,7 @@ function setupMassPanelControls(panel,header,body){
         try{holder=JSON.parse(localStorage.getItem(leaseKey)||'null');}catch(_){}
         if(holder?.until>Date.now())return null;
         localStorage.setItem(leaseKey,JSON.stringify({token:tabToken,until:Date.now()+300000}));
-        await new Promise(r=>setTimeout(r,120));
+        await bgClock.sleep(120);
         try{holder=JSON.parse(localStorage.getItem(leaseKey)||'null');}catch(_){return null;}
         if(holder?.token!==tabToken)return null;
         try{return await fn();}
@@ -782,7 +818,7 @@ function setupMassPanelControls(panel,header,body){
     document.addEventListener('algzawy-tab-pin-changed',()=>armCycleTimer());
     document.addEventListener(pauseEvent,()=>{
         executionPaused=true;
-        clearTimeout(cycleTimer);cycleTimer=null;
+        bgClock.clear(cycleTimer);cycleTimer=null;
     });
     document.addEventListener(resumeEvent,()=>{
         if(executionStopped)return;
@@ -793,7 +829,7 @@ function setupMassPanelControls(panel,header,body){
     });
     document.addEventListener(stopEvent,()=>{
         executionStopped=true;executionPaused=true;
-        clearTimeout(cycleTimer);cycleTimer=null;
+        bgClock.clear(cycleTimer);cycleTimer=null;
     });
     if(typeof CustomEvent==='function')
       document.dispatchEvent(new CustomEvent('algzawy-engine-capabilities',
@@ -802,19 +838,19 @@ function setupMassPanelControls(panel,header,body){
     function waitAndClick(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
-            const interval = setInterval(() => {
+            const interval = bgClock.interval(() => {
                 if (!isCurrentCycleClaim()) {
-                    clearInterval(interval);
+                    bgClock.clear(interval);
                     return reject(new Error('تم إيقاف البوت يدوياً.'));
                 }
                 const element = document.querySelector(selector);
                 if (element && element.offsetParent !== null) {
-                    clearInterval(interval);
+                    bgClock.clear(interval);
                     console.log(`[سكربت الغزاوي] تم العثور على "${selector}"، جاري النقر...`);
                     element.click();
                     resolve(element);
                 } else if (Date.now() - startTime > timeout) {
-                    clearInterval(interval);
+                    bgClock.clear(interval);
                     reject(new Error(`فشل العثور على العنصر المرئي: ${selector} خلال ${timeout}ms`));
                 }
             }, 500);
@@ -829,6 +865,9 @@ function setupMassPanelControls(panel,header,body){
         armCycleTimer();
         void checkCycleDue();
         setInterval(renderCycleSchedule,1000);
+        // Watchdog on the Worker clock: even if a page timer was throttled or lost in a background tab,
+        // a due cycle / squad-return refresh is noticed within seconds. checkCycleDue is re-entrancy safe.
+        bgClock.interval(()=>{if(!cycleBusy)void checkCycleDue();},5000);
         console.log('[AlGzawy] Page loaded: saved scavenge deadline preserved. No immediate dispatch.');
     });
 
@@ -840,12 +879,12 @@ function setupMassPanelControls(panel,header,body){
             if(!isCurrentCycleClaim())return;
             console.log("[سكربت الغزاوي] تم تحميل الواجهة بنجاح.");
 
-            await new Promise(resolve => setTimeout(resolve, settings.delayUiLoad));
+            await bgClock.sleep(settings.delayUiLoad);
             if(!isCurrentCycleClaim())return;
             console.log("[سكربت الغزاوي] البحث عن زر 'حساب المدة'...");
             await waitAndClick('#sendMass');
 
-            await new Promise(resolve => setTimeout(resolve, settings.delayAfterCalc));
+            await bgClock.sleep(settings.delayAfterCalc);
 
             // MassScavenge generates one #sendRowN per village group.
             // Every group action has the SAME id="sendMass", so querySelector('#sendMass')
@@ -853,7 +892,7 @@ function setupMassPanelControls(panel,header,body){
             // No fixed number of groups: dispatch whatever #sendRowN rows the page generated (5, 6, 12, ...).
             const isReady = el => !!el && el.getClientRects().length > 0 && !el.disabled;
             const hasHumanCheck = () => !!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection');
-            const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const wait = ms => bgClock.sleep(ms);
             async function dispatchAvailableGroups() {
                 const attempted = new Set();
                 let consecutiveEmptyChecks = 0;

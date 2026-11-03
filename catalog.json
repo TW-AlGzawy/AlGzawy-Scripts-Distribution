@@ -9,10 +9,10 @@
     {
       "id": "mass-scavenge-v1",
       "name": "الغزااوي | الإغارات الجماعية",
-      "version": "1.0.11",
+      "version": "1.0.12",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/mass-scavenge-v1.user.js",
-      "note": "v1.0.11: keep hidden-tab policy checks, reversible pause on temporary authorization expiry, engine-authorized dispatch guard, saved absolute schedule and lease, CAPTCHA one-shot Bridge recovery; live browser/game validation pending.",
+      "note": "v1.0.12: background-tab fix — cycle timers, the 5-second watchdog and page-refresh checks now run on a Worker clock (with Web Lock keep-alive) so a hidden tab no longer stalls. v1.0.11: keep hidden-tab policy checks, reversible pause on temporary authorization expiry, engine-authorized dispatch guard, saved absolute schedule and lease, CAPTCHA one-shot Bridge recovery; live browser/game validation pending.",
       "approved_for_final": true
     },
     {

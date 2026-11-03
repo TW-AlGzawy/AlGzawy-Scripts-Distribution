@@ -10,10 +10,10 @@ const ids=['mass-scavenge-v1','bot-farm-2','alg-balance','algzawy-builder-v1',
   'alg-coins','tribal-wars-helper','smart-defense-ultimate'];
 const manifest=JSON.parse(read('catalog.json')).published_candidates;
 
-test('official installer is sleep bridge v2.4.19 and reloads only once after explicit CAPTCHA recovery',()=>{
+test('official installer is sleep bridge v2.4.20 and reloads only once after explicit CAPTCHA recovery',()=>{
   new vm.Script(bridge);
-  assert.match(bridge,/^\/\/ @version\s+2\.4\.19$/m);
-  assert.match(bridge,/const BRIDGE_VERSION='2\.4\.19'/);
+  assert.match(bridge,/^\/\/ @version\s+2\.4\.20$/m);
+  assert.match(bridge,/const BRIDGE_VERSION='2\.4\.20'/);
   assert.match(bridge,/Cloud Bridge 💤/);
   assert.match(bridge,/وضع السكون/);
   assert.match(bridge,/const known=\[[^\n]*"smart-defense-ultimate"/);

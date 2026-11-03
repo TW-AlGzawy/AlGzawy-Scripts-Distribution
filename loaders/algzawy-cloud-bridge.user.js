@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الجسر السحابي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.4.19
+// @version      2.4.20
 // @description  AlGzawy Cloud Bridge: approved devices, licensed pins and one-shot verified CAPTCHA recovery across game tabs.
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -25,7 +25,7 @@
   // Use it only as a network-error fallback; signature proof is never bypassed.
   const IOS_WEBKIT_HTTP=/(?:iPhone|iPad|iPod)/i.test(navigator.userAgent||'')||
     (/MacIntel/i.test(navigator.platform||'')&&navigator.maxTouchPoints>1);
-  const BRIDGE_VERSION='2.4.19';
+  const BRIDGE_VERSION='2.4.20';
   // UI-only version proof inside the logged-in portal; never run the game's
   // bridge coordinator on the portal domain.
   if(location.origin===PORTAL_ORIGIN){
@@ -1244,6 +1244,20 @@
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')applyHumanRecovery();});
     window.addEventListener('focus',applyHumanRecovery);
   }
+  // Hidden tabs get page timers throttled (about once a minute after a few minutes). The license
+  // heartbeat runs on a Worker clock so a background game tab stays authorized; falls back to setInterval.
+  function backgroundInterval(fn,ms){
+    try{
+      const url=URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),'+Number(ms)+')'],{type:'text/javascript'}));
+      const worker=new Worker(url);URL.revokeObjectURL(url);
+      let fallback=null;
+      worker.onmessage=()=>{try{fn();}catch(_){}};
+      worker.onerror=()=>{try{worker.terminate();}catch(_){}if(fallback===null)fallback=setInterval(fn,ms);};
+      return;
+    }catch(_){}
+    setInterval(fn,ms);
+  }
+  try{if(navigator.locks?.request)navigator.locks.request('algzawy-keepalive-bridge-'+location.host,()=>new Promise(()=>{})).catch(()=>{});}catch(_){}
   function start(){
     // Official sleep mode: periodic sync never refreshes or restarts a game tab.
     // Game engines alone own their own scheduling and any scoped page updates.
@@ -1255,9 +1269,9 @@
     // A hidden tab remains an authorized tab: keep the license refreshed and
     // accept explicit revocations while background timer callbacks run.
     // Do not use this heartbeat to restart stopped jobs or reload pages.
-    timer=setInterval(()=>{void synchronize();},30000);
+    timer=true;backgroundInterval(()=>{void synchronize();},30000);
     setInterval(checkPublisher,15000);
-    setInterval(()=>{if(connection.device&&Number(localStorage.getItem(LICENSE_UNTIL)||0)<Date.now())stopAll();},5000);
+    backgroundInterval(()=>{if(connection.device&&Number(localStorage.getItem(LICENSE_UNTIL)||0)<Date.now())stopAll();},5000);
     window.addEventListener('focus',()=>void synchronize());
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void synchronize();});
   }

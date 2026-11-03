@@ -9,12 +9,12 @@ const mass=read('scripts/mass-scavenge-v1.js');
 test('official bridge and scavenge versions compile with preserved enforcement guards',()=>{
  new vm.Script(bridge);
  new vm.Script(mass);
- assert.match(bridge,/^\/\/ @version\s+2\.4\.19$/m);
- assert.match(bridge,/const BRIDGE_VERSION='2\.4\.19'/);
+ assert.match(bridge,/^\/\/ @version\s+2\.4\.20$/m);
+ assert.match(bridge,/const BRIDGE_VERSION='2\.4\.20'/);
  assert.match(bridge,/function stopAll\(\)/);
  assert.match(bridge,/function checkPublisher\(\)/);
  assert.match(bridge,/checkHumanGuard/);
- assert.match(mass,/^\/\/ @version\s+1\.0\.11$/m);
+ assert.match(mass,/^\/\/ @version\s+1\.0\.12$/m);
  assert.match(mass,/withCycleLease\(async\(\)=>/);
  assert.match(mass,/if\(!actual\|\|!isCycleEnabled\(\)\)return/);
  assert.doesNotMatch(mass,/if\(document\.visibilityState==='hidden'\)\{armCycleTimer\(\);return;\}/);
@@ -29,11 +29,12 @@ test('hidden official bridge continues entitlement and publisher checks without 
  const window={addEventListener(){}};
  const storage={getItem:()=>String(Date.now()+30000)};
  const startFn=new Function('document','window','connection','render','setupHumanGuard',
-  'pollReleaseUpdates','synchronize','checkPublisher','setInterval','localStorage',
+  'pollReleaseUpdates','synchronize','checkPublisher','setInterval','backgroundInterval','localStorage',
   'LICENSE_UNTIL','stopAll',
   'let timer=null;\n'+bridge.slice(start,end)+'\nreturn start;')(
   document,window,{device:'approved'},()=>{},()=>{},()=>calls.polls++,
   ()=>{calls.sync++},()=>{calls.publisher++},
+  (fn,ms)=>{intervals.push({fn,ms});return intervals.length;},
   (fn,ms)=>{intervals.push({fn,ms});return intervals.length;},storage,'until',()=>{});
  startFn();
  assert.equal(calls.sync,1);
