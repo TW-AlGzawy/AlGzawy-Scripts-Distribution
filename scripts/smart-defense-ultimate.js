@@ -210,7 +210,11 @@
   }
   function nobleKey(wave){return String(wave?.id||'time:'+wave?.at);}
   function nobleWindows(train,{safetyMs=100,leadMs=250,targets={},
-    auto=true,includeFirst=false}={}){
+    auto=true,includeFirst=false,edgeMs=1}={}){
+    // Edge margin: the support must land at least edgeMs after the previous attack and edgeMs before the
+    // noble. For tight gaps the margin shrinks so a usable window always remains (never below 1ms).
+    const edgeBase=Math.max(1,Number.isSafeInteger(edgeMs)?edgeMs:1);
+    const edgeFor=gap=>Math.max(1,Math.min(edgeBase,Math.floor((gap-2)/2)));
     if(!train||!Array.isArray(train.waves))return [];
     const noble=train.waves.filter(w=>w.kind==='noble');
     const windows=[];
@@ -233,14 +237,15 @@
         // Target first noble by leadMs but never invent a landing before
         // the preceding opening attack. Adjacent 20ms attacks stay eligible.
         const lead=Math.max(1,Number.isSafeInteger(leadMs)?leadMs:250);
-        high=current.at-1;
-        low=Math.max((previous?.at??current.at-30000)+1,
-          current.at-(2*lead-1));
+        const prevAt=previous?.at??current.at-30000,edge=edgeFor(current.at-prevAt);
+        high=current.at-edge;
+        low=Math.max(prevAt+edge,current.at-(2*lead-1));
       }else{
         // Strictly after previous noble and before current noble. Example:
         // 100ms → 120ms gives 101..119ms, midpoint 110ms.
-        low=previous.at+1;
-        high=current.at-1;
+        const edge=edgeFor(current.at-previous.at);
+        low=previous.at+edge;
+        high=current.at-edge;
       }
       const valid=validEpoch(low)&&validEpoch(high)&&low<high&&
         high<current.at&&(!previous||low>previous.at);
@@ -779,7 +784,7 @@
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v210',CONTEXT=storagePrefix+'scan_context_v210';
   const LIVE_STATE=storagePrefix+'mission_state_v210',STOP_REQUEST=storagePrefix+'stop_request_v210';
-  const FIELD_IDS=['sd-timing-calibration','sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
+  const FIELD_IDS=['sd-noble-edge','sd-timing-calibration','sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
   const STOP_EVENT='__algzawy_stop_smart-defense-ultimate';
   const uiId='algzawy-smart-defense-ultimate-v210';
   const ownId=()=>String(root.game_data?.village?.id||'');
@@ -789,7 +794,7 @@
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:10,
-    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
+    nobleSpacingMs:200,nobleLeadMs:250,nobleEdgeMs:10,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
     experimentalTimingCalibration:false,nobleTarget:1,
     unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
     cancelExperimental:false};
@@ -800,7 +805,7 @@
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
   const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto',
-    'nobleLeadMs','includeFirst','unitAllow','allowNarrowAttempt']
+    'nobleLeadMs','nobleEdgeMs','includeFirst','unitAllow','allowNarrowAttempt']
     .map(k=>values?.[k]??null));
   const currentFingerprint=()=>fingerprint(get(root.localStorage,SETTINGS)||options);
 
@@ -835,7 +840,7 @@
       JSON.stringify(rulesFor(scanned.defenseVillageId));
   }
   function selectedWindows(train,defs=rulesFor()){
-    return nobleWindows(train,{safetyMs:options.margin,
+    return nobleWindows(train,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,
       leadMs:options.nobleLeadMs||250,targets:defs,
       auto:options.autoNobles!==false,includeFirst:options.includeFirst===true});
   }
@@ -1048,6 +1053,8 @@
     if(Number.isSafeInteger(lead)&&lead>0&&lead<=60000)merged.nobleLeadMs=lead;
     merged.includeFirst=(Object.hasOwn(drafts,'sd-include-first')?drafts['sd-include-first']:
       (uiQuery('sd-include-first')?.checked?'1':'0'))==='1';
+    const edge=Number(value('sd-noble-edge')||10);
+    if(Number.isSafeInteger(edge)&&edge>=1&&edge<=500)merged.nobleEdgeMs=edge;
     const spacing=Number(value('sd-noble-spacing')||200);
     if(Number.isSafeInteger(spacing)&&spacing>=1&&spacing<=60000)merged.nobleSpacingMs=spacing;
     const autoRaw=Object.hasOwn(drafts,'sd-auto-nobles')?drafts['sd-auto-nobles']:
@@ -1079,7 +1086,8 @@
       stopMission('انتهى أو اختفى قطار النبلاء قبل إرسال القوات');
     scanned=null;chosen=null;lastScannedKey='';
     root.sessionStorage.removeItem(TRAIN);
-    for(const control of doc.querySelectorAll('#commands_incomings .sd-inline-noble'))control.remove();
+    for(const control of doc.querySelectorAll('#commands_incomings .sd-noble-badge'))control.remove();
+    for(const row of doc.querySelectorAll('#commands_incomings .sd-noble-row'))row.classList.remove('sd-noble-row','sd-noble-on');
     const select=uiQuery('sd-options');if(select)select.replaceChildren();
     const list=uiQuery('sd-noble-list');if(list)list.textContent='لا توجد هجمات نبيلة قادمة.';
     const radar=uiQuery('sd-radar');if(radar)radar.textContent='✅ انتهى القطار؛ أزيلت الخطط السابقة.';
@@ -1834,16 +1842,11 @@
 #${uiId} .sd-unit-label img{width:22px;height:22px;object-fit:contain}
 #${uiId} .sd-unit-label span{font-size:10px;white-space:normal}
 #${uiId} #sd-noble-list{max-height:305px;overflow:auto;border:1px solid #50637B;padding:7px;border-radius:8px}
-#${uiId} .sd-noble-line{display:grid;grid-template-columns:18px minmax(0,1fr) 60px 60px;gap:5px;align-items:center;padding:6px 2px;border-bottom:1px solid #385066}
-#${uiId} .sd-noble-line input[type=checkbox]{width:18px;height:18px;accent-color:#B49AFF}
-#${uiId} .sd-noble-line label{font-size:10px;margin:0}
-#${uiId} .sd-noble-line input[type=number]{width:100%;font:12px Consolas,monospace}
-#${uiId} .sd-noble-line small{grid-column:1/-1;color:#DFB677;line-height:1.6}
-#${uiId} .sd-noble-line span{font:700 11px Consolas,Tahoma,monospace}
-.sd-inline-noble{display:inline-flex;align-items:center;gap:2px;margin-inline:1px;padding:1px;max-height:19px;font-size:9px;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:5px;direction:ltr}
-.sd-inline-noble input[type=number]{width:29px!important;height:17px!important;padding:0 1px!important;font-size:9px!important;text-align:center}
-.sd-inline-noble input[type=checkbox]{width:12px;height:12px;margin:0}
-.sd-inline-noble b{font-size:9px}
+.sd-noble-row{cursor:pointer}
+.sd-noble-row:hover td{background:#ffe9a8!important}
+.sd-noble-row.sd-noble-on td{background:#bfe8c4!important}
+.sd-noble-badge{display:inline-block;margin-inline:2px 6px;padding:1px 6px;font:700 11px Consolas,Tahoma,monospace;direction:ltr;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:6px;vertical-align:middle}
+.sd-noble-row.sd-noble-on .sd-noble-badge{background:#185746;border-color:#3ABF94}
 @media(max-width:380px){#${uiId} .sd-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 #${uiId} #sd-countdown{display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1864,6 +1867,15 @@ letter-spacing:.5px;text-shadow:0 2px 14px #40E1BF28}
 #${uiId} #sd-countdown[data-tone=due] .sd-timer-digits{color:var(--sd-gold)}
 #${uiId} #sd-countdown .sd-timer-description{font-size:11px;line-height:1.5;
 color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
+#${uiId} .sd-noble-line{display:grid;grid-template-columns:22px minmax(0,1fr);gap:2px 8px;align-items:center;padding:8px 6px;margin:4px 0;border:1px solid #385066;border-radius:8px;background:#0E1B2A;cursor:pointer;user-select:none;transition:background .12s,border-color .12s}
+#${uiId} .sd-noble-line:hover{background:#13283A;border-color:#5E7EA0}
+#${uiId} .sd-noble-line.on{background:#173A3A;border-color:var(--sd-teal)}
+#${uiId} .sd-noble-line:focus-visible{outline:2px solid var(--sd-teal);outline-offset:1px}
+#${uiId} .sd-noble-mark{grid-row:1/3;display:grid;place-items:center;width:20px;height:20px;border:2px solid #5E7EA0;border-radius:6px;color:#0A2A22;font-weight:900;font-size:13px}
+#${uiId} .sd-noble-line.on .sd-noble-mark{background:var(--sd-teal);border-color:var(--sd-teal)}
+#${uiId} .sd-noble-line>span:nth-child(2){font:700 12px Consolas,Tahoma,monospace;color:var(--sd-text)}
+#${uiId} .sd-noble-win{grid-column:2;font:700 11px Consolas,monospace;direction:ltr;text-align:right;color:var(--sd-gold)}
+#${uiId} .sd-noble-line small{grid-column:1/-1;color:#DFB677;line-height:1.6}
 #${uiId} .sd-card{border:1px solid var(--sd-border);border-radius:10px;background:#0E1B2A;padding:8px 10px 10px;margin:10px 0}
 #${uiId} .sd-card h4{margin:0 0 4px;font-size:12px;color:var(--sd-accent)}
 #${uiId} [data-sd-page]>label:first-child{margin-top:4px}
@@ -1950,14 +1962,15 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       <label for="sd-noble-target">🎯 النبيل المستهدف (عند إيقاف التلقائي)</label>
       <select id="sd-noble-target" disabled><option value="1">النبيل الأول — بعد الافتتاحية</option></select>
     </div>
-    <div class="sd-card" id="sd-targeting"><h4>النبلاء ونطاق الوصول (من جزء ← إلى جزء)</h4>
+    <div class="sd-card" id="sd-targeting"><h4>النبلاء والنافذة التلقائية — اضغط على السطر للتحديد</h4>
       <div id="sd-noble-list">افحص الهجمات الواردة أولًا لإظهار النبلاء.</div>
-      <p class="tiny">نفس الخيارات تظهر بجانب أوامر النبلاء في جدول اللعبة. الأجزاء 0–999.</p>
+      <p class="tiny">اضغط على أي مكان في سطر النبيل هنا أو في جدول الهجمات داخل اللعبة لتحديده أو إلغاؤه. تُسجَّل نافذة القنص تلقائيًا من أوقات الوصول.</p>
     </div>
     <div class="sd-card"><h4>التوقيت</h4>
       <div class="row"><div><label for="sd-noble-spacing">الفاصل بين النبلاء (ms)</label><input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr"></div>
-      <div><label for="sd-noble-lead">قبل النبيل الأول (ms)</label><input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr"></div></div>
-      <p id="sd-gap-warning" class="tiny">الخطة تعتمد على أوقات الوصول الفعلية لا على الفاصل المتوقع.</p>
+      <div><label for="sd-noble-lead">قبل النبيل الأول (ms)</label><input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr"></div>
+      <div><label for="sd-noble-edge">هامش الحواف (ms)</label><input id="sd-noble-edge" type="number" value="10" min="1" max="500" step="1" dir="ltr"></div></div>
+      <p id="sd-gap-warning" class="tiny">النافذة تُحسب تلقائيًا بين النبيل وما قبله: من (وصول السابق + الهامش) إلى (وصول النبيل − الهامش).</p>
     </div>
   </section>
   <section data-sd-page="settings">
@@ -2033,6 +2046,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     });
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
+    uiQuery('sd-noble-edge').value=options.nobleEdgeMs||10;
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     uiQuery('sd-narrow-attempt').checked=options.allowNarrowAttempt===true;
     uiQuery('sd-timing-calibration').checked=options.experimentalTimingCalibration===true;
@@ -2182,6 +2196,18 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       });
     }
   }
+  // Whole-row selection: a click anywhere on a noble's row (game table or this panel) toggles that noble.
+  // The sniping window is derived automatically from the arrival times (previous attack + edge margin →
+  // this noble − edge margin), so no manual from/to boxes are needed.
+  const msPart=n=>'.'+String(((Math.round(n)%1000)+1000)%1000).padStart(3,'0');
+  function windowLabel(w){
+    return w&&w.valid?msPart(w.windowFrom)+'  ←  '+msPart(w.windowTo)+'  (عرض '+(w.windowTo-w.windowFrom)+'ms)':'نافذة غير صالحة';
+  }
+  function toggleNoble(key,wasSelected,villageId=ownId()){
+    updateNobleRule(key,{selected:!wasSelected,fromMs:undefined,toMs:undefined},villageId);
+    renderNobleSelector();
+    try{renderNativeNobleControls();}catch(_){/* native table may be absent */}
+  }
   function renderNobleSelector(){
     const panel=uiQuery('sd-noble-list');if(!panel)return;
     panel.replaceChildren();
@@ -2190,100 +2216,69 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const vId=scanned.defenseVillageId||ownId();
     for(const train of trains){
       const title=doc.createElement('strong');
-      title.textContent='👑 القطار '+clockOnly(train.waves[1]?.at)+
-        ' | عدد النبلاء '+train.nobles;
+      title.textContent='👑 القطار '+clockOnly(train.waves[1]?.at)+' | عدد النبلاء '+train.nobles;
       panel.appendChild(title);
       const targets=rulesFor(vId);
-      const windows=nobleWindows(train,{safetyMs:options.margin,
+      const windows=nobleWindows(train,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,
         leadMs:options.nobleLeadMs||250,targets,
         auto:options.autoNobles!==false,includeFirst:options.includeFirst===true});
       for(const w of windows){
-        const row=doc.createElement('div');row.className='sd-noble-line';
-        row.dataset.nobleKey=w.nobleId;
-        const mark=doc.createElement('input');mark.type='checkbox';mark.checked=w.selected;
-        mark.title='حدد القنص للنبيل '+w.nobleIndex;
+        const row=doc.createElement('div');row.className='sd-noble-line'+(w.selected?' on':'');
+        row.dataset.nobleKey=w.nobleId;row.setAttribute('role','button');row.tabIndex=0;
+        row.setAttribute('aria-pressed',String(!!w.selected));
+        const mark=doc.createElement('span');mark.className='sd-noble-mark';mark.textContent=w.selected?'✓':'';
         const caption=doc.createElement('span');
-        caption.textContent='👑 '+w.nobleIndex+' @ '+clockOnly(w.nobleAt);
-        const inputs=[];
-        const rule=targets[w.nobleId]||{};
-        for(const [labelName,field] of [['من','fromMs'],['إلى','toMs']]){
-          const label=doc.createElement('label');label.textContent=labelName;
-          const input=doc.createElement('input');input.type='number';input.min='0';
-          input.max='999';input.step='1';input.placeholder=labelName==='من'?'210':'390';
-          input.value=rule[field]??'';
-          input.title=labelName+' جزء من الثانية (0–999)';
-          label.appendChild(input);inputs.push(input);
-          row.appendChild(label);
-        }
-        row.prepend(mark,caption);
+        caption.textContent='👑 النبيل '+w.nobleIndex+' — '+clockOnly(w.nobleAt);
+        const win=doc.createElement('span');win.className='sd-noble-win';win.textContent=windowLabel(w);
+        row.append(mark,caption,win);
         const status=doc.createElement('small');
         status.textContent=w.valid?
-          ('🎯 '+clockOnly(w.arrival)+' | سماحية ±'+w.slack+'ms'+
-            (w.slack<20?' | ⚠️ محاولة ضيقة عالية المخاطر':'')+
+          ('🎯 هبوط '+msPart(w.arrival)+' | سماحية ±'+w.slack+'ms'+
+            (w.slack<20?' | ⚠️ ضيقة عالية المخاطر':'')+
             (w.riskCount?' | ⚠️ '+w.riskCount+' هجمات بين الوصول والنبيل':' | دون هجمات أخرى')):
           '⚠️ '+w.reason;
         row.appendChild(status);
-        const save=()=>{
-          const fields={selected:mark.checked};
-          for(let i=0;i<2;i++){
-            const field=i?'toMs':'fromMs',input=inputs[i];
-            const val=input.value.trim();
-            if(val&&Number.isInteger(+val)&&+val>=0&&+val<=999)
-              fields[field]=+val;
-            else fields[field]=undefined;
-          }
-          updateNobleRule(w.nobleId,fields,vId);
-        };
-        mark.addEventListener('change',save);
-        for(const input of inputs)input.addEventListener('change',save);
+        const go=()=>toggleNoble(w.nobleId,!!w.selected,vId);
+        row.addEventListener('click',go);
+        row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
         panel.appendChild(row);
       }
     }
   }
+  const nobleRowBound=new WeakSet();
   function renderNativeNobleControls(){
     const table=doc.querySelector('#commands_incomings');
     if(!table)return;
     const now=nowServer();if(!finite(now))return;
     const entries=[...table.querySelectorAll('tr')].map(row=>({row,info:classifyRow(row,now)}))
       .filter(x=>x.info&&x.info.at>now);
-    const activeNobleRows=new Set(entries.filter(x=>x.info.kind==='noble').map(x=>x.row));
-    for(const row of table.querySelectorAll('tr'))if(!activeNobleRows.has(row))
-      row.querySelector('.sd-inline-noble')?.remove();
-    const lookup=new Map(nobleTrains(entries.map(x=>x.info)).flatMap(t=>
-      t.waves.filter(x=>x.kind==='noble').map((n,i)=>[nobleKey(n),i+1])));
+    const active=new Set(entries.filter(x=>x.info.kind==='noble').map(x=>x.row));
+    for(const row of table.querySelectorAll('tr'))if(!active.has(row)){
+      row.querySelector('.sd-noble-badge')?.remove();
+      row.classList.remove('sd-noble-row','sd-noble-on');
+    }
     const stored=rulesFor(ownId());
+    const byKey=new Map();
+    for(const train of nobleTrains(entries.map(x=>x.info)))
+      for(const w of selectedWindows(train,stored))byKey.set(w.nobleId,w);
     for(const {row,info} of entries){
       if(info.kind!=='noble')continue;
-      const key=nobleKey(info),i=lookup.get(key)||1;
+      const key=nobleKey(info),w=byKey.get(key);if(!w)continue;
       const cell=row.querySelector('td');if(!cell)continue;
-      if(cell.querySelector('.sd-inline-noble'))continue;
-      const inline=doc.createElement('span');inline.className='sd-inline-noble';
-      const flag=doc.createElement('input');flag.type='checkbox';
-      flag.checked=stored[key]?.selected??(options.autoNobles!==false&&
-        (i>1||options.includeFirst===true));
-      flag.title='قنص النبيل '+i;
-      const tag=doc.createElement('b');tag.textContent='🎯 '+i;
-      inline.append(flag,tag);
-      const fields=[];
-      for(const field of ['fromMs','toMs']){
-        const el=doc.createElement('input');el.type='number';el.min='0';el.max='999';
-        el.step='1';el.placeholder=field==='fromMs'?'من':'إلى';
-        el.value=stored[key]?.[field]??'';
-        inline.append(el);fields.push(el);
+      row.classList.add('sd-noble-row');row.classList.toggle('sd-noble-on',!!w.selected);
+      row.dataset.sdNobleKey=key;row.dataset.sdNobleSel=w.selected?'1':'0';
+      row.title='اضغط على أي مكان في السطر لتحديد/إلغاء قنص النبيل '+w.nobleIndex;
+      let badge=cell.querySelector('.sd-noble-badge');
+      if(!badge){badge=doc.createElement('span');badge.className='sd-noble-badge';cell.prepend(badge);}
+      badge.textContent=w.selected?('🎯 '+w.nobleIndex+'  '+(w.valid?msPart(w.windowFrom)+'←'+msPart(w.windowTo):'⚠️')):('○ '+w.nobleIndex);
+      if(!nobleRowBound.has(row)){
+        nobleRowBound.add(row);
+        row.addEventListener('click',e=>{
+          // Links and form controls keep their own game function (open command, cancel, ...).
+          if(e.target?.closest?.('a,button,input,select,textarea'))return;
+          toggleNoble(row.dataset.sdNobleKey,row.dataset.sdNobleSel==='1',ownId());
+        });
       }
-      const save=()=>{
-        const o={selected:flag.checked};
-        for(let j=0;j<2;j++){
-          const val=fields[j].value.trim();
-          o[j?'toMs':'fromMs']=val!==''&&Number.isInteger(+val)&&+val>=0&&+val<=999?+val:undefined;
-        }
-        updateNobleRule(key,o,ownId());
-      };
-      for(const el of [flag,...fields]){
-        el.addEventListener('click',e=>e.stopPropagation());
-        el.addEventListener('change',save);
-      }
-      cell.prepend(inline);
     }
   }
 
@@ -2302,7 +2297,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         list.push(`  ${entry.coord} | إشارات هجوم: ${entry.attacks} | علامات نبيل: ${entry.nobles}`);
     }else list.push('🌐 رادار القرى الأخرى: غير مؤكد — '+(scanned.regional?.reason||'واجهة الجدول غير متاحة'));
     for(const train of scanned.trains.slice(0,6)){
-      const range=nobleWindows(train,{safetyMs:options.margin,leadMs:options.nobleLeadMs||250,
+      const range=nobleWindows(train,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,leadMs:options.nobleLeadMs||250,
         targets:scanned.targetRules||{},auto:options.autoNobles!==false,includeFirst:options.includeFirst===true})
         .map(x=>'👑'+x.nobleIndex+' '+clockOnly(x.nobleAt)+' ⇒ '+
           (x.valid?clockOnly(x.arrival):'خارج الحدود')+' | هامش '+x.slack+'ms'+
@@ -2338,7 +2333,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         if(seen.size>=30)break;
       }
     }
-    if(scanned.trains.some(t=>nobleWindows(t,{safetyMs:options.margin,
+    if(scanned.trains.some(t=>nobleWindows(t,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,
       leadMs:options.nobleLeadMs||250,targets:scanned.targetRules||{},
       auto:options.autoNobles!==false,includeFirst:options.includeFirst===true})
       .some(w=>w.usable&&w.slack<20)))

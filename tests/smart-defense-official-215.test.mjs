@@ -36,16 +36,14 @@ test('noble expiration never terminates unexecuted order belonging to another vi
  assert.match(src,/if\(mission&&!mission.clickedAt/);
  assert.match(src,/if\(had&&publish\)set\(root\.localStorage,CONTEXT/);
 });
-test('real target and lead settings are retained while attack-row controls stay compact',()=>{
+test('v2.3.0: noble rows are selected by clicking anywhere on the row; no from/to boxes remain',()=>{
  assert.match(src,/id="sd-noble-list"/);
- assert.match(src,/fromMs/);
- assert.match(src,/toMs/);
- assert.match(src,/\.sd-inline-noble input\[type=number\]\{width:29px!important/);
- assert.match(src,/cell\.prepend\(inline\)/);
+ assert.match(src,/row\.classList\.add\('sd-noble-row'\)/);
+ assert.match(src,/closest\?\.\('a,button,input,select,textarea'\)/);
+ assert.match(src,/function toggleNoble\(/);
+ assert.doesNotMatch(src,/sd-inline-noble|placeholder=field===|input\.placeholder=labelName/);
  assert.match(src,/ui_active_tab_v210/);
 });
-
-
 // ---- v2.2.0 redesign: three tabs, no task-slot system ----
 test('v2.2.0: three Arabic tabs; units merged into settings; execution merged into home',()=>{
  const nav=src.match(/const TAB_NAMES=\{([\s\S]*?)\};/);
@@ -54,7 +52,7 @@ test('v2.2.0: three Arabic tabs; units merged into settings; execution merged in
  assert.match(src,/const TAB_MIGRATE=\{units:'settings',execution:'home',plans:'home'\}/);
  assert.match(src,/activeTab=TAB_NAMES\[tab\]\?tab:'home'/);
  assert.match(src,/className='sd-tabs'/);
- assert.match(src,/cell\.prepend\(inline\)/);
+ assert.match(src,/cell\.prepend\(badge\)/);
  assert.doesNotMatch(src,/id="sd-fold"/);
 });
 test('v2.2.0: home order is scan + best plan, countdown, plan choice, plan details, approve, stop, status',()=>{
