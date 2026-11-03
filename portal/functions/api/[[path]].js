@@ -140,7 +140,7 @@ async function newSubscriberSession(env,user){
  return {cookie:subscriberCookie(unsigned+'.'+await subscriberMac(env,unsigned+':'+user.access_hash),SUB_TTL),
    csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:expires};
 }
-async function readSubscriberSession(req,env){
+async function readSubscriberSession(req,env,{allowPending=false}={}){
  const match=(req.headers.get('Cookie')||'').match(new RegExp('(?:^|;\\s*)'+SUB_COOKIE+'=([^;]+)'));
  if(!match||match[1].length>350)return null;
  const parts=match[1].split('.');
@@ -154,7 +154,69 @@ async function readSubscriberSession(req,env){
  const record=await env.DB.prepare('SELECT id,label,access_hash FROM portal_users WHERE id=? AND active=1').bind(id).first();
  if(!record||!(await subscriptionOK(env,id)))return null;
  if(!constantEqual(signature,await subscriberMac(env,unsigned+':'+record.access_hash)))return null;
- return {user:{id:record.id,label:record.label},csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires)};
+ const pending=await mustChangePassword(env,id);
+ if(pending&&!allowPending)return null;
+ return {user:{id:record.id,label:record.label},csrfToken:await subscriberMac(env,'csrf:'+unsigned),expiresAt:Number(expires),mustChange:pending};
+}
+
+// ---- Subscriber login by username/e-mail + password (additive; the access-key login is unchanged) ----
+const LOGIN_ID_RE=/^[A-Za-z0-9][A-Za-z0-9_.@+-]{2,79}$/;
+const PW_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+const PW_MIN=10,PW_MAX=128,PW_ITER=100000; // Workers reject PBKDF2 above 100,000 iterations
+const PW_RECORD_RE=/^pbkdf2-sha256\$100000\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
+const hexOf=buf=>[...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,'0')).join('');
+async function pbkdf2Hex(password,saltBytes){
+  const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
+  return hexOf(await crypto.subtle.deriveBits({name:'PBKDF2',salt:saltBytes,iterations:PW_ITER,hash:'SHA-256'},key,256));
+}
+async function hashPassword(password){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  return 'pbkdf2-sha256$'+PW_ITER+'$'+hexOf(salt)+'$'+await pbkdf2Hex(password,salt);
+}
+const DUMMY_PW_RECORD='pbkdf2-sha256$100000$00112233445566778899aabbccddeeff$'+'0'.repeat(64);
+async function verifyPassword(record,password){
+  const m=PW_RECORD_RE.exec(typeof record==='string'?record:'')||PW_RECORD_RE.exec(DUMMY_PW_RECORD);
+  const real=PW_RECORD_RE.test(record||'');
+  const hex=await pbkdf2Hex(password,parseHexBytes(m[1]));
+  return constantEqual(hex,m[2])&&real; // unknown users cost the same time as wrong passwords
+}
+const parseHexBytes=str=>new Uint8Array((str.match(/../g)||[]).map(x=>Number.parseInt(x,16)));
+function temporaryPassword(){
+  let out='';
+  while(out.length<14){
+    const b=crypto.getRandomValues(new Uint8Array(32));
+    for(const v of b){if(v<PW_ALPHABET.length*4&&out.length<14)out+=PW_ALPHABET[v%PW_ALPHABET.length];}
+  }
+  return out;
+}
+async function userLimiter(env,req,loginId){
+  const ip=(req.headers.get('CF-Connecting-IP')||'unknown').slice(0,128);
+  const scopes=[await digest('user-login-ip:'+ip,env.PORTAL_HASH_PEPPER)];
+  if(loginId)scopes.push(await digest('user-login-id:'+String(loginId).toLowerCase(),env.PORTAL_HASH_PEPPER));
+  const now=Math.floor(Date.now()/1000);
+  let locked=false;
+  for(const scope of scopes){
+    const row=await env.DB.prepare('SELECT locked_until FROM portal_user_login_limits WHERE scope=?').bind(scope).first();
+    if(row&&Number(row.locked_until)>now)locked=true;
+  }
+  return {scopes,now,locked};
+}
+async function userRecordFailure(env,{scopes,now}){
+  for(const scope of scopes)await env.DB.prepare(
+    'INSERT INTO portal_user_login_limits(scope,failures,locked_until,updated_at) VALUES(?,1,0,?) '+
+    'ON CONFLICT(scope) DO UPDATE SET '+
+    'failures=CASE WHEN updated_at<? THEN 1 ELSE failures+1 END,'+
+    'locked_until=CASE WHEN updated_at<? THEN 0 WHEN failures>=7 THEN ? ELSE 0 END,'+
+    'updated_at=?'
+  ).bind(scope,now,now-900,now-900,now+900,now).run();
+}
+async function userClearFailures(env,{scopes}){
+  for(const scope of scopes)await env.DB.prepare('DELETE FROM portal_user_login_limits WHERE scope=?').bind(scope).run();
+}
+// A missing migration must never break the access-key login: treat it as "no forced change".
+async function mustChangePassword(env,userId){
+  try{const r=await env.DB.prepare('SELECT must_change FROM portal_user_credentials WHERE user_id=?').bind(userId).first();return r?.must_change===1;}
+  catch(_){return false;}
 }
 
 const parseHex=str=>new Uint8Array((str.match(/../g)||[]).map(x=>Number.parseInt(x,16)));
@@ -339,21 +401,63 @@ async function handler(req,env){
     if(req.method==='POST'){
       if(!sameOrigin(req))return bad('origin_invalid',403);
       let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      if(typeof input?.login==='string'||typeof input?.password==='string'){
+        // Username/e-mail + password. Every credential failure returns the same generic answer.
+        const login=typeof input.login==='string'?input.login.trim():'',password=typeof input.password==='string'?input.password:'';
+        if(!LOGIN_ID_RE.test(login)||password.length<PW_MIN||password.length>PW_MAX)return bad('unauthorized',401);
+        let limiter,row;
+        try{
+          limiter=await userLimiter(env,req,login);
+          if(limiter.locked)return bad('too_many_login_attempts',429);
+          row=await env.DB.prepare('SELECT c.user_id,c.password_hash,c.must_change,u.label,u.access_hash FROM portal_user_credentials c JOIN portal_users u ON u.id=c.user_id WHERE c.login_id=? COLLATE NOCASE AND u.active=1').bind(login).first();
+        }catch(e){console.error('[AlGzawy password login]',e);return bad('service_unavailable',503);}
+        const ok=await verifyPassword(row?.password_hash,password);
+        if(!ok||!row||!(await subscriptionOK(env,row.user_id))){await userRecordFailure(env,limiter);return bad('unauthorized',401);}
+        await userClearFailures(env,limiter);
+        const session=await newSubscriberSession(env,{id:row.user_id,access_hash:row.access_hash});
+        await accessEvent(env,req,row.user_id,null,'subscriber_password_login');
+        return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt,mustChange:row.must_change===1},200,{'Set-Cookie':session.cookie});
+      }
       if(typeof input?.accessKey!=='string'||!/^alg_u_[a-f0-9]{64}$/.test(input.accessKey))return bad('unauthorized',401);
       const user=await env.DB.prepare('SELECT id,label,access_hash FROM portal_users WHERE access_hash=? AND active=1')
         .bind(await digest(input.accessKey,env.PORTAL_HASH_PEPPER)).first();
       if(!user||!(await subscriptionOK(env,user.id)))return bad('unauthorized',401);
       const session=await newSubscriberSession(env,user);
-      return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt},200,{'Set-Cookie':session.cookie});
+      return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt,mustChange:await mustChangePassword(env,user.id)},200,{'Set-Cookie':session.cookie});
     }
-    const session=await readSubscriberSession(req,env);
+    const session=await readSubscriberSession(req,env,{allowPending:true});
     if(!session)return bad('unauthorized',401);
-    if(req.method==='GET')return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt});
+    if(req.method==='GET')return reply({ok:true,csrfToken:session.csrfToken,expiresAt:session.expiresAt,mustChange:session.mustChange});
     if(req.method==='DELETE'){
       if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
       return reply({ok:true},200,{'Set-Cookie':subscriberCookie('',0)});
     }
     return bad('method_not_allowed',405);
+  }
+  // Subscriber changes their own password (also the forced change after a temporary one).
+  if(path[0]==='password'&&path.length===1){
+    if(req.method!=='PUT')return bad('method_not_allowed',405);
+    const session=await readSubscriberSession(req,env,{allowPending:true});
+    if(!session)return bad('unauthorized',401);
+    if(!sameOrigin(req)||!constantEqual(req.headers.get('X-ALG-USER-CSRF')||'',session.csrfToken))return bad('csrf_invalid',403);
+    let input;try{input=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+    const current=input?.current,next=input?.next;
+    if(typeof current!=='string'||typeof next!=='string'||current.length>PW_MAX)return bad('invalid_password',400);
+    if(next.length<PW_MIN||next.length>PW_MAX)return bad('weak_password',400);
+    let row,limiter;
+    try{
+      limiter=await userLimiter(env,req,'uid:'+session.user.id);
+      if(limiter.locked)return bad('too_many_login_attempts',429);
+      row=await env.DB.prepare('SELECT login_id,password_hash FROM portal_user_credentials WHERE user_id=?').bind(session.user.id).first();
+    }catch(e){console.error('[AlGzawy password change]',e);return bad('service_unavailable',503);}
+    if(!row)return bad('password_login_not_enabled',409);
+    if(!(await verifyPassword(row.password_hash,current))){await userRecordFailure(env,limiter);return bad('wrong_current_password',403);}
+    if(next===current||next.toLowerCase()===String(row.login_id).toLowerCase())return bad('weak_password',400);
+    await env.DB.prepare('UPDATE portal_user_credentials SET password_hash=?,must_change=0,updated_at=? WHERE user_id=?')
+      .bind(await hashPassword(next),Math.floor(Date.now()/1000),session.user.id).run();
+    await userClearFailures(env,limiter);
+    await accessEvent(env,req,session.user.id,null,'subscriber_password_changed');
+    return reply({ok:true});
   }
   if(path[0]==='admin'){
     if(path[1]==='login-mode'&&path.length===2&&req.method==='GET'){
@@ -609,7 +713,13 @@ async function handler(req,env){
           'SELECT u.id,u.label,u.active,u.created_at,CASE WHEN a.user_id IS NULL THEN 0 ELSE 1 END AS archived '
           +'FROM portal_users u LEFT JOIN portal_archived_users a ON a.user_id=u.id ORDER BY u.created_at DESC LIMIT 200'
         ).all();
-        return reply({ok:true,users:x.results||[]});
+        const users=x.results||[];
+        try{
+          const c=await env.DB.prepare('SELECT user_id,login_id,must_change FROM portal_user_credentials').all();
+          const by=new Map((c.results||[]).map(r=>[r.user_id,r]));
+          for(const u of users){const r=by.get(u.id);u.login_id=r?r.login_id:null;u.must_change=r?r.must_change===1:false;}
+        }catch(_){/* migration not applied yet: password login simply not offered */}
+        return reply({ok:true,users});
       }
       if(req.method==='POST'){
         let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
@@ -624,6 +734,41 @@ async function handler(req,env){
         ]);
         return reply({ok:true,user:{id,label:data.label.trim()},accessKey},201);
       }
+    }
+    if(path[1]==='users'&&path.length===4&&path[3]==='credentials'){
+      const uid=path[2];
+      if(req.method==='DELETE'){
+        try{await env.DB.prepare('DELETE FROM portal_user_credentials WHERE user_id=?').bind(uid).run();}
+        catch(e){console.error(e);return bad('service_unavailable',503);}
+        await accessEvent(env,req,uid,null,'owner_removed_password_login');
+        return reply({ok:true});
+      }
+      if(req.method!=='POST')return bad('method_not_allowed',405);
+      let data;try{data=await bodyJSON(req);}catch(_){return bad('invalid_json');}
+      const user=await env.DB.prepare('SELECT id FROM portal_users WHERE id=?').bind(uid).first();
+      if(!user)return bad('not_found',404);
+      let existing;
+      try{existing=await env.DB.prepare('SELECT login_id FROM portal_user_credentials WHERE user_id=?').bind(uid).first();}
+      catch(e){console.error(e);return bad('migration_required',503);}
+      const loginId=typeof data?.loginId==='string'&&data.loginId.trim()?data.loginId.trim():existing?.login_id;
+      if(typeof loginId!=='string'||!LOGIN_ID_RE.test(loginId))return bad('invalid_login_id',400);
+      const taken=await env.DB.prepare('SELECT user_id FROM portal_user_credentials WHERE login_id=? COLLATE NOCASE AND user_id<>?').bind(loginId,uid).first();
+      if(taken)return bad('login_id_taken',409);
+      const temp=temporaryPassword(),record=await hashPassword(temp),now=Math.floor(Date.now()/1000);
+      const statements=[env.DB.prepare(
+        'INSERT INTO portal_user_credentials(user_id,login_id,password_hash,must_change,updated_at) VALUES(?,?,?,1,?) '+
+        'ON CONFLICT(user_id) DO UPDATE SET login_id=excluded.login_id,password_hash=excluded.password_hash,must_change=1,updated_at=excluded.updated_at'
+      ).bind(uid,loginId,record,now)];
+      if(existing){
+        // A reset also rotates the access key, which ends every session issued before the reset.
+        const accessKey='alg_u_'+bytes(32),sealed=await protectAccessKey(env,accessKey);
+        if(sealed)statements.push(
+          env.DB.prepare('UPDATE portal_users SET access_hash=? WHERE id=?').bind(await digest(accessKey,env.PORTAL_HASH_PEPPER),uid),
+          env.DB.prepare('INSERT INTO portal_access_key_vault(user_id,encrypted_key,iv) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET encrypted_key=excluded.encrypted_key,iv=excluded.iv').bind(uid,sealed.value,sealed.iv));
+      }
+      await env.DB.batch(statements);
+      await accessEvent(env,req,uid,null,existing?'owner_reset_password':'owner_set_password_login');
+      return reply({ok:true,loginId,temporaryPassword:temp,mustChange:true});
     }
     if(path[1]==='users'&&path.length===4&&path[3]==='enable'){
       if(req.method!=='POST')return bad('method_not_allowed',405);

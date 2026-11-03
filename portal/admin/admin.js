@@ -308,6 +308,36 @@ async function editSubscription(user){
    }catch(err){toast(errorArabic(err),true);}
  });
  keyActions.append(reveal,copy,rotate);keyPanel.append(keyValue,keyActions);box.append(keyPanel);
+ // Username/e-mail + password login: owner sets a temporary password (shown once; user must change it).
+ const pwPanel=h('div','device-detail');
+ pwPanel.append(h('strong','','دخول المشترك باسم مستخدم/إيميل وكلمة مرور'));
+ const pwNote=h('p','',user.login_id?('المعرّف الحالي: '+user.login_id+(user.must_change?' · لم يغيّر كلمته المؤقتة بعد':'')):'لم يُفعَّل بعد. اكتب اسم مستخدم أو إيميل ثم أنشئ كلمة مؤقتة.');
+ const pwId=h('input','');pwId.type='text';pwId.value=user.login_id||'';pwId.placeholder='اسم المستخدم أو الإيميل';pwId.autocomplete='off';pwId.setAttribute('aria-label','اسم المستخدم أو الإيميل');pwId.style.direction='ltr';
+ const pwOut=h('code','generated-secret','');pwOut.style.direction='ltr';pwOut.style.display='none';pwOut.style.userSelect='text';
+ const pwActions=h('div','owner-actions');
+ const pwMake=h('button','button button-outline button-sm',user.login_id?'إعادة تعيين كلمة المرور':'إنشاء كلمة مؤقتة');
+ const pwCopy=h('button','button button-outline button-sm','نسخ');pwCopy.disabled=true;
+ const pwOff=h('button','button button-danger button-sm','إلغاء الدخول بكلمة المرور');pwOff.hidden=!user.login_id;
+ pwMake.type=pwCopy.type=pwOff.type='button';
+ let tempPw='';
+ pwMake.addEventListener('click',async()=>{
+   if(user.login_id&&!confirm('إعادة التعيين تلغي كلمة المرور الحالية ومفتاح الوصول القديم وتنهي جلسات المشترك. متابعة؟'))return;
+   try{const r=await api('admin/users/'+encodeURIComponent(user.id)+'/credentials',{method:'POST',body:{loginId:pwId.value.trim()}});
+     tempPw=r.temporaryPassword;pwOut.textContent=r.loginId+'  /  '+tempPw;pwOut.style.display='block';pwCopy.disabled=false;
+     pwNote.textContent='أرسل المعرّف وكلمة المرور المؤقتة للمشترك. تظهر مرة واحدة فقط وسيُطلب منه تغييرها عند أول دخول.';
+     toast('تم إنشاء كلمة مؤقتة');
+   }catch(err){
+     const m={login_id_taken:'هذا المعرّف مستخدم لمشترك آخر.',invalid_login_id:'المعرّف غير صالح (3-80 حرفًا: حروف إنجليزية وأرقام و . _ - @ +).',migration_required:'يلزم تنفيذ ملف الترحيل الجديد في D1 أولًا.'}[err.message];
+     toast(m||errorArabic(err),true);
+   }
+ });
+ pwCopy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(pwOut.textContent);toast('تم النسخ');}catch(_){toast('تعذر النسخ',true);}});
+ pwOff.addEventListener('click',async()=>{
+   if(!confirm('سيعود المشترك للدخول بمفتاح الوصول فقط. متابعة؟'))return;
+   try{await api('admin/users/'+encodeURIComponent(user.id)+'/credentials',{method:'DELETE'});pwNote.textContent='تم إلغاء الدخول بكلمة المرور.';pwOff.hidden=true;toast('تم الإلغاء');}
+   catch(err){toast(errorArabic(err),true);}
+ });
+ pwActions.append(pwMake,pwCopy,pwOff);pwPanel.append(pwNote,pwId,pwOut,pwActions);box.append(pwPanel);
   const selector=h('div','subscription-selector'),allowed=new Set(data.allowedIds||[]),checks=[];
  for(const item of state.catalog){
    const label=h('label');const input=h('input');input.type='checkbox';input.checked=allowed.has(item.id);

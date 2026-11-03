@@ -325,6 +325,7 @@ async function init(){
     const session=await api('session');
     state.csrf=session.csrfToken;
     state.expiresAt=session.expiresAt||0;
+    if(session.mustChange){$('boot').hidden=true;showPwGate();return;}
     await loadMe();
   }catch(err){
     state.csrf='';
@@ -690,18 +691,45 @@ $('telegramUnlink').addEventListener('click',async()=>{
 });
 
 $('runDiagnostics').addEventListener('click',()=>void runDiagnostics());
+function showPwGate(){$('pwGate').hidden=false;$('pwError').textContent='';$('pwCurrent').focus();}
+async function afterLogin(session){
+  state.csrf=session.csrfToken;state.expiresAt=session.expiresAt||0;
+  if(session.mustChange){$('boot').hidden=true;$('login').hidden=true;showPwGate();return;}
+  await loadMe();view('dashboard');
+  toast('تم تسجيل الدخول إلى مركز التحكم V2');
+}
 $('loginForm').addEventListener('submit',async event=>{
   event.preventDefault();
-  const key=$('accessKey').value.trim();
+  const id=$('loginId').value.trim(),pw=$('loginPassword').value,key=$('accessKey').value.trim();
   $('loginError').textContent='';
-  if(!/^alg_u_[a-f0-9]{64}$/.test(key)){$('loginError').textContent='أدخل مفتاح المشترك الصحيح الذي يبدأ بـ alg_u_';return;}
+  let body;
+  if(id||pw){
+    if(!id||!pw){$('loginError').textContent='أدخل اسم المستخدم وكلمة المرور معًا.';return;}
+    body={login:id,password:pw};
+  }else if(key){
+    if(!/^alg_u_[a-f0-9]{64}$/.test(key)){$('loginError').textContent='مفتاح الوصول غير صحيح. الأفضل الدخول باسم المستخدم وكلمة المرور.';return;}
+    body={accessKey:key};
+  }else{$('loginError').textContent='أدخل اسم المستخدم وكلمة المرور.';return;}
   const button=$('loginButton');button.disabled=true;
   try{
-    const session=await api('session',{method:'POST',body:{accessKey:key}});
-    state.csrf=session.csrfToken;state.expiresAt=session.expiresAt||0;
-    $('accessKey').value='';await loadMe();view('dashboard');
-    toast('تم تسجيل الدخول إلى مركز التحكم V2');
-  }catch(err){state.csrf='';$('loginError').textContent=errText(err);}
+    const session=await api('session',{method:'POST',body});
+    $('loginPassword').value='';$('accessKey').value='';
+    await afterLogin(session);
+  }catch(err){state.csrf='';$('loginError').textContent=err.message==='unauthorized'?'اسم المستخدم أو كلمة المرور غير صحيحة، أو الاشتراك غير فعّال.':err.message==='too_many_login_attempts'?'محاولات كثيرة. انتظر 15 دقيقة ثم حاول مجددًا.':errText(err);}
+  finally{button.disabled=false;}
+});
+$('pwForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const cur=$('pwCurrent').value,n1=$('pwNew').value,n2=$('pwNew2').value;
+  $('pwError').textContent='';
+  if(n1.length<10){$('pwError').textContent='كلمة المرور الجديدة قصيرة (10 أحرف على الأقل).';return;}
+  if(n1!==n2){$('pwError').textContent='كلمتا المرور الجديدتان غير متطابقتين.';return;}
+  const button=$('pwButton');button.disabled=true;
+  try{
+    await api('password',{method:'PUT',body:{current:cur,next:n1}});
+    $('pwCurrent').value=$('pwNew').value=$('pwNew2').value='';$('pwGate').hidden=true;
+    await loadMe();view('dashboard');toast('تم حفظ كلمة المرور الجديدة');
+  }catch(err){$('pwError').textContent=err.message==='wrong_current_password'?'كلمة المرور المؤقتة غير صحيحة.':err.message==='weak_password'?'اختر كلمة مرور مختلفة عن المؤقتة واسم المستخدم (10 أحرف على الأقل).':errText(err);}
   finally{button.disabled=false;}
 });
 // Support direct links and manual fragment navigation as well as normal sidebar clicks.

@@ -128,3 +128,6 @@ main{width:100%;max-width:1700px;padding:30px clamp(18px,3vw,43px) 65px;margin:0
 .switch{position:relative}.switch::after{content:"";position:absolute;inset:-8px -4px}
 
 small,.small{font-size:12px}
+
+.key-fallback{margin-top:18px;border-top:1px dashed #345266;padding-top:12px}.key-fallback summary{cursor:pointer;color:var(--muted);font-size:13px;min-height:40px;display:flex;align-items:center}.key-fallback label{margin-top:12px}
+.pw-gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#050d16ee;overflow:auto}.pw-gate[hidden]{display:none}.pw-gate .login-card{width:min(440px,100%)}

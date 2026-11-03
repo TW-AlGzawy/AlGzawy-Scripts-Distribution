@@ -38,7 +38,9 @@ test('All V2 operations are tied to existing authenticated first-party endpoints
   assert.match(js,/credentials:'same-origin'/);
   assert.match(js,/headers\['X-ALG-USER-CSRF'\]=state\.csrf/);
   assert.match(js,/const session=await api\('session'\)/);
-  assert.match(js,/await api\('session',\{method:'POST',body:\{accessKey:key\}\}\)/);
+  assert.match(js,/await api\('session',\{method:'POST',body\}\)/);
+  assert.match(js,/body=\{accessKey:key\}/);
+  assert.match(js,/body=\{login:id,password:pw\}/);
   assert.match(js,/api\('session',\{method:'DELETE'\}\)/);
   assert.match(js,/const data=await api\('me'\)/);
   assert.match(js,/const catalog=await api\('catalog'\)/);
