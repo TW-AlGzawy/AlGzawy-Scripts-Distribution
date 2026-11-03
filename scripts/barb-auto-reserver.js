@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.7
+// @version      1.0.8
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -218,8 +218,15 @@
     remote(m, rows);
   }
   const vlink = id => `${location.origin}/game.php?village=${me.id}&screen=info_village&id=${id}`;
+  // آخر التنبيهات التي لم يُبتّ فيها بعد (للأمرين «حجز» و«تجاهل» دون إحداثيات)
+  function alertQueue(k, add) {
+    let q = get('alertQ', []).filter(x => x !== k);
+    if (add) q.push(k);
+    set('alertQ', q.slice(-20));
+  }
+  const lastAlertXY = () => { const q = get('alertQ', []); return q.length ? parseXY(q[q.length - 1]) : null; };
   const alertMsg = c =>
-    `🔔 بربرية متاحة للحجز اليدوي${c.fresh ? ' 🆕' : ''}\n${c.kind} ${key(c.x, c.y)}\nالنقاط: ${c.pts} | المسافة: ${c.d.toFixed(1)} حقل\nافتح الرابط واضغط «حجز» بنفسك:\n${vlink(c.id)}`;
+    `🔔 بربرية متاحة للحجز اليدوي${c.fresh ? ' 🆕' : ''}\n${c.kind} ${key(c.x, c.y)}\nالنقاط: ${c.pts} | المسافة: ${c.d.toFixed(1)} حقل\nافتح الرابط واضغط «حجز» بنفسك، أو أرسل هنا: حجز / تجاهل\n${vlink(c.id)}`;
   const resMsg = (c, n, limit, extra) =>
     `✔ تم حجز ${c.fresh ? '🆕 ' : ''}${c.kind} ${key(c.x, c.y)}\nالنقاط: ${c.pts} | المسافة: ${c.d.toFixed(1)} حقل\nالخانات: ${n}/${limit}` +
     (extra ? '\n' + extra : '') + '\n' + vlink(c.id);
@@ -482,9 +489,9 @@
   // LIVE mutation gate: exclusive account/world lock + persistent uncertain-operation journal.
   // Failed/ambiguous calls are NEVER retried automatically because the endpoint is a toggle.
   const operationLock='algzawy-barb:reserve:'+location.host+':'+String(gd.player.id);
-  async function safeToggle(id, coord, intent){
+  async function safeToggle(id, coord, intent, manual){
     const no=(why)=>({ok:false,err:why});
-    if(CFG.ALERT_ONLY)return no('وضع «تنبيه فقط» مفعّل: لا حجز ولا تعديل تلقائي');
+    if(CFG.ALERT_ONLY&&manual!==true)return no('وضع «تنبيه فقط» مفعّل: لا حجز ولا تعديل تلقائي');
     if(!authorized()||CFG.DRY_RUN||sessionStorage.getItem(P+'liveConfirmed')!=='1'||!get('on',false))return no('غير مفعّل أو لم يؤكّد المستخدم الحجز الفعلي');
     if(!/^(reserve|release)$/.test(intent)||!/^\d{1,3}\|\d{1,3}$/.test(String(coord))||!Number.isSafeInteger(+id)||+id<=0)
       return no('معطيات غير صالحة');
@@ -492,7 +499,7 @@
     if(!navigator.locks?.request)return no('لا يدعم المتصفح قفل Web Locks الموثوق — إيقاف العمليات الفعلية');
     const result=await navigator.locks.request(operationLock,{mode:'exclusive',ifAvailable:true},async lock=>{
       if(!lock)return no('عملية متزامنة في تبويب آخر');
-      if(!authorized()||CFG.DRY_RUN||CFG.ALERT_ONLY)return no('فُقد التفويض');
+      if(!authorized()||CFG.DRY_RUN||(CFG.ALERT_ONLY&&manual!==true))return no('فُقد التفويض');
       const journal=get('mutationJournal',{});
       if(Object.values(journal).some(op=>op.status==='pending'||op.status==='uncertain'))
         return no('عملية سابقة غير مؤكدة؛ يتطلب تدقيقًا يدويًا قبل أي تبديل جديد');
@@ -873,16 +880,18 @@
 
       // ---------- تنبيه فقط: لا حجز ولا استبدال ولا أي طلب تعديل — رسالة تيليجرام برابط القرية فقط ----------
       if (CFG.ALERT_ONLY) {
-        const seen = get('alertSeen', {});
+        const seen = get('alertSeen', {}), ign = get('alertIgnore', {});
         let sent = 0;
         for (const c of todo) {
           if (sent >= 5) break;
           const k = key(c.x, c.y);
           if (seen[k] && now - seen[k] < DAY) continue;
+          if (ign[k] && now - ign[k] < 7 * DAY) continue;
           if (CFG.VERIFY_BARB) { const va = await verifyBarbNow(c, false); if (!va.ok) { if (va.transient) break; continue; } }
           seen[k] = now; sent++;
           log(`🔔 تنبيه: ${c.fresh ? '🆕 ' : ''}${c.kind} ${k} (${c.pts} نقطة، ${c.d.toFixed(1)} حقل)`);
-          notify(alertMsg(c), [[btn('🔎 فحص', 'c:' + k)]]);
+          alertQueue(k, true);
+          notify(alertMsg(c), [[btn('⚡ حجز', 'r:' + k), btn('🙈 تجاهل', 'ig:' + k)], [btn('🔎 فحص', 'c:' + k)]]);
         }
         for (const k in seen) if (now - seen[k] > DAY) delete seen[k];
         set('alertSeen', seen);
@@ -1672,14 +1681,14 @@
   const btnDone=new Set();
   function relayButtonCommand(raw){
     const d=String(raw||'').replace(/^barb:/,'');
-    const match=d.match(/^(r|c|rl|sw|ok|no|pn|m)(?::(\d{1,3}\|\d{1,3}|[a-z]{2,10}))?$/);
+    const match=d.match(/^(r|c|rl|sw|ig|ok|no|pn|m)(?::(\d{1,3}\|\d{1,3}|[a-z]{2,10}))?$/);
     if(!match)return null;
     const [,action,coord]=match;
     if(action==='no')return '/cancel';
     if(action==='ok')return '/confirm';
     if(action==='m')return MENU_OK.has(coord)?'/'+coord:null;
     if(!coord)return null;
-    const prefix={r:'/reserve ',c:'/check ',rl:'/release ',sw:'/swap ',pn:'/pin '}[action];
+    const prefix={r:'/reserve ',c:'/check ',rl:'/release ',sw:'/swap ',ig:'/ignore ',pn:'/pin '}[action];
     return prefix?prefix+coord:null;
   }
   // (أوامر تيليجرام الموسّعة معرَّفة في قسم «سلامة الحجز» أدناه)
@@ -2081,7 +2090,7 @@
 
   // ---- أوامر تيليجرام الموسّعة ----
   const AR = { 'حالة': 'status', 'الحالة': 'status', 'قائمة': 'list', 'حجوزاتي': 'list', 'ايقاف': 'pause', 'إيقاف': 'pause', 'تشغيل': 'resume', 'استئناف': 'resume',
-    'حجز': 'reserve', 'احجز': 'reserve', 'الغاء': 'release', 'إلغاء': 'release', 'فحص': 'check', 'اهداف': 'targets', 'أهداف': 'targets', 'نبلاء': 'nobles',
+    'حجز': 'reserve', 'احجز': 'reserve', 'تجاهل': 'ignore', 'تجاهله': 'ignore', 'اتجاهل': 'ignore', 'الغاء': 'release', 'إلغاء': 'release', 'فحص': 'check', 'اهداف': 'targets', 'أهداف': 'targets', 'نبلاء': 'nobles',
     'مساعدة': 'help', 'اوامر': 'help', 'أوامر': 'help', 'تأكيد': 'confirm', 'تاكيد': 'confirm', 'اعدادات': 'settings', 'إعدادات': 'settings', 'سجل': 'log',
     'تقرير': 'report', 'لوحة': 'menu', 'تحكم': 'menu', 'تثبيت': 'pin', 'استبدل': 'swap', 'انتهاء': 'expiring', 'منتهية': 'expiring', 'مراقبة': 'watch', 'مسح': 'scan', 'فعلي': 'live', 'معاينة': 'dry', 'تدقيق': 'audit' };
   const SETTABLE = {
@@ -2107,7 +2116,7 @@
     barbReplySent=relayEmit('reply',{commandId:barbReplyId,text:String(t||'').slice(0,18000),buttons:relayButtons(rows)});
     return barbReplySent;
   }
-  const relayCommands=new Set(['status','list','targets','check','reserve','release','swap','pin',
+  const relayCommands=new Set(['status','list','targets','check','reserve','ignore','release','swap','pin',
     'expiring','menu','pause','resume','dry','live','scan','settings','set','confirm',
     'cancel','help','start','get','nobles','audit','log','report','watch','profile','replace','sleep']);
   document.addEventListener(RELAY_REQUEST,async event=>{
@@ -2120,7 +2129,7 @@
       const text=cmd.kind==='callback'?relayButtonCommand(cmd.text):'/'+cmd.text.trim().replace(/^\/?barb\s+/i,'').replace(/^\//,'');
       if(!text){tgSend('❌ زر غير معروف أو منتهي الصلاحية');return;}
       const first=text.trim().split(/[\s@]/)[0].replace(/^\//,'').toLowerCase();
-      if(!relayCommands.has(first)){tgSend('❌ الأمر غير مدعوم. أرسل /barb menu');return;}
+      if(!relayCommands.has(AR[first]||first)){tgSend('❌ الأمر غير مدعوم. أرسل /barb menu');return;}
       if(first==='cancel'){set('tgPend',null);tgSend('✖ أُلغي الأمر المعلّق');return;}
       // Failure-closed: Telegram cannot switch manually stopped scripts ON or enter LIVE.
       if(first==='resume'||first==='live'){tgSend('🔒 التشغيل والحجز الفعلي يتطلبان تفعيلًا يدويًا من نافذة اللعبة.');return;}
@@ -2135,6 +2144,8 @@
 /targets [عدد] — أفضل المرشحين
 /check x|y — فحص قرية حيًّا (ملكية، نقاط، حجز، نبلاء)
 /reserve x|y — حجز قرية (بعد التحقق)
+/reserve (أو «حجز») بلا إحداثيات — يحجز آخر بربرية نبّهتك عنها (يتطلب «🔴 فعلي»)
+/ignore (أو «تجاهل») [x|y] — يتجاهل آخر تنبيه أسبوعًا
 /release x|y — إلغاء حجز (يرفض إن أُرسل نبلاء؛ force لتجاوز)
 /nobles — تحديث حالة النبلاء
 /audit — تدقيق حجوزاتي (احتُلت؟)
@@ -2172,8 +2183,7 @@
     if(!authorized())return '⏸ غير مصرح من Cloud Bridge';
     const k = key(x, y);
     snHold.set(k, Date.now() + 12e4);           // لا تزاحم من الدورة الآلية (الحجز «تبديل»)
-    if (CFG.ALERT_ONLY) return '🔔 وضع «تنبيه فقط» مفعّل — لا حجز تلقائي. افتح رابط البربرية واحجز بيدك.';
-    if (CFG.DRY_RUN) return '🟡 وضع المعاينة مفعّل — أرسل /live ثم أعد الأمر.';
+    if (CFG.DRY_RUN) return CFG.ALERT_ONLY ? '🟡 الحجز اليدوي من تيليجرام يتطلب تفعيل «🔴 فعلي» من لوحة اللعبة في هذا التبويب (وضع «تنبيه فقط» يمنع الحجز التلقائي فقط). أو افتح رابط البربرية واحجز بيدك.' : '🟡 وضع المعاينة مفعّل — أرسل /live ثم أعد الأمر.';
     const v = await lookupVillage(x, y);
     if (!v) return `لا توجد قرية في ${k}.` + swapHint(x, y);
     if (v.owner !== '0' && !force) return `❌ ${k} ليست بربرية — يملكها ${dn(v.ownerName || v.owner)}. أضف force لتجاوز التحقق.`;
@@ -2181,8 +2191,9 @@
     if (R.taken.has(k)) return `🔒 ${k} محجوزة مسبقًا: ${(R.info.get(k) || '').slice(0, 80)}`;
     const mine = get('mine', []);
     if (R.limit - Math.max(mine.length, R.own.size) <= 0) return `الخانات ممتلئة (${R.limit}). حرّر خانة بـ /release أو دع الاستبدال يعمل.`;
-    const r = await safeToggle(v.id,k,'reserve');
+    const r = await safeToggle(v.id,k,'reserve',true);
     if (!r.ok) return '✖ فشل الحجز: ' + r.err;
+    alertQueue(k, false);
     const kind = v.owner === '0' ? 'بربري' : 'خامل', cur = get('mine', []);
     cur.push({ k, t: Date.now(), id: v.id, pts: v.pts, kind }); set('mine', cur);
     const tr = get('tried', {}); tr[k] = { t: Date.now(), ok: 1 }; set('tried', tr);
@@ -2318,7 +2329,8 @@
           return tgSend(L.length ? '🎯 أفضل الأهداف:\n' + L.map(x => `${tk.has(key(x.x, x.y)) ? '🔒' : '🟢'} ${key(x.x, x.y)} — ${x.pts} ن — ${x.d.toFixed(0)} ح — ${x.kind}${x.fresh ? ' 🆕' : ''}`).join('\n') : 'لا مرشحين ضمن الشروط الحالية');
         }
         case 'check': if (!xy) return tgSend('الصيغة: /check x|y'); return tgSend(await doCheck(xy.x, xy.y));
-        case 'reserve': if (!xy) return tgSend('الصيغة: /reserve x|y'); if (force && sensitive('reserve', { x: xy.x, y: xy.y, label: `${xy.x}|${xy.y} force` })) return; return tgSend(await doReserve(xy.x, xy.y, force));
+        case 'reserve': { const t = xy || lastAlertXY(); if (!t) return tgSend('الصيغة: /reserve x|y (أو «حجز» بعد تنبيه بربرية)'); if (force && sensitive('reserve', { x: t.x, y: t.y, label: `${t.x}|${t.y} force` })) return; return tgSend(await doReserve(t.x, t.y, force)); }
+        case 'ignore': { const t = xy || lastAlertXY(); if (!t) return tgSend('لا يوجد تنبيه لتجاهله. الصيغة: تجاهل x|y'); const k = key(t.x, t.y), ig = get('alertIgnore', {}); ig[k] = Date.now(); for (const q in ig) if (Date.now() - ig[q] > 7 * DAY) delete ig[q]; set('alertIgnore', ig); alertQueue(k, false); return tgSend(`🙈 تجاهلت ${k} — لن أنبّهك عنها أسبوعًا.`); }
         case 'release': if (!xy) return tgSend('الصيغة: /release x|y [force]'); if (sensitive('release', { x: xy.x, y: xy.y, force, label: `${xy.x}|${xy.y}${force ? ' force' : ''}` })) return; return tgSend(await doRelease(xy.x, xy.y, force));
         case 'nobles': { const nm = await refreshNobles(); return tgSend(`🛡 النبلاء (${nm.rows} أمرًا مقروءًا${nm.ok ? '' : '، الصفحة غير مفهومة'}${nm.note ? ' — ' + nm.note : ''}):\n` + (Object.keys(nm.map).map(k => `${k}: ${{ sent: '🛡 أُرسل نبلاء', none: '✓ لا', unknown: '❔ غير معروف' }[nm.map[k]]}`).join('\n') || 'لا حجوزات')); }
         case 'audit': return tgSend(await doAudit());
