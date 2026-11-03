@@ -445,24 +445,28 @@ export async function barbWebhook(update,env,{reply,bad}) {
   const callback=update?.callback_query;
   const message=callback?.message || update?.message;
   if(!message || (callback ? callback.from?.is_bot : message.from?.is_bot))return null;
-  let text,kind;
+  let text,kind,bare=false;
   if(callback){
     if(typeof callback.data!=='string'||!callback.data.startsWith('barb:'))return null;
     text=callback.data.slice(5);kind='callback';
   }else {
     const match=typeof message.text==='string'&&message.text.match(/^\/barb(?:@([A-Za-z][A-Za-z0-9_]{4,31}))?(?:\s+([\s\S]*))?$/i);
-    if(!match)return null;
-    if(match[1] && match[1].toLowerCase()!==String(env.ALG_TELEGRAM_BOT_USERNAME||'').toLowerCase())return null;
-    text=match[2]||'';kind='text';
+    // Bare Arabic replies to an alert ("حجز" / "تجاهل" [x|y]) are forwarded only; any other text is left to the normal bot.
+    const bareMatch=!match&&typeof message.text==='string'&&message.text.trim().match(/^(حجز|احجز|تجاهل)(?:\s+(\d{1,3}\s*\|\s*\d{1,3}))?$/);
+    if(!match&&!bareMatch)return null;
+    if(match&&match[1] && match[1].toLowerCase()!==String(env.ALG_TELEGRAM_BOT_USERNAME||'').toLowerCase())return null;
+    if(bareMatch){text=bareMatch[1]+(bareMatch[2]?' '+bareMatch[2].replace(/\s+/g,''):'');bare=true;}
+    else text=match[2]||'';
+    kind='text';
   }
   const chatId=validateChat(message.chat?.id);
-  if(!chatId)return reply({ok:true,ignored:true});
+  if(!chatId)return bare?null:reply({ok:true,ignored:true});
   const config=await settingsRow(env).catch(()=>null);
   if(!config || !chatsFromRow(config).includes(chatId) || !config.bot_cipher){
     // Not the owner relay: a subscriber's own linked chat may control only that subscriber's script.
     try{const own=await userCommandIngest(update,env,chatId,text,kind,message,callback,{reply,bad});if(own)return own;}
     catch(_){/* per-user tables missing or unavailable: behave exactly like before */}
-    return reply({ok:true,ignored:true});
+    return bare?null:reply({ok:true,ignored:true});
   }
   const token=await decryptToken(env,config);
   const id=update?.update_id;

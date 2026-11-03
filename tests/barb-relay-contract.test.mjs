@@ -6,7 +6,7 @@ test('relay receives only validated UUID, messages and server-mediated callback 
  assert.match(engine,/RELAY_REQUEST='algzawy-barb-relay-command-v1'/);
  assert.match(engine,/document.addEventListener\(RELAY_REQUEST,async event=>/);
  assert.match(engine,/relayButtonCommand\(cmd.text\)/);
- assert.match(engine,/relayCommands\.has\(first\)/);
+ assert.match(engine,/relayCommands\.has\(AR\[first\]\|\|first\)/);
  assert.match(engine,/tgCommand\(text\)/);
 });
 test('game engine never holds device key or calls BotFather and defaults to preview',()=>{
