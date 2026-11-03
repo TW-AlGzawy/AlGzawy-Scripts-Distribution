@@ -18,7 +18,7 @@ test('game engine never holds device key or calls BotFather and defaults to prev
  assert.match(engine,/if\(!authorized\(\)\|\|CFG.DRY_RUN\|\|sessionStorage\.getItem\(P\+'liveConfirmed'\)!=='1'/);
 });
 test('relay Telegram UX replaces token fields with privileged local key action',()=>{
- assert.match(engine,/🔑 إعداد مفتاح Barb Control/);
+ assert.match(engine,/🔗 ربط تيليجرام/);
  assert.match(engine,/new Event\(RELAY_SETTINGS\)/);
  assert.match(engine,/relayEmit\('reply'/);
  assert.match(engine,/relayEmit\('event'/);

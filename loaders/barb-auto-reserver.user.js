@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.5
+// @version      1.0.6
 // @description  AlGzawy Cloud — المرخص للمشترك والجهاز المعتمد
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -28,7 +28,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.5';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.6';
 
     // QA-only transient diagnostics for the install handshake; not a license or execution authorization.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -63,7 +63,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.5');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.6');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -84,7 +84,7 @@
   // The newest supplied v1.2.0 loader's license-first state flow is retained.
   // The source hash pins the exact production engine. Changing the engine
   // requires a deliberate, atomic loader release.
-  const ENGINE_SHA256='33ed5b2b81e81feb34cb3731486d8eac1c6615bc721923011ba5c1ad8438bf3e';
+  const ENGINE_SHA256='63031bfe977ded559faea52d1ac6e3931574a76d58d20f3cd0f949be9eaf46f0';
   const POLL_MS=120000,REQUEST_TIMEOUT=6000,RETRY_BASE_MS=5000,RETRY_MAX_MS=60000;
   const STOP_EVENT='__algzawy_stop_'+ID,PAUSE_EVENT='__algzawy_pause_'+ID,
     RESUME_EVENT='__algzawy_resume_'+ID;
@@ -93,7 +93,7 @@
   const STOP_MESSAGE='تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const guard=document.documentElement,guardKey='data-algzawy-loader-'+ID;
   if(guard?.hasAttribute(guardKey))return; // Never run two farm engines in the same tab.
-  guard?.setAttribute(guardKey,'1.0.5');
+  guard?.setAttribute(guardKey,'1.0.6');
   let state='init',reason=null,revoked=false,everStarted=false;
   let pending=false,rerun=false,failures=0,lastGoodAt=0,lastRevision='initial';
   let retryTimer=null,lastError=null;
@@ -254,9 +254,30 @@
   }
   function relayError(error){
     const code=String(error?.message||'network');
-    if(error?.status===401){relayAuthFailed=true;relayStatus('مفتاح الجهاز مرفوض (401) — أعد ضبطه من Telegram');}
+    if(error?.status===401){relayAuthFailed=true;relayStatus('الربط مرفوض (401) — أعد الربط من تبويب Telegram');}
     else if(error?.status===429){relayNextAt=Date.now()+Math.max(5000,code==='rate_limited'?6000:9000);relayStatus('انتظار حد الطلبات (429)');}
     else relayStatus('خطأ اتصال: '+code.slice(0,75));
+  }
+  // One-button linking: a fresh device secret is generated HERE (never leaves Tampermonkey except as
+  // Bearer after linking; the server only receives its SHA-256), the user confirms inside Telegram.
+  const hex=bytes=>[...bytes].map(v=>v.toString(16).padStart(2,'0')).join('');
+  async function sha256Hex(value){
+    return hex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))));
+  }
+  function plainBarbRequest(method,route,data){
+    return new Promise((resolve,reject)=>{
+      GM_xmlhttpRequest({
+        method,url:BARB_ORIGIN+'/api/barb/'+route,timeout:9500,
+        headers:{'Accept':'application/json',...(method==='POST'?{'Content-Type':'application/json'}:{})},
+        ...(method==='POST'?{data:JSON.stringify(data)}:{}),
+        onload:r=>{
+          let payload=null;try{payload=JSON.parse(String(r.responseText||''));}catch(_){}
+          if(r.status===200&&payload?.ok===true)return resolve(payload);
+          const error=Error(payload?.error||('http_'+r.status));error.status=r.status;reject(error);
+        },
+        onerror:()=>reject(Error('network')),ontimeout:()=>reject(Error('timeout'))
+      });
+    });
   }
   function showBarbKeyDialog(){
     if(!relayActive())return;
@@ -265,30 +286,76 @@
     host.style.cssText='position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:rgba(0,0,0,.72)';
     const shadow=host.attachShadow({mode:'closed'});
     const style=document.createElement('style');
-    style.textContent='*{box-sizing:border-box}section{background:#102638;color:#e6fdf5;border:1px solid #33b99f;border-radius:13px;width:min(440px,94vw);padding:20px;font:14px/1.8 Tahoma,Arial;direction:rtl;box-shadow:0 10px 40px #0009}h3{margin:0 0 10px}p{margin:0 0 10px}input{width:100%;background:#081726;border:1px solid #538477;border-radius:8px;color:white;padding:10px;direction:ltr;font:13px monospace}nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}button{border:0;border-radius:8px;padding:9px 13px;background:#29d6b2;color:#082123;cursor:pointer;font-weight:bold}button.secondary{background:#345167;color:white}small{display:block;min-height:20px;color:#e9d88e}';
+    style.textContent='*{box-sizing:border-box}section{background:#102638;color:#e6fdf5;border:1px solid #33b99f;border-radius:13px;width:min(440px,94vw);padding:20px;font:14px/1.8 Tahoma,Arial;direction:rtl;box-shadow:0 10px 40px #0009}h3{margin:0 0 10px}p{margin:0 0 10px}input{width:100%;background:#081726;border:1px solid #538477;border-radius:8px;color:white;padding:10px;direction:ltr;font:13px monospace}nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}button,a.btn{border:0;border-radius:8px;padding:9px 13px;background:#29d6b2;color:#082123;cursor:pointer;font-weight:bold;text-decoration:none;display:inline-block}button.secondary{background:#345167;color:white}small{display:block;min-height:20px;color:#e9d88e}b.code{display:inline-block;font:bold 22px monospace;letter-spacing:4px;background:#081726;border:1px solid #538477;border-radius:8px;padding:2px 12px;direction:ltr}details{margin-top:12px;border-top:1px solid #28455a;padding-top:8px}summary{cursor:pointer;color:#9fc7d8;font-size:12px}';
     const panel=document.createElement('section');
-    const title=document.createElement('h3');title.textContent='🔑 مفتاح جهاز Barb Control';
-    const help=document.createElement('p');help.textContent='ألصق المفتاح الذي أنشأته في لوحة AlGzawy. يُخزن داخل Tampermonkey فقط ولا يظهر داخل لعبة Tribal Wars أو على GitHub.';
-    const input=document.createElement('input');input.type='password';input.autocomplete='off';input.spellcheck=false;input.placeholder='مفتاح 64 حرفًا سداسيًا';input.maxLength=64;
-    const status=document.createElement('small');status.textContent=savedBarbKey()?'هناك مفتاح محفوظ سابقًا. يمكنك استبداله.':'لا يوجد مفتاح محفوظ على هذا الجهاز.';
+    const title=document.createElement('h3');title.textContent='🔗 ربط تيليجرام';
+    const help=document.createElement('p');help.textContent='اضغط «ربط تلقائي» ثم افتح تيليجرام واضغط Start وأكّد الربط. لا حاجة لنسخ أي مفتاح. يجب أن يكون حسابك مرتبطًا ببوت AlGzawy من الموقع («ربط البوت») أولًا.';
+    const status=document.createElement('small');status.textContent=savedBarbKey()?'هناك ربط محفوظ على هذا الجهاز. الربط الجديد يستبدله بعد تأكيدك.':'لا يوجد ربط على هذا الجهاز.';
+    const codeBox=document.createElement('p');codeBox.style.display='none';
     const actions=document.createElement('nav');
-    const save=document.createElement('button');save.textContent='حفظ المفتاح';
-    const erase=document.createElement('button');erase.className='secondary';erase.textContent='حذف المفتاح محليًا';
+    const link=document.createElement('button');link.textContent='🔗 ربط تلقائي';
+    const tg=document.createElement('a');tg.className='btn';tg.target='_blank';tg.rel='noopener noreferrer';tg.textContent='فتح تيليجرام';tg.style.display='none';
+    const erase=document.createElement('button');erase.className='secondary';erase.textContent='حذف الربط محليًا';
     const close=document.createElement('button');close.className='secondary';close.textContent='إغلاق';
-    const done=()=>{input.value='';host.remove();};
-    save.addEventListener('click',()=>{
+    let timer=0,closed=false;
+    const done=()=>{closed=true;window.clearInterval(timer);host.remove();};
+    link.addEventListener('click',async()=>{
+      link.disabled=true;status.textContent='جار إنشاء طلب الربط…';
+      try{
+        const key=hex(crypto.getRandomValues(new Uint8Array(32)));
+        const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
+        const begin=await plainBarbRequest('POST','link/begin',{nonce,keyHash:await sha256Hex(key)});
+        const bot=String(begin.bot||'').replace(/[^A-Za-z0-9_]/g,'');
+        if(!bot)throw Error('bot_unavailable');
+        tg.href='https://t.me/'+bot+'?start=barbl_'+nonce;tg.style.display='inline-block';
+        codeBox.style.display='block';codeBox.textContent='';
+        const lead=document.createElement('span');lead.textContent='رمز التأكيد: ';
+        const code=document.createElement('b');code.className='code';code.textContent=String(begin.code||'');
+        codeBox.append(lead,code);
+        status.textContent='افتح تيليجرام واضغط Start ثم «تأكيد الربط» بعد مطابقة الرمز.';
+        const deadline=Date.now()+(Number(begin.expiresIn)||600)*1000;
+        let busy=false;
+        timer=window.setInterval(async()=>{
+          if(busy||closed)return;busy=true;
+          try{
+            if(Date.now()>deadline){status.textContent='انتهت صلاحية الطلب. اضغط «ربط تلقائي» من جديد.';window.clearInterval(timer);link.disabled=false;return;}
+            const state=(await plainBarbRequest('GET','link/status?n='+nonce)).state;
+            if(state==='awaiting_confirm')status.textContent='بانتظار ضغطك «تأكيد الربط» في تيليجرام…';
+            else if(state==='expired'){status.textContent='انتهت صلاحية الطلب. اضغط «ربط تلقائي» من جديد.';window.clearInterval(timer);link.disabled=false;}
+            else if(state==='linked'){
+              window.clearInterval(timer);
+              try{GM_setValue(BARB_KEY_ID,key);relayAuthFailed=false;relayNextAt=0;
+                status.textContent='✅ تم الربط. يمكنك الآن إرسال الأوامر من تيليجرام.';
+                relayStatus('تم الربط — جار الاتصال');void pumpBarbRelay();
+                window.setTimeout(done,1800);
+              }catch(_){status.textContent='✖ تعذر تخزين الربط في Tampermonkey';link.disabled=false;}
+            }
+          }catch(_){/* transient; next tick retries */}
+          finally{busy=false;}
+        },3000);
+      }catch(e){
+        link.disabled=false;
+        status.textContent='✖ تعذر إنشاء الطلب ('+String(e?.message||'network').slice(0,40)+')';
+      }
+    });
+    erase.addEventListener('click',()=>{try{GM_setValue(BARB_KEY_ID,'');}catch(_){}relayAuthFailed=false;relayStatus('الربط غير موجود');done();});
+    close.addEventListener('click',done);
+    // Owner-only legacy path: paste the key generated in the AlGzawy admin console.
+    const manual=document.createElement('details');
+    const sum=document.createElement('summary');sum.textContent='ربط يدوي بمفتاح (للمالك فقط)';
+    const input=document.createElement('input');input.type='password';input.autocomplete='off';input.spellcheck=false;input.placeholder='مفتاح 64 حرفًا سداسيًا';input.maxLength=64;
+    const saveManual=document.createElement('button');saveManual.textContent='حفظ المفتاح';saveManual.style.marginTop='8px';
+    saveManual.addEventListener('click',()=>{
       const key=input.value.trim();
       if(!/^[a-f0-9]{64}$/i.test(key)){status.textContent='❌ المفتاح يجب أن يحتوي على 64 حرفًا سداسيًا.';return;}
       try{GM_setValue(BARB_KEY_ID,key.toLowerCase());relayAuthFailed=false;relayNextAt=0;
-        relayStatus('المفتاح محفوظ محليًا — جار التحقق');done();void pumpBarbRelay();
+        relayStatus('المفتاح محفوظ محليًا — جار التحقق');input.value='';done();void pumpBarbRelay();
       }catch(_){status.textContent='✖ تعذر تخزين المفتاح في Tampermonkey';}
     });
-    erase.addEventListener('click',()=>{try{GM_setValue(BARB_KEY_ID,'');}catch(_){}relayAuthFailed=false;relayStatus('المفتاح غير موجود');done();});
-    close.addEventListener('click',done);
-    actions.append(save,erase,close);panel.append(title,help,input,status,actions);
+    manual.append(sum,input,saveManual);
+    actions.append(link,tg,erase,close);panel.append(title,help,codeBox,status,actions,manual);
     shadow.append(style,panel);
     (document.body||document.documentElement).appendChild(host);
-    input.focus();
   }
   document.addEventListener(BARB_SETTINGS,showBarbKeyDialog);
 
@@ -313,8 +380,8 @@
     if(!relayStarted||relayBusy||!relayActive()||!savedBarbKey()||relayAuthFailed||Date.now()<relayNextAt)return;
     relayBusy=true;
     try{
-      const response=await barbRequest('GET','poll?v=1.0.5');
-      relayStatus('متصل — Barb Control v1.0.5');
+      const response=await barbRequest('GET','poll?v=1.0.6');
+      relayStatus('متصل — Barb Control v1.0.6');
       const commands=Array.isArray(response.commands)?response.commands.slice(0,10):[];
       for(const row of commands){
         if(!relayActive()||!row||typeof row.text!=='string'||!/^[-0-9a-f]{36}$/i.test(row.id))break;
@@ -337,7 +404,7 @@
   }
   function startBarbRelay(){
     if(relayStarted)return;relayStarted=true;
-    relayStatus(savedBarbKey()?'مفتاح محفوظ — جار الاتصال':'مفتاح الجهاز غير محفوظ — افتح Telegram في لوحة الحجز');
+    relayStatus(savedBarbKey()?'مفتاح محفوظ — جار الاتصال':'غير مربوط — افتح Telegram في لوحة الحجز واضغط «ربط تيليجرام»');
     window.setInterval(()=>{void pumpBarbRelay();},BARB_RELAY_MS);
     window.setTimeout(()=>{void pumpBarbRelay();},1200);
   }
@@ -401,7 +468,7 @@
   });
   document.addEventListener('algzawy-loader-diagnostics-request',()=>{
     document.dispatchEvent(new CustomEvent('algzawy-loader-diagnostics',
-      {detail:JSON.stringify({id:ID,version:'1.0.5',state,reason,everStarted,revoked,
+      {detail:JSON.stringify({id:ID,version:'1.0.6',state,reason,everStarted,revoked,
         capabilities,failures,lastRevision,lastGoodAgeMs:lastGoodAt?Date.now()-lastGoodAt:null,
         lastError,gates:{tab:hasTabPin(),license:hasPortalLicense(),
           human:localStorage.getItem(HUMAN_KEY)==='1'},trace:notes.slice(-20)})}));
