@@ -9,7 +9,7 @@ const src=fs.readFileSync(new URL(file,import.meta.url),'utf8'),core=require(fil
 const t=Date.UTC(2026,9,28,18,13,36,800);
 test('valid userscript syntax and new isolated version',()=>{
  assert.doesNotThrow(()=>new vm.Script(src));
- assert.match(src,/@version\s+2\.3\.4/);
+ assert.match(src,/@version\s+2\.3\.5/);
  assert.match(src,/__algzawy_stop_smart-defense-ultimate/);
 });
 test('past noble attack cannot enter future scan',()=>{

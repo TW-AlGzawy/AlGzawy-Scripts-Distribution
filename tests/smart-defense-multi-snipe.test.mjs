@@ -86,3 +86,16 @@ test('v2.3.0: per-noble snipe controls and global default are wired',()=>{
 test('v2.3.3: old saved manual from/to values are ignored by rulesFor',()=>{
   assert.match(src,/const \{fromMs,toMs,\.\.\.rest\}=rule\|\|\{\}/);
 });
+test('v2.3.5: for one noble the farthest villages are picked first',()=>{
+  const {plans,sup}=build({count:{1:1},nobles:[1],vil:villages(8)});
+  const cell=sup.filter(x=>x.gapIndex===1&&x.slot===0);
+  const farthest=cell.reduce((a,b)=>b.travelMs>a.travelMs?b:a);
+  // single-slot case is covered by rankStrategies; with 2 slots multi picks the far one first
+  const two=build({count:{1:2},nobles:[1],vil:villages(8)}).plans.find(p=>p.kind==='multi');
+  assert.ok(two);
+  assert.equal(two.tasks[0].sourceId,farthest.sourceId);
+});
+test('v2.3.5: scan requests are time limited',()=>{
+  assert.match(src,/function fetchLimited\(/);
+  assert.doesNotMatch(src,/await fetch\('\/game\.php/);
+});
