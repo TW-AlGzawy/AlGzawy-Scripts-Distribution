@@ -141,7 +141,7 @@ async function loadOwnerLoginMode(){
 $('ownerPasswordVisibility').addEventListener('click',()=>{
   const field=$('ownerPassword'),button=$('ownerPasswordVisibility');
   const reveal=field.type==='password';field.type=reveal?'text':'password';
-  button.textContent=reveal?'إخفاء':'إظهار';
+  button.classList.toggle('is-revealed',reveal);
   button.setAttribute('aria-pressed',String(reveal));
   button.setAttribute('aria-label',reveal?'إخفاء كلمة المرور':'إظهار كلمة المرور');
 });
