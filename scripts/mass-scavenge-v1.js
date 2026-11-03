@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإغارات الجماعية
 // @namespace    http://tampermonkey.net/
-// @version      1.0.12
+// @version      1.0.13
 // @description  AlGzawy Beta: group execution (all groups, no fixed count) with per-group delay; controlled by Cloudflare loader
 // @author       AlGzawy (تم التطوير بواسطة Manus)
 // @match        https://*/*=scavenge_mass*
@@ -236,7 +236,7 @@ function setupMassPanelControls(panel,header,body){
     // --- بناء لوحة التحكم ---
     function buildControlPanel() {
         const panelHTML = `
-            <div id="algzawy-panel" data-algzawy-scheduler="1.0.12" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
+            <div id="algzawy-panel" data-algzawy-scheduler="1.0.13" style="position:fixed;top:100px;left:10px;z-index:9999;direction:rtl;">
                 <div id="algzawy-header" role="button" tabindex="0" aria-expanded="true" aria-controls="algzawy-body"
                     aria-label="الإغارات الجماعية، اضغط للطي أو الفتح واسحب لتحريك النافذة">
                     <span class="algzawy-brand-mark" aria-hidden="true">✦</span>
@@ -611,13 +611,34 @@ function setupMassPanelControls(panel,header,body){
     function ownsOnlyMassPanel(){
         if(!panelOwnershipValid)return false;
         const panels=document.querySelectorAll('#algzawy-panel');
-        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.12';
+        return panels.length===1&&panels[0].dataset.algzawyScheduler==='1.0.13';
     }
     function isCycleEnabled(){
         return !executionPaused&&!executionStopped&&authorizedTab()&&
           GM_getValue('isBotEnabled',true)===true&&ownsOnlyMassPanel()&&
           localStorage.getItem('algzawy_human_verification_pause')!=='1'&&
           sessionStorage.getItem('algzawy_human_verification_pause')!=='1';
+    }
+    // Plain-language reason why a due cycle is not starting (shown in the panel instead of a silent 00:00:00).
+    let leaseBusySince=0;
+    function blockedReason(){
+        const tab=sessionStorage.getItem('algzawy_tab_instance_v1');
+        const until=Number(localStorage.getItem('algzawy_portal_device_authorized_until')||0);
+        if(executionStopped)return 'السكربت مُوقَف من الجسر.';
+        if(executionPaused)return 'السكربت متوقف مؤقتًا من الجسر.';
+        if(GM_getValue('isBotEnabled',true)!==true)return null; // user stopped it on purpose
+        if(localStorage.getItem('algzawy_human_verification_pause')==='1'||sessionStorage.getItem('algzawy_human_verification_pause')==='1')
+            return 'توقف احترازي: ظهر تحقق بشري (كابتشا). حلّه ثم أعد تحميل الصفحة.';
+        if(!tab||sessionStorage.getItem('algzawy_tab_pins_ready_v1')!==tab)return 'الجسر السحابي لم يُجهّز هذا التاب بعد. أعد تحميل الصفحة، وإن تكرر حدّث الجسر السحابي.';
+        if(sessionStorage.getItem('algzawy_tab_pin_v1_mass-scavenge-v1')!==tab)return 'هذا التاب غير مثبّت للإغارات في الجسر السحابي. فعّل السكربت من لوحة الجسر.';
+        if(!localStorage.getItem('algzawy_portal_approved_device'))return 'هذا الجهاز غير معتمد في الجسر السحابي.';
+        if(!(until>Date.now()))return 'ترخيص الجسر منتهٍ (النبض متوقف). حدّث الجسر السحابي إلى 2.4.20 وأعد تحميل الصفحة.';
+        if(localStorage.getItem('algzawy_portal_grant_mass-scavenge-v1')!=='1')return 'اشتراكك لا يشمل هذا السكربت حاليًا.';
+        if(localStorage.getItem('algzawy_local_enabled_mass-scavenge-v1')==='false')return 'السكربت مطفأ من لوحة الجسر.';
+        if(!ownsOnlyMassPanel())return 'تعارض: لوحة السكربت مكررة في الصفحة (نسختان مثبّتتان). احذف النسخة القديمة من Tampermonkey.';
+        if(cycleBusy&&Number.isSafeInteger(cycleStartedAt)&&Date.now()-cycleStartedAt>120000)return 'دورة سابقة ما زالت عالقة؛ سيعيد السكربت ضبطها تلقائيًا.';
+        if(leaseBusySince&&Date.now()-leaseBusySince<60000)return 'دورة الإغارات تعمل الآن في تاب آخر لنفس الحساب.';
+        return null;
     }
     function isCurrentCycleClaim(){
         if(!cycleBusy||!isCycleEnabled()||!Number.isSafeInteger(cycleStartedAt))return false;
@@ -686,7 +707,8 @@ function setupMassPanelControls(panel,header,body){
         el.textContent='آخر دورة مؤكدة من الواجهة: '+fmt(state.lastCompletedAt)+
             '\nالدورة التالية: '+fmt(state.nextRunAt)+
             '\nالمتبقي: '+hh+':'+mm+':'+ss+
-            (GM_getValue('isBotEnabled',true)?'':'\n⏸ الإغارات متوقفة');
+            (GM_getValue('isBotEnabled',true)?'':'\n⏸ الإغارات متوقفة')+
+            ((state.nextRunAt<=Date.now()+1000||!isCycleEnabled())&&blockedReason()?'\n⚠ '+blockedReason():'');
     }
     function armCycleTimer(){
         bgClock.clear(cycleTimer);cycleTimer=null;
@@ -729,6 +751,13 @@ function setupMassPanelControls(panel,header,body){
         }
     }
     async function checkCycleDue(){
+        // A cycle that never returned (e.g. the external script never loaded) must not freeze the schedule forever.
+        if(cycleBusy&&Number.isSafeInteger(cycleStartedAt)&&Date.now()-cycleStartedAt>600000){
+            console.warn('[AlGzawy] Stuck scavenge cycle reset after 10 minutes.');
+            const stuck=readCycleState();
+            if(stuck?.status==='running'&&stuck.claimedBy===tabToken)saveCycleState({...stuck,status:'waiting'});
+            cycleBusy=false;cycleStartedAt=null;
+        }
         if(cycleBusy||!isCycleEnabled()){armCycleTimer();return;}
         const state=ensureCycleSchedule(),now=Date.now();
         if(!state){armCycleTimer();return;}
@@ -757,7 +786,7 @@ function setupMassPanelControls(panel,header,body){
         }
         cycleBusy=true;
         try{
-            await withCycleLease(async()=>{
+            const leased=await withCycleLease(async()=>{
                 const actual=readCycleState(),now=Date.now();
                 if(!actual||!isCycleEnabled())return;
                 const dueNow=actual.nextRunAt<=now;
@@ -780,13 +809,16 @@ function setupMassPanelControls(panel,header,body){
                     dueAt:actual.nextRunAt,lastStartedAt:now,
                     nextRunAt:now+intervalMs,intervalMs,instantClaims:claims});
                 cycleSucceeded=false;
-                await executeScavengeCycle();
+                // Hard cap: a hung page script must not hold the lease/schedule forever.
+                await Promise.race([executeScavengeCycle(),bgClock.sleep(540000)]);
                 if(!cycleSucceeded){
                     const current=readCycleState();
                     if(current?.lastStartedAt===now)
                         saveCycleState({...current,status:'waiting'});
                 }
+                return true;
             });
+            if(leased===null)leaseBusySince=Date.now();else leaseBusySince=0;
         }catch(error){
             console.error('[AlGzawy] Scavenge cycle error:',error);
         }finally{cycleBusy=false;cycleStartedAt=null;armCycleTimer();}
