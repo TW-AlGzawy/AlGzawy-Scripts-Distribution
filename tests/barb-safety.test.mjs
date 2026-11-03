@@ -18,7 +18,7 @@ function setup({withLock=true,confirmed=true,replyOk=true,ready=true,authorized=
      complete?{taken:new Set(['500|500']),own:new Set(['500|500'])}:{taken:new Set(),own:new Set()}},
    lookupVillage:async()=>({id:22,owner:'0',pts:7000}),inRange:()=>true,
    pinned:()=>false,refreshNobles:async()=>({ok:true,map:{'500|500':'none'}}),
-   toggleRes:async()=>{calls.toggle++;return {ok:replyOk}},log:()=>{}};
+   toggleRes:async()=>{calls.toggle++;return {ok:replyOk}},log:()=>{},enforceTgLiveExpiry:()=>{}};
  const run=vm.runInNewContext(source,ctx);
  return {run,calls,state,ctx};
 }
@@ -58,7 +58,7 @@ test('release verifies own reservation and noble protection',async()=>{
 });
 test('no unguarded direct mutation, no remote TG live commands, explicit preview default',()=>{
  assert.equal((js.match(/await toggleRes\(/g)||[]).length,1,'only internal safeToggle calls low-level toggle');
- assert.match(js,/DRY_RUN: true/);assert.match(js,/if \(!tgArmed\(\)\) return tgSend\('🔒 نافذة التحكم من تيليجرام مغلقة/);
+ assert.match(js,/DRY_RUN: true/);assert.match(js,/if \(!tgArmed\(\)\) return tgSend\('🔒 نافذة التحكم من تيليجرام غير مفتوحة في هذا التبويب/);
  assert.match(js,/const RELAY_REQUEST='algzawy-barb-relay-command-v1'/);
  assert.match(js,/document.addEventListener\(RELAY_REQUEST/);
  assert.doesNotMatch(js,/getUpdates\?timeout=0/);

@@ -35,3 +35,20 @@ test('relay still refuses /resume, and window length is clamped to 1-12 hours',(
  assert.ok(!/first==='live'/.test(js));
  assert.match(js,/Math\.min\(12, Math\.max\(1, \+CFG\.TG_LIVE_HOURS \|\| 2\)\)/);
 });
+test('honesty: go-live refuses in a non-leader tab and warns when the script is stopped',()=>{
+ const g=js.slice(js.indexOf('function goLiveFromTelegram'),js.indexOf('async function execPending'));
+ assert.match(g,/!isLeader\(\)/);
+ assert.match(g,/get\('on', false\)\s*\?/);
+ assert.match(g,/لكن السكربت متوقف فلن يحجز شيئًا/);
+});
+test('closing the window reverts a Telegram-activated LIVE; local mode changes clear the Telegram marker',()=>{
+ const t=js.slice(js.indexOf('function toggleTgWindow'),js.indexOf('function quickToggle'));
+ assert.match(t,/tgLiveUntil[\s\S]*setCfg\('DRY_RUN', true\)/);
+ assert.match(js,/sessionStorage\.removeItem\(P\+'tgLiveUntil'\);sessionStorage\.setItem\(P\+'liveConfirmed',CFG\.DRY_RUN\?'1':'0'\)/);
+ assert.match(js,/sessionStorage\.removeItem\(P\+'tgLiveUntil'\);\n\s+if \(wantDry\)/);
+});
+test('expiry is also enforced at the mutation gate, and stale help text is gone',()=>{
+ const gate=js.slice(js.indexOf('async function safeToggle'),js.indexOf('async function safeToggle')+400);
+ assert.match(gate,/enforceTgLiveExpiry\(\)/);
+ assert.ok(!/أرسل \/live ثم أعد الأمر/.test(js));
+});
