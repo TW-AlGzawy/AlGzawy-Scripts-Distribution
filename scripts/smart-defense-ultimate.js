@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
-// @version      2.2.0
-// @description  AlGzawy Smart Defense 2.2.0 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
+// @version      2.3.0
+// @description  AlGzawy Smart Defense 2.3.0 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
 // ==/UserScript==
 (function (root) {
   'use strict';
@@ -13,6 +13,7 @@
   // Never treat a click at T as proof the server received a command at T.
   const SEND_TOLERANCE_MS=100, MAX_CLOCK_DRIFT_MS=100;
   const MIN_PREP_MS=15000, MIN_NAV_SEPARATION_MS=30000;
+  const AUTO_SNIPE_SLOTS=20, MAX_COMMANDS=120;
   const pad=(x,n=2)=>String(x).padStart(n,'0');
   const finite=n=>typeof n==='number'&&Number.isFinite(n);
   const validEpoch=n=>Number.isSafeInteger(n)&&n>1500000000000;
@@ -210,7 +211,11 @@
   }
   function nobleKey(wave){return String(wave?.id||'time:'+wave?.at);}
   function nobleWindows(train,{safetyMs=100,leadMs=250,targets={},
-    auto=true,includeFirst=false}={}){
+    auto=true,includeFirst=false,edgeMs=1}={}){
+    // Edge margin: the support must land at least edgeMs after the previous attack and edgeMs before the
+    // noble. For tight gaps the margin shrinks so a usable window always remains (never below 1ms).
+    const edgeBase=Math.max(1,Number.isSafeInteger(edgeMs)?edgeMs:1);
+    const edgeFor=gap=>Math.max(1,Math.min(edgeBase,Math.floor((gap-2)/2)));
     if(!train||!Array.isArray(train.waves))return [];
     const noble=train.waves.filter(w=>w.kind==='noble');
     const windows=[];
@@ -233,14 +238,15 @@
         // Target first noble by leadMs but never invent a landing before
         // the preceding opening attack. Adjacent 20ms attacks stay eligible.
         const lead=Math.max(1,Number.isSafeInteger(leadMs)?leadMs:250);
-        high=current.at-1;
-        low=Math.max((previous?.at??current.at-30000)+1,
-          current.at-(2*lead-1));
+        const prevAt=previous?.at??current.at-30000,edge=edgeFor(current.at-prevAt);
+        high=current.at-edge;
+        low=Math.max(prevAt+edge,current.at-(2*lead-1));
       }else{
         // Strictly after previous noble and before current noble. Example:
         // 100ms → 120ms gives 101..119ms, midpoint 110ms.
-        low=previous.at+1;
-        high=current.at-1;
+        const edge=edgeFor(current.at-previous.at);
+        low=previous.at+edge;
+        high=current.at-edge;
       }
       const valid=validEpoch(low)&&validEpoch(high)&&low<high&&
         high<current.at&&(!previous||low>previous.at);
@@ -318,7 +324,7 @@
       return {units,troops,minutes:maxSpeed};
     }).filter(x=>x.troops>0);
   }
-  function supportOptions({villages,target,waves,unitMinutes,worldFactor,now,share=0.5,safetyMs=100,diagnostics=null,windows=null,allowUnits=null}){
+  function supportOptions({villages,target,waves,unitMinutes,worldFactor,now,share=0.5,safetyMs=100,diagnostics=null,windows=null,allowUnits=null,villageFilter=null}){
     if(!Array.isArray(villages)||!target||!validEpoch(now)||!finite(worldFactor)||worldFactor<=0||
       !finite(share)||share<=0||share>1)throw Error('بيانات حساب القرى غير صالحة');
     const choices=[],openGaps=(windows||gaps(waves,safetyMs)).filter(g=>g.usable);
@@ -333,6 +339,7 @@
       const distance=Math.hypot(village.x-target.x,village.y-target.y);
       let reachable=false;
       for(const gap of openGaps){
+        if(typeof villageFilter==='function'&&!villageFilter(String(village.id),gap))continue;
         let best=null;
         for(const formation of formations){
           const travelMs=roundedTravelMs(distance,formation.minutes,worldFactor);
@@ -353,7 +360,7 @@
         if(!best)continue;
         reachable=true;
         const {formation,travelMs,rawTravelMs,sendAt}=best;
-        choices.push({kind:'support',id:'sup:'+village.id+':'+gap.i,sourceId:String(village.id),
+        choices.push({kind:'support',id:'sup:'+village.id+':'+gap.i+(gap.slot>0?':'+gap.slot:''),slot:gap.slot||0,sourceId:String(village.id),
           sourceName:village.name,source:{x:village.x,y:village.y},target,
           units:formation.units,troops:formation.troops,travelMs,rawTravelMs,distance,sendAt,arrivalAt:gap.arrival,
           marginMs:gap.slack,gapIndex:gap.i,gapWidthMs:gap.width,
@@ -490,35 +497,80 @@
       marginMs:g.slack,usable:g.usable,label:g.label
     }));
   }
+  // Several snipes per noble, any number of nobles. Rules:
+  //  * a village used for one noble is never used for another noble of the same train;
+  //  * a village may send several waves to the SAME noble, its troops being split evenly;
+  //  * every command is >= MIN_NAV_SEPARATION_MS away from the others (one tab navigates in turn);
+  //  * slots are filled round-robin so every noble gets its first snipe before any gets a second.
   function multiNobleStrategies(plans,maxTeams=3){
-    const max=Math.max(1,Math.min(30,Number(maxTeams)||1));
+    const max=Math.max(1,Math.min(MAX_COMMANDS,Number(maxTeams)||1));
     if(max<2)return [];
-    // Cancel commands require verification and human-safe return handling; never
-    // group them into a composite that would silently stop after first cancel.
     const singles=plans.filter(p=>p.kind==='support'&&
       Number.isSafeInteger(p.gapIndex)&&p.gapIndex>=0&&
       typeof p.trainId==='string'&&Number.isSafeInteger(p.sendAt));
     const trains=[...new Set(singles.map(p=>p.trainId))];
     const result=[];
     for(const trainId of trains){
-      const byGap=new Map();
-      for(const option of singles.filter(p=>p.trainId===trainId)){
-        if(!byGap.has(option.gapIndex))byGap.set(option.gapIndex,[]);
-        byGap.get(option.gapIndex).push(option);
+      const own=singles.filter(p=>p.trainId===trainId);
+      const cells=new Map();
+      const fullUnits=new Map();
+      for(const o of own){
+        const key=o.gapIndex+':'+(o.slot||0);
+        if(!cells.has(key))cells.set(key,[]);
+        cells.get(key).push(o);
+        const full=fullUnits.get(o.sourceId)||{};
+        for(const [u,n] of Object.entries(o.units||{}))full[u]=Math.max(full[u]||0,n);
+        fullUnits.set(o.sourceId,full);
       }
-      const selected=[];
-      for(const gap of [...byGap.keys()].sort((a,b)=>a-b)){
-        if(selected.length>=max)break;
-        const matches=byGap.get(gap).slice().sort((a,b)=>(b.score||0)-(a.score||0));
-        const chosen=matches.find(p=>!selected.some(existing=>
-          existing.sourceId===p.sourceId||
-          Math.abs(existing.sendAt-p.sendAt)<MIN_NAV_SEPARATION_MS));
-        if(chosen)selected.push(chosen);
+      const maxSlot=Math.max(...own.map(o=>o.slot||0));
+      const gapsList=[...new Set(own.map(o=>o.gapIndex))].sort((a,b)=>a-b);
+      let selected=[];
+      const owner=new Map();
+      for(let slot=0;slot<=maxSlot;slot++){
+        for(const gap of gapsList){
+          if(selected.length>=max)break;
+          const list=(cells.get(gap+':'+slot)||[]).slice()
+            .sort((a,b)=>(b.score||0)-(a.score||0));
+          const usedHere=new Set(selected.filter(t=>t.gapIndex===gap).map(t=>t.sourceId));
+          const ok=p=>(!owner.has(p.sourceId)||owner.get(p.sourceId)===gap)&&
+            !selected.some(t=>Math.abs(t.sendAt-p.sendAt)<MIN_NAV_SEPARATION_MS);
+          const chosen=list.find(p=>ok(p)&&!usedHere.has(p.sourceId))||list.find(ok);
+          if(chosen){selected.push(chosen);owner.set(chosen.sourceId,gap);}
+        }
       }
+      // Split troops of villages that serve one noble more than once.
+      const split=()=>{
+        const per=new Map();
+        for(const t of selected)per.set(t.sourceId,(per.get(t.sourceId)||0)+1);
+        for(const [sourceId,k] of per){
+          if(k<2)continue;
+          const full=fullUnits.get(sourceId)||{};
+          const mine=selected.filter(t=>t.sourceId===sourceId);
+          const shares=mine.map(t=>{
+            const u={};let valid=true;
+            for(const name of Object.keys(t.units||{})){
+              const q=Math.floor((full[name]||0)/k);
+              if(q<1){valid=false;break;}
+              u[name]=q;
+            }
+            return valid?u:null;
+          });
+          if(shares.some(x=>!x)){
+            const drop=mine[mine.length-1];
+            selected=selected.filter(t=>t!==drop);
+            return false;
+          }
+          mine.forEach((t,i)=>{t.units=shares[i];t.troops=Object.values(shares[i]).reduce((a,b)=>a+b,0);});
+        }
+        return true;
+      };
+      selected=selected.map(t=>({...t,units:{...t.units}}));
+      for(let guard=0;guard<selected.length+5&&!split();guard++);
       if(selected.length<2)continue;
       const tasks=selected.slice().sort((a,b)=>a.sendAt-b.sendAt);
+      const nobles=[...new Set(tasks.map(p=>p.gapIndex+1))].sort((a,b)=>a-b);
       result.push({kind:'multi',id:'nobles:'+trainId+':'+tasks.map(p=>p.id).join('+'),
-        trainId,tasks,nobleIndices:tasks.map(p=>p.gapIndex+1),
+        trainId,tasks,nobleIndices:nobles,
         arrivalAt:tasks[0].arrivalAt,marginMs:Math.min(...tasks.map(p=>p.marginMs)),
         troops:tasks.reduce((n,p)=>n+(p.troops||0),0),
         score:10000000+tasks.length*100000+Math.min(...tasks.map(p=>p.score||0)),
@@ -757,7 +809,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({assessTaskPrecision,timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({assessTaskPrecision,timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,expandSnipeSlots,snipeCountFor,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -779,17 +831,51 @@
   // The executable mission itself remains TAB-LOCAL. Never auto-arm another tab.
   const DRAFT=storagePrefix+'draft_v210',CONTEXT=storagePrefix+'scan_context_v210';
   const LIVE_STATE=storagePrefix+'mission_state_v210',STOP_REQUEST=storagePrefix+'stop_request_v210';
-  const FIELD_IDS=['sd-timing-calibration','sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
+  const FIELD_IDS=['sd-noble-edge','sd-snipes','sd-timing-calibration','sd-narrow-attempt','sd-reserve','sd-margin','sd-cancel-target','sd-cancel-oneway','sd-cancel-limit','sd-team-count','sd-noble-spacing','sd-noble-lead','sd-auto-nobles','sd-include-first','sd-noble-target','sd-cascade-auto'];
   const STOP_EVENT='__algzawy_stop_smart-defense-ultimate';
   const uiId='algzawy-smart-defense-ultimate-v210';
   const ownId=()=>String(root.game_data?.village?.id||'');
   const get=(storage,key)=>{try{return JSON.parse(storage.getItem(key)||'null');}catch(_){return null;}};
   const set=(storage,key,value)=>storage.setItem(key,JSON.stringify(value));
+  // Background-tab clock: hidden tabs throttle page timers (about 1/s, later 1/min), which would delay the
+  // send click. Timers run inside a dedicated Worker (not throttled); page timers are the fallback.
+  const bgClock=(()=>{
+    let worker=null,seq=0;const pending=new Map();
+    const native=entry=>{entry.native=root.setTimeout(()=>{pending.delete(entry.id);entry.fn();},entry.ms);};
+    try{
+      const src='const t={};onmessage=e=>{const d=e.data;if(d.stop){clearTimeout(t[d.id]);delete t[d.id];return;}'+
+        't[d.id]=setTimeout(()=>{delete t[d.id];postMessage(d.id);},d.ms);};';
+      const url=root.URL.createObjectURL(new root.Blob([src],{type:'text/javascript'}));
+      worker=new root.Worker(url);root.URL.revokeObjectURL(url);
+      worker.onmessage=e=>{const entry=pending.get(e.data);if(!entry)return;pending.delete(e.data);
+        try{entry.fn();}catch(err){console.error('[AlGzawy] timer',err);}};
+      worker.onerror=()=>{worker=null;for(const entry of pending.values())native(entry);};
+    }catch(_){worker=null;}
+    try{
+      if(root.navigator?.locks?.request)
+        root.navigator.locks.request('algzawy-keepalive-smart-defense-'+root.location.host,
+          ()=>new Promise(()=>{})).catch(()=>{});
+    }catch(_){}
+    return {
+      timeout(fn,ms){
+        const entry={id:++seq,fn,ms:Math.max(0,Number(ms)||0),native:null};
+        pending.set(entry.id,entry);
+        if(worker){try{worker.postMessage({id:entry.id,ms:entry.ms});}catch(_){worker=null;native(entry);}}
+        else native(entry);
+        return entry.id;
+      },
+      clear(id){
+        const entry=pending.get(id);if(!entry)return;pending.delete(id);
+        if(entry.native!==null)root.clearTimeout(entry.native);
+        else if(worker){try{worker.postMessage({id,stop:true});}catch(_){}}
+      }
+    };
+  })();
   let mission=get(root.sessionStorage,MISSION),scanned=null,chosen=null,clock=null,timer=null;
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:10,
-    nobleSpacingMs:200,nobleLeadMs:250,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
+    nobleSpacingMs:200,nobleLeadMs:250,nobleEdgeMs:10,snipesPerNoble:1,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
     experimentalTimingCalibration:false,nobleTarget:1,
     unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
     cancelExperimental:false};
@@ -800,10 +886,37 @@
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
   const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto',
-    'nobleLeadMs','includeFirst','unitAllow','allowNarrowAttempt']
+    'nobleLeadMs','nobleEdgeMs','snipesPerNoble','includeFirst','unitAllow','allowNarrowAttempt']
     .map(k=>values?.[k]??null));
   const currentFingerprint=()=>fingerprint(get(root.localStorage,SETTINGS)||options);
 
+  // Number of snipes requested for one noble: rule.count (>=1), 0 = automatic (fill as many as
+  // villages allow, up to AUTO_SNIPE_SLOTS), otherwise the global default. No per-noble cap.
+  function snipeCountFor(rule,fallback=1){
+    const n=Number(rule?.count);
+    if(Number.isSafeInteger(n)&&n>=0)return n===0?AUTO_SNIPE_SLOTS:Math.min(n,1000);
+    const d=Number(fallback);
+    return Number.isSafeInteger(d)&&d>=1?Math.min(d,1000):1;
+  }
+  // Split each usable noble window into N distinct landing milliseconds (all inside the window).
+  function expandSnipeSlots(windows,countFor){
+    const out=[];
+    for(const w of windows||[]){
+      const wanted=w.usable?Math.max(1,Number(typeof countFor==='function'?countFor(w):1)||1):1;
+      const n=w.usable?Math.max(1,Math.min(wanted,w.windowTo-w.windowFrom-1)):1;
+      if(n<=1){out.push({...w,slot:0,slots:1});continue;}
+      const width=w.windowTo-w.windowFrom;
+      const seen=new Set();
+      for(let k=0;k<n;k++){
+        const arrival=w.windowFrom+Math.floor(width*(k+1)/(n+1));
+        if(seen.has(arrival)||arrival<=w.windowFrom||arrival>=w.windowTo)continue;
+        seen.add(arrival);
+        out.push({...w,arrival,slot:out.filter(x=>x.i===w.i).length,slots:n,
+          slack:Math.min(arrival-w.windowFrom,w.windowTo-arrival)});
+      }
+    }
+    return out;
+  }
   function rulesFor(villageId=ownId()){
     const state=get(root.localStorage,TARGET_RULES)||{};
     return state[String(villageId)]||{};
@@ -835,7 +948,7 @@
       JSON.stringify(rulesFor(scanned.defenseVillageId));
   }
   function selectedWindows(train,defs=rulesFor()){
-    return nobleWindows(train,{safetyMs:options.margin,
+    return nobleWindows(train,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,
       leadMs:options.nobleLeadMs||250,targets:defs,
       auto:options.autoNobles!==false,includeFirst:options.includeFirst===true});
   }
@@ -1048,6 +1161,10 @@
     if(Number.isSafeInteger(lead)&&lead>0&&lead<=60000)merged.nobleLeadMs=lead;
     merged.includeFirst=(Object.hasOwn(drafts,'sd-include-first')?drafts['sd-include-first']:
       (uiQuery('sd-include-first')?.checked?'1':'0'))==='1';
+    const edge=Number(value('sd-noble-edge')||10);
+    if(Number.isSafeInteger(edge)&&edge>=1&&edge<=500)merged.nobleEdgeMs=edge;
+    const snipes=Number(value('sd-snipes')||1);
+    if(Number.isSafeInteger(snipes)&&snipes>=1&&snipes<=1000)merged.snipesPerNoble=snipes;
     const spacing=Number(value('sd-noble-spacing')||200);
     if(Number.isSafeInteger(spacing)&&spacing>=1&&spacing<=60000)merged.nobleSpacingMs=spacing;
     const autoRaw=Object.hasOwn(drafts,'sd-auto-nobles')?drafts['sd-auto-nobles']:
@@ -1079,7 +1196,8 @@
       stopMission('انتهى أو اختفى قطار النبلاء قبل إرسال القوات');
     scanned=null;chosen=null;lastScannedKey='';
     root.sessionStorage.removeItem(TRAIN);
-    for(const control of doc.querySelectorAll('#commands_incomings .sd-inline-noble'))control.remove();
+    for(const control of doc.querySelectorAll('#commands_incomings .sd-noble-badge'))control.remove();
+    for(const row of doc.querySelectorAll('#commands_incomings .sd-noble-row'))row.classList.remove('sd-noble-row','sd-noble-on');
     const select=uiQuery('sd-options');if(select)select.replaceChildren();
     const list=uiQuery('sd-noble-list');if(list)list.textContent='لا توجد هجمات نبيلة قادمة.';
     const radar=uiQuery('sd-radar');if(radar)radar.textContent='✅ انتهى القطار؛ أزيلت الخطط السابقة.';
@@ -1228,20 +1346,23 @@
     const support=[],cancel=[],diagnostics=[];
     const targetRules=rulesFor(ownId());
     for(const train of trains){
-      const windows=selectedWindows(train,targetRules);
+      const windows=expandSnipeSlots(selectedWindows(train,targetRules),
+        w=>snipeCountFor(targetRules[w.nobleId],options.snipesPerNoble));
       const diagnostic={trainId:train.id};diagnostics.push(diagnostic);
       support.push(...supportOptions({villages:roster,target,waves:train.waves,
         unitMinutes:config.unitMinutes,worldFactor:config.factor,now:Math.round(now),
         share:(100-options.reserve)/100,safetyMs:options.margin,diagnostics:diagnostic,
-        windows,allowUnits:allowedUnits()}).map(x=>({...x,trainId:train.id})));
-      cancel.push(...cancelPlanFor(train,roster,Math.round(now),windows)
+        windows,allowUnits:allowedUnits(),
+        villageFilter:(vid,w)=>{const list=targetRules[w.nobleId]?.villages;
+          return !Array.isArray(list)||!list.length||list.includes(vid);}}).map(x=>({...x,trainId:train.id})));
+      cancel.push(...cancelPlanFor(train,roster,Math.round(now),windows.filter(w=>!(w.slot>0)))
         .map(x=>({...x,trainId:train.id})));
       if(worldTargets.available){
         const own=roster.find(v=>v.id===ownId());
         if(own){
           cancel.push(...sequentialCancelCandidates({source:own,nearby:worldTargets.villages,
             units:own.units,unitMinutes:config.unitMinutes,worldFactor:config.factor,
-            waves:train.waves,now:Math.round(now),windows,
+            waves:train.waves,now:Math.round(now),windows:windows.filter(w=>!(w.slot>0)),
             allowUnits:allowedUnits(),
             cancelWindowMs:Math.round(options.cancelLimit*1000),
             safetyMs:options.margin,share:(100-options.reserve)/100})
@@ -1315,7 +1436,7 @@
     routeMission();
   }
   function stopMission(reason){
-    clearTimeout(timer);timer=null;
+    bgClock.clear(timer);timer=null;
     if(!mission)return;
     const previous=mission.phase;
     storeMission({...mission,phase:'stopped',note:String(reason)});
@@ -1377,7 +1498,7 @@
     log('PREPARE',task.kind+' '+task.sourceId+' -> '+task.target.str);
     button.click();
     // The native game should navigate to screen=place&try=confirm.
-    setTimeout(()=>{
+    bgClock.timeout(()=>{
       if(mission?.phase==='confirm'&&!isConfirmation())stopMission('لم تظهر صفحة تأكيد اللعبة بعد طلبها');
     },11000);
   }
@@ -1524,7 +1645,7 @@
     const abs=Math.abs(late);metric.samples=[...metric.samples,abs].slice(-80);
     metric.maxDeviation=Math.max(...metric.samples,0);set(root.localStorage,METRICS,metric);
     button.click();
-    setTimeout(()=>{if(mission?.phase==='sent')navigateRally();},1200);
+    bgClock.timeout(()=>{if(mission?.phase==='sent')navigateRally();},1200);
   }
   function verifySend(){
     if(!mission||!['sent','verify','cancel_wait'].includes(mission.phase))return;
@@ -1601,7 +1722,7 @@
     }
     const since=nowServer()-(mission.clickedAt||mission.createdAt);
     if(since>16000)return stopMission('لم يظهر أمر مطابق في الأوامر الصادرة. افحص اللعبة يدويًا قبل أي إعادة إرسال');
-    setTimeout(()=>{if(mission?.phase==='sent'||mission?.phase==='verify')verifySend();},800);
+    bgClock.timeout(()=>{if(mission?.phase==='sent'||mission?.phase==='verify')verifySend();},800);
   }
   function fireCancel(){
     if(!mission||mission.phase!=='cancel_wait')return;
@@ -1679,7 +1800,7 @@
   }
 
   function schedule(){
-    clearTimeout(timer);timer=null;
+    bgClock.clear(timer);timer=null;
     if(!mission||!['armed','cancel_wait'].includes(mission.phase)||stopGuard())return;
     if(mission.phase==='armed'&&(shouldStopForExpiredTarget(mission,get(root.localStorage,CONTEXT))||
       shouldStopForMissingNoble(mission,get(root.localStorage,CONTEXT))))
@@ -1695,8 +1816,8 @@
     }
     if(mission.phase==='armed'&&time>=task.sendAt){fireSend();return;}
     if(mission.phase==='cancel_wait'&&time>=task.cancelAt){fireCancel();return;}
-    const rem=deadline-time,delay=rem>15000?600:rem>3000?120:rem>600?35:rem>100?10:5;
-    timer=setTimeout(schedule,delay);
+    const rem=deadline-time,delay=rem>15000?600:rem>3000?120:rem>600?35:rem>100?10:Math.max(1,Math.min(4,rem-1));
+    timer=bgClock.timeout(schedule,delay);
   }
   function resume(){
     if(!mission||['done','stopped','cancel_clicked'].includes(mission.phase))return;
@@ -1714,7 +1835,7 @@
       case 'prepare':prepareMission();break;
       case 'confirm':if(isConfirmation())ensureConfirm();else if(nowServer()-(mission.preparedAt||0)>12000)stopMission('تعذر الوصول لشاشة التأكيد');break;
       case 'armed':if(!isConfirmation())stopMission('تم تغيير صفحة تأكيد الهجوم قبل إرسال الجيش');else schedule();break;
-      case 'sent':if(isConfirmation()){setTimeout(navigateRally,500);}else verifySend();break;
+      case 'sent':if(isConfirmation()){bgClock.timeout(navigateRally,500);}else verifySend();break;
       case 'verify':verifySend();break;
       case 'cancel_wait':if(isConfirmation())navigateRally();else schedule();break;
     }
@@ -1834,16 +1955,11 @@
 #${uiId} .sd-unit-label img{width:22px;height:22px;object-fit:contain}
 #${uiId} .sd-unit-label span{font-size:10px;white-space:normal}
 #${uiId} #sd-noble-list{max-height:305px;overflow:auto;border:1px solid #50637B;padding:7px;border-radius:8px}
-#${uiId} .sd-noble-line{display:grid;grid-template-columns:18px minmax(0,1fr) 60px 60px;gap:5px;align-items:center;padding:6px 2px;border-bottom:1px solid #385066}
-#${uiId} .sd-noble-line input[type=checkbox]{width:18px;height:18px;accent-color:#B49AFF}
-#${uiId} .sd-noble-line label{font-size:10px;margin:0}
-#${uiId} .sd-noble-line input[type=number]{width:100%;font:12px Consolas,monospace}
-#${uiId} .sd-noble-line small{grid-column:1/-1;color:#DFB677;line-height:1.6}
-#${uiId} .sd-noble-line span{font:700 11px Consolas,Tahoma,monospace}
-.sd-inline-noble{display:inline-flex;align-items:center;gap:2px;margin-inline:1px;padding:1px;max-height:19px;font-size:9px;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:5px;direction:ltr}
-.sd-inline-noble input[type=number]{width:29px!important;height:17px!important;padding:0 1px!important;font-size:9px!important;text-align:center}
-.sd-inline-noble input[type=checkbox]{width:12px;height:12px;margin:0}
-.sd-inline-noble b{font-size:9px}
+.sd-noble-row{cursor:pointer}
+.sd-noble-row:hover td{background:#ffe9a8!important}
+.sd-noble-row.sd-noble-on td{background:#bfe8c4!important}
+.sd-noble-badge{display:inline-block;margin-inline:2px 6px;padding:1px 6px;font:700 11px Consolas,Tahoma,monospace;direction:ltr;background:#173C42;color:#D9FFF2;border:1px solid #458C8C;border-radius:6px;vertical-align:middle}
+.sd-noble-row.sd-noble-on .sd-noble-badge{background:#185746;border-color:#3ABF94}
 @media(max-width:380px){#${uiId} .sd-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 #${uiId} #sd-countdown{display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1864,6 +1980,16 @@ letter-spacing:.5px;text-shadow:0 2px 14px #40E1BF28}
 #${uiId} #sd-countdown[data-tone=due] .sd-timer-digits{color:var(--sd-gold)}
 #${uiId} #sd-countdown .sd-timer-description{font-size:11px;line-height:1.5;
 color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
+#${uiId} .sd-noble-opts{margin:-2px 0 8px;padding:6px 10px;border:1px dashed #b9a06a;border-radius:8px;font-size:12px}#${uiId} .sd-noble-opts input.sd-snipe-count{width:70px;margin-inline-start:6px}#${uiId} .sd-noble-opts details{margin-top:4px;max-height:180px;overflow:auto}#${uiId} .sd-village-pick{display:block;font-size:12px}
+#${uiId} .sd-noble-line{display:grid;grid-template-columns:22px minmax(0,1fr);gap:2px 8px;align-items:center;padding:8px 6px;margin:4px 0;border:1px solid #385066;border-radius:8px;background:#0E1B2A;cursor:pointer;user-select:none;transition:background .12s,border-color .12s}
+#${uiId} .sd-noble-line:hover{background:#13283A;border-color:#5E7EA0}
+#${uiId} .sd-noble-line.on{background:#173A3A;border-color:var(--sd-teal)}
+#${uiId} .sd-noble-line:focus-visible{outline:2px solid var(--sd-teal);outline-offset:1px}
+#${uiId} .sd-noble-mark{grid-row:1/3;display:grid;place-items:center;width:20px;height:20px;border:2px solid #5E7EA0;border-radius:6px;color:#0A2A22;font-weight:900;font-size:13px}
+#${uiId} .sd-noble-line.on .sd-noble-mark{background:var(--sd-teal);border-color:var(--sd-teal)}
+#${uiId} .sd-noble-line>span:nth-child(2){font:700 12px Consolas,Tahoma,monospace;color:var(--sd-text)}
+#${uiId} .sd-noble-win{grid-column:2;font:700 11px Consolas,monospace;direction:ltr;text-align:right;color:var(--sd-gold)}
+#${uiId} .sd-noble-line small{grid-column:1/-1;color:#DFB677;line-height:1.6}
 #${uiId} .sd-card{border:1px solid var(--sd-border);border-radius:10px;background:#0E1B2A;padding:8px 10px 10px;margin:10px 0}
 #${uiId} .sd-card h4{margin:0 0 4px;font-size:12px;color:var(--sd-accent)}
 #${uiId} [data-sd-page]>label:first-child{margin-top:4px}
@@ -1924,7 +2050,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.2.0 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.0 QA</small></span></header>
 <main>
   <section data-sd-page="home">
     <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -1950,14 +2076,16 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       <label for="sd-noble-target">🎯 النبيل المستهدف (عند إيقاف التلقائي)</label>
       <select id="sd-noble-target" disabled><option value="1">النبيل الأول — بعد الافتتاحية</option></select>
     </div>
-    <div class="sd-card" id="sd-targeting"><h4>النبلاء ونطاق الوصول (من جزء ← إلى جزء)</h4>
+    <div class="sd-card" id="sd-targeting"><h4>النبلاء والنافذة التلقائية — اضغط على السطر للتحديد</h4>
       <div id="sd-noble-list">افحص الهجمات الواردة أولًا لإظهار النبلاء.</div>
-      <p class="tiny">نفس الخيارات تظهر بجانب أوامر النبلاء في جدول اللعبة. الأجزاء 0–999.</p>
+      <p class="tiny">اضغط على أي مكان في سطر النبيل هنا أو في جدول الهجمات داخل اللعبة لتحديده أو إلغاؤه. تُسجَّل نافذة القنص تلقائيًا من أوقات الوصول.</p>
     </div>
     <div class="sd-card"><h4>التوقيت</h4>
       <div class="row"><div><label for="sd-noble-spacing">الفاصل بين النبلاء (ms)</label><input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr"></div>
-      <div><label for="sd-noble-lead">قبل النبيل الأول (ms)</label><input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr"></div></div>
-      <p id="sd-gap-warning" class="tiny">الخطة تعتمد على أوقات الوصول الفعلية لا على الفاصل المتوقع.</p>
+      <div><label for="sd-noble-lead">قبل النبيل الأول (ms)</label><input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr"></div>
+      <div><label for="sd-noble-edge">هامش الحواف (ms)</label><input id="sd-noble-edge" type="number" value="10" min="1" max="500" step="1" dir="ltr"></div>
+      <div><label for="sd-snipes">قنصات لكل نبيل (افتراضي)</label><input id="sd-snipes" type="number" value="1" min="1" max="1000" step="1" dir="ltr"></div></div>
+      <p id="sd-gap-warning" class="tiny">النافذة تُحسب تلقائيًا بين النبيل وما قبله: من (وصول السابق + الهامش) إلى (وصول النبيل − الهامش).</p>
     </div>
   </section>
   <section data-sd-page="settings">
@@ -1981,7 +2109,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       <label for="sd-cancel-target">هدف الإلغاء يدويًا</label><input id="sd-cancel-target" placeholder="500|500" dir="ltr">
       <div class="row"><div><label for="sd-cancel-oneway">زمن السير (ثانية)</label><input id="sd-cancel-oneway" type="number" min="1"></div>
       <div><label for="sd-cancel-limit">نافذة الإلغاء (ثانية)</label><input id="sd-cancel-limit" type="number" min="1"></div></div>
-      <label for="sd-team-count">أقصى عدد مهام متسلسلة (حتى 30)</label><input id="sd-team-count" type="number" min="1" max="30">
+      <label for="sd-team-count">أقصى عدد أوامر في الخطة (حتى 120)</label><input id="sd-team-count" type="number" min="1" max="120">
     </details>
     <details id="sd-diagnostics"><summary>📋 السجل والتشخيص</summary>
       <div id="sd-execution-log" class="box" aria-label="آخر أحداث التنفيذ">لا توجد أحداث تنفيذ بعد.</div>
@@ -1992,7 +2120,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </section>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.2.0';
+    panel.dataset.editorVersion='2.3.0';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};
@@ -2033,6 +2161,8 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     });
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     uiQuery('sd-noble-lead').value=options.nobleLeadMs||250;
+    uiQuery('sd-noble-edge').value=options.nobleEdgeMs||10;
+    uiQuery('sd-snipes').value=options.snipesPerNoble||1;
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     uiQuery('sd-narrow-attempt').checked=options.allowNarrowAttempt===true;
     uiQuery('sd-timing-calibration').checked=options.experimentalTimingCalibration===true;
@@ -2182,6 +2312,63 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       });
     }
   }
+  // Whole-row selection: a click anywhere on a noble's row (game table or this panel) toggles that noble.
+  // The sniping window is derived automatically from the arrival times (previous attack + edge margin →
+  // this noble − edge margin), so no manual from/to boxes are needed.
+  const msPart=n=>'.'+String(((Math.round(n)%1000)+1000)%1000).padStart(3,'0');
+  function windowLabel(w){
+    return w&&w.valid?msPart(w.windowFrom)+'  ←  '+msPart(w.windowTo)+'  (عرض '+(w.windowTo-w.windowFrom)+'ms)':'نافذة غير صالحة';
+  }
+  function toggleNoble(key,wasSelected,villageId=ownId()){
+    updateNobleRule(key,{selected:!wasSelected,fromMs:undefined,toMs:undefined},villageId);
+    renderNobleSelector();
+    try{renderNativeNobleControls();}catch(_){/* native table may be absent */}
+  }
+  // Per-noble controls: number of snipes (0 = automatic) and optional village selection.
+  function snipeControls(w,rule,vId){
+    const box=doc.createElement('div');box.className='sd-noble-opts';
+    const label=doc.createElement('label');label.textContent='عدد القنصات';
+    const count=doc.createElement('input');count.type='number';count.min='0';count.max='1000';count.step='1';
+    count.dir='ltr';count.className='sd-snipe-count';
+    count.value=Number.isSafeInteger(Number(rule.count))&&rule.count!==undefined?String(rule.count):
+      String(options.snipesPerNoble||1);
+    count.title='0 = تلقائي: أكبر عدد ممكن من القرى';
+    count.addEventListener('change',()=>{
+      const n=Math.max(0,Math.min(1000,Math.floor(Number(count.value))));
+      updateNobleRule(w.nobleId,{count:Number.isFinite(n)?n:1},vId);renderNobleSelector();
+    });
+    label.appendChild(count);
+    const hint=doc.createElement('small');
+    hint.textContent=Number(count.value)===0?'تلقائي':'قنصة/قنصات';
+    const list=(scanned?.roster||[]).filter(v=>!(v.x===scanned.target?.x&&v.y===scanned.target?.y));
+    const picked=new Set((rule.villages||[]).map(String));
+    const details=doc.createElement('details');
+    const sum=doc.createElement('summary');
+    sum.textContent=picked.size?('القرى: '+picked.size+' محددة'):'القرى: تلقائي (الأنسب)';
+    details.appendChild(sum);
+    if(!list.length){
+      const none=doc.createElement('small');none.textContent='افحص أولًا لإظهار القرى.';details.appendChild(none);
+    }else{
+      const reset=doc.createElement('button');reset.type='button';reset.textContent='تلقائي (الكل)';
+      reset.addEventListener('click',e=>{e.preventDefault();
+        updateNobleRule(w.nobleId,{villages:[]},vId);renderNobleSelector();});
+      details.appendChild(reset);
+      for(const v of list){
+        const line=doc.createElement('label');line.className='sd-village-pick';
+        const cb=doc.createElement('input');cb.type='checkbox';cb.checked=picked.has(String(v.id));
+        cb.addEventListener('change',()=>{
+          const next=new Set((rulesFor(vId)[w.nobleId]?.villages||[]).map(String));
+          cb.checked?next.add(String(v.id)):next.delete(String(v.id));
+          updateNobleRule(w.nobleId,{villages:[...next]},vId);
+          sum.textContent=next.size?('القرى: '+next.size+' محددة'):'القرى: تلقائي (الأنسب)';
+        });
+        line.append(cb,doc.createTextNode(' '+(v.name||v.id)));
+        details.appendChild(line);
+      }
+    }
+    box.append(label,hint,details);
+    return box;
+  }
   function renderNobleSelector(){
     const panel=uiQuery('sd-noble-list');if(!panel)return;
     panel.replaceChildren();
@@ -2190,100 +2377,70 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const vId=scanned.defenseVillageId||ownId();
     for(const train of trains){
       const title=doc.createElement('strong');
-      title.textContent='👑 القطار '+clockOnly(train.waves[1]?.at)+
-        ' | عدد النبلاء '+train.nobles;
+      title.textContent='👑 القطار '+clockOnly(train.waves[1]?.at)+' | عدد النبلاء '+train.nobles;
       panel.appendChild(title);
       const targets=rulesFor(vId);
-      const windows=nobleWindows(train,{safetyMs:options.margin,
+      const windows=nobleWindows(train,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,
         leadMs:options.nobleLeadMs||250,targets,
         auto:options.autoNobles!==false,includeFirst:options.includeFirst===true});
       for(const w of windows){
-        const row=doc.createElement('div');row.className='sd-noble-line';
-        row.dataset.nobleKey=w.nobleId;
-        const mark=doc.createElement('input');mark.type='checkbox';mark.checked=w.selected;
-        mark.title='حدد القنص للنبيل '+w.nobleIndex;
+        const row=doc.createElement('div');row.className='sd-noble-line'+(w.selected?' on':'');
+        row.dataset.nobleKey=w.nobleId;row.setAttribute('role','button');row.tabIndex=0;
+        row.setAttribute('aria-pressed',String(!!w.selected));
+        const mark=doc.createElement('span');mark.className='sd-noble-mark';mark.textContent=w.selected?'✓':'';
         const caption=doc.createElement('span');
-        caption.textContent='👑 '+w.nobleIndex+' @ '+clockOnly(w.nobleAt);
-        const inputs=[];
-        const rule=targets[w.nobleId]||{};
-        for(const [labelName,field] of [['من','fromMs'],['إلى','toMs']]){
-          const label=doc.createElement('label');label.textContent=labelName;
-          const input=doc.createElement('input');input.type='number';input.min='0';
-          input.max='999';input.step='1';input.placeholder=labelName==='من'?'210':'390';
-          input.value=rule[field]??'';
-          input.title=labelName+' جزء من الثانية (0–999)';
-          label.appendChild(input);inputs.push(input);
-          row.appendChild(label);
-        }
-        row.prepend(mark,caption);
+        caption.textContent='👑 النبيل '+w.nobleIndex+' — '+clockOnly(w.nobleAt);
+        const win=doc.createElement('span');win.className='sd-noble-win';win.textContent=windowLabel(w);
+        row.append(mark,caption,win);
         const status=doc.createElement('small');
         status.textContent=w.valid?
-          ('🎯 '+clockOnly(w.arrival)+' | سماحية ±'+w.slack+'ms'+
-            (w.slack<20?' | ⚠️ محاولة ضيقة عالية المخاطر':'')+
+          ('🎯 هبوط '+msPart(w.arrival)+' | سماحية ±'+w.slack+'ms'+
+            (w.slack<20?' | ⚠️ ضيقة عالية المخاطر':'')+
             (w.riskCount?' | ⚠️ '+w.riskCount+' هجمات بين الوصول والنبيل':' | دون هجمات أخرى')):
           '⚠️ '+w.reason;
         row.appendChild(status);
-        const save=()=>{
-          const fields={selected:mark.checked};
-          for(let i=0;i<2;i++){
-            const field=i?'toMs':'fromMs',input=inputs[i];
-            const val=input.value.trim();
-            if(val&&Number.isInteger(+val)&&+val>=0&&+val<=999)
-              fields[field]=+val;
-            else fields[field]=undefined;
-          }
-          updateNobleRule(w.nobleId,fields,vId);
-        };
-        mark.addEventListener('change',save);
-        for(const input of inputs)input.addEventListener('change',save);
+        const go=()=>toggleNoble(w.nobleId,!!w.selected,vId);
+        row.addEventListener('click',go);
+        row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
         panel.appendChild(row);
+        if(w.selected)panel.appendChild(snipeControls(w,targets[w.nobleId]||{},vId));
       }
     }
   }
+  const nobleRowBound=new WeakSet();
   function renderNativeNobleControls(){
     const table=doc.querySelector('#commands_incomings');
     if(!table)return;
     const now=nowServer();if(!finite(now))return;
     const entries=[...table.querySelectorAll('tr')].map(row=>({row,info:classifyRow(row,now)}))
       .filter(x=>x.info&&x.info.at>now);
-    const activeNobleRows=new Set(entries.filter(x=>x.info.kind==='noble').map(x=>x.row));
-    for(const row of table.querySelectorAll('tr'))if(!activeNobleRows.has(row))
-      row.querySelector('.sd-inline-noble')?.remove();
-    const lookup=new Map(nobleTrains(entries.map(x=>x.info)).flatMap(t=>
-      t.waves.filter(x=>x.kind==='noble').map((n,i)=>[nobleKey(n),i+1])));
+    const active=new Set(entries.filter(x=>x.info.kind==='noble').map(x=>x.row));
+    for(const row of table.querySelectorAll('tr'))if(!active.has(row)){
+      row.querySelector('.sd-noble-badge')?.remove();
+      row.classList.remove('sd-noble-row','sd-noble-on');
+    }
     const stored=rulesFor(ownId());
+    const byKey=new Map();
+    for(const train of nobleTrains(entries.map(x=>x.info)))
+      for(const w of selectedWindows(train,stored))byKey.set(w.nobleId,w);
     for(const {row,info} of entries){
       if(info.kind!=='noble')continue;
-      const key=nobleKey(info),i=lookup.get(key)||1;
+      const key=nobleKey(info),w=byKey.get(key);if(!w)continue;
       const cell=row.querySelector('td');if(!cell)continue;
-      if(cell.querySelector('.sd-inline-noble'))continue;
-      const inline=doc.createElement('span');inline.className='sd-inline-noble';
-      const flag=doc.createElement('input');flag.type='checkbox';
-      flag.checked=stored[key]?.selected??(options.autoNobles!==false&&
-        (i>1||options.includeFirst===true));
-      flag.title='قنص النبيل '+i;
-      const tag=doc.createElement('b');tag.textContent='🎯 '+i;
-      inline.append(flag,tag);
-      const fields=[];
-      for(const field of ['fromMs','toMs']){
-        const el=doc.createElement('input');el.type='number';el.min='0';el.max='999';
-        el.step='1';el.placeholder=field==='fromMs'?'من':'إلى';
-        el.value=stored[key]?.[field]??'';
-        inline.append(el);fields.push(el);
+      row.classList.add('sd-noble-row');row.classList.toggle('sd-noble-on',!!w.selected);
+      row.dataset.sdNobleKey=key;row.dataset.sdNobleSel=w.selected?'1':'0';
+      row.title='اضغط على أي مكان في السطر لتحديد/إلغاء قنص النبيل '+w.nobleIndex;
+      let badge=cell.querySelector('.sd-noble-badge');
+      if(!badge){badge=doc.createElement('span');badge.className='sd-noble-badge';cell.prepend(badge);}
+      badge.textContent=w.selected?('🎯 '+w.nobleIndex+'  '+(w.valid?msPart(w.windowFrom)+'←'+msPart(w.windowTo):'⚠️')):('○ '+w.nobleIndex);
+      if(!nobleRowBound.has(row)){
+        nobleRowBound.add(row);
+        row.addEventListener('click',e=>{
+          // Links and form controls keep their own game function (open command, cancel, ...).
+          if(e.target?.closest?.('a,button,input,select,textarea'))return;
+          toggleNoble(row.dataset.sdNobleKey,row.dataset.sdNobleSel==='1',ownId());
+        });
       }
-      const save=()=>{
-        const o={selected:flag.checked};
-        for(let j=0;j<2;j++){
-          const val=fields[j].value.trim();
-          o[j?'toMs':'fromMs']=val!==''&&Number.isInteger(+val)&&+val>=0&&+val<=999?+val:undefined;
-        }
-        updateNobleRule(key,o,ownId());
-      };
-      for(const el of [flag,...fields]){
-        el.addEventListener('click',e=>e.stopPropagation());
-        el.addEventListener('change',save);
-      }
-      cell.prepend(inline);
     }
   }
 
@@ -2302,7 +2459,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         list.push(`  ${entry.coord} | إشارات هجوم: ${entry.attacks} | علامات نبيل: ${entry.nobles}`);
     }else list.push('🌐 رادار القرى الأخرى: غير مؤكد — '+(scanned.regional?.reason||'واجهة الجدول غير متاحة'));
     for(const train of scanned.trains.slice(0,6)){
-      const range=nobleWindows(train,{safetyMs:options.margin,leadMs:options.nobleLeadMs||250,
+      const range=nobleWindows(train,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,leadMs:options.nobleLeadMs||250,
         targets:scanned.targetRules||{},auto:options.autoNobles!==false,includeFirst:options.includeFirst===true})
         .map(x=>'👑'+x.nobleIndex+' '+clockOnly(x.nobleAt)+' ⇒ '+
           (x.valid?clockOnly(x.arrival):'خارج الحدود')+' | هامش '+x.slack+'ms'+
@@ -2338,7 +2495,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         if(seen.size>=30)break;
       }
     }
-    if(scanned.trains.some(t=>nobleWindows(t,{safetyMs:options.margin,
+    if(scanned.trains.some(t=>nobleWindows(t,{safetyMs:options.margin,edgeMs:options.nobleEdgeMs||10,
       leadMs:options.nobleLeadMs||250,targets:scanned.targetRules||{},
       auto:options.autoNobles!==false,includeFirst:options.includeFirst===true})
       .some(w=>w.usable&&w.slack<20)))
@@ -2526,7 +2683,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     try{renderNativeNobleControls();}catch(_){/* native table may be absent */}
     connectTabs();
     applySharedDraft();applySharedContext();syncMissionState();
-    if(mission){setTimeout(resume,400);}
+    if(mission){bgClock.timeout(resume,400);}
     uiTick=setInterval(()=>{renderStatus();},250);
     setInterval(()=>{if(mission&&['routing','prepare','confirm','armed','sent','cancel_wait'].includes(mission.phase))touchLock();},30000);
     monitorTimer=setInterval(monitor,1500);
@@ -2538,7 +2695,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
         stopMission('أوقف نظام الترخيص المهمة');
       // A revoked entitlement must not leave interactive planning controls or
       // passive monitoring running in an already-started game tab.
-      clearTimeout(timer);timer=null;
+      bgClock.clear(timer);timer=null;
       clearInterval(uiTick);clearInterval(monitorTimer);
       uiTick=0;monitorTimer=0;
       doc.getElementById(uiId)?.remove();
