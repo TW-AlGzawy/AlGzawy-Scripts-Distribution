@@ -52,3 +52,6 @@ test('expiry is also enforced at the mutation gate, and stale help text is gone'
  assert.match(gate,/enforceTgLiveExpiry\(\)/);
  assert.ok(!/أرسل \/live ثم أعد الأمر/.test(js));
 });
+test('bare /barb (bot menu entry) opens the control menu instead of an error',()=>{
+ assert.match(js,/const text=cmd\.kind==='callback'\?relayButtonCommand\(cmd\.text\):'\/'\+\(typed\|\|'menu'\)/);
+});
