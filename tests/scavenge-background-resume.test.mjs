@@ -7,14 +7,14 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const loader=read('loaders/mass-scavenge-v1.user.js');
 const engine=read('scripts/mass-scavenge-v1.js');
 
-test('v1.0.12 loader and engine compile and share the official catalogue version',()=>{
+test('v1.0.13 loader and engine compile and share the official catalogue version',()=>{
  new vm.Script(loader);new vm.Script(engine);
  const info=JSON.parse(read('catalog.json')).published_candidates.find(x=>x.id==='mass-scavenge-v1');
- assert.equal(info.version,'1.0.12');
- assert.match(loader,/^\/\/ @version\s+1\.0\.12$/m);
- assert.match(engine,/^\/\/ @version\s+1\.0\.12$/m);
+ assert.equal(info.version,'1.0.13');
+ assert.match(loader,/^\/\/ @version\s+1\.0\.13$/m);
+ assert.match(engine,/^\/\/ @version\s+1\.0\.13$/m);
  assert.match(loader,/algzawy_tab_pin_v1_/);
- assert.match(engine,/data-algzawy-scheduler="1\.0\.12"/);
+ assert.match(engine,/data-algzawy-scheduler="1\.0\.13"/);
 });
 
 test('scavenge keeps rechecking license in hidden tabs and never reuses a dead scoped clock',()=>{

@@ -14,7 +14,7 @@ test('official bridge and scavenge versions compile with preserved enforcement g
  assert.match(bridge,/function stopAll\(\)/);
  assert.match(bridge,/function checkPublisher\(\)/);
  assert.match(bridge,/checkHumanGuard/);
- assert.match(mass,/^\/\/ @version\s+1\.0\.12$/m);
+ assert.match(mass,/^\/\/ @version\s+1\.0\.13$/m);
  assert.match(mass,/withCycleLease\(async\(\)=>/);
  assert.match(mass,/if\(!actual\|\|!isCycleEnabled\(\)\)return/);
  assert.doesNotMatch(mass,/if\(document\.visibilityState==='hidden'\)\{armCycleTimer\(\);return;\}/);
