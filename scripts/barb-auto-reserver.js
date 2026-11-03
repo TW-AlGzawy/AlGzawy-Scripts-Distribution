@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.6
+// @version      1.0.7
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -65,6 +65,7 @@
   // ================= الإعدادات الافتراضية =================
   const DEF = {
     DRY_RUN: true,
+    ALERT_ONLY: false,          // تنبيه فقط: يبحث ويرسل رابط البربرية على تيليجرام ولا يحجز أو يستبدل أبدًا
     SCOPE: 'all',               // all = كل البربر المتاحة | new = الجديدة فقط
     MIN_PTS: 5000, MAX_PTS: 13000, MAX_DIST: 60, DIST_W: 0,
     NEW_BARBS: true, INACTIVE: true, INACTIVE_DAYS: 10,
@@ -217,6 +218,8 @@
     remote(m, rows);
   }
   const vlink = id => `${location.origin}/game.php?village=${me.id}&screen=info_village&id=${id}`;
+  const alertMsg = c =>
+    `🔔 بربرية متاحة للحجز اليدوي${c.fresh ? ' 🆕' : ''}\n${c.kind} ${key(c.x, c.y)}\nالنقاط: ${c.pts} | المسافة: ${c.d.toFixed(1)} حقل\nافتح الرابط واضغط «حجز» بنفسك:\n${vlink(c.id)}`;
   const resMsg = (c, n, limit, extra) =>
     `✔ تم حجز ${c.fresh ? '🆕 ' : ''}${c.kind} ${key(c.x, c.y)}\nالنقاط: ${c.pts} | المسافة: ${c.d.toFixed(1)} حقل\nالخانات: ${n}/${limit}` +
     (extra ? '\n' + extra : '') + '\n' + vlink(c.id);
@@ -481,6 +484,7 @@
   const operationLock='algzawy-barb:reserve:'+location.host+':'+String(gd.player.id);
   async function safeToggle(id, coord, intent){
     const no=(why)=>({ok:false,err:why});
+    if(CFG.ALERT_ONLY)return no('وضع «تنبيه فقط» مفعّل: لا حجز ولا تعديل تلقائي');
     if(!authorized()||CFG.DRY_RUN||sessionStorage.getItem(P+'liveConfirmed')!=='1'||!get('on',false))return no('غير مفعّل أو لم يؤكّد المستخدم الحجز الفعلي');
     if(!/^(reserve|release)$/.test(intent)||!/^\d{1,3}\|\d{1,3}$/.test(String(coord))||!Number.isSafeInteger(+id)||+id<=0)
       return no('معطيات غير صالحة');
@@ -488,7 +492,7 @@
     if(!navigator.locks?.request)return no('لا يدعم المتصفح قفل Web Locks الموثوق — إيقاف العمليات الفعلية');
     const result=await navigator.locks.request(operationLock,{mode:'exclusive',ifAvailable:true},async lock=>{
       if(!lock)return no('عملية متزامنة في تبويب آخر');
-      if(!authorized()||CFG.DRY_RUN)return no('فُقد التفويض');
+      if(!authorized()||CFG.DRY_RUN||CFG.ALERT_ONLY)return no('فُقد التفويض');
       const journal=get('mutationJournal',{});
       if(Object.values(journal).some(op=>op.status==='pending'||op.status==='uncertain'))
         return no('عملية سابقة غير مؤكدة؛ يتطلب تدقيقًا يدويًا قبل أي تبديل جديد');
@@ -628,6 +632,7 @@
   async function snipeOne(k, e, s) {
     if(!authorized())return;
     const now = Date.now(), [x, y] = k.split('|').map(Number);
+    if (CFG.ALERT_ONLY) { s.done = now; return; }
     if (CFG.DRY_RUN) { s.done = now; log(`[معاينة] كان سيلتقط ${k} عند انتهاء حجزه (${(e.who || '').slice(0, 40)})`); return; }
     if (s.v === undefined) {                                // تحقق مسبق قبل الانتهاء بـ10 ثوانٍ
       if (now < e.at - 10000 || now - s.vlast < 3000) return;
@@ -785,7 +790,7 @@
 
       // ---------- حجز فوري: احجز أولًا ثم تحقق ----------
       const fastDone = [];
-      if (woke && CFG.FAST_RESERVE && !CFG.DRY_RUN && !force && now - get('resT', 0) < 6e5) {
+      if (woke && CFG.FAST_RESERVE && !CFG.DRY_RUN && !CFG.ALERT_ONLY && !force && now - get('resT', 0) < 6e5) {
         const takenC = new Set(get('taken', []));
         let freeL = limit0 - Math.max(mine.length, get('ownN', 0));
         for (const c of cands) {
@@ -863,6 +868,25 @@
       if (!todo.length) {
         set('idleUntil', Date.now() + 30000);
         logEvery('notodo', `لا مرشح متاح: ${cands.length} مرشح وكلهم محجوز مسبقًا أو مستبعد`, 3e5);
+        return;
+      }
+
+      // ---------- تنبيه فقط: لا حجز ولا استبدال ولا أي طلب تعديل — رسالة تيليجرام برابط القرية فقط ----------
+      if (CFG.ALERT_ONLY) {
+        const seen = get('alertSeen', {});
+        let sent = 0;
+        for (const c of todo) {
+          if (sent >= 5) break;
+          const k = key(c.x, c.y);
+          if (seen[k] && now - seen[k] < DAY) continue;
+          if (CFG.VERIFY_BARB) { const va = await verifyBarbNow(c, false); if (!va.ok) { if (va.transient) break; continue; } }
+          seen[k] = now; sent++;
+          log(`🔔 تنبيه: ${c.fresh ? '🆕 ' : ''}${c.kind} ${k} (${c.pts} نقطة، ${c.d.toFixed(1)} حقل)`);
+          notify(alertMsg(c), [[btn('🔎 فحص', 'c:' + k)]]);
+        }
+        for (const k in seen) if (now - seen[k] > DAY) delete seen[k];
+        set('alertSeen', seen);
+        set('idleUntil', Date.now() + 30000);
         return;
       }
 
@@ -1068,7 +1092,7 @@
     const msg = uiMsg && Date.now() - uiMsgT < 12e4 ? `<div class="brp-empty" id="brp-msg" style="white-space:pre-wrap;color:#ffd77a;text-align:right">${esc(uiMsg)}</div>` : '';
     return `<div id="brp-act" class="brp-empty" style="color:#9fe3c4">${esc(activityText())}</div>` +
       `<div class="brp-row" style="flex-wrap:wrap;gap:4px;margin:4px 0"><button class="brp-chip ${CFG.DRY_RUN ? '' : 'on'}" data-tg="DRY_RUN">${CFG.DRY_RUN ? '🟡 معاينة' : '🔴 فعلي'}</button>` +
-      `${chip('REPLACE', '🔁 استبدال')}${chip('SNIPE_ON', '🎯 التقاط')}${chip('FAST_RESERVE', '⚡ فوري')}${chip('NOBLE_CHECK', '🛡 نبلاء')}</div>` +
+      `${chip('ALERT_ONLY', '🔔 تنبيه فقط')}${chip('REPLACE', '🔁 استبدال')}${chip('SNIPE_ON', '🎯 التقاط')}${chip('FAST_RESERVE', '⚡ فوري')}${chip('NOBLE_CHECK', '🛡 نبلاء')}</div>` +
       `<div class="brp-row" style="gap:4px"><input type="text" id="brp-xy" placeholder="x|y" dir="ltr" value="${esc(uiXY)}" style="flex:1;min-width:0;padding:6px;border-radius:6px;border:1px solid #2ac6b4;background:#1d1308;color:#fff">` +
       `<button class="brp-btn sec" style="flex:none;padding:6px 9px" data-xy="c" title="فحص حيّ">🔎</button><button class="brp-btn go" style="flex:none;padding:6px 9px" data-xy="r">احجز</button>` +
       `<button class="brp-btn sec" style="flex:none;padding:6px 9px" data-xy="s" title="بدل أضعف حجز">🔁</button></div>` + msg;
@@ -1206,6 +1230,7 @@
     if (!get('on', false)) return ['off', 'متوقف'];
     const sc = scout ? ` | 🛰 ${scout.i}/${scout.n}` : '';
     if (sleeping()) return ['sleep', 'نائم حتى ' + CFG.SLEEP_TO + sc];
+    if (CFG.ALERT_ONLY) return ['dry', 'تنبيه فقط' + sc];
     if (CFG.DRY_RUN) return ['dry', 'معاينة' + sc];
     return ['on', 'يعمل' + sc];
   }
@@ -1213,6 +1238,7 @@
   // ---- الإعدادات ----
   const SCHEMA = [
     ['عام', [
+      ['ALERT_ONLY', 'تنبيه فقط: أرسل لي رابط البربرية على تيليجرام ولا تحجز', 'b', 'يبحث تلقائيًا ويرسل الإحداثيات والرابط؛ لا يحجز ولا يستبدل أبدًا. الحجز بيدك'],
       ['DRY_RUN', 'معاينة فقط (بدون حجز فعلي)', 'b'],
       ['MAX_RES', 'حد الحجوزات (احتياطي)', 'n'],
       ['RES_DAYS', 'مدة الحجز (أيام)', 'n'],
@@ -1294,7 +1320,7 @@
   const ALLKEYS = SCHEMA.flatMap(g => g[1]);
   // Settings people actually change. All other keys stay fully functional but live in the collapsed "متقدمة" section.
   const ESSENTIAL_LAYOUT = [
-    ['عام', ['DRY_RUN','MAX_RES','RES_DAYS','SCOPE']],
+    ['عام', ['ALERT_ONLY','DRY_RUN','MAX_RES','RES_DAYS','SCOPE']],
     ['الاستهداف', ['MIN_PTS','MAX_PTS','MAX_DIST','NEW_BARBS','INACTIVE','INACTIVE_DAYS','EXCL']],
     ['الاستبدال والتنبيهات والنوم', ['REPLACE','SOUND','NOTIFY_NEW','EXPIRY_ON','AUTO_RENEW','REPORT_ON','SCHED_ON','SLEEP_FROM','SLEEP_TO']],
   ];
@@ -2061,7 +2087,7 @@
   const SETTABLE = {
     MIN_PTS: ['n', 0, 50000], MAX_PTS: ['n', 0, 50000], MAX_DIST: ['n', 0, 2000], DIST_W: ['n', 0, 1000], REPLACE: ['b'], REPLACE_DIFF: ['n', 0, 50000],
     REPLACE_MAX: ['n', 0, 5], FAST_RESERVE: ['b'], NEW_BARBS: ['b'], INACTIVE: ['b'], INACT_MIN: ['n', 0, 50000], INACT_MAX: ['n', 0, 50000],
-    SCOPE: ['s', ['all', 'new']], DRY_RUN: ['b'], DIRECT_ON: ['b'], DIRECT_MIN_SEC: ['n', 3, 60], DIRECT_BATCH: ['n', 1, 30], WATCH_DAYS: ['n', 0.5, 30],
+    SCOPE: ['s', ['all', 'new']], DRY_RUN: ['b'], ALERT_ONLY: ['b'], DIRECT_ON: ['b'], DIRECT_MIN_SEC: ['n', 3, 60], DIRECT_BATCH: ['n', 1, 30], WATCH_DAYS: ['n', 0.5, 30],
     INCLUDE_ALLY: ['b'], SCHED_ON: ['b'], SLEEP_FROM: ['t'], SLEEP_TO: ['t'], VERIFY_BARB: ['b'], NOBLE_CHECK: ['b'], EXCL: ['str'], ONLY: ['str'], SOUND: ['b'], HB_H: ['n', 0, 48], SNIPE_ON: ['b'], SNIPE_GAP_SEC: ['n', 1, 10], TG_BTN: ['b'] };
   const SENSITIVE = new Set(['DRY_RUN', 'NOBLE_CHECK', 'VERIFY_BARB']);
   function coerce(k, raw) {
@@ -2146,6 +2172,7 @@
     if(!authorized())return '⏸ غير مصرح من Cloud Bridge';
     const k = key(x, y);
     snHold.set(k, Date.now() + 12e4);           // لا تزاحم من الدورة الآلية (الحجز «تبديل»)
+    if (CFG.ALERT_ONLY) return '🔔 وضع «تنبيه فقط» مفعّل — لا حجز تلقائي. افتح رابط البربرية واحجز بيدك.';
     if (CFG.DRY_RUN) return '🟡 وضع المعاينة مفعّل — أرسل /live ثم أعد الأمر.';
     const v = await lookupVillage(x, y);
     if (!v) return `لا توجد قرية في ${k}.` + swapHint(x, y);
@@ -2188,6 +2215,7 @@
   /** تحضير الاستبدال اليدوي: يعيد {msg} للرفض/الإنجاز المباشر أو {v, R, weak} */
   async function swapPrep(x, y, weakK) {
     const k = key(x, y);
+    if (CFG.ALERT_ONLY) return { msg: '🔔 وضع «تنبيه فقط» مفعّل — لا حجز تلقائي. افتح رابط البربرية واحجز بيدك.' };
     if (CFG.DRY_RUN) return { msg: '🟡 وضع المعاينة مفعّل — أرسل /live ثم أعد الأمر.' };
     const v = await lookupVillage(x, y);
     if (!v) return { msg: `لا توجد قرية في ${k}.` + swapHint(x, y) };
