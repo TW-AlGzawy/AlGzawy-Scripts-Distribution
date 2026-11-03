@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
-// @version      2.3.4
-// @description  AlGzawy Smart Defense 2.3.4 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
+// @version      2.3.5
+// @description  AlGzawy Smart Defense 2.3.5 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
 // ==/UserScript==
 (function (root) {
   'use strict';
@@ -527,8 +527,11 @@
       for(let slot=0;slot<=maxSlot;slot++){
         for(const gap of gapsList){
           if(selected.length>=max)break;
-          const list=(cells.get(gap+':'+slot)||[]).slice()
-            .sort((a,b)=>(b.score||0)-(a.score||0));
+          // Farthest villages first (they must leave earliest), but skip ones with a token force.
+          const cell=(cells.get(gap+':'+slot)||[]);
+          const topTroops=Math.max(0,...cell.map(o=>o.troops||0));
+          const list=cell.filter(o=>(o.troops||0)>=topTroops*0.25).slice()
+            .sort((a,b)=>(b.travelMs||0)-(a.travelMs||0)||(b.score||0)-(a.score||0));
           const usedHere=new Set(selected.filter(t=>t.gapIndex===gap).map(t=>t.sourceId));
           const ok=p=>(!owner.has(p.sourceId)||owner.get(p.sourceId)===gap)&&
             !selected.some(t=>Math.abs(t.sendAt-p.sendAt)<MIN_NAV_SEPARATION_MS);
@@ -1240,9 +1243,17 @@
     try{renderNativeNobleControls();}catch(e){log('INLINE_TARGET_UI',String(e.message||e));}
     return trains;
   }
+  // A hung request must fail visibly instead of freezing the scan forever.
+  function fetchLimited(url,init={},ms=25000){
+    const ctl=typeof AbortController==='function'?new AbortController():null;
+    const timer=ctl?bgClock.timeout(()=>ctl.abort(),ms):null;
+    return fetch(url,ctl?{...init,signal:ctl.signal}:init)
+      .catch(e=>{throw e?.name==='AbortError'?Error('انتهت مهلة الطلب ('+Math.round(ms/1000)+'ث): '+String(url).split('?')[0]):e;})
+      .finally(()=>{if(timer!==null)bgClock.clear(timer);});
+  }
   async function readConfiguration(){
     const [a,b]=await Promise.all(['/interface.php?func=get_config','/interface.php?func=get_unit_info']
-      .map(url=>fetch(url,{credentials:'same-origin',redirect:'follow'})));
+      .map(url=>fetchLimited(url,{credentials:'same-origin',redirect:'follow'})));
     if(!a.ok||!b.ok)throw Error('فشل جلب إعدادات العالم أو معلومات الوحدات');
     const parser=new DOMParser();
     const cfg=parser.parseFromString(await a.text(),'application/xml');
@@ -1263,7 +1274,7 @@
     const args=new URLSearchParams({village:ownId(),type:'own_home',mode:'units',group:'0',
       page:'-1',screen:'overview_villages'});
     const sitter=new URLSearchParams(root.location.search).get('t');if(sitter)args.set('t',sitter);
-    const response=await fetch('/game.php?'+args.toString(),{credentials:'same-origin'});
+    const response=await fetchLimited('/game.php?'+args.toString(),{credentials:'same-origin'});
     if(!response.ok)throw Error('فشل تحميل قائمة قوات القرى');
     const page=new DOMParser().parseFromString(await response.text(),'text/html');
     return rosterFromTable(page.querySelector('#units_table'));
@@ -1273,7 +1284,7 @@
     // An unreadable overview is "unknown", never silently reported as no attacks.
     const qs=new URLSearchParams({village:ownId(),screen:'overview_villages',mode:'incomings',group:'0',page:'-1'});
     const sitter=new URLSearchParams(root.location.search).get('t');if(sitter)qs.set('t',sitter);
-    const response=await fetch('/game.php?'+qs.toString(),{credentials:'same-origin'});
+    const response=await fetchLimited('/game.php?'+qs.toString(),{credentials:'same-origin'});
     if(!response.ok)return {available:false,reason:'رد الصفحة غير ناجح',villages:[]};
     const page=new DOMParser().parseFromString(await response.text(),'text/html');
     const table=page.querySelector('#incomings_table,#overview_table.incomings,#incomings,#commands_incomings');
@@ -1302,7 +1313,7 @@
     const cache=get(root.localStorage,cacheKey);
     if(cache?.source===source.str&&Date.now()-cache.updatedAt<15*60000&&
       Array.isArray(cache.villages))return {available:true,villages:cache.villages,cached:true};
-    const response=await fetch('/map/village.txt',{credentials:'same-origin',redirect:'follow'});
+    const response=await fetchLimited('/map/village.txt',{credentials:'same-origin',redirect:'follow'});
     if(!response.ok)throw Error('خريطة العالم غير متاحة HTTP '+response.status);
     const contentSize=Number(response.headers.get('content-length')||0);
     if(contentSize>24*1024*1024)throw Error('خريطة العالم كبيرة جدًا للفحص داخل المتصفح');
@@ -2056,7 +2067,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.4 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.5 QA</small></span></header>
 <main>
   <section data-sd-page="home">
     <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -2126,7 +2137,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </section>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.3.4';
+    panel.dataset.editorVersion='2.3.5';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};

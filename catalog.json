@@ -88,10 +88,10 @@
     {
       "id": "smart-defense-ultimate",
       "name": "الغزااوي | القائد الذكي للدفاع والقنص",
-      "version": "2.3.4",
+      "version": "2.3.5",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/smart-defense-ultimate.user.js",
-      "note": "v2.3.4: snipes per noble default to automatic (as many as possible). v2.3.3: ignore old saved manual from/to values so windows are automatic. v2.3.2: first-noble window is now 200ms before the noble (editable). v2.3.1: fixed unreadable beige background behind settings labels. v2.3.0: click any noble row (in the game table or the panel) to select it with an automatic window (previous attack + edge … noble − edge, default 10ms); unlimited snipes per noble from several villages (manual or automatic), a village is never reused for another noble; Worker-based send clock keeps millisecond timing in background tabs.",
+      "note": "v2.3.5: snipes start from the farthest villages first; scan requests time out after 25s instead of hanging. v2.3.4: snipes per noble default to automatic (as many as possible). v2.3.3: ignore old saved manual from/to values so windows are automatic. v2.3.2: first-noble window is now 200ms before the noble (editable). v2.3.1: fixed unreadable beige background behind settings labels. v2.3.0: click any noble row (in the game table or the panel) to select it with an automatic window (previous attack + edge … noble − edge, default 10ms); unlimited snipes per noble from several villages (manual or automatic), a village is never reused for another noble; Worker-based send clock keeps millisecond timing in background tabs.",
       "approved_for_final": false
     },
     {
