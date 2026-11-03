@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.8
+// @version      1.0.9
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -65,6 +65,7 @@
   // ================= الإعدادات الافتراضية =================
   const DEF = {
     DRY_RUN: true,
+    TG_LIVE_HOURS: 2,           // مدة «نافذة» السماح بتفعيل الحجز الفعلي من تيليجرام (1-12 ساعة)، تُفتح من اللوحة فقط
     ALERT_ONLY: false,          // تنبيه فقط: يبحث ويرسل رابط البربرية على تيليجرام ولا يحجز أو يستبدل أبدًا
     SCOPE: 'all',               // all = كل البربر المتاحة | new = الجديدة فقط
     MIN_PTS: 5000, MAX_PTS: 13000, MAX_DIST: 60, DIST_W: 0,
@@ -761,6 +762,7 @@
 
   async function tick(force, woke) {
     if(!authorized())return;
+    enforceTgLiveExpiry();
     if (busy) return;
     if (!force && !get('on', false)) return;
     if (!force && !isLeader()) return;
@@ -1077,7 +1079,27 @@
     return doSwap(x, y, p.weak.k);
   });
   function uiIgnore(k) { setCfg('EXCL', (String(CFG.EXCL || '') + ' ' + k).trim()); say('🚫 أُضيفت ' + k + ' إلى القائمة السوداء'); }
+  // ---- نافذة التحكم الفعلي من تيليجرام: تُفتح محليًا فقط، لتبويب واحد، ولمدة محدودة ----
+  const tgArmUntil = () => +(sessionStorage.getItem(P + 'tgArmUntil') || 0);
+  const tgArmed = () => tgArmUntil() > Date.now();
+  const tgWindowMs = () => Math.min(12, Math.max(1, +CFG.TG_LIVE_HOURS || 2)) * HOUR;
+  function enforceTgLiveExpiry() {
+    const u = +(sessionStorage.getItem(P + 'tgLiveUntil') || 0);
+    if (u && Date.now() > u) {
+      sessionStorage.removeItem(P + 'tgLiveUntil'); sessionStorage.removeItem(P + 'tgArmUntil'); sessionStorage.removeItem(P + 'liveConfirmed');
+      if (!CFG.DRY_RUN) { setCfg('DRY_RUN', true); log('⏱ انتهت نافذة التحكم من تيليجرام — عاد السكربت إلى المعاينة'); notify('⏱ انتهت نافذة التحكم الفعلي من تيليجرام، عاد السكربت إلى المعاينة.'); }
+    }
+  }
+  function toggleTgWindow() {
+    if (tgArmed()) { sessionStorage.removeItem(P + 'tgArmUntil'); log('🔒 أُغلقت نافذة التحكم من تيليجرام'); return; }
+    const h = tgWindowMs() / HOUR;
+    if (!authorized() || !navigator.locks?.request) { say('🔒 لا يمكن فتح النافذة الآن (ترخيص غير مفعّل أو متصفح لا يدعم القفل).'); return; }
+    if (!confirm(`السماح لتيليجرام المرتبط بتفعيل الحجز الفعلي في هذا التبويب فقط لمدة ${h} ساعة؟\nلن يبدأ الحجز الفعلي إلا بعد أن ترسل /live من تيليجرام وتضغط «تأكيد» على الرسالة. وتُغلق النافذة تلقائيًا وتعود المعاينة عند انتهاء المدة أو بإغلاق التبويب.`)) return;
+    sessionStorage.setItem(P + 'tgArmUntil', String(Date.now() + h * HOUR));
+    log(`📱 فُتحت نافذة التحكم الفعلي من تيليجرام لمدة ${h} ساعة`);
+  }
   function quickToggle(k) {
+    if (k === 'TG_ARM') { toggleTgWindow(); render(); return; }
     if (k === 'DRY_RUN') { if(CFG.DRY_RUN&&(!authorized()||!navigator.locks?.request||!confirm('تفعيل الحجز الفعلي في هذا التبويب فقط؟ كل تبديل يُفحص قبل وبعد العملية، وأي نتيجة غير مؤكدة توقف السكربت.')))return;
       sessionStorage.setItem(P+'liveConfirmed',CFG.DRY_RUN?'1':'0');setCfg('DRY_RUN',!CFG.DRY_RUN);set('idleUntil',0); }
     else {
@@ -1101,7 +1123,7 @@
     const msg = uiMsg && Date.now() - uiMsgT < 12e4 ? `<div class="brp-empty" id="brp-msg" style="white-space:pre-wrap;color:#ffd77a;text-align:right">${esc(uiMsg)}</div>` : '';
     return `<div id="brp-act" class="brp-empty" style="color:#9fe3c4">${esc(activityText())}</div>` +
       `<div class="brp-row" style="flex-wrap:wrap;gap:4px;margin:4px 0"><button class="brp-chip ${CFG.DRY_RUN ? '' : 'on'}" data-tg="DRY_RUN">${CFG.DRY_RUN ? '🟡 معاينة' : '🔴 فعلي'}</button>` +
-      `${chip('ALERT_ONLY', '🔔 تنبيه فقط')}${chip('REPLACE', '🔁 استبدال')}${chip('SNIPE_ON', '🎯 التقاط')}${chip('FAST_RESERVE', '⚡ فوري')}${chip('NOBLE_CHECK', '🛡 نبلاء')}</div>` +
+      `${chip('ALERT_ONLY', '🔔 تنبيه فقط')}<button class="brp-chip ${tgArmed() ? 'on' : ''}" data-tg="TG_ARM">${tgArmed() ? '📱 نافذة تيليجرام مفتوحة حتى ' + new Date(tgArmUntil()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '📱 فتح التحكم الفعلي من تيليجرام'}</button>${chip('REPLACE', '🔁 استبدال')}${chip('SNIPE_ON', '🎯 التقاط')}${chip('FAST_RESERVE', '⚡ فوري')}${chip('NOBLE_CHECK', '🛡 نبلاء')}</div>` +
       `<div class="brp-row" style="gap:4px"><input type="text" id="brp-xy" placeholder="x|y" dir="ltr" value="${esc(uiXY)}" style="flex:1;min-width:0;padding:6px;border-radius:6px;border:1px solid #2ac6b4;background:#1d1308;color:#fff">` +
       `<button class="brp-btn sec" style="flex:none;padding:6px 9px" data-xy="c" title="فحص حيّ">🔎</button><button class="brp-btn go" style="flex:none;padding:6px 9px" data-xy="r">احجز</button>` +
       `<button class="brp-btn sec" style="flex:none;padding:6px 9px" data-xy="s" title="بدل أضعف حجز">🔁</button></div>` + msg;
@@ -1306,6 +1328,7 @@
       ['TG_TOKEN', 'Telegram token', 'p'], ['TG_CHAT', 'Telegram chat id', 't'],
       ['DC_HOOK', 'Discord webhook', 'p'],
       ['TG_CMD', 'أوامر Telegram', 'b', 'أرسل /help في المحادثة لقائمة الأوامر'],
+      ['TG_LIVE_HOURS', 'مدة نافذة التحكم الفعلي من تيليجرام (ساعات، 1-12)', 'n', 'تُفتح من اللوحة فقط وتُغلق تلقائيًا'],
       ['TG_CONFIRM', 'تأكيد الأوامر الحساسة (/confirm)', 'b', 'الإلغاء والحجز الفعلي والأوامر القسرية'],
       ['TG_BTN', 'أزرار تحت رسائل تيليجرام', 'b', 'احجز / فحص / إلغاء بضغطة'],
       ['SNIPE_ON', 'التقاط الحجز المنتهي', 'b', 'يحجز قرى الآخرين لحظة انتهاء حجزها (يحتاج خانة فارغة)'],
@@ -2132,7 +2155,7 @@
       if(!relayCommands.has(AR[first]||first)){tgSend('❌ الأمر غير مدعوم. أرسل /barb menu');return;}
       if(first==='cancel'){set('tgPend',null);tgSend('✖ أُلغي الأمر المعلّق');return;}
       // Failure-closed: Telegram cannot switch manually stopped scripts ON or enter LIVE.
-      if(first==='resume'||first==='live'){tgSend('🔒 التشغيل والحجز الفعلي يتطلبان تفعيلًا يدويًا من نافذة اللعبة.');return;}
+      if(first==='resume'){tgSend('🔒 التشغيل يتطلب تفعيلًا يدويًا من نافذة اللعبة.');return;}
       await tgCommand(text);
       if(!barbReplySent)tgSend('✔ تم استلام الأمر، راجع سجل اللعبة للنتيجة.');
     }catch(e){tgSend('⚠ تعذّر معالجة الأمر: '+String(e?.message||e).slice(0,200));}
@@ -2281,6 +2304,16 @@
     }
     return '🔎 تدقيق حجوزاتي:\n' + out.join('\n');
   }
+  function goLiveFromTelegram() {
+    if (!authorized()) return '⏸ لا يوجد تفويض صالح';
+    if (!tgArmed()) return '🔒 انتهت نافذة التحكم من تيليجرام؛ افتحها من لوحة اللعبة أولًا.';
+    if (!navigator.locks?.request) return '🔒 المتصفح لا يدعم قفل Web Locks — لا يمكن تفعيل الحجز الفعلي.';
+    sessionStorage.setItem(P + 'liveConfirmed', '1');
+    sessionStorage.setItem(P + 'tgLiveUntil', String(tgArmUntil()));
+    setCfg('DRY_RUN', false); set('idleUntil', 0);
+    log('🔴 فُعّل الحجز الفعلي بتأكيد من تيليجرام (داخل النافذة المفتوحة محليًا)');
+    return `🔴 الحجز الفعلي مفعّل في هذا التبويب حتى ${new Date(tgArmUntil()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. أرسل «معاينة» للعودة فورًا.`;
+  }
   async function execPending(p) {
     if(!authorized())return '⏸ لا يوجد تفويض صالح';
     const [x, y] = [p.x, p.y];
@@ -2288,7 +2321,7 @@
       case 'release': return doRelease(x, y, p.force);
       case 'swap': return doSwap(x, y, p.weak);
       case 'reserve': return doReserve(x, y, true);
-      case 'live': return '🔒 تفعيل الحجز الفعلي يتم من لوحة اللعبة مع تأكيد محلي فقط.';
+      case 'live': return goLiveFromTelegram();
       case 'set': setCfg(p.key, p.val); set('txtT', 0); return `✔ ${p.key} = ${p.val}`;
       default: return 'أمر غير معروف';
     }
@@ -2357,8 +2390,12 @@
         }
         case 'pause': set('on', false); return tgSend('⏸ تم الإيقاف');
         case 'resume': return tgSend('🔒 التشغيل من لوحة اللعبة فقط بعد تفويض الجسر.');
-        case 'live': return tgSend('🔒 تفعيل LIVE من لوحة اللعبة فقط.');
-        case 'dry': setCfg('DRY_RUN', true);sessionStorage.removeItem(P+'liveConfirmed'); return tgSend('🟡 وضع المعاينة');
+        case 'live': {
+          if (!tgArmed()) return tgSend('🔒 نافذة التحكم من تيليجرام مغلقة. افتحها من لوحة اللعبة بزر «📱 فتح التحكم الفعلي من تيليجرام» (يحتاج تأكيدًا محليًا)، ثم أعد /live.');
+          set('tgPend', { cmd: 'live', t: Date.now(), label: 'الحجز الفعلي في هذا التبويب' });
+          return tgSend(`⚠ تفعيل الحجز الفعلي حتى ${new Date(tgArmUntil()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}؟ اضغط تأكيد خلال 90 ثانية:`, [[btn('✅ تأكيد', 'ok'), btn('✖ إلغاء', 'no')]]);
+        }
+        case 'dry': setCfg('DRY_RUN', true);sessionStorage.removeItem(P+'liveConfirmed');sessionStorage.removeItem(P+'tgLiveUntil'); return tgSend('🟡 وضع المعاينة');
         case 'log': return tgSend(logText());
         case 'report': return tgSend(reportText(24));
         case 'watch': return tgSend(watchText());
