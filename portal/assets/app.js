@@ -30,7 +30,16 @@ const errorArabic=err=>({
  script_globally_disabled:'هذا السكربت موقوف من الإدارة مؤقتًا.',
  invalid_enabled:'قيمة التشغيل غير صحيحة.',
  invalid_name:'أدخل اسم مستخدم من حرفين إلى 80 حرفًا.'
-})[String(err?.message||'')]||'حدث خطأ: '+String(err?.message||err);
+})[String(err?.message||'')]||friendlyFallback(err?.message||err);
+const friendlyFallback=(code)=>{
+ const c=String(code||'');
+ if(/^http_(401|403)$/.test(c))return 'انتهت الجلسة أو لا تملك الصلاحية. سجّل الدخول من جديد.';
+ if(c==='http_404')return 'الخدمة غير متاحة الآن. حدّث الصفحة وحاول بعد قليل.';
+ if(c==='http_429')return 'محاولات كثيرة. انتظر دقيقة ثم أعد المحاولة.';
+ if(/^http_5\d\d$/.test(c))return 'الخادم مشغول أو غير متاح مؤقتًا. حاول بعد قليل.';
+ if(/failed to fetch|networkerror|load failed|network request failed/i.test(c))return 'تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وأعد المحاولة.';
+ return 'تعذر إكمال العملية. حدّث الصفحة وأعد المحاولة، وإن تكرر الأمر أرسل للإدارة هذا الرمز: '+(c||'غير معروف');
+};
 function h(tag,className,text){
  const el=document.createElement(tag);
  if(className)el.className=className;

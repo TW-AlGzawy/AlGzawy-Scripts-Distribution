@@ -54,7 +54,16 @@ const errors={
  service_unavailable:'الخدمة غير متاحة مؤقتًا.',
  global_status_unavailable:'تعذر قراءة مفتاح التحكم المركزي.'
 };
-const errText=err=>errors[err?.message]||'تعذر تنفيذ الطلب: '+String(err?.message||'خطأ غير معروف');
+const friendlyFallback=(code)=>{
+ const c=String(code||'');
+ if(/^http_(401|403)$/.test(c))return 'انتهت الجلسة أو لا تملك الصلاحية. سجّل الدخول من جديد.';
+ if(c==='http_404')return 'الخدمة غير متاحة الآن. حدّث الصفحة وحاول بعد قليل.';
+ if(c==='http_429')return 'محاولات كثيرة. انتظر دقيقة ثم أعد المحاولة.';
+ if(/^http_5\d\d$/.test(c))return 'الخادم مشغول أو غير متاح مؤقتًا. حاول بعد قليل.';
+ if(/failed to fetch|networkerror|load failed|network request failed/i.test(c))return 'تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وأعد المحاولة.';
+ return 'تعذر إكمال العملية. حدّث الصفحة وأعد المحاولة، وإن تكرر الأمر أرسل للإدارة هذا الرمز: '+(c||'غير معروف');
+};
+const errText=err=>errors[err?.message]||friendlyFallback(err?.message);
 async function api(path,options={}){
   const method=options.method||'GET';
   const headers={'Accept':'application/json'};
