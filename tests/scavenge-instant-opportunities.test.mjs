@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../scripts/mass-scavenge-v1.js',import.meta.url),'utf8');
 const start=source.indexOf('    // Extract only JSON arguments from the game');
 const end=source.indexOf('    function waitAndClick(',start);
-assert.ok(start>=0&&end>start,'v1.0.11 mass scheduler available');
+assert.ok(start>=0&&end>start,'v1.0.12 mass scheduler available');
 const code=source.slice(start,end);
 
 function harness({shared=new Map(),clock={t:Date.UTC(2026,10,1,18)},village=null,disabled=false,
@@ -37,7 +37,7 @@ function harness({shared=new Map(),clock={t:Date.UTC(2026,10,1,18)},village=null
   querySelectorAll(sel){
    if(sel==='script:not([src])')return [script];
    if(sel==='table.mass-scavenge-table tr[data-id]')return [row];
-   if(sel==='#algzawy-panel')return pinned?[{dataset:{algzawyScheduler:'1.0.11'}}]:[];
+   if(sel==='#algzawy-panel')return pinned?[{dataset:{algzawyScheduler:'1.0.12'}}]:[];
    return [];
   },getElementById(){return null;},addEventListener(){},dispatchEvent(){}};
  const window={game_data:{player:{id:1703609}},crypto:{randomUUID:()=> 't-'+Math.random()},
@@ -116,14 +116,14 @@ test('disabled premium options and unpinned scripts block dispatch, including hi
  const h=harness();h.api.ensureCycleSchedule();h.enabled=false;
  await h.api.checkCycleDue();assert.equal(h.sends,0);
 });
-test('engine, licensed loader and catalog publish the same v1.0.11',()=>{
+test('engine, licensed loader and catalog publish the same v1.0.12',()=>{
  const loader=readFileSync(new URL('../loaders/mass-scavenge-v1.user.js',import.meta.url),'utf8');
  const item=JSON.parse(readFileSync(new URL('../catalog.json',import.meta.url),'utf8'))
   .published_candidates.find(v=>v.id==='mass-scavenge-v1');
  new vm.Script(source);new vm.Script(loader);
- assert.match(source,/^\/\/ @version\s+1\.0\.11$/m);
- assert.match(loader,/^\/\/ @version\s+1\.0\.11$/m);
- assert.equal(item.version,'1.0.11');
+ assert.match(source,/^\/\/ @version\s+1\.0\.12$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.0\.12$/m);
+ assert.equal(item.version,'1.0.12');
  assert.match(loader,/const ID = "mass-scavenge-v1";/);
  assert.match(loader,/hasPortalLicense\(\)/);
  assert.match(source,/if\(!isCurrentCycleClaim\(\)\)return;/);
