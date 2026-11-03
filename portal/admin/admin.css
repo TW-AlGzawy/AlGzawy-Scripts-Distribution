@@ -146,3 +146,11 @@ small,.small{font-size:12px}
 .owner-login-card .login-message{min-height:0;margin:2px 0;font-size:13px}
 .owner-login-card .login-message:empty{display:none}
 .owner-login-card #ownerAuthSubmit{margin-top:8px}
+
+.owner-password-control{position:relative;display:block}
+.owner-password-control>input{width:100%;padding-right:48px}
+.owner-password-control>button{position:absolute;top:0;right:0;bottom:0;width:46px;min-height:0;padding:0;border:0;border-radius:0 9px 9px 0;background:transparent;color:#8fb0bd;display:grid;place-items:center;cursor:pointer}
+.owner-password-control>button:hover,.owner-password-control>button:focus-visible{color:#48ddad}
+.owner-password-control>button:focus-visible{outline:2px solid #48ddad;outline-offset:-2px}
+.owner-password-control .eye-open{display:none}.owner-password-control .eye-closed{display:block}
+.owner-password-control>button.is-revealed .eye-open{display:block}.owner-password-control>button.is-revealed .eye-closed{display:none}
