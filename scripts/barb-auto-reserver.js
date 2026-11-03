@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.10
+// @version      1.0.11
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -2160,7 +2160,8 @@
     barbRelayBusy=true;barbReplyId=cmd.id;barbReplySent=false;
     try{
       if(!authorized()){tgSend('⏸ سكربت الحجز موقوف بواسطة Cloud Bridge أو يتطلب حل CAPTCHA.');return;}
-      const text=cmd.kind==='callback'?relayButtonCommand(cmd.text):'/'+cmd.text.trim().replace(/^\/?barb\s+/i,'').replace(/^\//,'');
+      const typed=cmd.kind==='callback'?'':cmd.text.trim().replace(/^\/?barb\s*/i,'').replace(/^\//,'');   // «/barb» وحدها (من قائمة البوت) = القائمة
+      const text=cmd.kind==='callback'?relayButtonCommand(cmd.text):'/'+(typed||'menu');
       if(!text){tgSend('❌ زر غير معروف أو منتهي الصلاحية');return;}
       const first=text.trim().split(/[\s@]/)[0].replace(/^\//,'').toLowerCase();
       if(!relayCommands.has(AR[first]||first)){tgSend('❌ الأمر غير مدعوم. أرسل /barb menu');return;}
