@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
-// @version      2.1.5
-// @description  AlGzawy Smart Defense 2.1.5 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
+// @version      2.2.0
+// @description  AlGzawy Smart Defense 2.2.0 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
 // ==/UserScript==
 (function (root) {
   'use strict';
@@ -757,7 +757,7 @@
       trains.some(train=>(train.waves||[]).some(w=>
         w.kind==='noble'&&validEpoch(w.at)&&w.at<=now));
   }
-  const CORE=Object.freeze({assessTaskPrecision,timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,slotConflicts,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
+  const CORE=Object.freeze({assessTaskPrecision,timingCalibration,applyTimingCalibration,classifySnipingOutcome,nativeTimingRisk,roundedTravelMs,confirmationTravelMs,verifyNativeTravel,hasExpiredNobleRecords,availableArmyTypes,shouldStopForMissingNoble,shouldStopForExpiredTarget,activeIncomingRecords,activeNobleKeys,measuredTimingRisk,reserveDispatch,dispatchKey,nobleWindows,nobleTrains,towerThreat,nobleKey,cancelFallbackCandidates,barbarianTargetsFromWorldMap,sequentialCancelCandidates,nobleIndexOf,nobleGapSummary,multiNobleStrategies,visibleNoblePlans,observedDelivery,countdownCardState,mergeSharedDraft,sharedContextUsable,parseTime,parseTimer,parseNumericEndtime,classifyRow,groupTrains,gaps,
     rosterFromTable,unitFormations,supportOptions,cancelOptions,rankStrategies,validateTask,stamp,clockOnly,countdown,xy,
     WINDOWS,MIN_PREP_MS,MIN_NAV_SEPARATION_MS,SEND_TOLERANCE_MS});
   if(typeof module!=='undefined'&&module.exports)module.exports=CORE;
@@ -773,7 +773,6 @@
   const METRICS=storagePrefix+'metrics',AUDIT=storagePrefix+'events';
   const LAYOUT=storagePrefix+'layout',TRAIN=storagePrefix+'train_v210',LOCK=storagePrefix+'lock_v210';
   const TAB_KEY=storagePrefix+'ui_active_tab_v210';
-  const SLOTS=storagePrefix+'planning_slots_v200';
   const TARGET_RULES=storagePrefix+'noble_target_rules_v200';
   const CLAIMED_SENDS=storagePrefix+'dispatch_claims_v200';
   // Drafts and scans are shared by tabs on this origin for this player only.
@@ -798,7 +797,6 @@
   let lastScannedKey='',lastUncertainAt=0,uiTick=0,monitorTimer=0,panelLayout=null;
   let activeTab=get(root.localStorage,TAB_KEY)||'home';
   let latestDraftAt=0,latestContextAt=0,otherMission=null;
-  let slotState=Array.isArray(get(root.localStorage,SLOTS))?get(root.localStorage,SLOTS).slice(0,30):[];
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
   const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto',
@@ -955,7 +953,6 @@
     root.addEventListener('storage',e=>{
       if(e.storageArea!==root.localStorage)return;
       if(e.key===DRAFT||e.key===SETTINGS)applySharedDraft();
-      if(e.key===SLOTS){slotState=Array.isArray(get(root.localStorage,SLOTS))?get(root.localStorage,SLOTS).slice(0,30):[];renderSlots();}
       if(e.key===CONTEXT)applySharedContext();
       if(e.key===LIVE_STATE||e.key===LOCK)syncMissionState();
       if(e.key===STOP_REQUEST)handleRemoteStop();
@@ -1792,141 +1789,10 @@
   }
 
 
-  function slotConflicts(slots){
-    if(!Array.isArray(slots))return [];
-    const conflicts=[];
-    const tasksOf=slot=>slot.plan?(Array.isArray(slot.plan.tasks)?slot.plan.tasks:[slot.plan]):[];
-    for(let i=0;i<slots.length;i++)for(let j=i+1;j<slots.length;j++){
-      const a=slots[i],b=slots[j];
-      for(const x of tasksOf(a))for(const y of tasksOf(b)){
-        if(!validEpoch(x.sendAt)||!validEpoch(y.sendAt))continue;
-        if(x.sourceId===y.sourceId&&
-          x.sendAt<=Math.max(y.arrivalAt||y.sendAt,y.sendAt)&&
-          y.sendAt<=Math.max(x.arrivalAt||x.sendAt,x.sendAt)){
-          conflicts.push({first:a.id,second:b.id,reason:'القوات من القرية نفسها ضمن فترة متداخلة'});
-        }else if(Math.abs(x.sendAt-y.sendAt)<MIN_NAV_SEPARATION_MS){
-          conflicts.push({first:a.id,second:b.id,reason:'موعدا إرسال أقرب من 30 ثانية'});
-        }
-      }
-    }
-    return conflicts;
-  }
-
-  function saveSlots(){if(slotState.length>30)throw Error('حد المهام 30');set(root.localStorage,SLOTS,slotState);}
-  function renderSlots(){
-    const now=nowServer();
-    if(finite(now)){
-      const valid=slotState.filter(slot=>!slot.plan||slot.plan.arrivalAt>now);
-      if(valid.length!==slotState.length){slotState=valid;saveSlots();}
-    }
-    let rootNode=doc.getElementById('algzawy-sd-slots');
-    if(!rootNode){rootNode=doc.createElement('div');rootNode.id='algzawy-sd-slots';doc.body.appendChild(rootNode);}
-    rootNode.replaceChildren();
-    const badge=uiQuery('sd-slot-count');if(badge)badge.textContent=slotState.length+'/30';
-    const conflicts=slotConflicts(slotState);
-    const directory=uiQuery('sd-tasks-list');if(directory)directory.replaceChildren();
-    if(directory&&!slotState.length)
-      directory.textContent='لا توجد مهام محفوظة. اضغط «إنشاء مهمة قنص جديدة» لبدء التخطيط.';
-    const button=(label,fn)=>{const b=doc.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b;};
-    for(const slot of slotState){
-      if(directory){
-        const row=doc.createElement('div');row.className='sd-task-item';
-        const info=doc.createElement('strong');
-        info.textContent=slot.id+' | '+slot.target+' | '+(slot.plan?'خطة محفوظة':'بانتظار اختيار خطة');
-        row.appendChild(info);
-        row.appendChild(button(slot.visible?'إخفاء النافذة':'عرض النافذة',()=>{
-          slot.visible=!slot.visible;saveSlots();renderSlots();
-        }));
-        row.appendChild(button('حذف',()=>{
-          slotState=slotState.filter(s=>s.id!==slot.id);saveSlots();renderSlots();
-        }));
-        directory.appendChild(row);
-      }
-      if(!slot.visible)continue;
-      const section=doc.createElement('section');section.className='sd-task-slot';
-      section.style.left=Math.max(0,Number(slot.x)||20)+'px';
-      section.style.top=Math.max(0,Number(slot.y)||65)+'px';
-      section.style.width=Math.max(230,Number(slot.width)||295)+'px';
-      section.style.height=slot.folded?'42px':Math.max(170,Number(slot.height)||205)+'px';
-      const bar=doc.createElement('div');bar.className='sd-task-bar';
-      const title=doc.createElement('strong');title.textContent=slot.id+' | '+slot.target;
-      bar.appendChild(title);
-      bar.appendChild(button('×',()=>{slotState=slotState.filter(s=>s.id!==slot.id);saveSlots();renderSlots();}));
-      section.appendChild(bar);
-      const content=doc.createElement('div');content.className='sd-task-body';content.hidden=!!slot.folded;
-      const summary=doc.createElement('p');
-      const issues=conflicts.filter(c=>c.first===slot.id||c.second===slot.id);
-      summary.textContent=(slot.plan?
-        '🎯 '+slot.plan.kind+' | '+slot.target+'\nالوصول: '+stamp(slot.plan.arrivalAt)+
-        '\nهامش: '+slot.plan.marginMs+'ms':
-        'لا توجد خطة محفوظة لهذه النافذة بعد.')+
-        (issues.length?'\n⚠️ تعارضات محتملة: '+issues.map(c=>c.reason).join('، '):'')+
-        '\n🛡️ هذه نافذة تخطيط فقط؛ أوامر التنفيذ تخضع لقفل واحد.';
-      content.appendChild(summary);
-      content.appendChild(button('💾 حفظ الخطة المختارة',()=>{
-        if(!chosen||!scanned)return notify('اختر خطة من القائمة الرئيسية أولًا','error');
-        slot.target=scanned.target.str;slot.plan=JSON.parse(JSON.stringify(chosen));
-        slot.savedAt=Date.now();saveSlots();renderSlots();
-      }));
-      content.appendChild(button('🎯 تفعيل الخطة',()=>{
-        if(!slot.plan)return notify('احفظ خطة أولًا','error');
-        if(!scanned||scanned.target.str!==slot.target||
-          !sharedContextUsable(scanned,currentFingerprint(),nowServer()))
-          return notify('يلزم فحص حديث للقرية '+slot.target+' قبل التنفيذ','error');
-        const p=scanned.plans.find(p=>p.id===slot.plan.id);
-        if(!p)return notify('الخطة القديمة غير صالحة؛ أعد الاختيار من نتائج الفحص','error');
-        chosen=p;uiQuery('sd-options').value=p.id;renderPlan();publishSelectedPlan();
-        notify('تم تفعيل '+slot.id+' للتجهيز؛ لم يصدر أي أمر.','success');
-      }));
-      section.appendChild(content);
-      bar.addEventListener('pointerdown',event=>{
-        if(event.target.closest('button'))return;
-        if(event.pointerType==='mouse'&&event.button!==0)return;
-        event.preventDefault();
-        const x=section.offsetLeft,y=section.offsetTop,sx=event.clientX,sy=event.clientY;
-        let moved=false;
-        try{bar.setPointerCapture(event.pointerId);}catch(_){}
-        const move=e=>{
-          if(e.pointerId!==event.pointerId)return;
-          if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>7)moved=true;
-          if(!moved)return;
-          section.style.left=Math.max(0,Math.min(root.innerWidth-70,x+e.clientX-sx))+'px';
-          section.style.top=Math.max(0,Math.min(root.innerHeight-30,y+e.clientY-sy))+'px';
-        };
-        const stop=e=>{
-          if(e.pointerId!==event.pointerId)return;
-          bar.removeEventListener('pointermove',move);bar.removeEventListener('pointerup',stop);
-          bar.removeEventListener('pointercancel',stop);
-          slot.x=section.offsetLeft;slot.y=section.offsetTop;
-          if(!slot.folded){slot.width=section.offsetWidth;slot.height=section.offsetHeight;}
-          if(!moved)slot.folded=!slot.folded;
-          saveSlots();
-          try{bar.releasePointerCapture(event.pointerId);}catch(_){}
-          if(!moved)renderSlots();
-        };
-        bar.addEventListener('pointermove',move);bar.addEventListener('pointerup',stop);
-        bar.addEventListener('pointercancel',stop);
-      });
-      section.addEventListener('pointerup',()=>{
-        if(slot.folded)return;
-        const w=section.offsetWidth,h=section.offsetHeight;
-        if(w!==slot.width||h!==slot.height){slot.width=w;slot.height=h;saveSlots();}
-      });
-      rootNode.appendChild(section);
-    }
-  }
-  function createSlot(){
-    if(slotState.length>=30)return notify('الحد الأقصى 30 نافذة تخطيط','error');
-    let i=1;while(slotState.some(s=>s.id==='SD-'+pad(i)))i++;
-    slotState.push({id:'SD-'+pad(i),
-      target:scanned?.target?.str||game.village.x+'|'+game.village.y,
-      plan:chosen?JSON.parse(JSON.stringify(chosen)):null,
-      width:295,height:205,x:20+(i%7)*33,y:65+(i%7)*35,folded:false,visible:true});
-    saveSlots();renderSlots();
-  }
-
-  const TAB_NAMES={home:'🏠 الرئيسية',nobles:'🎯 النبلاء',units:'⚔️ القوات',
-    execution:'📋 التنفيذ',settings:'⚙️ الإعدادات'};
+  const TAB_NAMES={home:'🏠 الرئيسية',nobles:'🎯 النبلاء',settings:'⚙️ الإعدادات'};
+  // Pages that were merged into others keep working for users who had them saved as the active tab.
+  const TAB_MIGRATE={units:'settings',execution:'home',plans:'home'};
+  const UNIT_AR={spear:'رماح',sword:'سيوف',axe:'فؤوس',archer:'رماة',spy:'جواسيس',light:'خيالة خفيفة',marcher:'رماة خيّالة',heavy:'خيالة ثقيلة',ram:'كباش',catapult:'مقاليع',knight:'فارس',snob:'نبلاء'};
   function mount(){
     if(uiQuery(uiId)||!doc.body)return;
     const style=doc.createElement('style');
@@ -1960,7 +1826,7 @@
 #${uiId} #sd-radar{border-inline-start:3px solid #477F95}
 #${uiId} #sd-status{border-inline-start:3px solid var(--sd-gold)}
 #${uiId} .sd-auto-option{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--sd-accent)}
-#${uiId} #sd-auto-nobles{width:20px;height:20px;flex:none;accent-color:var(--sd-accent)}
+#${uiId} .sd-auto-option input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--sd-accent);margin:0}
 #${uiId} #sd-gap-warning{padding:8px;border:1px solid #806C47;border-radius:8px}
 #${uiId} .sd-unit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}
 #${uiId} .sd-unit-label{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:5px;margin:0;background:#102B3B;border:1px solid #355467;border-radius:7px;cursor:pointer}
@@ -1980,14 +1846,6 @@
 .sd-inline-noble b{font-size:9px}
 @media(max-width:380px){#${uiId} .sd-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
-#algzawy-sd-slots .sd-task-slot{position:fixed;z-index:2147482998;box-sizing:border-box;resize:both;overflow:auto;direction:rtl;min-width:230px;min-height:42px;background:#102031;border:2px solid #B49AFF;border-radius:10px;color:#EAF3F8;font:12px/1.5 Tahoma,Arial;box-shadow:0 10px 30px #0009}
-#algzawy-sd-slots .sd-task-bar{display:flex;align-items:center;gap:4px;padding:4px;background:#192B40;cursor:move;touch-action:none}
-#algzawy-sd-slots .sd-task-bar strong{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-#algzawy-sd-slots button{background:#123E3D;color:#EAF3F8;border:1px solid #447F79;border-radius:6px;margin:2px;padding:6px;cursor:pointer}
-#algzawy-sd-slots .sd-task-body{padding:8px;white-space:pre-wrap}
-#algzawy-sd-slots .sd-task-body[hidden]{display:none!important}
-#${uiId} .sd-task-actions{display:flex;align-items:center;gap:4px}
-#${uiId} .sd-task-actions small{color:var(--sd-accent)}
 #${uiId} #sd-countdown{display:flex;flex-direction:column;align-items:center;justify-content:center;
 width:calc(100% - 6px);min-height:102px;margin:10px 3px 8px;padding:12px 10px;
 background:linear-gradient(115deg,#182C42,#232340);border:2px solid var(--sd-accent);
@@ -2006,6 +1864,25 @@ letter-spacing:.5px;text-shadow:0 2px 14px #40E1BF28}
 #${uiId} #sd-countdown[data-tone=due] .sd-timer-digits{color:var(--sd-gold)}
 #${uiId} #sd-countdown .sd-timer-description{font-size:11px;line-height:1.5;
 color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
+#${uiId} .sd-card{border:1px solid var(--sd-border);border-radius:10px;background:#0E1B2A;padding:8px 10px 10px;margin:10px 0}
+#${uiId} .sd-card h4{margin:0 0 4px;font-size:12px;color:var(--sd-accent)}
+#${uiId} [data-sd-page]>label:first-child{margin-top:4px}
+#${uiId} #sd-plan{margin:8px 0}
+#${uiId} .sd-plan-card{white-space:normal;color:var(--sd-muted)}
+#${uiId} .sd-phead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:#182C42;border-inline-start:3px solid var(--sd-teal);color:var(--sd-text)}
+#${uiId} .sd-phead span{font-size:11px;color:var(--sd-muted)}
+#${uiId} .sd-ptask{margin:8px 0;padding:8px 10px;border:1px solid #2F4A5E;border-radius:9px;background:#0B1826;color:var(--sd-text)}
+#${uiId} .sd-ptitle{font-weight:800;color:var(--sd-teal);margin-bottom:5px}
+#${uiId} .sd-prow{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed #243A4C}
+#${uiId} .sd-prow .k{color:var(--sd-muted);font-size:11px}
+#${uiId} .sd-prow .v{font:700 12px Consolas,Tahoma,monospace;direction:ltr;text-align:left}
+#${uiId} .sd-prow.hot .v{color:var(--sd-gold);font-size:13px}
+#${uiId} .sd-prow.ok .v{color:var(--sd-teal)}
+#${uiId} .sd-prow.warn .v{color:var(--sd-danger)}
+#${uiId} .sd-plabel{margin-top:6px;font-size:11px;color:var(--sd-muted)}
+#${uiId} .sd-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+#${uiId} .sd-chip{padding:3px 7px;border-radius:999px;background:#173C42;border:1px solid #2F7A7A;font-size:11px;color:#D9FFF2}
+#${uiId} .sd-pfallback{margin:8px 0;padding:8px 10px;border:1px solid #77633E;border-radius:9px;background:#27271F;color:#F2DAB2;line-height:1.7}
 #${uiId} #sd-countdown .sd-timer-hint{font-size:10px;color:var(--sd-accent)}
 
 #${uiId} label{display:block;margin-top:9px;font-weight:700;color:#C5D9E4}
@@ -2040,7 +1917,6 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 #${uiId} #sd-countdown{padding:10px 8px;min-height:104px;margin-top:6px}
 #${uiId} #sd-countdown .sd-timer-digits{font-size:25px}
 #${uiId} .sd-tabs::-webkit-scrollbar{height:3px}
-#${uiId} #sd-add-slot{width:98%;margin:8px auto;display:block}
 #${uiId} .sd-plans-heading{font-size:12px;line-height:1.5;margin:13px 3px 7px;padding:7px 9px;background:#182C42;border-inline-start:3px solid var(--sd-teal);border-radius:7px;color:var(--sd-text)}
 #${uiId} .sd-task-item{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:6px 0;padding:8px;border:1px solid #475977;border-radius:8px;background:#132B3C}
 #${uiId} .sd-task-item strong{flex:1;min-width:140px;font-size:11px}
@@ -2048,115 +1924,86 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.1.5 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.2.0 QA</small></span></header>
 <main>
-  <div class="notice">قائد الدفاع الذكي — يدعم جميع أنواع القوات المناسبة للأوامر ويختار تشكيلات سريعة قابلة للوصول. التنفيذ بالميلي ثانية غير مضمون أثناء خنق المتصفح للمؤقتات.</div>
-  <label for="sd-noble-spacing">⏱️ الفاصل المتوقع بين النبلاء (ms) — محفوظ لهذا العالم</label>
-  <input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr">
-  <details id="sd-unit-section" open><summary>⚔️ اختر أنواع الجنود المسموح استخدامها (محفوظة)</summary>
-    <div class="row">
-      <button id="sd-unit-all" type="button">✅ تحديد كل الوحدات</button>
-      <button id="sd-unit-none" type="button">⬜ إلغاء تحديد الجميع</button>
+  <section data-sd-page="home">
+    <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
+    <button id="sd-select" type="button" class="primary" disabled>② 🧠 أفضل خطة</button></div>
+    <button id="sd-countdown" type="button" data-tone="idle" title="اضغط لعرض حالة المهمة" aria-label="عدّاد إرسال الدعم">
+      <span id="sd-countdown-label" class="sd-timer-title">⏱️ عدّاد إرسال الدعم</span>
+      <strong id="sd-countdown-value" class="sd-timer-digits" role="timer" aria-live="off">--:--:--.---</strong>
+      <span id="sd-countdown-description" class="sd-timer-description">لا توجد مهمة معتمدة بعد</span>
+    </button>
+    <div id="sd-message" class="box" aria-live="polite">افتح القرية التي تتعرض للهجمات واضغط «فحص شامل».</div>
+    <label for="sd-options">اختر خطة بعد الفحص</label>
+    <select id="sd-options"><option>اختر خطة بعد الفحص</option></select>
+    <div id="sd-plan" class="sd-plan-card">لم تُحدد خطة.</div>
+    <button id="sd-approve" type="button" class="primary" disabled>③ ▶ اعتماد وتنفيذ الخطة</button>
+    <button id="sd-stop" type="button" class="primary">■ إيقاف آمن</button>
+    <div id="sd-status" class="box">لا توجد مهمة نشطة.</div>
+  </section>
+  <section data-sd-page="nobles">
+    <div id="sd-radar" class="box">لم يُقرأ أي قطار هجمات بعد.</div>
+    <div class="sd-card"><h4>طريقة الاستهداف</h4>
+      <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — استهداف كل النبلاء الممكنين</label>
+      <label class="sd-auto-option" for="sd-include-first"><input id="sd-include-first" type="checkbox"> 👑 تضمين النبيل الأول</label>
+      <label for="sd-noble-target">🎯 النبيل المستهدف (عند إيقاف التلقائي)</label>
+      <select id="sd-noble-target" disabled><option value="1">النبيل الأول — بعد الافتتاحية</option></select>
     </div>
-    <div id="sd-unit-controls" class="sd-unit-grid"></div>
-  </details>
-  <label class="sd-auto-option" for="sd-auto-nobles"><input id="sd-auto-nobles" type="checkbox" checked> 🧠 تلقائي — استهداف جميع النبلاء الممكنين منذ بداية القطار</label>
-  <label class="sd-auto-option" for="sd-include-first"><input id="sd-include-first" type="checkbox"> 👑 تضمين النبيل الأول تلقائيًا (غير محدد افتراضيًا)</label>
-  <label class="sd-auto-option" for="sd-narrow-attempt"><input id="sd-narrow-attempt" type="checkbox"> ⚠️ السماح بمحاولة قنص بفاصل ضيق (حتى 20ms) — تجريبي، لا ضمان لوصول الدعم</label>
-  <label class="sd-auto-option" for="sd-timing-calibration"><input id="sd-timing-calibration" type="checkbox"> 🧪 تعويض تأخير الإرسال تجريبيًا بالاعتماد على وسيط قياسات اللعبة (متوقف افتراضيًا؛ حد 300ms)</label>
-  <label for="sd-noble-lead">⏱️ قبل النبيل الأول في الفجوات الطويلة (ms)</label>
-  <input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr">
-  <details id="sd-targeting" open><summary>🎯 حدد النبلاء ونطاق الوصول لكل نبيل (من جزء → إلى جزء)</summary>
-    <div id="sd-noble-list">افحص الهجمات الواردة أولًا لإظهار النبلاء.</div>
-    <p class="tiny">تظهر هذه الخيارات أيضًا بجانب أوامر النبلاء في جدول اللعبة. الأجزاء 0–999؛ وعند عبور الثانية يمكن أن تكون البداية أكبر من النهاية.</p>
-  </details>
-  <label for="sd-noble-target">🎯 النبيل المستهدف يدويًا</label>
-  <select id="sd-noble-target" disabled><option value="1">النبيل الأول — بعد الافتتاحية</option></select>
-  <p id="sd-gap-warning" class="tiny">تعتمد الخطة على أوقات الوصول الفعلية، لا على الفاصل المتوقع.</p>
-  <label class="sd-auto-option" for="sd-cascade-auto">
-    <input id="sd-cascade-auto" type="checkbox"> 🔄 بدائل الإلغاء تلقائيًا قبل إرسال الهجوم فقط (اختياري)
-  </label>
-  <p class="tiny">لا ينتقل للبديل إذا صدر أمر هجومي بالفعل، أو لم يكف الوقت للتجهيز. لا يُعاد استخدام القوات قبل التأكد من عودتها.</p>
-  <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
-  <button id="sd-select" type="button" class="primary" disabled>② 🧠 أفضل خطة</button></div>
-  <button id="sd-approve" type="button" class="primary" disabled>③ ▶ اعتماد وتنفيذ الخطة</button>
-  <button id="sd-countdown" type="button" data-tone="idle" title="اضغط للانتقال إلى تفاصيل المهمة" aria-label="عدّاد إرسال الدعم">
-    <span id="sd-countdown-label" class="sd-timer-title">⏱️ عدّاد إرسال الدعم</span>
-    <strong id="sd-countdown-value" class="sd-timer-digits" role="timer" aria-live="off">--:--:--.---</strong>
-    <span id="sd-countdown-description" class="sd-timer-description">لا توجد مهمة معتمدة بعد</span>
-    <span class="sd-timer-hint">اضغط لعرض تفاصيل العملية</span>
-  </button>
-  <div id="sd-message" class="box" aria-live="polite">افتح القرية التي تتعرض للهجمات واضغط «فحص شامل».</div>
-  <div id="sd-radar" class="box">لم يُقرأ أي قطار هجمات بعد.</div>
-  <label for="sd-options">خطط الدفاع المتاحة</label><select id="sd-options"><option>اختر خطة بعد الفحص</option></select>
-  <div id="sd-plan" class="box">لم تُحدد خطة.</div>
-  <details id="sd-troops"><summary>⚔️ القوات المختارة للقنص (دعم / إلغاء)</summary>
-    <div id="sd-units" class="box">لم تُحدد القوات بعد.</div>
-  </details>
-  <div class="row"><button id="sd-stop" type="button">■ إيقاف آمن</button>
-  <button id="sd-export" type="button">📋 تصدير سجل التنفيذ</button></div>
-  <div id="sd-status" class="box">لا توجد مهمة نشطة.</div>
-  <details id="sd-advanced"><summary>⚙️ الإعدادات المتقدمة والتشخيص</summary>
-    <div class="row"><div><label>الاحتياطي في كل قرية (%)</label><input id="sd-reserve" type="number" min="5" max="95" step="5"></div>
-    <div><label>هامش الأمان (ms)</label><input id="sd-margin" type="number" min="0" max="30000"></div></div>
-    <label for="sd-cancel-suggestions">🏘️ أهداف الإلغاء المكتشفة — الأبعد ثم الأقرب</label>
-    <select id="sd-cancel-suggestions"><option>اضغط فحص شامل لاكتشاف الأهداف</option></select>
-    <button id="sd-use-cancel" type="button">🎯 اعتماد الهدف المقترح وإعادة الحساب</button>
-    <label>إحداثيات هدف الإلغاء (اختيار يدوي بديل)</label><input id="sd-cancel-target" placeholder="500|500" dir="ltr">
-    <div class="row"><div><label>زمن السير لهجوم الإلغاء (ثانية)</label><input id="sd-cancel-oneway" type="number" min="1"></div>
-    <div><label>نافذة الإلغاء (ثانية)</label><input id="sd-cancel-limit" type="number" min="1"></div></div>
-    <label>العدد الأقصى للمهام المتسلسلة الممكنة (حتى 30)</label>
-    <input id="sd-team-count" type="number" min="1" max="30">
-    <label class="sd-auto-option" for="sd-cancel-experimental">
-      <input id="sd-cancel-experimental" type="checkbox"> ⚠️ السماح بإلغاء تجريبي — نموذج عودة الجيش غير مُثبت لهذا العالم
-    </label>
-    <div id="sd-audit" class="box">سجل التنفيذ فارغ.</div>
-    <p class="tiny">لا يفسر السكربت هجومًا بلا نبيل باعتباره هجومًا قويًا بالضرورة. لا ينفّذ تعليمات CAPTCHA ولا يتجاوز اعتماد الجلسة.</p>
-  </details>
+    <div class="sd-card" id="sd-targeting"><h4>النبلاء ونطاق الوصول (من جزء ← إلى جزء)</h4>
+      <div id="sd-noble-list">افحص الهجمات الواردة أولًا لإظهار النبلاء.</div>
+      <p class="tiny">نفس الخيارات تظهر بجانب أوامر النبلاء في جدول اللعبة. الأجزاء 0–999.</p>
+    </div>
+    <div class="sd-card"><h4>التوقيت</h4>
+      <div class="row"><div><label for="sd-noble-spacing">الفاصل بين النبلاء (ms)</label><input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr"></div>
+      <div><label for="sd-noble-lead">قبل النبيل الأول (ms)</label><input id="sd-noble-lead" type="number" value="250" min="1" max="60000" step="1" dir="ltr"></div></div>
+      <p id="sd-gap-warning" class="tiny">الخطة تعتمد على أوقات الوصول الفعلية لا على الفاصل المتوقع.</p>
+    </div>
+  </section>
+  <section data-sd-page="settings">
+    <div class="sd-card"><h4>الأمان</h4>
+      <div class="row"><div><label for="sd-reserve">الاحتياطي في كل قرية (%)</label><input id="sd-reserve" type="number" min="5" max="95" step="5"></div>
+      <div><label for="sd-margin">هامش الأمان (ms)</label><input id="sd-margin" type="number" min="0" max="30000"></div></div>
+    </div>
+    <details id="sd-unit-section"><summary>⚔️ القوات المسموح استخدامها</summary>
+      <div class="row"><button id="sd-unit-all" type="button">✅ الكل</button><button id="sd-unit-none" type="button">⬜ لا شيء</button></div>
+      <div id="sd-unit-controls" class="sd-unit-grid"></div>
+    </details>
+    <details id="sd-advanced"><summary>🧪 خيارات متقدمة وتجريبية</summary>
+      <p class="tiny">لا تغيّر هذه الخيارات إلا إذا كنت تفهمها؛ بعضها لا يضمن وصول الدعم.</p>
+      <label class="sd-auto-option" for="sd-cascade-auto"><input id="sd-cascade-auto" type="checkbox"> 🔄 بدائل الإلغاء تلقائيًا قبل الإرسال</label>
+      <label class="sd-auto-option" for="sd-narrow-attempt"><input id="sd-narrow-attempt" type="checkbox"> ⚠️ محاولة قنص بفاصل ضيق (حتى 20ms)</label>
+      <label class="sd-auto-option" for="sd-timing-calibration"><input id="sd-timing-calibration" type="checkbox"> 🧪 تعويض تأخير الإرسال من قياسات اللعبة</label>
+      <label class="sd-auto-option" for="sd-cancel-experimental"><input id="sd-cancel-experimental" type="checkbox"> ⚠️ السماح بإلغاء تجريبي</label>
+      <label for="sd-cancel-suggestions">🏘️ أهداف الإلغاء المكتشفة (الأبعد ثم الأقرب)</label>
+      <select id="sd-cancel-suggestions"><option>اضغط فحص شامل لاكتشاف الأهداف</option></select>
+      <button id="sd-use-cancel" type="button">🎯 اعتماد الهدف المقترح</button>
+      <label for="sd-cancel-target">هدف الإلغاء يدويًا</label><input id="sd-cancel-target" placeholder="500|500" dir="ltr">
+      <div class="row"><div><label for="sd-cancel-oneway">زمن السير (ثانية)</label><input id="sd-cancel-oneway" type="number" min="1"></div>
+      <div><label for="sd-cancel-limit">نافذة الإلغاء (ثانية)</label><input id="sd-cancel-limit" type="number" min="1"></div></div>
+      <label for="sd-team-count">أقصى عدد مهام متسلسلة (حتى 30)</label><input id="sd-team-count" type="number" min="1" max="30">
+    </details>
+    <details id="sd-diagnostics"><summary>📋 السجل والتشخيص</summary>
+      <div id="sd-execution-log" class="box" aria-label="آخر أحداث التنفيذ">لا توجد أحداث تنفيذ بعد.</div>
+      <div id="sd-audit" class="box">سجل التنفيذ فارغ.</div>
+      <button id="sd-export" type="button">📋 تصدير سجل التنفيذ</button>
+      <p class="tiny">لا ينفّذ السكربت تعليمات CAPTCHA ولا يتجاوز اعتماد الجلسة.</p>
+    </details>
+  </section>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.1.5';
+    panel.dataset.editorVersion='2.2.0';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
-    const pages={};const original=[...panel.querySelector('main').children];
+    const pages={};
+    for(const page of panel.querySelectorAll('[data-sd-page]'))pages[page.dataset.sdPage]=page;
     for(const [id,label] of Object.entries(TAB_NAMES)){
       const button=doc.createElement('button');button.type='button';
       button.dataset.sdTab=id;button.textContent=label;nav.appendChild(button);
-      const page=doc.createElement('section');page.dataset.sdPage=id;
-      pages[id]=page;panel.querySelector('main').appendChild(page);
     }
-    const move=(id,tab)=>{
-      const el=uiQuery(id);if(!el)return;
-      let top=el;
-      if(el.closest('label')?.parentElement===panel.querySelector('main'))
-        top=el.closest('label');
-      else if(el.closest('.row')?.parentElement===panel.querySelector('main'))
-        top=el.closest('.row');
-      const prev=top.previousElementSibling;
-      if(prev?.tagName==='LABEL'&&prev.htmlFor===id)pages[tab].appendChild(prev);
-      pages[tab].appendChild(top);
-    };
-    for(const id of ['sd-scan','sd-countdown','sd-message','sd-radar'])move(id,'home');
-    for(const id of ['sd-auto-nobles','sd-include-first','sd-noble-lead',
-      'sd-targeting','sd-noble-target','sd-gap-warning','sd-narrow-attempt'])move(id,'nobles');
-    move('sd-unit-section','units');
-    // Plans, approval and independent planning slots now belong to Home.
-    // Preserve the existing IDs and handlers so the planning engine is unchanged.
-    const plansHeading=doc.createElement('h3');
-    plansHeading.className='sd-plans-heading';
-    plansHeading.textContent='🛡️ خطط الدفاع ومركز القيادة';
-    pages.home.appendChild(plansHeading);
-    for(const id of ['sd-options','sd-plan','sd-approve'])move(id,'home');
-    for(const id of ['sd-troops','sd-stop','sd-status'])move(id,'execution');
-    for(const id of ['sd-noble-spacing','sd-cascade-auto','sd-timing-calibration','sd-advanced'])move(id,'settings');
-    for(const node of original)if(node.parentElement===panel.querySelector('main'))
-      pages.settings.appendChild(node);
-    const executionLog=doc.createElement('div');
-    executionLog.id='sd-execution-log';executionLog.className='box';
-    executionLog.setAttribute('aria-label','آخر أحداث التنفيذ');
-    pages.execution.appendChild(executionLog);
     const activate=tab=>{
       // Previously saved 'plans' tab seamlessly migrates to Home.
+      tab=TAB_MIGRATE[tab]||tab;
       activeTab=TAB_NAMES[tab]?tab:'home';
       for(const [id,page] of Object.entries(pages))page.hidden=id!==activeTab;
       for(const button of nav.querySelectorAll('[data-sd-tab]'))
@@ -2166,14 +2013,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     for(const button of nav.querySelectorAll('[data-sd-tab]'))
       button.onclick=()=>activate(button.dataset.sdTab);
     activate(activeTab);
-    const newTask=doc.createElement('button');newTask.type='button';
-    newTask.id='sd-add-slot';newTask.textContent='➕ إنشاء مهمة قنص جديدة';
-    pages.home.appendChild(newTask);
-    const tasksList=doc.createElement('div');tasksList.id='sd-tasks-list';
-    pages.home.appendChild(tasksList);
     panelLayout=placePanel(panel);
-    uiQuery('sd-add-slot').onclick=createSlot;
-    renderSlots();
     // Restore persisted raw draft before the first browser interaction.
     const restored=get(root.localStorage,DRAFT);
     if(restored?.version===1)latestDraftAt=Number(restored.updatedAt)||0;
@@ -2212,7 +2052,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-cascade-auto').checked=options.cascadeAuto===true;
     uiQuery('sd-noble-target').value=options.nobleTarget||1;
     uiQuery('sd-noble-target').disabled=uiQuery('sd-auto-nobles').checked;
-    uiQuery('sd-advanced').open=true; // settings already own page, no second click needed
+    uiQuery('sd-advanced').open=options.advanced===true;
     if(uiQuery('sd-noble-target'))uiQuery('sd-noble-target').disabled=true;
     uiQuery('sd-noble-spacing').addEventListener('input',()=>{
       const val=Number(uiQuery('sd-noble-spacing').value);
@@ -2283,7 +2123,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       try{approvePlan();}catch(e){log('APPROVE_BLOCK',e.message);notify('لم يبدأ التنفيذ: '+e.message,'error');}
     };
     uiQuery('sd-countdown').onclick=()=>{
-      panel.querySelector('[data-sd-tab=execution]')?.click();
+      panel.querySelector('[data-sd-tab=home]')?.click();
       const el=uiQuery('sd-status');
       el?.scrollIntoView?.({behavior:'smooth',block:'center'});
     };
@@ -2554,33 +2394,55 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     chosen=null;uiQuery('sd-approve').disabled=true;
     renderPlan();
   }
+  // Builds the selected-plan card from plain text nodes only (no HTML injection from game data).
+  function planNode(tag,cls,text){const n=doc.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
+  function planRow(label,value,tone){
+    const row=planNode('div','sd-prow'+(tone?' '+tone:''));
+    row.append(planNode('span','k',label),planNode('span','v',value));return row;
+  }
+  function renderPlanCard(el,plan,tasks,fallbacks){
+    const kindLabel=plan.kind==='multi'?'قنص عدة نبلاء':plan.kind==='hybrid'?'تنسيق دعم':plan.kind==='cancel'?'قنص بالإلغاء':'دعم مباشر';
+    const totals=tasks.map(task=>Object.values(task.units||{}).reduce((sum,n)=>sum+(Number(n)>0?Number(n):0),0));
+    const all=totals.reduce((a,b)=>a+b,0);
+    const frag=doc.createDocumentFragment();
+    const head=planNode('div','sd-phead');
+    head.append(planNode('b','',kindLabel),planNode('span','',tasks.length+' مهمة · '+all+' جندي'));
+    frag.append(head);
+    tasks.forEach((task,i)=>{
+      const card=planNode('div','sd-ptask');
+      card.append(planNode('div','sd-ptitle',(tasks.length>1?'المهمة '+(i+1)+' — ':'')+'قنص النبيل '+(task.gapIndex+1)));
+      card.append(planRow('من قرية',String(task.sourceName||task.sourceId)));
+      card.append(planRow('إلى',task.target.str));
+      card.append(planRow('وقت الإرسال',clockOnly(task.sendAt),'hot'));
+      if(task.cancelAt)card.append(planRow('وقت الإلغاء',clockOnly(task.cancelAt),'hot'));
+      card.append(planRow(task.cancelAt?'عودة / وصول مستهدف':'وقت الوصول',clockOnly(task.arrivalAt)));
+      card.append(planRow('نافذة القنص',clockOnly(task.windowFrom)+'  ←  '+clockOnly(task.windowTo)));
+      card.append(planRow('هامش الفجوة',Math.round(task.marginMs)+' ms'));
+      const risk=Number(task.riskCount||0);
+      card.append(planRow('هجمات بين الدعم والنبيل',risk?risk+' ⚠️':'لا يوجد ✓',risk?'warn':'ok'));
+      const chips=planNode('div','sd-chips');
+      for(const [unit,n] of Object.entries(task.units||{}))if(Number(n)>0)chips.append(planNode('span','sd-chip',(UNIT_AR[unit]||unit)+' × '+n));
+      card.append(planNode('div','sd-plabel','القوات المرسلة ('+totals[i]+')'),chips);
+      frag.append(card);
+    });
+    if(plan.kind==='cancel'){
+      const box=planNode('div','sd-pfallback');
+      box.append(planNode('b','','🔄 بدائل احتياطية: '+fallbacks.length));
+      if(fallbacks.length)fallbacks.forEach((p,i)=>box.append(planNode('div','',(i+1)+'. '+p.target.str+' | سير '+countdown(p.targetTravelMs)+' | إرسال '+clockOnly(p.sendAt))));
+      else box.append(planNode('div','','لا توجد بدائل بموعد لاحق وفاصل تجهيز آمن.'));
+      frag.append(box);
+    }
+    frag.append(planNode('p','tiny','النتيجة تعتمد على استجابة متصفحك وسيرفر اللعبة؛ لا ضمان للقنص داخل أجزاء الثانية.'));
+    el.replaceChildren(frag);
+  }
   function renderPlan(){
     const el=uiQuery('sd-plan');if(!el)return;
     if(!chosen){el.textContent=scanned?.plans.length?'اختر إحدى الخطط ثم اضغط اعتماد وتنفيذ.':'لا توجد خطة يمكن تنفيذها ضمن الوقت الحالي.';
-      if(uiQuery('sd-units'))uiQuery('sd-units').textContent='لم تُحدد القوات بعد.';
       return;}
     const tasks=Array.isArray(chosen.tasks)?chosen.tasks:[chosen];
     const fallbacks=options.cascadeAuto&&chosen.kind==='cancel'&&scanned?
       cancelFallbackCandidates(scanned.plans,chosen,Math.round(nowServer())):[];
-    el.textContent=`النوع: ${chosen.kind==='multi'?'قنص عدة نبلاء':chosen.kind==='hybrid'?'تنسيق دعم':chosen.kind==='cancel'?'قنص الإلغاء':'دعم مباشر'}\n`+
-      tasks.map((task,i)=>`${i+1}. 🎯 قنص النبيل ${task.gapIndex+1} | قرية ${task.sourceName||task.sourceId} → ${task.target.str}\n`+
-      `إرسال: ${stamp(task.sendAt)}\n`+(task.cancelAt?`إلغاء: ${stamp(task.cancelAt)}\n`:'')+
-      `عودة/وصول مستهدف: ${stamp(task.arrivalAt)}\nنافذة: ${stamp(task.windowFrom)} ← ${stamp(task.windowTo)}\n`+
-      `⚠️ هجمات غير نبيلة بين وصول الدعم والنبيل: ${task.riskCount||0}\nالقوات: `+
-      Object.entries(task.units||{}).filter(([,n])=>n>0).map(([u,n])=>`${u}=${n}`).join('، ')+
-      `\nهامش الفجوة: ${Math.round(task.marginMs)}ms`).join('\n---\n')+
-      (chosen.kind==='cancel'?'\n🔄 البدائل الاحتياطية المتتابعة: '+fallbacks.length+
-       (fallbacks.length?'\n'+fallbacks.map((p,i)=>(i+1)+'. '+p.target.str+
-         ' | سير '+countdown(p.targetTravelMs)+' | إرسال '+clockOnly(p.sendAt)).join('\n'):'\nلا تتوفر بدائل ذات موعد لاحق بفاصل تجهيز آمن.'):'')+
-      '\nالنتيجة تعتمد على استجابة متصفحك وسيرفر اللعبة؛ لا يوجد ضمان للقنص داخل أجزاء الثانية.';
-    if(uiQuery('sd-units'))uiQuery('sd-units').textContent=tasks.map((task,index)=>{
-      const count=Object.entries(task.units||{}).filter(([,n])=>Number(n)>0);
-      const total=count.reduce((sum,[,n])=>sum+Number(n),0);
-      return '⚔️ مجموعة '+(index+1)+' | '+(task.kind==='cancel'?'هجوم إلغاء':'دعم')+
-        ' | قنص النبيل '+(task.gapIndex+1)+'\nالقرية: '+(task.sourceName||task.sourceId)+
-        '\n'+count.map(([unit,n])=>unit+' × '+n).join(' | ')+
-        '\nالمجموع: '+total+' جندي';
-    }).join('\n\n');
+    renderPlanCard(el,chosen,tasks,fallbacks);
     const now=nowServer(),lock=get(root.localStorage,LOCK);
     const foreign=lock&&lock.tabId!==tabId&&lock.until>Date.now();
     const stale=!sharedContextUsable(scanned,currentFingerprint(),now);

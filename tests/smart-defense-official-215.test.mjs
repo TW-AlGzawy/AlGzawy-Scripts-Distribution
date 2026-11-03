@@ -9,7 +9,7 @@ const src=fs.readFileSync(new URL(file,import.meta.url),'utf8'),core=require(fil
 const t=Date.UTC(2026,9,28,18,13,36,800);
 test('valid userscript syntax and new isolated version',()=>{
  assert.doesNotThrow(()=>new vm.Script(src));
- assert.match(src,/@version\s+2\.1\.5/);
+ assert.match(src,/@version\s+2\.2\.0/);
  assert.match(src,/__algzawy_stop_smart-defense-ultimate/);
 });
 test('past noble attack cannot enter future scan',()=>{
@@ -24,21 +24,6 @@ test('empty incoming list clears cached plans and blocks old approvals',()=>{
  assert.match(src,/if\(remote\?\.invalidated\)/);
  assert.match(src,/monitorTimer=setInterval\(monitor,1500\)/);
 });
-test('five Arabic tabs and native controls are compact',()=>{
- assert.match(src,/القائد الذكي للدفاع والقنص/);
- for(const word of ['الرئيسية','النبلاء','القوات','التنفيذ','الإعدادات'])assert.ok(src.includes(word));
- assert.doesNotMatch(src,/plans:'🛡️ الخطط'/);
- assert.match(src,/خطط الدفاع ومركز القيادة/);
- assert.match(src,/className='sd-tabs'/);
- assert.match(src,/cell\.prepend\(inline\)/);
- assert.match(src,/width:29px!important/);
- assert.doesNotMatch(src,/id="sd-fold"/);
-});
-test('task windows open only on request',()=>{
- assert.match(src,/newTask\.textContent='➕ إنشاء مهمة قنص جديدة'/);
- assert.match(src,/if\(!slot\.visible\)continue/);
-});
-
 test('expired selection rules are pruned and regular monitoring is always enabled',()=>{
  assert.match(src,/function pruneNobleRules\(trains\)/);
  assert.match(src,/pruneNobleRules\(trains\);/);
@@ -51,11 +36,6 @@ test('noble expiration never terminates unexecuted order belonging to another vi
  assert.match(src,/if\(mission&&!mission.clickedAt/);
  assert.match(src,/if\(had&&publish\)set\(root\.localStorage,CONTEXT/);
 });
-test('new independent tasks open visibly and countdown goes to execution tab',()=>{
- assert.match(src,/folded:false,visible:true/);
- assert.match(src,/if\(!slot\.visible\)continue/);
- assert.match(src,/panel\.querySelector\('\[data-sd-tab=execution\]'\)\?\.click\(\)/);
-});
 test('real target and lead settings are retained while attack-row controls stay compact',()=>{
  assert.match(src,/id="sd-noble-list"/);
  assert.match(src,/fromMs/);
@@ -65,44 +45,39 @@ test('real target and lead settings are retained while attack-row controls stay 
  assert.match(src,/ui_active_tab_v210/);
 });
 
-test('click on subtask header folds it without any separate fold button',()=>{
- assert.match(src,/if\(!moved\)slot\.folded=!slot\.folded/);
- assert.match(src,/if\(!moved\)renderSlots\(\)/);
- assert.doesNotMatch(src,/bar\.appendChild\(button\(slot\.folded\?'فتح':'طي'/);
-});
-test('execution page exposes latest log, stop and export while technical log stays in settings',()=>{
- assert.match(src,/executionLog\.id='sd-execution-log'/);
- assert.match(src,/pages\.execution\.appendChild\(executionLog\)/);
- assert.match(src,/const exec=uiQuery\('sd-execution-log'\)/);
- assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
- assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-timing-calibration','sd-advanced'\]\)move\(id,'settings'\)/);
-});
 
-test('Home includes plans, selected plan, approval and independent task slots',()=>{
- const home=src.indexOf("for(const id of ['sd-scan','sd-countdown','sd-message','sd-radar'])move(id,'home')");
- const heading=src.indexOf("plansHeading.textContent='🛡️ خطط الدفاع ومركز القيادة'");
- const plans=src.indexOf("for(const id of ['sd-options','sd-plan','sd-approve'])move(id,'home')");
- const task=src.indexOf('pages.home.appendChild(newTask)');
- const list=src.indexOf('pages.home.appendChild(tasksList)');
- assert.ok(home>=0&&heading>home&&plans>heading&&task>plans&&list>task);
- assert.doesNotMatch(src,/pages\.plans/);
+// ---- v2.2.0 redesign: three tabs, no task-slot system ----
+test('v2.2.0: three Arabic tabs; units merged into settings; execution merged into home',()=>{
+ const nav=src.match(/const TAB_NAMES=\{([\s\S]*?)\};/);
+ assert.deepEqual([...nav[1].matchAll(/(?:^|[,\s{])(home|nobles|units|execution|settings):/g)].map(x=>x[1]),['home','nobles','settings']);
+ for(const word of ['الرئيسية','النبلاء','الإعدادات'])assert.ok(src.includes(word));
+ assert.match(src,/const TAB_MIGRATE=\{units:'settings',execution:'home',plans:'home'\}/);
+ assert.match(src,/activeTab=TAB_NAMES\[tab\]\?tab:'home'/);
+ assert.match(src,/className='sd-tabs'/);
+ assert.match(src,/cell\.prepend\(inline\)/);
+ assert.doesNotMatch(src,/id="sd-fold"/);
+});
+test('v2.2.0: home order is scan + best plan, countdown, plan choice, plan details, approve, stop, status',()=>{
+ const order=['id="sd-scan"','id="sd-select"','id="sd-countdown"','id="sd-message"','id="sd-options"','id="sd-plan"','id="sd-approve"','id="sd-stop"','id="sd-status"'].map(x=>src.indexOf(x));
+ assert.ok(order.every(i=>i>0),'all present');
+ assert.deepEqual(order,[...order].sort((a,b)=>a-b));
+ assert.ok(order[8]<src.indexOf('data-sd-page="nobles"'));
  assert.match(src,/uiQuery\('sd-approve'\)\.onclick=/);
  assert.match(src,/uiQuery\('sd-options'\)\.onchange=/);
 });
-test('Navigation exposes exactly five sections and gracefully migrates saved plans tab to Home',()=>{
- const nav=src.match(/const TAB_NAMES=\{([\s\S]*?)\};/);
- assert.ok(nav,'navigation definition exists');
- assert.deepEqual([...nav[1].matchAll(/(?:^|[,\s])(home|nobles|units|execution|settings):/g)].map(x=>x[1]),
-  ['home','nobles','units','execution','settings']);
- assert.doesNotMatch(nav[1],/plans:/);
- assert.match(src,/activeTab=TAB_NAMES\[tab\]\?tab:'home'/);
- assert.match(src,/activate\(activeTab\)/);
- assert.match(src,/set\(root\.localStorage,TAB_KEY,activeTab\)/);
+test('v2.2.0: the task-slot system and its button are completely gone',()=>{
+ assert.doesNotMatch(src,/sd-add-slot|renderSlots|createSlot|slotState|planning_slots|algzawy-sd-slots|إنشاء مهمة قنص جديدة/);
 });
-test('Combining pages does not relocate execution, units, noble controls or advanced settings',()=>{
- assert.match(src,/move\('sd-unit-section','units'\)/);
- assert.match(src,/\['sd-auto-nobles','sd-include-first','sd-noble-lead'/);
- assert.match(src,/\['sd-troops','sd-stop','sd-status'\]\)move\(id,'execution'\)/);
- assert.match(src,/\['sd-noble-spacing','sd-cascade-auto','sd-timing-calibration','sd-advanced'\]\)move\(id,'settings'\)/);
- assert.match(src,/data-sd-page/);
+test('v2.2.0: settings are short; units, experimental options and diagnostics are collapsed groups',()=>{
+ const set=src.slice(src.indexOf('data-sd-page="settings"'),src.indexOf('</main>`;'));
+ for(const id of ['sd-reserve','sd-margin','sd-unit-section','sd-advanced','sd-diagnostics','sd-cascade-auto','sd-narrow-attempt','sd-timing-calibration','sd-cancel-experimental','sd-export','sd-execution-log'])assert.ok(set.includes('id="'+id+'"'),id);
+ assert.doesNotMatch(set.slice(0,set.indexOf('id="sd-advanced"')),/sd-cancel-target|sd-team-count/);
+ const nob=src.slice(src.indexOf('data-sd-page="nobles"'),src.indexOf('data-sd-page="settings"'));
+ for(const id of ['sd-auto-nobles','sd-include-first','sd-noble-target','sd-noble-list','sd-noble-spacing','sd-noble-lead','sd-radar'])assert.ok(nob.includes('id="'+id+'"'),id);
+});
+test('v2.2.0: the selected plan is rendered as a structured, itemised card without HTML injection',()=>{
+ assert.match(src,/function renderPlanCard\(el,plan,tasks,fallbacks\)/);
+ for(const label of ['وقت الإرسال','نافذة القنص','هامش الفجوة','القوات المرسلة','من قرية'])assert.ok(src.includes(label),label);
+ const fn=src.slice(src.indexOf('function renderPlanCard'),src.indexOf('function renderPlan(){'));
+ assert.doesNotMatch(fn,/innerHTML/);
 });
