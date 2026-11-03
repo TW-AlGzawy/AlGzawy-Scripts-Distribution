@@ -165,15 +165,13 @@ test('unusable persisted context is rejected instead of restoring past nobles',(
   assert.match(src,/hasExpiredNobleRecords\(scanned\.trains,nowServer\(\)\)\|\|!targetRulesMatch\(\)/);
 });
 
-test('20ms strong-to-first-noble gap admits 101..119ms and targets 110ms',()=>{
-  const at=Date.UTC(2026,9,29,6,18,32,100);
+test('first noble window opens 200ms before it (e.g. .555 → .355 … .545), even before the opening attack',()=>{
+  const at=Date.UTC(2026,9,29,6,18,32,508);
   const train=core.nobleTrains([{id:'opening',kind:'opening',at,precise:true},
-    {id:'first',kind:'noble',at:at+20,precise:true}])[0];
-  const w=core.nobleWindows(train,{safetyMs:100,leadMs:250,includeFirst:true})[0];
-  assert.equal(w.windowFrom,at+1);
-  assert.equal(w.windowTo,at+19);
-  assert.equal(w.arrival,at+10);
-  assert.equal(w.slack,9);
+    {id:'first',kind:'noble',at:at+47,precise:true}])[0];
+  const w=core.nobleWindows(train,{edgeMs:10,leadMs:200,includeFirst:true})[0];
+  assert.equal(w.windowFrom,at+47-200);
+  assert.equal(w.windowTo,at+47-10);
   assert.equal(w.usable,true);
 });
 test('20ms noble-to-noble gap is eligible despite configured 100ms timing risk margin',()=>{
