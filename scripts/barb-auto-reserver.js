@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.11
+// @version      1.0.12
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -423,6 +423,12 @@
 
   // ================= الحجوزات =================
   const RES_URL = () => `/game.php?village=${me.id}&screen=ally&mode=reservations`;
+  // هل الصف باسمي؟ نفضّل رابط اللاعب (مطابقة تامة)، وإن لم يوجد رابط نستعمل احتواء النص.
+  function rowIsMine(tr, nm) {
+    const links = [...tr.querySelectorAll('a[href*="info_player"]')];
+    if (links.length) return links.some(a => a.textContent.replace(/\s+/g, ' ').trim() === nm);
+    return tr.textContent.includes(nm);
+  }
   function parseRes(t) {
     const lim = t.match(/حد\s*حجز[^:：\d]{0,30}[:：]\s*(\d+)/);
     const d = new DOMParser().parseFromString(t, 'text/html');
@@ -437,10 +443,30 @@
       const link = tr.querySelector('a[href*="info_village"]');
       const im = link && link.getAttribute('href').match(/[?&;]id=(\d+)/);
       if (im) idSet.add(+im[1]);
-      if (m) { const k = m[1] + '|' + m[2]; taken.add(k); info.set(k, tr.textContent.replace(/\s+/g, ' ').trim().slice(0, 120)); { const pe = parseExpiry(tr.textContent); if (pe) exp.set(k, pe); } if (im) ids.set(k, +im[1]); if (nm.length >= 3 && tr.textContent.includes(nm)) own.add(k); }
+      if (m) { const k = m[1] + '|' + m[2]; taken.add(k); info.set(k, tr.textContent.replace(/\s+/g, ' ').trim().slice(0, 120)); { const pe = parseExpiry(tr.textContent); if (pe) exp.set(k, pe); } if (im) ids.set(k, +im[1]); if (nm.length >= 3 && rowIsMine(tr, nm)) own.add(k); }
       else { bad++; if (!sample) sample = tr.textContent.replace(/\s+/g, ' ').trim().slice(0, 80); }
     }
     return { hasLimit: !!lim, limit: lim ? +lim[1] : 0, taken, ids, idSet, own, info, exp, samples, bad, sample, rows: trs.length };
+  }
+  // حجوزات باسمي في قائمة التحالف لم يسجّلها السكربت (حجزتها يدويًا): نسجّلها في «حجوزاتي»
+  // حتى يحسبها الحد والفحص والسجلات. تُعلَّم manual ولا تُستبدل تلقائيًا.
+  function adoptManual(R, mine, now) {
+    const have = new Set(mine.map(m => m.k));
+    const lookup = {};
+    for (const a of get('allb', [])) lookup[key(a[1], a[2])] = { pts: a[3], kind: 'بربري' };
+    for (const a of get('inact', [])) lookup[key(a[1], a[2])] = { pts: a[3], kind: 'خامل' };
+    const TW = W.TWMap, added = [];
+    for (const k of R.own) {
+      if (have.has(k)) continue;
+      const [x, y] = k.split('|').map(Number);
+      let pts = (lookup[k] || {}).pts || 0, kind = (lookup[k] || {}).kind || '';
+      const lv = TW && TW.villages && TW.villages[x * 1000 + y];
+      if (lv) { const p = ptsOf(lv); if (p) pts = p; if (!kind) kind = String(lv.owner) === '0' ? 'بربري' : 'خامل'; }
+      mine.push({ k, t: now, id: R.ids.get(k) || 0, pts, kind: kind || 'يدوي', manual: true });
+      added.push(k);
+    }
+    if (added.length) log('📝 سُجّلت حجوزات يدوية باسمي: ' + added.join(' · '));
+    return mine;
   }
   async function loadReserved() {
     const wait = get('resNext', 0) - Date.now();            // فاصل أدنى مشترك بين كل التبويبات
@@ -794,7 +820,7 @@
       if (!force && now - get('resT', 0) < 12e4) {
         if (!cands.length) return;
         if (mine.length >= limit0) {
-          const weakest = Math.min(...mine.map(m => m.pts || 1e9));
+          const weakest = Math.min(...mine.filter(m => !m.manual).map(m => m.pts || 1e9));
           if (!CFG.REPLACE || cands[0].pts - weakest < CFG.REPLACE_DIFF) return;
         }
       }
@@ -846,7 +872,9 @@
         else void vanishReport(m);
       }
       const prevTaken = new Set(get('taken', [])), firstTaken = !get('takenInit', false);
-      mine = late(kept); set('mine', mine); set('taken', [...R.taken]); set('ownN', R.own.size); set('takenInit', true);
+      mine = late(kept);
+      mine = adoptManual(R, mine, now);
+      set('mine', mine); set('taken', [...R.taken]); set('ownN', R.own.size); set('takenInit', true);
       { const ti = {}; R.taken.forEach(k => ti[k] = R.info.get(k) || ''); set('takenInfo', ti); }
       // حجز اختفى من القائمة (غالبًا احتلال أو إلغاء): افحصه قبل أن نفكر بحجزه
       const justFreedNow = new Set();
@@ -915,7 +943,7 @@
         if (!vb.ok) { markBad(best, vb, tried, pend); todo.shift(); if (vb.transient) break; continue; }
         // 2) اختر حجزًا قابلًا للاستبدال: لا نبلاء مُرسَلة إليه (أو غير محسوم = محمي)
         const nm = CFG.NOBLE_CHECK ? await nobleMap(60000) : {};
-        const pool = mine.filter(m => m.id && !pinned(m.k) && (m.pts || m.conq) && R.taken.has(m.k) && Date.now() - m.t > 12e4)
+        const pool = mine.filter(m => m.id && !m.manual && !pinned(m.k) && (m.pts || m.conq) && R.taken.has(m.k) && Date.now() - m.t > 12e4)
           .map(m => ({ m, st: CFG.NOBLE_CHECK ? (nm[m.k] || 'unknown') : 'none' }));
         const okPool = pool.filter(x => x.st === 'none' && (x.m.conq || best.pts - x.m.pts >= CFG.REPLACE_DIFF))
           .sort((a, b) => (b.m.conq ? 1 : 0) - (a.m.conq ? 1 : 0) || (a.m.pts || 0) - (b.m.pts || 0));
@@ -1430,10 +1458,10 @@
     const mineHtml = mine.length ? mine.slice().sort((a, b) => a.t - b.t).map(m => {
       const left = expAt(m) - now;
       const cls = left < CFG.EXPIRY_WARN_H * HOUR ? (left < HOUR ? 'bd' : 'wr') : 'ok';
-      return `<div class="brp-li"><span class="c">${m.k}</span><span>${m.pts || '?'} ن</span><span class="${cls}">${fmt(left)}</span><span title="النبلاء: 🛡 مُرسَلة · ✓ لا · ❔ غير معروف · ⚠ احتُلت">${m.conq ? '⚠' : ({ sent: '🛡', none: '✓', unknown: '❔' }[nobMap[m.k]] || '')}</span>` +
+      return `<div class="brp-li"><span class="c">${m.k}${m.manual ? ' ✋' : ''}</span><span>${m.pts || '?'} ن</span><span class="${cls}">${fmt(left)}</span><span title="النبلاء: 🛡 مُرسَلة · ✓ لا · ❔ غير معروف · ⚠ احتُلت">${m.conq ? '⚠' : ({ sent: '🛡', none: '✓', unknown: '❔' }[nobMap[m.k]] || '')}</span>` +
              `<button class="brp-sm" data-chk="${m.k}" title="فحص حيّ">🔎</button><button class="brp-sm" data-pin="${m.k}" title="تثبيت: لا يُستبدل تلقائيًا">${pinned(m.k) ? '📌' : '📍'}</button>` +
              `<button class="brp-x" data-x="${m.k}" title="إلغاء الحجز">✕</button></div>`;
-    }).join('') : '<div class="brp-empty">لا حجوزات مسجّلة بواسطة السكربت</div>';
+    }).join('') : '<div class="brp-empty">لا حجوزات مسجّلة باسمك حاليًا</div>';
     const candHtml = cands.length ? cands.map(c =>
       `<div class="brp-li"><span class="c">${tk.has(key(c.x, c.y)) ? '🔒 ' : ''}${key(c.x, c.y)}</span><span>${c.fresh ? '🆕' : ''}${esc(c.kind)}</span><span>${c.pts} ن</span><span>${c.d.toFixed(1)} ح</span><button class="brp-sm" data-rs="${key(c.x, c.y)}" title="احجز الآن">⚡</button><button class="brp-sm" data-sw="${key(c.x, c.y)}" title="بدل أضعف حجز">🔁</button><button class="brp-sm" data-ig="${key(c.x, c.y)}" title="تجاهل (قائمة سوداء)">🚫</button></div>` + (tk.has(key(c.x, c.y)) && ti[key(c.x, c.y)] ? `<div class="brp-empty" style="padding:0 4px 4px;font-size:10px">🔒 ${esc(ti[key(c.x, c.y)].slice(0, 90))}</div>` : '')).join('')
       : '<div class="brp-empty">لا مرشحين ضمن الشروط الحالية</div>';
@@ -2271,7 +2299,7 @@
     const mine = get('mine', []);
     if (R.limit - Math.max(mine.length, R.own.size) > 0) return { direct: true };
     const nm = CFG.NOBLE_CHECK ? (await refreshNobles()).map : {};
-    const pool = mine.filter(m => m.id && !pinned(m.k) && R.taken.has(m.k) && Date.now() - m.t > 12e4 && (m.conq || (m.pts || 0) < v.pts) && (!CFG.NOBLE_CHECK || nm[m.k] === 'none'))
+    const pool = mine.filter(m => m.id && !m.manual && !pinned(m.k) && R.taken.has(m.k) && Date.now() - m.t > 12e4 && (m.conq || (m.pts || 0) < v.pts) && (!CFG.NOBLE_CHECK || nm[m.k] === 'none'))
       .sort((a, b) => (b.conq ? 1 : 0) - (a.conq ? 1 : 0) || (a.pts || 0) - (b.pts || 0));
     const weak = weakK ? pool.find(m => m.k === weakK) : pool[0];
     if (!weak) return { msg: `لا يوجد حجز قابل للاستبدال بـ ${k} (${v.pts} نقطة): كلها أقوى أو مثبّتة 📌 أو محمية (نبلاء مُرسَلة/غير محسومة).` };
