@@ -27,9 +27,9 @@ test('slots: N distinct milliseconds inside the noble window, no cap per noble',
 });
 test('snipeCountFor: explicit, automatic (0) and default',()=>{
   assert.equal(core.snipeCountFor({count:7},1),7);
-  assert.equal(core.snipeCountFor({count:0},1),20);
+  assert.equal(core.snipeCountFor({count:0},1),60);
   assert.equal(core.snipeCountFor({},3),3);
-  assert.equal(core.snipeCountFor(undefined,undefined),1);
+  assert.equal(core.snipeCountFor(undefined,undefined),60);
 });
 test('several snipes for one noble come from several villages',()=>{
   const {plans}=build({count:{1:4},nobles:[1]});

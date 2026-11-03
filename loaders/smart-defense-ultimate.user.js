@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      2.3.3
-// @description  Smart Defense 2.3.3 QA — approved Cloud Bridge, active subscription and script entitlement required
+// @version      2.3.4
+// @description  Smart Defense 2.3.4 QA — approved Cloud Bridge, active subscription and script entitlement required
 // @include      https://*.tribalwars.*/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
 // @match        https://*.algzawy-cloud-control.pages.dev/v2/*
@@ -29,7 +29,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'2.3.3';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'2.3.4';
 
     // QA-only, in-memory trace. Does not authenticate the loader or authorize engines.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -64,7 +64,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'2.3.3');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'2.3.4');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
