@@ -131,3 +131,9 @@ small,.small{font-size:12px}
 
 .key-fallback{margin-top:18px;border-top:1px dashed #345266;padding-top:12px}.key-fallback summary{cursor:pointer;color:var(--muted);font-size:13px;min-height:40px;display:flex;align-items:center}.key-fallback label{margin-top:12px}
 .pw-gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#050d16ee;overflow:auto}.pw-gate[hidden]{display:none}.pw-gate .login-card{width:min(440px,100%)}
+
+.pw-field{position:relative}.pw-field>input{padding-right:50px!important}
+.pw-eye{position:absolute;top:0;right:0;bottom:0;width:48px;border:0;background:transparent;color:#8fb0bd;display:grid;place-items:center;cursor:pointer;border-radius:0 10px 10px 0}
+.pw-eye:hover,.pw-eye:focus-visible{color:var(--teal)}.pw-eye:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.pw-eye .eye-open{display:none}.pw-eye .eye-closed{display:block}.pw-eye.is-revealed .eye-open{display:block}.pw-eye.is-revealed .eye-closed{display:none}
+.login-card input{height:52px;box-sizing:border-box}
