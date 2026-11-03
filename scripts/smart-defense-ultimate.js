@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
-// @version      2.3.0
-// @description  AlGzawy Smart Defense 2.3.0 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
+// @version      2.3.1
+// @description  AlGzawy Smart Defense 2.3.1 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
 // ==/UserScript==
 (function (root) {
   'use strict';
@@ -2014,7 +2014,10 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 #${uiId} label{display:block;margin-top:9px;font-weight:700;color:#C5D9E4}
 #${uiId} input,#${uiId} select{width:100%;min-width:0;height:33px;padding:6px 8px;color:var(--sd-text);background:var(--sd-bg);border:1px solid #365166;border-radius:7px;font:12px Consolas,Tahoma,monospace}
 #${uiId} input:focus,#${uiId} select:focus{border-color:var(--sd-accent)}
-#${uiId} .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+#${uiId} .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;background:transparent!important;border:0!important;padding:0!important;margin:0 0 6px!important;box-shadow:none!important}
+#${uiId} .row>div{background:transparent!important;min-width:0}
+#${uiId} .row label{display:block;margin:0 0 3px;color:var(--sd-muted,#9FB3C8)!important;font-weight:600;font-size:12px;white-space:normal;line-height:1.35}
+#${uiId} .row input,#${uiId} .row select{width:100%;box-sizing:border-box}
 #${uiId} details{border-top:1px solid var(--sd-border);margin-top:12px;padding-top:7px}
 #${uiId} summary{padding:9px 10px;border-radius:8px;background:var(--sd-panel2);border:1px solid var(--sd-border);cursor:pointer;font-weight:700;color:var(--sd-accent)}
 #${uiId} details[open]>summary{border-color:#7860B6;background:#211E35}
@@ -2050,7 +2053,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.0 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.1 QA</small></span></header>
 <main>
   <section data-sd-page="home">
     <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -2120,7 +2123,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </section>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.3.0';
+    panel.dataset.editorVersion='2.3.1';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};
