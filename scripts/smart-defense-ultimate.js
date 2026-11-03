@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
-// @version      2.3.2
-// @description  AlGzawy Smart Defense 2.3.2 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
+// @version      2.3.3
+// @description  AlGzawy Smart Defense 2.3.3 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
 // ==/UserScript==
 (function (root) {
   'use strict';
@@ -917,7 +917,12 @@
   }
   function rulesFor(villageId=ownId()){
     const state=get(root.localStorage,TARGET_RULES)||{};
-    return state[String(villageId)]||{};
+    // Manual from/to boxes no longer exist (windows are automatic); ignore values saved by old versions.
+    const rules=state[String(villageId)]||{},clean={};
+    for(const [key,rule] of Object.entries(rules)){
+      const {fromMs,toMs,...rest}=rule||{};clean[key]=rest;
+    }
+    return clean;
   }
   function updateNobleRule(key,values,villageId=ownId()){
     if(!key||!values)return;
@@ -2051,7 +2056,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.2 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.3 QA</small></span></header>
 <main>
   <section data-sd-page="home">
     <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -2121,7 +2126,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </section>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.3.2';
+    panel.dataset.editorVersion='2.3.3';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};

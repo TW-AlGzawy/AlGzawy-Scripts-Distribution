@@ -83,3 +83,6 @@ test('v2.3.0: per-noble snipe controls and global default are wired',()=>{
   assert.match(src,/villageFilter:/);
   assert.match(src,/max="120"/);
 });
+test('v2.3.3: old saved manual from/to values are ignored by rulesFor',()=>{
+  assert.match(src,/const \{fromMs,toMs,\.\.\.rest\}=rule\|\|\{\}/);
+});
