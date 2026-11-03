@@ -13,7 +13,7 @@ test('game engine never holds device key or calls BotFather and defaults to prev
  assert.match(engine,/DRY_RUN: true/);
  assert.doesNotMatch(engine,/getUpdates\?timeout=0/);
  assert.doesNotMatch(engine,/GM_getValue\(.*device_key/);
- assert.match(engine,/case 'live': return tgSend\('🔒/);
+ assert.match(engine,/case 'live': \{\n          if \(!tgArmed\(\)\) return tgSend\('🔒/);
  assert.match(engine,/case 'resume': return tgSend\('🔒/);
  assert.match(engine,/if\(!authorized\(\)\|\|CFG.DRY_RUN\|\|sessionStorage\.getItem\(P\+'liveConfirmed'\)!=='1'/);
 });
