@@ -14,30 +14,43 @@
   <div class="ambient ambient-one" aria-hidden="true"></div>
   <div class="ambient ambient-two" aria-hidden="true"></div>
   <main id="adminLogin" class="owner-login">
-    <section class="login-modal" aria-labelledby="ownerTitle">
-      <div class="login-logo" aria-hidden="true">AlG</div>
-      <div class="section-kicker">ALGZAWY CLOUD CONTROL</div>
-      <h1 id="ownerTitle">دخول إدارة المنظومة</h1>
-      <p>هذه البوابة للمالك فقط. حساب المشترك لا يمنح صلاحيات الإدارة.</p>
-      <form id="ownerLoginForm">
-        <div id="ownerPasswordFields" class="owner-login-fields">
-          <label for="ownerUsername">اسم المستخدم</label>
-          <input id="ownerUsername" type="text" required maxlength="32" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="اسم المستخدم">
-          <label for="ownerPassword">كلمة المرور</label>
-          <div class="owner-password-control"><input id="ownerPassword" type="password" required maxlength="256" autocomplete="current-password" placeholder="كلمة المرور"><button id="ownerPasswordVisibility" type="button" aria-label="إظهار كلمة المرور" aria-pressed="false">إظهار</button></div>
+    <div class="owner-login-shell">
+      <aside class="owner-login-brand" aria-hidden="true">
+        <div class="login-logo">AlG</div>
+        <div class="section-kicker">ALGZAWY CLOUD CONTROL</div>
+        <h2>لوحة التحكم<br><span>بالاشتراكات والأجهزة</span></h2>
+        <ul>
+          <li>إدارة المشتركين وكلمات مرورهم</li>
+          <li>صلاحيات السكربتات لكل اشتراك</li>
+          <li>ربط الأجهزة وتنبيهات تيليجرام</li>
+        </ul>
+      </aside>
+      <section class="login-modal owner-login-card" aria-labelledby="ownerTitle">
+        <span class="owner-login-badge">للمالك فقط</span>
+        <h1 id="ownerTitle">تسجيل دخول الإدارة</h1>
+        <p class="owner-login-lead">حساب المشترك لا يمنح صلاحيات الإدارة.</p>
+        <form id="ownerLoginForm">
+          <div id="ownerPasswordFields" class="owner-login-fields">
+            <label for="ownerUsername">اسم المستخدم</label>
+            <input id="ownerUsername" type="text" required maxlength="32" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="اسم المستخدم">
+            <label for="ownerPassword">كلمة المرور</label>
+            <div class="owner-password-control"><input id="ownerPassword" type="password" required maxlength="256" autocomplete="current-password" placeholder="كلمة المرور"><button id="ownerPasswordVisibility" type="button" aria-label="إظهار كلمة المرور" aria-pressed="false">إظهار</button></div>
+          </div>
+          <div id="ownerLegacyFields" class="owner-login-fields" hidden>
+            <label for="ownerToken">رمز إدارة الموقع القديم</label>
+            <input id="ownerToken" type="password" autocomplete="off" spellcheck="false" placeholder="رمز الإدارة القديم">
+          </div>
+          <p id="loginMessage" class="login-message" role="alert"></p>
+          <button id="ownerAuthSubmit" type="submit" class="button button-primary button-full" disabled>تسجيل الدخول</button>
+        </form>
+        <p id="ownerLoginModeStatus" class="owner-login-status" role="status">جارٍ التحقق من طريقة الدخول…</p>
+        <div class="owner-login-links">
+          <a href="./password-generator/">🔐 بصمة كلمة المرور من الهاتف</a>
+          <a href="https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/blob/main/portal/ADMIN-LOGIN-DIAGNOSTICS-AR.md" target="_blank" rel="noopener noreferrer">تشخيص رفض الدخول</a>
         </div>
-        <div id="ownerLegacyFields" class="owner-login-fields" hidden>
-          <label for="ownerToken">رمز إدارة الموقع القديم</label>
-          <input id="ownerToken" type="password" autocomplete="off" spellcheck="false" placeholder="رمز الإدارة القديم">
-        </div>
-        <button id="ownerAuthSubmit" type="submit" class="button button-primary button-full" disabled>تسجيل الدخول</button>
-      </form>
-      <p id="ownerLoginModeStatus" class="login-privacy" role="status">جارٍ التحقق من طريقة الدخول…</p>
-      <p class="login-privacy"><a href="./password-generator/">🔐 إنشاء بصمة كلمة المرور من Safari على الهاتف</a></p>
-      <p id="loginMessage" class="login-message" role="alert"></p>
-      <p class="login-privacy"><a href="https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/blob/main/portal/ADMIN-LOGIN-DIAGNOSTICS-AR.md" target="_blank" rel="noopener noreferrer">دليل تشخيص رفض الدخول بأمان</a></p>
-      <p class="login-privacy">كلمة المرور لا تُحفظ على الجهاز؛ الجلسة محمية ومحدودة الصلاحية. لا يُعرض الرمز الداخلي للمشتركين.</p>
-    </section>
+        <p class="owner-login-note">🔒 كلمة المرور لا تُحفظ على الجهاز، والجلسة محمية ومحدودة المدة.</p>
+      </section>
+    </div>
   </main>
   <div id="adminShell" class="owner-shell" hidden>
     <header class="owner-topbar">

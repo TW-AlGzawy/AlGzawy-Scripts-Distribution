@@ -122,3 +122,27 @@
 
 small,.small{font-size:12px}
 .login-privacy a{display:inline-block;padding:12px 0}
+
+/* Admin login — split layout */
+.owner-login .login-modal.owner-login-card{width:100%;max-width:none;margin:0;padding:34px 32px 24px}
+.owner-login-shell{width:min(920px,100%);display:grid;grid-template-columns:1fr 1.05fr;border:1px solid #2b5a58;border-radius:26px;overflow:hidden;background:#0b1624;box-shadow:0 40px 110px #000a}
+.owner-login-brand{padding:44px 38px;display:flex;flex-direction:column;justify-content:center;gap:14px;background:radial-gradient(120% 90% at 100% 0,#14504f 0,#0d2a38 55%,#0a1826 100%);border-inline-start:1px solid #2b5a58}
+.owner-login-brand .login-logo{margin:0 0 6px}
+.owner-login-brand h2{font-size:28px;line-height:1.5;margin:4px 0 6px;color:#f2fffb}
+.owner-login-brand h2 span{color:#48ddad}
+.owner-login-brand ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:12px;color:#bfe6dc;font-size:14px}
+.owner-login-brand li{display:flex;gap:10px;align-items:center}
+.owner-login-brand li::before{content:"";width:8px;height:8px;border-radius:50%;background:#48ddad;flex:none}
+.owner-login-badge{display:inline-block;font-size:12px;font-weight:700;color:#48ddad;border:1px solid #2f7a69;border-radius:999px;padding:4px 12px;margin-bottom:14px}
+.owner-login-card h1{font-size:26px;margin:0 0 6px}
+.owner-login-lead{color:#9db7c3;margin:0 0 6px;font-size:14px}
+.owner-login-status{font-size:12px;color:#8fb0bd;margin:12px 0 0;min-height:18px}
+.owner-login-links{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px}
+.owner-login-links a{color:#7fe3c4;font-size:13px;display:inline-block;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
+.owner-login-note{border-top:1px solid #234252;margin:12px 0 0;padding-top:14px;font-size:12px;color:#8fb0bd}
+@media(max-width:760px){.owner-login-shell{grid-template-columns:1fr;max-width:480px}.owner-login-brand{padding:24px 24px 20px;border-inline-start:0;border-bottom:1px solid #2b5a58}.owner-login-brand h2{font-size:21px}.owner-login-brand ul{display:none}.owner-login .login-modal.owner-login-card{padding:26px 22px 18px}}
+.owner-login-fields>input,.owner-login-fields .owner-password-control input{margin-bottom:0}
+.owner-login-fields>label{margin:6px 0 0}
+.owner-login-card .login-message{min-height:0;margin:2px 0;font-size:13px}
+.owner-login-card .login-message:empty{display:none}
+.owner-login-card #ownerAuthSubmit{margin-top:8px}
