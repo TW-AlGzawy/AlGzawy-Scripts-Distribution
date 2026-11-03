@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | القائد الذكي للدفاع والقنص
-// @version      2.3.3
-// @description  AlGzawy Smart Defense 2.3.3 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
+// @version      2.3.4
+// @description  AlGzawy Smart Defense 2.3.4 QA: noble-train planner, support and experimental cancel-snipe; licensed portal beta.
 // ==/UserScript==
 (function (root) {
   'use strict';
@@ -13,7 +13,7 @@
   // Never treat a click at T as proof the server received a command at T.
   const SEND_TOLERANCE_MS=100, MAX_CLOCK_DRIFT_MS=100;
   const MIN_PREP_MS=15000, MIN_NAV_SEPARATION_MS=30000;
-  const AUTO_SNIPE_SLOTS=20, MAX_COMMANDS=120;
+  const AUTO_SNIPE_SLOTS=60, MAX_COMMANDS=120;
   const pad=(x,n=2)=>String(x).padStart(n,'0');
   const finite=n=>typeof n==='number'&&Number.isFinite(n);
   const validEpoch=n=>Number.isSafeInteger(n)&&n>1500000000000;
@@ -873,7 +873,7 @@
   let metric=get(root.localStorage,METRICS)||{samples:[],maxDeviation:0};
   let options=get(root.localStorage,SETTINGS)||{reserve:50,margin:100,autoMonitor:true,
     cancelTarget:'',cancelOneWay:0,cancelLimit:600,advanced:false,maxTeams:10,
-    nobleSpacingMs:200,firstWindowMs:200,nobleEdgeMs:10,snipesPerNoble:1,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
+    nobleSpacingMs:200,firstWindowMs:200,nobleEdgeMs:10,snipesDefault:0,includeFirst:false,autoNobles:true,allowNarrowAttempt:false,
     experimentalTimingCalibration:false,nobleTarget:1,
     unitAllow:UNIT_TYPES.filter(x=>x!=='snob'&&x!=='knight'),cascadeAuto:false,
     cancelExperimental:false};
@@ -884,17 +884,17 @@
   const uiQuery=id=>doc.getElementById(id);
   // Only settings that affect a planned army enter the fingerprint.
   const fingerprint=values=>JSON.stringify(['reserve','margin','cancelTarget','cancelOneWay','cancelLimit','maxTeams','cascadeAuto',
-    'firstWindowMs','nobleEdgeMs','snipesPerNoble','includeFirst','unitAllow','allowNarrowAttempt']
+    'firstWindowMs','nobleEdgeMs','snipesDefault','includeFirst','unitAllow','allowNarrowAttempt']
     .map(k=>values?.[k]??null));
   const currentFingerprint=()=>fingerprint(get(root.localStorage,SETTINGS)||options);
 
   // Number of snipes requested for one noble: rule.count (>=1), 0 = automatic (fill as many as
   // villages allow, up to AUTO_SNIPE_SLOTS), otherwise the global default. No per-noble cap.
-  function snipeCountFor(rule,fallback=1){
+  function snipeCountFor(rule,fallback=0){
     const n=Number(rule?.count);
     if(Number.isSafeInteger(n)&&n>=0)return n===0?AUTO_SNIPE_SLOTS:Math.min(n,1000);
     const d=Number(fallback);
-    return Number.isSafeInteger(d)&&d>=1?Math.min(d,1000):1;
+    return Number.isSafeInteger(d)&&d>=1?Math.min(d,1000):AUTO_SNIPE_SLOTS;
   }
   // Split each usable noble window into N distinct landing milliseconds (all inside the window).
   function expandSnipeSlots(windows,countFor){
@@ -1166,8 +1166,8 @@
       (uiQuery('sd-include-first')?.checked?'1':'0'))==='1';
     const edge=Number(value('sd-noble-edge')||10);
     if(Number.isSafeInteger(edge)&&edge>=1&&edge<=500)merged.nobleEdgeMs=edge;
-    const snipes=Number(value('sd-snipes')||1);
-    if(Number.isSafeInteger(snipes)&&snipes>=1&&snipes<=1000)merged.snipesPerNoble=snipes;
+    const snipes=Number(value('sd-snipes')||0);
+    if(Number.isSafeInteger(snipes)&&snipes>=0&&snipes<=1000)merged.snipesDefault=snipes;
     const spacing=Number(value('sd-noble-spacing')||200);
     if(Number.isSafeInteger(spacing)&&spacing>=1&&spacing<=60000)merged.nobleSpacingMs=spacing;
     const autoRaw=Object.hasOwn(drafts,'sd-auto-nobles')?drafts['sd-auto-nobles']:
@@ -1350,7 +1350,7 @@
     const targetRules=rulesFor(ownId());
     for(const train of trains){
       const windows=expandSnipeSlots(selectedWindows(train,targetRules),
-        w=>snipeCountFor(targetRules[w.nobleId],options.snipesPerNoble));
+        w=>snipeCountFor(targetRules[w.nobleId],options.snipesDefault));
       const diagnostic={trainId:train.id};diagnostics.push(diagnostic);
       support.push(...supportOptions({villages:roster,target,waves:train.waves,
         unitMinutes:config.unitMinutes,worldFactor:config.factor,now:Math.round(now),
@@ -1983,7 +1983,7 @@ letter-spacing:.5px;text-shadow:0 2px 14px #40E1BF28}
 #${uiId} #sd-countdown[data-tone=due] .sd-timer-digits{color:var(--sd-gold)}
 #${uiId} #sd-countdown .sd-timer-description{font-size:11px;line-height:1.5;
 color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
-#${uiId} .sd-noble-opts{margin:-2px 0 8px;padding:6px 10px;border:1px dashed #b9a06a;border-radius:8px;font-size:12px}#${uiId} .sd-noble-opts input.sd-snipe-count{width:70px;margin-inline-start:6px}#${uiId} .sd-noble-opts details{margin-top:4px;max-height:180px;overflow:auto}#${uiId} .sd-village-pick{display:block;font-size:12px}
+#${uiId} .sd-noble-opts{margin:-2px 0 8px;padding:6px 10px;border:1px dashed #b9a06a;border-radius:8px;font-size:12px}#${uiId} .sd-noble-opts input.sd-snipe-count{width:100px;margin-inline-start:6px}#${uiId} .sd-noble-opts details{margin-top:4px;max-height:180px;overflow:auto}#${uiId} .sd-village-pick{display:block;font-size:12px}
 #${uiId} .sd-noble-line{display:grid;grid-template-columns:22px minmax(0,1fr);gap:2px 8px;align-items:center;padding:8px 6px;margin:4px 0;border:1px solid #385066;border-radius:8px;background:#0E1B2A;cursor:pointer;user-select:none;transition:background .12s,border-color .12s}
 #${uiId} .sd-noble-line:hover{background:#13283A;border-color:#5E7EA0}
 #${uiId} .sd-noble-line.on{background:#173A3A;border-color:var(--sd-teal)}
@@ -2056,7 +2056,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
 `;
     doc.head.append(style);
     const panel=doc.createElement('section');panel.id=uiId;
-    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.3 QA</small></span></header>
+    panel.innerHTML=`<header><span class="sd-brand"><span class="sd-mark" title="القائد الذكي للدفاع والقنص">SD</span><strong>🛡️ القائد الذكي للدفاع والقنص | AlGzawy</strong><small class="sd-version">v2.3.4 QA</small></span></header>
 <main>
   <section data-sd-page="home">
     <div class="row"><button id="sd-scan" type="button" class="primary">① 🔍 فحص شامل</button>
@@ -2090,7 +2090,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
       <div class="row"><div><label for="sd-noble-spacing">الفاصل بين النبلاء (ms)</label><input id="sd-noble-spacing" type="number" min="1" max="60000" step="1" value="200" dir="ltr"></div>
       <div><label for="sd-noble-lead">نافذة قبل النبيل الأول (ms)</label><input id="sd-noble-lead" type="number" value="200" min="1" max="60000" step="1" dir="ltr"></div>
       <div><label for="sd-noble-edge">هامش الحواف (ms)</label><input id="sd-noble-edge" type="number" value="10" min="1" max="500" step="1" dir="ltr"></div>
-      <div><label for="sd-snipes">قنصات لكل نبيل (افتراضي)</label><input id="sd-snipes" type="number" value="1" min="1" max="1000" step="1" dir="ltr"></div></div>
+      <div><label for="sd-snipes">قنصات لكل نبيل (فارغ = تلقائي)</label><input id="sd-snipes" type="number" placeholder="تلقائي" min="0" max="1000" step="1" dir="ltr"></div></div>
       <p id="sd-gap-warning" class="tiny">النافذة تُحسب تلقائيًا بين النبيل وما قبله: من (وصول السابق + الهامش) إلى (وصول النبيل − الهامش).</p>
     </div>
   </section>
@@ -2126,7 +2126,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
   </section>
 </main>`;
     doc.body.appendChild(panel);
-    panel.dataset.editorVersion='2.3.3';
+    panel.dataset.editorVersion='2.3.4';
     const nav=doc.createElement('nav');nav.className='sd-tabs';
     panel.insertBefore(nav,panel.querySelector('main'));
     const pages={};
@@ -2168,7 +2168,7 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     uiQuery('sd-noble-spacing').value=options.nobleSpacingMs||200;
     uiQuery('sd-noble-lead').value=options.firstWindowMs||200;
     uiQuery('sd-noble-edge').value=options.nobleEdgeMs||10;
-    uiQuery('sd-snipes').value=options.snipesPerNoble||1;
+    uiQuery('sd-snipes').value=options.snipesDefault>0?options.snipesDefault:'';
     uiQuery('sd-include-first').checked=options.includeFirst===true;
     uiQuery('sd-narrow-attempt').checked=options.allowNarrowAttempt===true;
     uiQuery('sd-timing-calibration').checked=options.experimentalTimingCalibration===true;
@@ -2336,16 +2336,17 @@ color:var(--sd-muted);white-space:normal;overflow-wrap:anywhere}
     const label=doc.createElement('label');label.textContent='عدد القنصات';
     const count=doc.createElement('input');count.type='number';count.min='0';count.max='1000';count.step='1';
     count.dir='ltr';count.className='sd-snipe-count';
-    count.value=Number.isSafeInteger(Number(rule.count))&&rule.count!==undefined?String(rule.count):
-      String(options.snipesPerNoble||1);
-    count.title='0 = تلقائي: أكبر عدد ممكن من القرى';
+    count.placeholder='تلقائي';
+    const shown=rule.count!==undefined?Number(rule.count):Number(options.snipesDefault||0);
+    count.value=shown>0?String(shown):'';
+    count.title='فارغ = تلقائي: أكبر عدد ممكن من القنصات من القرى المتاحة';
     count.addEventListener('change',()=>{
-      const n=Math.max(0,Math.min(1000,Math.floor(Number(count.value))));
-      updateNobleRule(w.nobleId,{count:Number.isFinite(n)?n:1},vId);renderNobleSelector();
+      const raw=count.value.trim(),n=raw===''?0:Math.max(0,Math.min(1000,Math.floor(Number(raw))));
+      updateNobleRule(w.nobleId,{count:Number.isFinite(n)?n:0},vId);renderNobleSelector();
     });
     label.appendChild(count);
     const hint=doc.createElement('small');
-    hint.textContent=Number(count.value)===0?'تلقائي':'قنصة/قنصات';
+    hint.textContent=count.value===''?'تلقائي: أكبر عدد ممكن من القنصات':'قنصة/قنصات';
     const list=(scanned?.roster||[]).filter(v=>!(v.x===scanned.target?.x&&v.y===scanned.target?.y));
     const picked=new Set((rule.villages||[]).map(String));
     const details=doc.createElement('details');
