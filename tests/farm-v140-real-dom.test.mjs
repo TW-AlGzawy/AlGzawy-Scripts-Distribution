@@ -67,9 +67,9 @@ function simulation(previous={},sharedSession=new Map(),extraWindow={}){
  return {run,start,tick,rows,createRow,state,store,sharedSession,q,timers,win};
 }
 
-test('v1.4.0 header and defaults',()=>{
+test('v1.5.0 header and defaults',()=>{
  new vm.Script(script);
- assert.match(script,/^\/\/ @version\s+1\.4\.0$/m);
+ assert.match(script,/^\/\/ @version\s+1\.5\.0$/m);
  const app=simulation();app.run();
  assert.equal(app.q('skip-incoming').checked,true,'skipping duplicate sends is on by default');
  assert.equal(app.q('max-hour').value,0,'hourly cap is off by default');
@@ -186,4 +186,40 @@ test('no new behaviour can bypass human verification',()=>{
  app.win.game_data.captcha=true;
  assert.match(script,/function challengeDetected/);
  assert.match(script,/pauseForSafety\('تم رصد تحقق بشري/);
+});
+
+test('v1.5.0 normal mode: chosen template at one fixed speed, no skipping, no smart ordering',()=>{
+ const app=simulation({mode:'normal',template:'B',speed:1500,minDelay:500,maxDelay:9000,
+   smart:true,skipIncoming:true,maxPerHour:1,villageTemplates:{11:'C'}});
+ app.createRow('busy',{incoming:true,resources:[1,1,1]});
+ app.createRow('rich',{resources:[9000,9000,9000]});
+ const delays=[];
+ const original=app.timers;
+ app.start();
+ assert.deepEqual(app.state.clicked,[]);
+ app.tick();
+ assert.deepEqual(app.state.clicked,[{id:'busy',template:'B'}]); // listed order, template B, incoming not skipped
+ app.tick();
+ assert.deepEqual(app.state.clicked.map(c=>c.template),['B','B']); // hourly cap and per-village C ignored
+ assert.equal(JSON.parse(app.store.get('algzawy_bot2_settings_v02')).speed,1500);
+});
+test('v1.5.0 normal mode never uses AUTO; pro mode keeps it',()=>{
+ const normal=simulation({mode:'normal',template:'AUTO',speed:800});
+ normal.createRow('rich',{resources:[2000,2000,2000]});
+ normal.start();normal.tick();
+ assert.deepEqual(normal.state.clicked,[{id:'rich',template:'A'}]);
+ const pro=simulation({mode:'pro',template:'AUTO'});
+ pro.createRow('rich',{resources:[2000,2000,2000]});
+ pro.start();pro.tick();
+ assert.deepEqual(pro.state.clicked,[{id:'rich',template:'B'}]);
+});
+test('v1.5.0 mode buttons exist and switching is saved',()=>{
+ assert.match(script,/id="algzawy-bot2-mode-normal">العادي/);
+ assert.match(script,/id="algzawy-bot2-mode-pro">الاحترافي/);
+ const app=simulation({enabled:false,mode:'pro'});
+ app.run();
+ app.q('mode-normal').click();
+ assert.equal(JSON.parse(app.store.get('algzawy_bot2_settings_v02')).mode,'normal');
+ app.q('mode-pro').click();
+ assert.equal(JSON.parse(app.store.get('algzawy_bot2_settings_v02')).mode,'pro');
 });

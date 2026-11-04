@@ -74,11 +74,11 @@ function simulation(previous={enabled:true,template:'A',minDelay:500,maxDelay:50
  };
  return {run,tick,rows,createRow,state,store,sharedSession,q,timers,ctx,get reloaded(){return reloaded;}};
 }
-test('farm release is 1.4.0 in engine, installer and catalog',()=>{
+test('farm release is 1.5.0 in engine, installer and catalog',()=>{
  new vm.Script(script);new vm.Script(loader);
- assert.match(script,/^\/\/ @version\s+1\.4\.0$/m);
- assert.match(loader,/^\/\/ @version\s+1\.4\.0$/m);
- assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.4.0');
+ assert.match(script,/^\/\/ @version\s+1\.5\.0$/m);
+ assert.match(loader,/^\/\/ @version\s+1\.5\.0$/m);
+ assert.equal(catalog.published_candidates.find(x=>x.id==='bot-farm-2')?.version,'1.5.0');
 });
 test('previous ON state is always cleared without erasing template or delays; no farm click on opening',()=>{
  const app=simulation({enabled:true,template:'B',minDelay:2100,maxDelay:2800,switchVillages:false});
