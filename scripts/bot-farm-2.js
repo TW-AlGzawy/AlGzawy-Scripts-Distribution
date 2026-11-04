@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.4.0
+// @version      1.5.0
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -41,11 +41,22 @@
   const HUMAN_KEY='algzawy_human_verification_pause';
   const humanLocked=()=>localStorage.getItem(HUMAN_KEY)==='1'||
     sessionStorage.getItem(HUMAN_KEY)==='1';
-  const defaults = {enabled:false,template:'A',minDelay:1000,maxDelay:2000,switchVillages:true,smart:false,allowC:false,perVillage:false,minimumTroops:1,villageTemplates:{},skipIncoming:true,maxPerHour:0};
+  const defaults = {enabled:false,template:'A',minDelay:1000,maxDelay:2000,switchVillages:true,smart:false,allowC:false,perVillage:false,minimumTroops:1,villageTemplates:{},skipIncoming:true,maxPerHour:0,mode:'pro',speed:1000};
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { saved = null; }
   let settings = Object.assign({},defaults,saved || {});
   if(!settings.villageTemplates||typeof settings.villageTemplates!=='object'||Array.isArray(settings.villageTemplates))settings.villageTemplates={};
+  // Mode: 'normal' = run the chosen template A/B/C at one fixed speed, nothing else;
+  // 'pro' = the full engine (smart ordering, troop checks, per-village templates, caps).
+  // Safety (CAPTCHA pause, server back-off, claim lock) applies in both modes.
+  const isNormal=()=>settings.mode==='normal';
+  const cfg=()=>{
+    if(!isNormal())return settings;
+    const speed=Math.min(60000,Math.max(500,Number(settings.speed)||1000));
+    return {...settings,smart:false,skipIncoming:false,maxPerHour:0,allowC:false,
+      villageTemplates:{},template:cols[settings.template]?settings.template:'A',
+      minDelay:speed,maxDelay:speed,minimumTroops:1};
+  };
   // Tab-local run consent survives reload/village switching, but never leaks
   // into another normal tab or bypasses the Cloud Bridge's human check lock.
   const resumeRequested=sessionStorage.getItem(RUN_KEY)==='1';
@@ -140,7 +151,7 @@
   }
   function refreshHomeTroops(){
     if(troopRequest)return troopRequest;
-    if(!settings.smart||!settings.enabled||humanLocked()||
+    if(!cfg().smart||!settings.enabled||humanLocked()||
        villageId==='unknown'||playerId==='anonymous'||typeof fetch!=='function')
       return Promise.resolve(null);
     if(troopSnapshot&&Date.now()-troopReadAt<45000)return Promise.resolve(troopSnapshot);
@@ -285,9 +296,9 @@
     return Math.min(10000,res?.total??0)/100+(full?20:0)-(dist??0)-(wall??0)*3;
   }
   function chosenTemplate(row){
-    const villageOverride=settings.villageTemplates[villageId];
+    const villageOverride=cfg().villageTemplates[villageId];
     const selected=(cols[villageOverride]||villageOverride==='AUTO')?
-      villageOverride:settings.template;
+      villageOverride:cfg().template;
     // An explicit A/B/C selection must ALWAYS win, including when smart
     // priority and troop checks are enabled. Never silently replace C with A.
     if(cols[selected])return selected;
@@ -295,7 +306,7 @@
     const loot=numericAttr(row,'data-loot-total')??rowResources(row)?.total??null;
     // C uses a recent scout report; never select C from its icon alone.
     const scout=row.querySelector?.('[data-scout-report-id]');
-    if(settings.allowC&&scout&&availableTemplate(row,'C'))return 'C';
+    if(cfg().allowC&&scout&&availableTemplate(row,'C'))return 'C';
     if(loot!==null&&loot>=5000&&availableTemplate(row,'B'))return 'B';
     if(availableTemplate(row,'A'))return 'A';
     if(availableTemplate(row,'B'))return 'B';
@@ -409,7 +420,7 @@
       ' (لا تُحسب محاولات النقر كنجاحات)'+
       '\nمقبول من الخادم: '+entries.filter(e=>e.kind==='accepted').length+
       ' | مرفوض: '+entries.filter(e=>e.kind==='rejected').length+
-      ' | آخر ساعة: '+hourlyStamps().length+' إرسالًا'+(Number(settings.maxPerHour)>0?' من '+settings.maxPerHour:'')+
+      ' | آخر ساعة: '+hourlyStamps().length+' إرسالًا'+(Number(cfg().maxPerHour)>0?' من '+cfg().maxPerHour:'')+
       (skippedIncoming?'\nتخطّى '+skippedIncoming+' قرية فيها هجوم قادم':'');
     const army=document.getElementById('algzawy-bot2-army-summary');
     if(army){
@@ -448,14 +459,17 @@
     '<button type="button" id="algzawy-bot2-tab-stats">الإحصاءات</button>'+
     '<button type="button" id="algzawy-bot2-tab-log">السجل</button></nav>'+
     '<div id="algzawy-bot2-page-home">'+
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><b>الوضع</b><button type="button" id="algzawy-bot2-mode-normal">العادي</button><button type="button" id="algzawy-bot2-mode-pro">الاحترافي</button></div>'+
+    '<label data-normal="1" style="display:none;margin-top:7px">السرعة — تأخير ثابت بين كل إرسال (ms، الأدنى 500)<input type="number" min="500" max="60000" step="50" id="algzawy-bot2-speed" style="width:95%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label>'+
+    '<div data-normal="1" style="display:none;font-size:11px;color:#95acbc;margin-top:4px">الوضع العادي: يضغط القالب المحدد (A أو B أو C) بالسرعة المحددة فقط، دون ترتيب ذكي أو فحص قوات أو تخطٍّ للقرى. تبقى حماية التحقق البشري ورفض الخادم فعّالة.</div>'+
     '<label>قالب النهب <select id="algzawy-bot2-template" style="width:100%;padding:4px;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"><option>A</option><option>B</option><option>C</option><option value="AUTO">تلقائي (A/B/C)</option></select></label>'+
-    '<div style="display:flex;gap:7px;margin-top:7px"><label style="flex:1">أقل تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-min-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label><label style="flex:1">أقصى تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-max-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label></div>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-smart"> ترتيب ذكي للأهداف + فحص القوات (لا يغيّر القالب المحدد)</label>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-allow-c"> السماح باختيار C في الوضع التلقائي فقط</label>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-per-village"> حفظ القالب لهذه القرية فقط</label>'+
-    '<label>الحد الأدنى للقوات المؤكدة (الوضع الذكي)<input type="number" min="1" max="100000" id="algzawy-bot2-min-troops" style="width:95%;background:#07111c;color:white"></label>'+
-    '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-skip-incoming"> تخطّي القرى التي فيها هجوم قادم (لا إرسال مكرر)</label>'+
-    '<label>حد أقصى للإرسال بالساعة (0 = بلا حد)<input type="number" min="0" max="5000" id="algzawy-bot2-max-hour" style="width:95%;background:#07111c;color:white"></label>'+
+    '<div data-pro="1" style="display:flex;gap:7px;margin-top:7px"><label style="flex:1">أقل تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-min-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label><label style="flex:1">أقصى تأخير (ms)<input type="number" min="500" max="60000" id="algzawy-bot2-max-delay" style="width:90%;background:#07111c;color:#eaf3f8;border:1px solid #263c4f;color-scheme:dark"></label></div>'+
+    '<label data-pro="1" style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-smart"> ترتيب ذكي للأهداف + فحص القوات (لا يغيّر القالب المحدد)</label>'+
+    '<label data-pro="1" style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-allow-c"> السماح باختيار C في الوضع التلقائي فقط</label>'+
+    '<label data-pro="1" style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-per-village"> حفظ القالب لهذه القرية فقط</label>'+
+    '<label data-pro="1">الحد الأدنى للقوات المؤكدة (الوضع الذكي)<input type="number" min="1" max="100000" id="algzawy-bot2-min-troops" style="width:95%;background:#07111c;color:white"></label>'+
+    '<label data-pro="1" style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-skip-incoming"> تخطّي القرى التي فيها هجوم قادم (لا إرسال مكرر)</label>'+
+    '<label data-pro="1">حد أقصى للإرسال بالساعة (0 = بلا حد)<input type="number" min="0" max="5000" id="algzawy-bot2-max-hour" style="width:95%;background:#07111c;color:white"></label>'+
     '<label style="display:block;margin-top:7px"><input type="checkbox" id="algzawy-bot2-switch" style="accent-color:#40e1bf;color-scheme:dark"> التنقل بين القرى تلقائيًا</label>'+
     '<button type="button" id="algzawy-bot2-toggle" style="width:100%;margin-top:9px;padding:8px;border:0;border-radius:7px;background:#40e1bf;color:#06332f;cursor:pointer"></button>'+
     '</div>'+
@@ -466,7 +480,9 @@
     '<div id="algzawy-bot2-status" aria-live="polite" style="font-size:11px;color:#95acbc;margin-top:6px"></div></div>';
   document.body.appendChild(panel);
   const farmStyle=document.createElement('style');
-  farmStyle.textContent='#algzawy-bot2-panel nav button{flex:1 0 auto;font:inherit;color:#c5e8e5;background:#19354a;border:1px solid #2b5261;border-radius:6px;padding:5px;cursor:pointer}'+
+  farmStyle.textContent='#algzawy-bot2-panel #algzawy-bot2-page-home>div>button{flex:1;font:inherit;color:#c5e8e5;background:#19354a;border:1px solid #2b5261;border-radius:6px;padding:5px;cursor:pointer}'+
+    '#algzawy-bot2-panel #algzawy-bot2-page-home>div>button[aria-pressed="true"]{background:#176359;color:#fff;border-color:#40e1bf}'+
+    '#algzawy-bot2-panel nav button{flex:1 0 auto;font:inherit;color:#c5e8e5;background:#19354a;border:1px solid #2b5261;border-radius:6px;padding:5px;cursor:pointer}'+
     '#algzawy-bot2-panel nav button[aria-pressed="true"]{background:#176359;color:#fff;border-color:#40e1bf}'+
     '#algzawy-bot2-panel :is(button,input,select):focus-visible{outline:2px solid #40e1bf;outline-offset:2px}';
   document.body.appendChild(farmStyle);
@@ -479,8 +495,8 @@
     else{sessionStorage.removeItem(RUN_KEY);sessionStorage.removeItem(NEXT_KEY);}
   };
   const bounded = n => Math.min(60000,Math.max(500,Number(n)||1000));
-  q('template').value = (cols[settings.villageTemplates[villageId]]||
-    settings.villageTemplates[villageId]==='AUTO')?settings.villageTemplates[villageId]:
+  q('template').value = (!isNormal()&&(cols[settings.villageTemplates[villageId]]||
+    settings.villageTemplates[villageId]==='AUTO'))?settings.villageTemplates[villageId]:
     ((cols[settings.template]||settings.template==='AUTO')?settings.template:'A');
   q('smart').checked=settings.smart===true;
   q('allow-c').checked=settings.allowC===true;
@@ -492,6 +508,18 @@
   q('min-delay').value = bounded(settings.minDelay);
   q('max-delay').value = bounded(settings.maxDelay);
   q('switch').checked = settings.switchVillages !== false;
+  q('speed').value=Math.min(60000,Math.max(500,Number(settings.speed)||bounded(settings.minDelay)));
+  function applyMode(){
+    const normal=isNormal();
+    for(const el of (panel.querySelectorAll?.('[data-pro]')||[]))el.style.display=normal?'none':'';
+    for(const el of (panel.querySelectorAll?.('[data-normal]')||[]))el.style.display=normal?'':'none';
+    const auto=q('template').querySelector?.('option[value="AUTO"]');
+    if(auto){auto.hidden=normal;auto.disabled=normal;}
+    if(normal&&q('template').value==='AUTO')q('template').value='A';
+    q('mode-normal')?.setAttribute?.('aria-pressed',String(normal));
+    q('mode-pro')?.setAttribute?.('aria-pressed',String(!normal));
+  }
+  applyMode();
   function updateButton() {
     q('toggle').textContent = policyPaused?'النهب معلّق (حماية)':
       settings.enabled ? 'إيقاف النهب' : 'تشغيل النهب';
@@ -500,21 +528,25 @@
   }
   function saveInputs() {
     const option=q('template').value;
-    const chosen=(cols[option]||option==='AUTO')?option:'A';
-    if(q('per-village').checked!==true)settings.template=chosen;
+    const chosen=(cols[option]||(option==='AUTO'&&!isNormal()))?option:'A';
+    if(isNormal()||q('per-village').checked!==true)settings.template=chosen;
     settings.smart=q('smart').checked===true;
     settings.allowC=q('allow-c').checked===true;
-    settings.perVillage=q('per-village').checked===true;
+    if(!isNormal())settings.perVillage=q('per-village').checked===true;
     settings.minimumTroops=Math.min(100000,Math.max(1,Number(q('min-troops').value)||1));
     settings.skipIncoming=q('skip-incoming').checked!==false;
     settings.maxPerHour=Math.max(0,Math.min(5000,Number(q('max-hour').value)||0));
-    if(settings.perVillage)settings.villageTemplates[villageId]=chosen;
-    else delete settings.villageTemplates[villageId];
+    if(!isNormal()){
+      if(settings.perVillage)settings.villageTemplates[villageId]=chosen;
+      else delete settings.villageTemplates[villageId];
+    }
     settings.minDelay = bounded(q('min-delay').value);
     settings.maxDelay = Math.max(settings.minDelay,bounded(q('max-delay').value));
     q('min-delay').value = settings.minDelay;
     q('max-delay').value = settings.maxDelay;
     settings.switchVillages = q('switch').checked;
+    settings.speed=Math.min(60000,Math.max(500,Number(q('speed').value)||1000));
+    q('speed').value=settings.speed;
     store();
   }
   function stop(msg) {
@@ -547,7 +579,7 @@
       return;
     }
     const delay=remaining!==null&&remaining>0?
-      remaining:settings.minDelay+Math.random()*(settings.maxDelay-settings.minDelay);
+      remaining:cfg().minDelay+Math.random()*(cfg().maxDelay-cfg().minDelay);
     const wait=Math.max(500,Math.ceil(delay));
     sessionStorage.setItem(NEXT_KEY,String(Date.now()+wait));
     timer=setTimeout(step,wait);
@@ -559,7 +591,7 @@
     let streak=0;
     try{streak=Math.min(4,Number(sessionStorage.getItem(IDLE_KEY)||0)||0);
       sessionStorage.setItem(IDLE_KEY,String(streak+1));}catch(_){}
-    const idleWait=Math.min(300000,Math.max(15000,settings.maxDelay)*Math.pow(2,streak));
+    const idleWait=Math.min(300000,Math.max(15000,cfg().maxDelay)*Math.pow(2,streak));
     status(message+' — إعادة الفحص تلقائيًا');
     timer=setTimeout(()=>{
       if (!settings.enabled||policyPaused||terminated||challengeDetected()) return;
@@ -573,7 +605,7 @@
     const href=next&&(next.getAttribute('href')||next.href);
     if(href && href!=='#' && (/^https?:/.test(href) || href.startsWith('/'))){
       status('الانتقال إلى القرية التالية... (يتوقف النهب عند فتحها)');
-      timer=setTimeout(()=>{if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())location.href=href;},Math.max(2000,settings.minDelay));
+      timer=setTimeout(()=>{if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())location.href=href;},Math.max(2000,cfg().minDelay));
     }else retryLater('لا تتوفر قرية تالية الآن');
   }
   function step() {
@@ -592,7 +624,7 @@
       timer=setTimeout(step,Math.min(backoffMs+500,30000));
       return;
     }
-    const hourCap=Number(settings.maxPerHour)||0;
+    const hourCap=Number(cfg().maxPerHour)||0;
     if(hourCap>0){
       const stamps=hourlyStamps();
       if(stamps.length>=hourCap){
@@ -605,7 +637,7 @@
     observeNativeReports();
     const rawRows=Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
     const troops=readHomeTroops();
-    if(settings.smart){
+    if(cfg().smart){
       if(!troops){
         if(troopWaiting)return;
         troopWaiting=true;
@@ -619,25 +651,25 @@
             if(!timer)schedule();
           }else{
             status('تعذر قراءة القوات من اللعبة؛ إعادة الفحص دون إرسال أو إعادة تحميل الصفحة');
-            timer=setTimeout(step,Math.max(10000,settings.maxDelay));
+            timer=setTimeout(step,Math.max(10000,cfg().maxDelay));
           }
         }).catch(error=>{
           console.warn('[AlGzawy] Troop follow-up:',error);
           if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())
-            timer=setTimeout(step,Math.max(10000,settings.maxDelay));
+            timer=setTimeout(step,Math.max(10000,cfg().maxDelay));
         }).finally(()=>{troopWaiting=false;});
         return;
       }
       const available=Object.values(troops).reduce((sum,n)=>sum+n,0);
-      if(available<settings.minimumTroops)return retryLater('القوات المتاحة أقل من الحد المسموح');
+      if(available<cfg().minimumTroops)return retryLater('القوات المتاحة أقل من الحد المسموح');
     }
-    const trs=settings.smart?rawRows.map((row,index)=>({row,index}))
+    const trs=cfg().smart?rawRows.map((row,index)=>({row,index}))
       .sort((a,b)=>targetPriority(b.row)-targetPriority(a.row)||a.index-b.index)
       .map(x=>x.row):rawRows;
     let found = null, key = '',selectedRow=null,selectedTemplate='A',claimKey='';
     for (let i=0;i<trs.length;i++) {
       const row = trs[i];
-      if(settings.skipIncoming!==false&&rowIncoming(row)){skippedIncoming++;continue;}
+      if(cfg().skipIncoming!==false&&rowIncoming(row)){skippedIncoming++;continue;}
       const targetTemplate=chosenTemplate(row);
       const targetClass=cols[targetTemplate];
       const link = targetClass&&row.querySelector('a.'+targetClass);
@@ -669,7 +701,7 @@
       attemptedRows.add(selectedRow);
       actions++;
       // Re-read authoritative home troops before another smart dispatch.
-      if(settings.smart){troopSnapshot=null;troopReadAt=0;}
+      if(cfg().smart){troopSnapshot=null;troopReadAt=0;}
       status('القالب '+selectedTemplate+' | محاولات الإرسال: '+actions+' (غير مؤكدة من الخادم)');
       // Keep every village row visible until the game itself changes it.
       // Do not fake a success by deleting/hiding the target row.
@@ -692,7 +724,17 @@
     settings.enabled=true;rememberRun();updateButton();attempted.clear();attemptedRows=new WeakSet();actions=0;status('بدأ التشغيل اليدوي — يتم عرض محاولات الإرسال فقط');
     schedule();
   });
-  ['template','min-delay','max-delay','switch','smart','allow-c','per-village','min-troops','skip-incoming','max-hour']
+  for(const mode of ['normal','pro'])q('mode-'+mode).addEventListener('click',()=>{
+    if(settings.mode===mode)return;
+    settings.mode=mode;
+    // Show the template that applies in the new mode.
+    const override=settings.villageTemplates[villageId];
+    q('template').value=mode==='pro'&&(cols[override]||override==='AUTO')?override:
+      ((cols[settings.template]||(settings.template==='AUTO'&&mode==='pro'))?settings.template:'A');
+    applyMode();saveInputs();
+    status(mode==='normal'?'الوضع العادي: القالب بسرعة ثابتة فقط':'الوضع الاحترافي: كل الخيارات المتقدمة');
+  });
+  ['template','speed','min-delay','max-delay','switch','smart','allow-c','per-village','min-troops','skip-incoming','max-hour']
     .forEach(id=>q(id).addEventListener('change',saveInputs));
   const pages=['home','targets','army','stats','log'];
   pages.forEach(active=>q('tab-'+active).addEventListener('click',()=>{

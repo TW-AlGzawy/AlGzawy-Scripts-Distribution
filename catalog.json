@@ -18,10 +18,10 @@
     {
       "id": "bot-farm-2",
       "name": "الغزااوي | بوت النهب",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/bot-farm-2.user.js",
-      "note": "v1.4.0: smart ranking from real farm-list values (resources/distance/wall), skip villages with an attack already on the way, optional hourly send cap, passive reading of server answers with automatic back-off after repeated refusals, exponential idle waits. Human-verification pause behaviour unchanged. Live game QA required.",
+      "note": "v1.5.0: new Normal mode (chosen template A/B/C at one fixed speed) beside the Professional mode. v1.4.0: smart ranking from real farm-list values (resources/distance/wall), skip villages with an attack already on the way, optional hourly send cap, passive reading of server answers with automatic back-off after repeated refusals, exponential idle waits. Human-verification pause behaviour unchanged. Live game QA required.",
       "approved_for_final": false
     },
     {
