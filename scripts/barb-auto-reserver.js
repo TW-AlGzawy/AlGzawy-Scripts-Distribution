@@ -1908,13 +1908,17 @@
     return keep.size ? [...keep] : geo;
   }
   let directI = 0, directH = 0, directBusy = false;
+  // why the last direct scan round did or didn't run (read by the website map), written at most every 20 s
+  let whyT = 0;
+  const why = (m) => { const n = Date.now(); if (n - whyT > 20000 || m.startsWith('✖')) { whyT = n; set('dscWhy', { t: n, m }); } };
   async function directScan(force) {
-    if (directBusy) return;
-    if (!force && (!CFG.DIRECT_ON || !get('on', false))) return;
-    if (!force && Date.now() < get('pauseUntil', 0)) return;
-    if (!force && !tgLeaderDirect()) return;          // تبويب واحد فقط يمسح
+    if (directBusy) return why('busy');
+    if (!force && !CFG.DIRECT_ON) return why('off: DIRECT_ON');
+    if (!force && !get('on', false)) return why('off: reserving');
+    if (!force && Date.now() < get('pauseUntil', 0)) return why('paused');
+    if (!force && !tgLeaderDirect()) { const l = get('dlock', null); return why('leader: ' + (l ? (l.id === TAB ? 'me' : 'other ' + Math.round((Date.now() - l.t) / 1000) + 's') : 'none')); }
     syncKnown();                                         // scans always: with or without the world file, with zero barbarians
-    const all = allSectors(); if (!all.length) return;
+    const all = allSectors(); if (!all.length) return why('no sectors');
     directBusy = true;
     try {
       const n = Math.max(1, CFG.DIRECT_BATCH), allSet = new Set(all);
@@ -1930,13 +1934,15 @@
       const url = '/map.php?v=2&locale=' + encodeURIComponent(gd.locale || 'ar_AE') + '&e=' + Date.now() + '&' + batch.map(b => b + '=0').join('&');
       const r = await fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       if (r.status === 429) { set('dpace', Math.min(60, get('dpace', CFG.DIRECT_SEC) * 2)); backoff429(); return; }
-      if (!r.ok) { logEvery('dsc', '✖ مسح مباشر HTTP ' + r.status, 6e5); return; }
-      const arr = await r.json();
+      if (!r.ok) { why('✖ HTTP ' + r.status); logEvery('dsc', '✖ مسح مباشر HTTP ' + r.status, 6e5); return; }
+      const txt = await r.text();
+      let arr; try { arr = JSON.parse(txt); } catch (_) { why('✖ not JSON: ' + txt.replace(/\s+/g, ' ').slice(0, 80)); return; }
+      why('ok ' + batch.length);
       ingestSectors(arr);
       set('directT', Date.now()); set('directN', (get('directN', 0) || 0) + 1);
       if (CFG.DIRECT_ADAPT) set('dpace', Math.max(CFG.DIRECT_MIN_SEC, get('dpace', CFG.DIRECT_SEC) * 0.95));
       { const st = get('secT', {}), nw = Date.now(); batch.forEach(b => st[b] = nw); set('secT', st); set('lastBatch', batch); }
-    } catch (e) { logEvery('dscE', '✖ مسح مباشر: ' + e.message, 6e5); }
+    } catch (e) { why('✖ ' + String(e.message || e).slice(0, 100)); logEvery('dscE', '✖ مسح مباشر: ' + e.message, 6e5); }
     finally { directBusy = false; }
   }
   const tgLeaderDirect = () => leaderOf('dlock', Math.max(CFG.DIRECT_SEC, get('dpace', CFG.DIRECT_SEC)) * 3000 + 5000);
