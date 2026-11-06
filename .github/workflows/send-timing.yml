@@ -1,0 +1,29 @@
+name: Precise Send QA
+on:
+  push:
+    paths:
+      - scripts/send-automation.js
+      - loaders/send-automation.user.js
+      - tests/send-automation-v11.test.mjs
+      - catalog.json
+      - .github/workflows/send-timing.yml
+  pull_request:
+    paths:
+      - scripts/send-automation.js
+      - loaders/send-automation.user.js
+      - tests/send-automation-v11.test.mjs
+      - catalog.json
+      - .github/workflows/send-timing.yml
+permissions:
+  contents: read
+jobs:
+  send-timing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check scripts/send-automation.js
+      - run: node --check loaders/send-automation.user.js
+      - run: node --test tests/send-automation-v11.test.mjs

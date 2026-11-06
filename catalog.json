@@ -54,12 +54,12 @@
     {
       "id": "send-automation",
       "name": "الغزااوي | الإرساليات الدقيقة",
-      "version": "1.5.4",
+      "version": "1.5.5",
       "test_status": "needs-live-test",
       "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/send-automation.user.js",
       "user_report": "user-reported-working-prior-to-2026-10-21-refresh",
       "approved_for_final": false,
-      "note": "Clean replacement based on user-supplied obfuscated v1.5 timing idea: no Smart Timing or analytics, 24-hour input and server date, send/arrival modes, signed manual ms offset, 310px floating UI; external request using hidden h token deliberately excluded; bridge licensing remains. Live-game QA pending."
+      "note": "Clean replacement based on user-supplied obfuscated v1.5 timing idea: no Smart Timing or analytics, 24-hour input and server date, send/arrival modes, signed manual ms offset, 310px floating UI; external request using hidden h token deliberately excluded; bridge licensing remains. Live-game QA pending. Live timing compensation updates allowed for armed sends with at least 15 seconds remaining; untested on live server."
     },
     {
       "id": "alg-attacks",
