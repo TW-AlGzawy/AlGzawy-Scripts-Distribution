@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TW-AlGzawy-Auto — deploy reviewed PR #14 merge to the existing Hetzner Runner.
+# TW-AlGzawy-Auto — deploy reviewed PR #15 merge to the existing Hetzner Runner.
 # No schema reset, no git reset/clean, no .env rewrite, no tunnel restart. Operator has tested troop recall.
 set -Eeuo pipefail
 EXPECTED_SHA='e046bb3bbbc878cf8b68b76753f03a3cd741bcd3'
@@ -48,7 +48,7 @@ fi
 previous_sha="$(git rev-parse HEAD)"
 mkdir -p -m 700 "$BACKUPS"
 chmod 700 "$BACKUPS"
-backup="$BACKUPS/runner-before-pr14-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+backup="$BACKUPS/runner-before-pr15-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
 echo 'Creating restricted backup of runner/.env and runner/data...'
 tar -czf "$backup" -C "$repo/runner" .env data
 chmod 600 "$backup"
