@@ -287,7 +287,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
             GM_setValue(PREFIX + 'lastAlertTime', now);
             if (getS('alertSound', true)) playAlertSound();
 
-            var pageRows = document.querySelectorAll('#incomings_table tr.row_a, #incomings_table tr.row_b');
+            var pageRows = attackRowsOnly(document.querySelectorAll('#incomings_table tr.row_a, #incomings_table tr.row_b'));
             if (pageRows.length > 0) {
                 processAttackRows(pageRows, isNewAttack);
             } else {
@@ -334,7 +334,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
                 if (xhr.status >= 200 && xhr.status < 300) {
                     var parser = new DOMParser();
                     var doc = parser.parseFromString(xhr.responseText, 'text/html');
-                    var rows = doc.querySelectorAll('#incomings_table tr.row_a, #incomings_table tr.row_b');
+                    var rows = attackRowsOnly(doc.querySelectorAll('#incomings_table tr.row_a, #incomings_table tr.row_b'));
                     console.log('[AlGzawy] XHR rows:', rows.length, 'html:', xhr.responseText.length);
                     if (rows.length > 0) processAttackRows(rows, isNewAttack);
                     else sendTelegramCountAlert(incomingsCount);
@@ -383,7 +383,7 @@ function enableMobileTouchDrag(panel,handle,onDone){
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
 
-        var rows = doc.querySelectorAll('#incomings_table tr.row_a, #incomings_table tr.row_b');
+        var rows = attackRowsOnly(doc.querySelectorAll('#incomings_table tr.row_a, #incomings_table tr.row_b'));
         var known = getKnownAttacks();
 
         if (rows.length === 0) {
@@ -415,6 +415,15 @@ function enableMobileTouchDrag(panel,handle,onDone){
         } else {
             setStatus('لا هجمات جديدة (' + rows.length + ' إجمالي)');
         }
+    }
+
+    // The incomings page lists attacks AND supports. Only attacks are alerted:
+    // a support row has the support command icon (or command type "support").
+    function isSupportRow(row) {
+        return !!row.querySelector('[data-command-type="support"], img[src*="command/support"], img[src*="/support."]');
+    }
+    function attackRowsOnly(rows) {
+        return Array.prototype.filter.call(rows, function (row) { return !isSupportRow(row); });
     }
 
     function extractAttackId(row) {
