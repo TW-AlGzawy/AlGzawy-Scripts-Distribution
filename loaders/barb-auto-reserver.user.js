@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.0.12
+// @version      1.0.13
 // @description  AlGzawy Cloud — المرخص للمشترك والجهاز المعتمد
 // @match        https://*.tribalwars.ae/game.php*
 // @match        https://algzawy-cloud-control.pages.dev/v2/*
@@ -28,7 +28,7 @@
      /^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin))
      &&location.pathname.startsWith('/v2/')){
      // Installation metadata only: never execute the game engine on Preview or Production portal.
-    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.12';
+    const version=(typeof GM_info!=='undefined'&&GM_info?.script?.version)||'1.0.13';
 
     // QA-only transient diagnostics for the install handshake; not a license or execution authorization.
     const qaDiagnostics=/^https:\/\/[a-z0-9-]+\.algzawy-cloud-control\.pages\.dev$/i.test(location.origin);
@@ -63,7 +63,7 @@
     return;
   }
 
-  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.12');}catch(_){}
+  try{localStorage.setItem('algzawy_installed_loader_version_'+ID,'1.0.13');}catch(_){}
   const TAB_ID_KEY='algzawy_tab_instance_v1';
   const TAB_READY_KEY='algzawy_tab_pins_ready_v1';
   const TAB_PIN_PREFIX='algzawy_tab_pin_v1_';
@@ -84,7 +84,7 @@
   // The newest supplied v1.2.0 loader's license-first state flow is retained.
   // The source hash pins the exact production engine. Changing the engine
   // requires a deliberate, atomic loader release.
-  const ENGINE_SHA256='caf0374a5f64dcfc94f291d6cb97d06efa9bf65404a671c53b7ab5f5785dd121';
+  const ENGINE_SHA256='b0eb2d40c0b870e613731b51db2aae62c25cc6a1e60daa92a6cb3f777caa94bd';
   const POLL_MS=120000,REQUEST_TIMEOUT=6000,RETRY_BASE_MS=5000,RETRY_MAX_MS=60000;
   const STOP_EVENT='__algzawy_stop_'+ID,PAUSE_EVENT='__algzawy_pause_'+ID,
     RESUME_EVENT='__algzawy_resume_'+ID;
@@ -93,7 +93,7 @@
   const STOP_MESSAGE='تم إيقاف سكربتات الغزاوي مؤقتًا. يرجى التواصل مع غزااوي للحصول على آخر التحديثات.';
   const guard=document.documentElement,guardKey='data-algzawy-loader-'+ID;
   if(guard?.hasAttribute(guardKey))return; // Never run two farm engines in the same tab.
-  guard?.setAttribute(guardKey,'1.0.12');
+  guard?.setAttribute(guardKey,'1.0.13');
   let state='init',reason=null,revoked=false,everStarted=false;
   let pending=false,rerun=false,failures=0,lastGoodAt=0,lastRevision='initial';
   let retryTimer=null,lastError=null;
@@ -380,8 +380,8 @@
     if(!relayStarted||relayBusy||!relayActive()||!savedBarbKey()||relayAuthFailed||Date.now()<relayNextAt)return;
     relayBusy=true;
     try{
-      const response=await barbRequest('GET','poll?v=1.0.12');
-      relayStatus('متصل — Barb Control v1.0.12');
+      const response=await barbRequest('GET','poll?v=1.0.13');
+      relayStatus('متصل — Barb Control v1.0.13');
       const commands=Array.isArray(response.commands)?response.commands.slice(0,10):[];
       for(const row of commands){
         if(!relayActive()||!row||typeof row.text!=='string'||!/^[-0-9a-f]{36}$/i.test(row.id))break;
@@ -468,7 +468,7 @@
   });
   document.addEventListener('algzawy-loader-diagnostics-request',()=>{
     document.dispatchEvent(new CustomEvent('algzawy-loader-diagnostics',
-      {detail:JSON.stringify({id:ID,version:'1.0.12',state,reason,everStarted,revoked,
+      {detail:JSON.stringify({id:ID,version:'1.0.13',state,reason,everStarted,revoked,
         capabilities,failures,lastRevision,lastGoodAgeMs:lastGoodAt?Date.now()-lastGoodAt:null,
         lastError,gates:{tab:hasTabPin(),license:hasPortalLicense(),
           human:localStorage.getItem(HUMAN_KEY)==='1'},trace:notes.slice(-20)})}));
