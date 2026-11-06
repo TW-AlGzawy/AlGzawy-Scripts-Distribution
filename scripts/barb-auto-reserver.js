@@ -342,7 +342,9 @@
     const TW = W.TWMap;
     if (!TW || !TW.villages) return;
     syncKnown();
-    if (!known.size) return;
+    // wait for the world file, not for barbarians: on worlds with no barbarian left (old/«المعمر» worlds) the list is
+    // empty on purpose, and that is exactly where watching for the first new one matters most
+    if (!get('txtT', 0)) return;
     const now = Date.now(), gone = get('gone', {});
     let all = 0, unk = 0, gc = false;
     const fresh = [];
@@ -1913,7 +1915,7 @@
     if (!force && (!CFG.DIRECT_ON || !get('on', false))) return;
     if (!force && Date.now() < get('pauseUntil', 0)) return;
     if (!force && !tgLeaderDirect()) return;          // تبويب واحد فقط يمسح
-    syncKnown(); if (!known.size) return;
+    syncKnown(); if (!get('txtT', 0)) return;            // world file read (it may hold zero barbarians)
     const all = allSectors(); if (!all.length) return;
     directBusy = true;
     try {
