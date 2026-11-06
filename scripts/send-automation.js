@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الإرساليات الدقيقة
 // @namespace    https://github.com/TW-AlGzawy/AlGzawy-Scripts-Distribution
-// @version      1.5.4
+// @version      1.5.5
 // @description  نواة v1.5 آمنة للإرسال والوصول؛ تاريخ السيرفر و24h وأجزاء الثانية وجسر AlG
 // @match        https://*/game.php?*&screen=place&try=confirm
 // @grant        none
@@ -124,6 +124,27 @@ function difference(){
  return {remaining:wanted-ref.time};
 }
 function message(s,type='normal'){if(parts.note){parts.note.textContent=s;parts.note.dataset.type=type;}}
+// A preceding send can provide an improved calibration while this send is already armed.
+// Accept only bounded, authenticated-in-page updates with enough remaining time to avoid an abrupt last-second shift.
+function liveOffsetUpdate(event){
+ const next=Number(event?.detail?.value);
+ const ack={accepted:false,reason:'not-armed'};
+ if(!armed||sent||dead||!licensed()){window.__algzawyOffsetUpdateResult=ack;return;}
+ if(!Number.isInteger(next)||next< -2500||next>2500){ack.reason='invalid-offset';window.__algzawyOffsetUpdateResult=ack;return;}
+ const before=difference();
+ if(before.error||!Number.isFinite(before.remaining)||before.remaining<=15000){
+  ack.reason='too-close';window.__algzawyOffsetUpdateResult=ack;return;
+ }
+ if(Math.abs(next-Number(opts.offset))>150){
+  ack.reason='change-too-large';window.__algzawyOffsetUpdateResult=ack;return;
+ }
+ opts.offset=next;
+ if(parts.offset)parts.offset.value=String(next);
+ save();
+ ack.accepted=true;ack.reason='updated';ack.value=next;
+ window.__algzawyOffsetUpdateResult=ack;
+ message('🎯 تعويض محدث من إرسالية سابقة: '+next+' ms','ok');
+}
 function cancel(reason='أُلغيت الجدولة؛ لم تُرسل أي قوات.'){
  if(timer){clearTimeout(timer);timer=null;}armed=false;
  if(parts.arm){parts.arm.disabled=sent;parts.arm.textContent='▶ تجهيز';parts.cancel.disabled=true;}
@@ -132,6 +153,8 @@ function cancel(reason='أُلغيت الجدولة؛ لم تُرسل أي قو�
 }
 function destroy(){
  if(dead)return;cancel('');dead=true;
+ window.removeEventListener('algzawy-send-offset-update',liveOffsetUpdate);
+ delete window.__algzawyOffsetUpdateResult;
  if(screenTimer)clearInterval(screenTimer);
  document.getElementById(ROOT)?.remove();
  document.getElementById(ROOT+'-style')?.remove();
@@ -337,6 +360,7 @@ function show(){
  message('جاهز؛ حدّد وقت 24h وأجزاء الثانية واضغط تجهيز.');
  display();screenTimer=setInterval(display,100);
 }
+window.addEventListener('algzawy-send-offset-update',liveOffsetUpdate);
 document.addEventListener(STOP,destroy,{once:true});
 document.addEventListener('algzawy-human-verification',destroy,{once:true});
 document.addEventListener('algzawy-local-control-changed',()=>{if(!licensed())destroy();});
