@@ -72,3 +72,42 @@ test('v1.5.5 always uses 310px UI without removed expand button; new installs de
  assert.ok(core.includes("delete opts.compact;"));
  assert.ok(core.includes("head.append(el('span','logo','AlG'),el('strong','','الغزااوي | الإرساليات الدقيقة'),mini)"));
 });
+
+test("live calibration updates already armed sends only with at least 15s lead time",()=>{
+ const a=core.indexOf('function liveOffsetUpdate(event){'),b=core.indexOf('function cancel(',a);
+ assert.ok(a>=0&&b>a,'live offset listener exists');
+ const factory=new Function('env',`
+  const {window,opts,parts,difference,licensed,save,message}=env;
+  const armed=env.armed, sent=env.sent, dead=env.dead;
+  ${core.slice(a,b)}
+  return liveOffsetUpdate;
+ `);
+ const make=(remaining,armed=true)=>{
+  const env={
+   window:{},opts:{offset:-66},parts:{offset:{value:'-66'}},
+   difference:()=>({remaining}),licensed:()=>true,save:()=>{env.saved=true},
+   message:(s)=>{env.messageText=s},armed,sent:false,dead:false
+  };
+  return {env,fn:factory(env)};
+ };
+ const good=make(60_000);
+ good.fn({detail:{value:-108}});
+ assert.deepEqual(good.env.window.__algzawyOffsetUpdateResult,{accepted:true,reason:'updated',value:-108});
+ assert.equal(good.env.opts.offset,-108);
+ assert.equal(good.env.parts.offset.value,'-108');
+ assert.equal(good.env.saved,true);
+ const tooClose=make(14999);
+ tooClose.fn({detail:{value:-108}});
+ assert.equal(tooClose.env.window.__algzawyOffsetUpdateResult.reason,'too-close');
+ assert.equal(tooClose.env.opts.offset,-66);
+ const overBound=make(60000);
+ overBound.fn({detail:{value:-300}});
+ assert.equal(overBound.env.window.__algzawyOffsetUpdateResult.reason,'change-too-large');
+ const invalid=make(60000);
+ invalid.fn({detail:{value:1.5}});
+ assert.equal(invalid.env.window.__algzawyOffsetUpdateResult.reason,'invalid-offset');
+ const notArmed=make(60000,false);
+ notArmed.fn({detail:{value:-108}});
+ assert.equal(notArmed.env.window.__algzawyOffsetUpdateResult.accepted,false);
+ assert.equal((core.match(/BUTTON\.click\(\)/g)||[]).length,1,'calibration never introduces another submit');
+});
