@@ -1,0 +1,19 @@
+name: Deployment helper syntax
+on:
+  push:
+    paths:
+      - "ops/TW-AlGzawy-Auto-Production-Deploy-SEND-v5.sh"
+      - ".github/workflows/ops-deploy-syntax.yml"
+  pull_request:
+    paths:
+      - "ops/TW-AlGzawy-Auto-Production-Deploy-SEND-v5.sh"
+      - ".github/workflows/ops-deploy-syntax.yml"
+permissions:
+  contents: read
+jobs:
+  bash-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Bash syntax without running any deployment
+        run: bash -n ops/TW-AlGzawy-Auto-Production-Deploy-SEND-v5.sh
