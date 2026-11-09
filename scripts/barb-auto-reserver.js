@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.16
+// @version      1.0.17
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -480,8 +480,11 @@
     const txt = await r.text();
     const R = parseRes(txt);
     if (!R.hasLimit) {
-      if (/bot_protect|captcha/i.test(txt)) { botHit(); throw new Error('حماية بوت/كابتشا — أكملها يدويًا'); }
-      throw new Error('صفحة الحجوزات غير مفهومة (لم أجد حد الحجز) — استخدم زر التشخيص في السجل');
+      if (/bot_protect|captcha/i.test(txt) && !R.rows) { botHit(); throw new Error('حماية بوت/كابتشا — أكملها يدويًا'); }
+      // some worlds/layouts don't print the «reservation limit» line: the list itself is enough, the limit comes from the settings
+      if (!(R.rows > 0 || /حجوزات\s*الاحتلال|reservations_table|id="reservation_/.test(txt)))
+        throw new Error('صفحة الحجوزات غير مفهومة (لم أجد حد الحجز ولا القائمة) — استخدم زر التشخيص في السجل');
+      logEvery('nolimit', 'ℹ صفحة الحجوزات ما فيها سطر «حد الحجز»، رح استعمل الحد من الإعدادات (' + CFG.MAX_RES + ')', 36e5);
     }
     if (R.bad) logEvery('badrows', `⚠ ${R.bad} صف حجز لم تُقرأ إحداثياته: ${R.sample}`, 6e5);
     R.limit = R.limit || CFG.MAX_RES;
@@ -2342,8 +2345,16 @@
     if (d.cmd === 'list') {
       let out;
       try {
-        const R = await loadReserved(), mine = get('mine', []);
-        out = { ok: true, limit: R.limit, total: R.taken.size, live: !CFG.DRY_RUN && sessionStorage.getItem(P + 'liveConfirmed') === '1' && !!get('on', false),
+        // read the page directly (not loadReserved): showing your list must not depend on the page's
+        // «reservation limit» line, and it says what it saw when your reservations don't show up
+        const r = await fetch(RES_URL(), { credentials: 'same-origin' });
+        if (r.status === 429) throw new Error('HTTP 429: اللعبة عم تحدّ الطلبات، جرّب بعد شوي');
+        if (!r.ok) throw new Error('صفحة الحجوزات HTTP ' + r.status);
+        if (r.url && !/game\.php/.test(r.url)) throw new Error('انتهت الجلسة');
+        const t = await r.text();
+        if (/bot_protect/i.test(t) && /captcha/i.test(t)) throw new Error('حماية بوت/كابتشا بصفحة القبيلة');
+        const R = parseRes(t), mine = get('mine', []);
+        out = { ok: true, limit: R.limit || CFG.MAX_RES, total: R.taken.size, rows: R.rows, bad: R.bad, name: String(gd.player.name || ''), live: !CFG.DRY_RUN && sessionStorage.getItem(P + 'liveConfirmed') === '1' && !!get('on', false),
           own: [...R.own].map((k) => { const m = mine.find((x) => x.k === k), e = R.exp.get(k);
             return { k, id: R.ids.get(k) || 0, exp: e ? e.at : 0, kind: m ? (m.manual ? 'يدوي' : String(m.kind || 'تلقائي')) : 'من اللعبة', pts: m && m.pts || 0, info: (R.info.get(k) || '').slice(0, 120) }; }) };
       } catch (err) { out = { ok: false, error: String(err && err.message || err).slice(0, 200) }; }
