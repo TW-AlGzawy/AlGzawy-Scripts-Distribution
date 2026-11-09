@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.15
+// @version      1.0.16
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -66,6 +66,7 @@
   const DEF = {
     DRY_RUN: true,
     TG_LIVE_HOURS: 2,           // مدة «نافذة» السماح بتفعيل الحجز الفعلي من تيليجرام (1-12 ساعة)، تُفتح من اللوحة فقط
+    RES_MODE: 'premium',        // premium = الحجز من الخريطة (toggle) | free = بدون عضوية: من صفحة حجوزات القبيلة (ابحث عن القرية ← احجز الآن)
     ALERT_ONLY: false,          // تنبيه فقط: يبحث ويرسل رابط البربرية على تيليجرام ولا يحجز أو يستبدل أبدًا
     SCOPE: 'all',               // all = كل البربر المتاحة | new = الجديدة فقط
     MIN_PTS: 5000, MAX_PTS: 13000, MAX_DIST: 60, DIST_W: 0,
@@ -513,6 +514,43 @@
     return { ok: false, err: String((j && (j.error || j.message)) || ('HTTP ' + r.status + ' ' + t.slice(0, 60))) };
   }
 
+  // Without premium: reserve from the tribe page like a player does (ally → reservations → search the village →
+  // «احجز الآن»), in a hidden frame with the game's own form and button. No hand-made request, no guessed tokens:
+  // if the form isn't exactly recognised nothing is sent (notSent). Success is decided by re-reading the list.
+  async function reserveViaAlly(coord){
+    const [x,y]=String(coord).split('|');
+    const fr=document.createElement('iframe');
+    fr.style.cssText='position:fixed;left:-9999px;top:0;width:900px;height:700px;opacity:0;pointer-events:none';
+    const loaded=(ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(new Error('صفحة القبيلة ما فتحت')),ms);fr.onload=()=>{clearTimeout(t);res();};});
+    const vis=(el)=>el&&!el.disabled&&el.type!=='hidden'&&el.offsetParent!==null;
+    try{
+      fr.src=RES_URL(); document.body.appendChild(fr);
+      try{await loaded(25000);}catch(e){return{ok:false,notSent:true,err:e.message};}
+      const d=fr.contentDocument;
+      if(!d||!d.body)return{ok:false,notSent:true,err:'صفحة القبيلة ما انقرت'};
+      if(/bot_protect|captcha/i.test(d.body.innerHTML)&&d.querySelector('.h-captcha,#bot_check,#botprotection_quest,iframe[src*="captcha"]')){botHit();return{ok:false,notSent:true,err:'حماية بوت/كابتشا'};}
+      // the search/reserve form of the reservations page: a form with a visible text field and a visible submit
+      const forms=[...d.querySelectorAll('form')].filter(f=>{
+        const inputs=[...f.querySelectorAll('input[type="text"],input:not([type])')].filter(vis);
+        const subs=[...f.querySelectorAll('input[type="submit"],button[type="submit"],button:not([type])')].filter(vis);
+        return inputs.length>=1&&inputs.length<=2&&subs.length===1&&/reserv|حجز/i.test((f.getAttribute('action')||'')+' '+f.textContent+' '+subs[0].value+' '+subs[0].textContent);
+      });
+      const why=()=>[...d.querySelectorAll('form')].slice(0,5).map(f=>(f.getAttribute('action')||'').replace(/([?&]h=)[^&]*/,'$1…').slice(0,90)+' ['+[...f.querySelectorAll('input,button')].map(i=>(i.type||'')+':'+(i.name||'')).slice(0,8).join(',')+']').join(' | ');
+      if(forms.length!==1){logEvery('freeForm','🆓 ما لقيت نموذج «احجز الآن» بصفحة القبيلة بشكل أكيد ('+forms.length+'): '+why(),6e5);return{ok:false,notSent:true,err:'ما لقيت نموذج الحجز بصفحة القبيلة'};}
+      const f=forms[0], inputs=[...f.querySelectorAll('input[type="text"],input:not([type])')].filter(vis);
+      const fill=(el,v)=>{el.focus();el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));};
+      if(inputs.length===2){const ix=inputs.find(i=>/(^|_)x$/i.test(i.name)),iy=inputs.find(i=>/(^|_)y$/i.test(i.name));if(!ix||!iy)return{ok:false,notSent:true,err:'خانتين بالنموذج وما عرفت أي وحدة x'};fill(ix,x);fill(iy,y);}
+      else fill(inputs[0],x+'|'+y);
+      const sub=[...f.querySelectorAll('input[type="submit"],button[type="submit"],button:not([type])')].filter(vis)[0];
+      const done=loaded(25000).catch(()=>null);
+      sub.click();
+      await done;
+      const d2=fr.contentDocument, err=d2&&d2.querySelector('.error_box,.error');
+      if(err&&err.textContent.trim())return{ok:false,err:err.textContent.trim().slice(0,120)};
+      return{ok:true};
+    }finally{setTimeout(()=>fr.remove(),500);}
+  }
+
   // LIVE mutation gate: exclusive account/world lock + persistent uncertain-operation journal.
   // Failed/ambiguous calls are NEVER retried automatically because the endpoint is a toggle.
   const operationLock='algzawy-barb:reserve:'+location.host+':'+String(gd.player.id);
@@ -554,7 +592,9 @@
       journal[jid]={coord,id:+id,intent,status:'pending',at:Date.now()};set('mutationJournal',journal);
       if(get('mutationJournal',{})[jid]?.status!=='pending')return no('تعذر حفظ عملية التحويل؛ لم يُرسل طلب');
       let remoteResult;
-      try{remoteResult=await toggleRes(+id);}catch(e){remoteResult=no(String(e.message||e));}
+      try{remoteResult=CFG.RES_MODE==='free'&&intent==='reserve'?await reserveViaAlly(coord):await toggleRes(+id);}catch(e){remoteResult=no(String(e.message||e));}
+      // nothing was sent to the game (form not found / page didn't open): a plain failure, not an uncertain operation
+      if(remoteResult&&remoteResult.notSent){journal[jid].status='failed';journal[jid].error=String(remoteResult.err||'').slice(0,120);set('mutationJournal',journal);return no(remoteResult.err);}
       // HTTP success is insufficient. Re-read reservations before calling this successful.
       let after=null;
       try{after=await loadReserved();}catch(_){/* ambiguous */}
@@ -1314,6 +1354,7 @@
       ['FAST_RESERVE', 'حجز فوري عند رصد كشاف', 'b', 'يحجز أولًا ثم يتحقق (أسرع بنحو طلب واحد)'],
     ]],
     ['الاستهداف', [
+      ['RES_MODE', 'طريقة الحجز', 's', [['premium', '👑 بعضوية: من الخريطة (الطريقة المعتادة)'], ['free', '🆓 بدون عضوية: من القبيلة ← الحجوزات ← ابحث عن القرية ← احجز الآن']], 'بدون عضوية: السكربت بيفتح صفحة حجوزات القبيلة، بيكتب الإحداثيات بخانة البحث وبيضغط «احجز الآن» تبع اللعبة، وبعدين بيقرأ القائمة ليتأكد'],
       ['SCOPE', 'نطاق الحجز', 's', [['all', 'كل البربر المتاحة'], ['new', 'الجديدة فقط']]],
       ['MIN_PTS', 'أقل نقاط', 'n'], ['MAX_PTS', 'أعلى نقاط', 'n'],
       ['MAX_DIST', 'أقصى مسافة', 'n', '0 = بلا حد'],
@@ -1390,7 +1431,7 @@
   const ALLKEYS = SCHEMA.flatMap(g => g[1]);
   // Settings people actually change. All other keys stay fully functional but live in the collapsed "متقدمة" section.
   const ESSENTIAL_LAYOUT = [
-    ['عام', ['ALERT_ONLY','DRY_RUN','MAX_RES','RES_DAYS','SCOPE']],
+    ['عام', ['RES_MODE','ALERT_ONLY','DRY_RUN','MAX_RES','RES_DAYS','SCOPE']],
     ['الاستهداف', ['MIN_PTS','MAX_PTS','MAX_DIST','NEW_BARBS','INACTIVE','INACTIVE_DAYS','EXCL']],
     ['الاستبدال والتنبيهات والنوم', ['REPLACE','SOUND','NOTIFY_NEW','EXPIRY_ON','AUTO_RENEW','REPORT_ON','SCHED_ON','SLEEP_FROM','SLEEP_TO']],
   ];
@@ -2164,7 +2205,7 @@
   const SETTABLE = {
     MIN_PTS: ['n', 0, 50000], MAX_PTS: ['n', 0, 50000], MAX_DIST: ['n', 0, 2000], DIST_W: ['n', 0, 1000], REPLACE: ['b'], REPLACE_DIFF: ['n', 0, 50000],
     REPLACE_MAX: ['n', 0, 5], FAST_RESERVE: ['b'], NEW_BARBS: ['b'], INACTIVE: ['b'], INACT_MIN: ['n', 0, 50000], INACT_MAX: ['n', 0, 50000],
-    SCOPE: ['s', ['all', 'new']], DRY_RUN: ['b'], ALERT_ONLY: ['b'], DIRECT_ON: ['b'], DIRECT_MIN_SEC: ['n', 3, 60], DIRECT_BATCH: ['n', 1, 30], WATCH_DAYS: ['n', 0.5, 30],
+    SCOPE: ['s', ['all', 'new']], RES_MODE: ['s', ['premium', 'free']], DRY_RUN: ['b'], ALERT_ONLY: ['b'], DIRECT_ON: ['b'], DIRECT_MIN_SEC: ['n', 3, 60], DIRECT_BATCH: ['n', 1, 30], WATCH_DAYS: ['n', 0.5, 30],
     INCLUDE_ALLY: ['b'], SCHED_ON: ['b'], SLEEP_FROM: ['t'], SLEEP_TO: ['t'], VERIFY_BARB: ['b'], NOBLE_CHECK: ['b'], EXCL: ['str'], ONLY: ['str'], SOUND: ['b'], HB_H: ['n', 0, 48], SNIPE_ON: ['b'], SNIPE_GAP_SEC: ['n', 1, 10], TG_BTN: ['b'] };
   const SENSITIVE = new Set(['DRY_RUN', 'NOBLE_CHECK', 'VERIFY_BARB']);
   function coerce(k, raw) {

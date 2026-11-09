@@ -5,7 +5,7 @@ const js=readFileSync(new URL('../scripts/barb-auto-reserver.js',import.meta.url
 test('alert-only is off by default, a normal setting and visible in the UI',()=>{
  assert.match(js,/ALERT_ONLY: false/);
  assert.match(js,/ALERT_ONLY: \['b'\]/);
- assert.match(js,/\['عام', \['ALERT_ONLY','DRY_RUN'/);
+ assert.match(js,/\['عام', \[('RES_MODE',)?'ALERT_ONLY','DRY_RUN'/);
  assert.match(js,/data-tg="ALERT_ONLY"|chip\('ALERT_ONLY'/);
  assert.match(js,/return \['dry', 'تنبيه فقط'/);
 });
