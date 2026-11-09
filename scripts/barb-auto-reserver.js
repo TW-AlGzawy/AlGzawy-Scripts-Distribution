@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.14
+// @version      1.0.15
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -2296,7 +2296,20 @@
   // (only your own reservation, nobles on the way block it unless force, verified by re-reading the list).
   document.addEventListener('algzawy-barb-site-cmd', async (e) => {
     let d; try { d = JSON.parse(e.detail); } catch (_) { return; }
-    if (!d || d.cmd !== 'release' || !Number.isInteger(d.x) || !Number.isInteger(d.y) || typeof d.id !== 'string') return;
+    if (!d || typeof d.id !== 'string') return;
+    // read-only: the reservations written under this player's name in the tribe's reservation list (screen=ally)
+    if (d.cmd === 'list') {
+      let out;
+      try {
+        const R = await loadReserved(), mine = get('mine', []);
+        out = { ok: true, limit: R.limit, total: R.taken.size, live: !CFG.DRY_RUN && sessionStorage.getItem(P + 'liveConfirmed') === '1' && !!get('on', false),
+          own: [...R.own].map((k) => { const m = mine.find((x) => x.k === k), e = R.exp.get(k);
+            return { k, id: R.ids.get(k) || 0, exp: e ? e.at : 0, kind: m ? (m.manual ? 'يدوي' : String(m.kind || 'تلقائي')) : 'من اللعبة', pts: m && m.pts || 0, info: (R.info.get(k) || '').slice(0, 120) }; }) };
+      } catch (err) { out = { ok: false, error: String(err && err.message || err).slice(0, 200) }; }
+      try { document.dispatchEvent(new CustomEvent('algzawy-barb-site-result', { detail: JSON.stringify({ id: d.id, msg: '', list: out }) })); } catch (_) {}
+      return;
+    }
+    if (d.cmd !== 'release' || !Number.isInteger(d.x) || !Number.isInteger(d.y)) return;
     let msg; try { msg = await doRelease(d.x, d.y, d.force === true); } catch (err) { msg = '✖ ' + (err && err.message || err); }
     if (/^✔/.test(String(msg))) log('🗑 أُلغي من الموقع: ' + key(d.x, d.y));
     try { document.dispatchEvent(new CustomEvent('algzawy-barb-site-result', { detail: JSON.stringify({ id: d.id, msg: String(msg) }) })); } catch (_) {}
