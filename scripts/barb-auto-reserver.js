@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.17
+// @version      1.0.18
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -425,10 +425,47 @@
   // ================= الحجوزات =================
   const RES_URL = () => `/game.php?village=${me.id}&screen=ally&mode=reservations`;
   // هل الصف باسمي؟ نفضّل رابط اللاعب (مطابقة تامة)، وإن لم يوجد رابط نستعمل احتواء النص.
+  // by the player id in the link first (immune to case, tribe tags and spacing), then by the name
   function rowIsMine(tr, nm) {
     const links = [...tr.querySelectorAll('a[href*="info_player"]')];
-    if (links.length) return links.some(a => a.textContent.replace(/\s+/g, ' ').trim() === nm);
-    return tr.textContent.includes(nm);
+    const pid = String(gd.player.id || '');
+    if (pid && links.some(a => ((a.getAttribute('href') || '').match(/[?&;]id=(\d+)/) || [])[1] === pid)) return true;
+    const low = nm.toLowerCase();
+    if (links.length) return links.some(a => { const t = a.textContent.replace(/\s+/g, ' ').trim().toLowerCase(); return t === low || t.replace(/\s*\[[^\]]*\]\s*$/, '') === low; });
+    return tr.textContent.toLowerCase().includes(low);
+  }
+  // The tribe's reservation list is split into pages once it gets long: read them all (up to 25) and hand back one
+  // page holding every row, so your own reservations are found wherever they are.
+  async function fetchResAll() {
+    const r = await fetch(RES_URL(), { credentials: 'same-origin' });
+    const first = await r.text();
+    const out = { r, txt: first, pages: 1 };
+    if (!r.ok || (r.url && !/game\.php/.test(r.url))) return out;
+    const d0 = new DOMParser().parseFromString(first, 'text/html');
+    const links = new Set();
+    const collect = (d) => d.querySelectorAll('a.paged-nav-item, .paged-nav-item a, a[href*="mode=reservations"]').forEach((a) => {
+      const h = a.getAttribute('href') || '';
+      if (/mode=reservations/.test(h) && /[?&](page|from)=\d+/.test(h) && !/action=|ajax/.test(h)) links.add(h.replace(/&amp;/g, '&'));
+    });
+    collect(d0);
+    if (!links.size) return out;
+    const rows = [], seen = new Set(), done = new Set();
+    const take = (d) => d.querySelectorAll('tr[id^="reservation_"]').forEach((tr) => { if (!seen.has(tr.id)) { seen.add(tr.id); rows.push(tr.outerHTML); } });
+    take(d0);
+    while (links.size && done.size < 25) {
+      const h = [...links].find((x) => !done.has(x)); if (!h) break;
+      done.add(h); links.delete(h);
+      await new Promise((ok) => setTimeout(ok, 400 + Math.random() * 400));
+      const rr = await fetch(h, { credentials: 'same-origin' });
+      if (rr.status === 429) { backoff429(); break; }
+      if (!rr.ok || (rr.url && !/game\.php/.test(rr.url))) break;
+      const d = new DOMParser().parseFromString(await rr.text(), 'text/html');
+      take(d); out.pages++;
+      collect(d); for (const x of done) links.delete(x);
+    }
+    const lim = first.match(/حد\s*حجز[^:：\d]{0,30}[:：]\s*\d+/);
+    out.txt = (lim ? '<p>' + lim[0] + '</p>' : '') + '<table id="reservations_table">' + rows.join('') + '</table>';
+    return out;
   }
   function parseRes(t) {
     const lim = t.match(/حد\s*حجز[^:：\d]{0,30}[:：]\s*(\d+)/);
@@ -473,11 +510,11 @@
     const wait = get('resNext', 0) - Date.now();            // فاصل أدنى مشترك بين كل التبويبات
     if (wait > 0) { if (wait > 20000) throw new Error('تهدئة الخادم: انتظر ' + Math.ceil(wait / 1000) + ' ث'); await new Promise(r => setTimeout(r, wait)); }
     set('resNext', Date.now() + CFG.RES_MIN_GAP_SEC * 1000);
-    const r = await fetch(RES_URL(), { credentials: 'same-origin' });
+    const all = await fetchResAll(), r = all.r;
     if (r.status === 429) { backoff429(); throw new Error('HTTP 429 (الخادم يحدّ الطلبات) — تراجع تلقائي'); }
     if (!r.ok) throw new Error('صفحة الحجوزات HTTP ' + r.status);
     if (r.url && !/game\.php/.test(r.url)) { sessionLost(); throw new Error('انتهت الجلسة — أعد تسجيل الدخول'); }
-    const txt = await r.text();
+    const txt = all.txt;
     const R = parseRes(txt);
     if (!R.hasLimit) {
       if (/bot_protect|captcha/i.test(txt) && !R.rows) { botHit(); throw new Error('حماية بوت/كابتشا — أكملها يدويًا'); }
@@ -493,9 +530,9 @@
   }
   async function diagnose() {
     try {
-      const r = await fetch(RES_URL(), { credentials: 'same-origin' });
-      const t = await r.text(), R = parseRes(t);
-      log(`🧪 HTTP ${r.status} | طول ${t.length} | حد=${R.hasLimit ? R.limit : 'غير موجود'} | صفوف ${R.rows} | مقروءة ${R.taken.size} | فاشلة ${R.bad} | حجوزاتي بالاسم ${R.own.size}`);
+      const all = await fetchResAll(), r = all.r;
+      const t = all.txt, R = parseRes(t);
+      log(`🧪 HTTP ${r.status} | صفحات ${all.pages} | طول ${t.length} | حد=${R.hasLimit ? R.limit : 'غير موجود'} | صفوف ${R.rows} | مقروءة ${R.taken.size} | فاشلة ${R.bad} | حجوزاتي بالاسم ${R.own.size}`);
       R.samples.forEach((x, i) => log('🧪 صف ' + (i + 1) + ': ' + x));
       log('🧪 أوقات الانتهاء المقروءة: ' + R.exp.size + '/' + R.taken.size + ' | ' + [...R.exp.entries()].slice(0, 3).map(([k, e]) => k + '→' + new Date(e.at).toLocaleString('en-GB') + (e.prec ? '' : ' (±دقيقة)')).join(' ; '));
       const idm = [...new Set(t.match(/id="reservation_[^"]*"/g) || [])].slice(0, 4).join(' ');
@@ -2347,14 +2384,14 @@
       try {
         // read the page directly (not loadReserved): showing your list must not depend on the page's
         // «reservation limit» line, and it says what it saw when your reservations don't show up
-        const r = await fetch(RES_URL(), { credentials: 'same-origin' });
+        const all = await fetchResAll(), r = all.r;
         if (r.status === 429) throw new Error('HTTP 429: اللعبة عم تحدّ الطلبات، جرّب بعد شوي');
         if (!r.ok) throw new Error('صفحة الحجوزات HTTP ' + r.status);
         if (r.url && !/game\.php/.test(r.url)) throw new Error('انتهت الجلسة');
-        const t = await r.text();
+        const t = all.txt;
         if (/bot_protect/i.test(t) && /captcha/i.test(t)) throw new Error('حماية بوت/كابتشا بصفحة القبيلة');
         const R = parseRes(t), mine = get('mine', []);
-        out = { ok: true, limit: R.limit || CFG.MAX_RES, total: R.taken.size, rows: R.rows, bad: R.bad, name: String(gd.player.name || ''), live: !CFG.DRY_RUN && sessionStorage.getItem(P + 'liveConfirmed') === '1' && !!get('on', false),
+        out = { ok: true, limit: R.limit || CFG.MAX_RES, total: R.taken.size, rows: R.rows, pages: all.pages, bad: R.bad, name: String(gd.player.name || ''), live: !CFG.DRY_RUN && sessionStorage.getItem(P + 'liveConfirmed') === '1' && !!get('on', false),
           own: [...R.own].map((k) => { const m = mine.find((x) => x.k === k), e = R.exp.get(k);
             return { k, id: R.ids.get(k) || 0, exp: e ? e.at : 0, kind: m ? (m.manual ? 'يدوي' : String(m.kind || 'تلقائي')) : 'من اللعبة', pts: m && m.pts || 0, info: (R.info.get(k) || '').slice(0, 120) }; }) };
       } catch (err) { out = { ok: false, error: String(err && err.message || err).slice(0, 200) }; }
