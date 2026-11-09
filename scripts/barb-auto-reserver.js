@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         الغزااوي | الحجز التلقائي
 // @namespace    karam.tw
-// @version      1.0.13
+// @version      1.0.14
 // @description  حجز تلقائي للبربر: حجز فوري، كشافة/جولة، استبدال الأضعف، تحكم كامل من اللوحة (تثبيت/حجز بالإحداثيات/أزرار)، قائمة أزرار Telegram، التقاط الحجز المنتهي، أزرار Telegram، تتبّع الاحتلال، أوامر Telegram، تقارير، مراقبة اللاعبين، إحصاءات وخريطة مصغّرة
 // @match        https://*.tribalwars.ae/game.php*
 // @grant        GM_getValue
@@ -2292,6 +2292,15 @@
     ev('إلغاء يدوي', k, mineE && mineE.pts, mineE && mineE.kind, 'تيليجرام');
     return `✔ أُلغي حجز ${k}`;
   }
+  // Release asked from the website (through the bot's own tab): same checks as the Telegram /release
+  // (only your own reservation, nobles on the way block it unless force, verified by re-reading the list).
+  document.addEventListener('algzawy-barb-site-cmd', async (e) => {
+    let d; try { d = JSON.parse(e.detail); } catch (_) { return; }
+    if (!d || d.cmd !== 'release' || !Number.isInteger(d.x) || !Number.isInteger(d.y) || typeof d.id !== 'string') return;
+    let msg; try { msg = await doRelease(d.x, d.y, d.force === true); } catch (err) { msg = '✖ ' + (err && err.message || err); }
+    if (/^✔/.test(String(msg))) log('🗑 أُلغي من الموقع: ' + key(d.x, d.y));
+    try { document.dispatchEvent(new CustomEvent('algzawy-barb-site-result', { detail: JSON.stringify({ id: d.id, msg: String(msg) }) })); } catch (_) {}
+  });
   /** تحضير الاستبدال اليدوي: يعيد {msg} للرفض/الإنجاز المباشر أو {v, R, weak} */
   async function swapPrep(x, y, weakK) {
     const k = key(x, y);
