@@ -26,12 +26,25 @@ test('live map data fills points; unknown villages are still recorded',()=>{
   assert.equal(mine.find(m=>m.k==='700|700').kind,'يدوي');
 });
 test('own-name matching prefers the exact player link over substring',()=>{
-  const rowIsMine=new Function(mineSrc+'\nreturn rowIsMine;')();
-  const row=(names,text)=>({querySelectorAll:()=>names.map(n=>({textContent:n})),textContent:text});
+  const rowIsMine=new Function('gd',mineSrc+'\nreturn rowIsMine;')({player:{id:'77'}});
+  const row=(names,text,ids=[])=>({querySelectorAll:()=>names.map((n,i)=>({textContent:n,getAttribute:()=>'/game.php?screen=info_player&id='+(ids[i]||'1')})),textContent:text});
   assert.equal(rowIsMine(row(['Father2'],'(1|1) Father2'),'Father'),false);
   assert.equal(rowIsMine(row(['Father'],'(1|1) Father'),'Father'),true);
   assert.equal(rowIsMine(row([],'(1|1) Father'),'Father'),true);
 });
 test('manual reservations are never auto-replaced',()=>{
   assert.match(js,/const pool = mine\.filter\(m => m\.id && !m\.manual && !pinned/);
+});
+test('own reservations are matched by player id, ignoring case and the tribe tag',()=>{
+  const rowIsMine=new Function('gd',mineSrc+'\nreturn rowIsMine;')({player:{id:'77'}});
+  const row=(names,text,ids=[])=>({querySelectorAll:()=>names.map((n,i)=>({textContent:n,getAttribute:()=>'/game.php?screen=info_player&id='+(ids[i]||'1')})),textContent:text});
+  assert.equal(rowIsMine(row(['Somebody'],'(1|1)',['77']),'Barq'),true,'my id, whatever the link says');
+  assert.equal(rowIsMine(row(['BarQ'],'(1|1) BarQ'),'Barq'),true,'case');
+  assert.equal(rowIsMine(row(['BarQ [GOLD]'],'(1|1)'),'Barq'),true,'tribe tag');
+  assert.equal(rowIsMine(row(['BarQ2'],'(1|1)'),'Barq'),false);
+});
+test('the reservation list is read from every page, everywhere it is used',()=>{
+  assert.match(js,/async function fetchResAll\(\)/);
+  assert.equal((js.match(/fetch\(RES_URL\(\)/g)||[]).length,1,'only fetchResAll fetches the list page directly');
+  assert.match(js,/a\.paged-nav-item/);
 });
