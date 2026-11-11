@@ -1,0 +1,23 @@
+name: Smart Defense Ultimate v2 QA
+
+on:
+  push:
+    branches: [qa/smart-defense-ultimate-v200-20261028]
+    paths:
+      - pilots/algzawy-smart-defense-ultimate-v2.0.0-qa.user.js
+      - tests/smart-defense-ultimate-v200.test.mjs
+      - .github/workflows/smart-defense-ultimate-qa.yml
+  workflow_dispatch:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: node --check pilots/algzawy-smart-defense-ultimate-v2.0.0-qa.user.js
+      - name: Targeting safety tests
+        run: node --test tests/smart-defense-ultimate-v200.test.mjs
+      - name: In-browser UI smoke mock
+        run: node tests/smart-defense-ultimate-smoke.cjs
