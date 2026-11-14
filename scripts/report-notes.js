@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | تصنيف القرى من التقارير
-// @version      1.1.0
+// @version      1.2.0
 // @description  يقرأ تقارير هجماتك، يصنّف قرى الأعداء هجومية / دفاعية، وبعد ما تعتمد القائمة من الموقع بيكتب ملاحظة على كل قرية مع التقرير.
 // ==/UserScript==
 /* global GM_getValue, GM_setValue, unsafeWindow */
@@ -121,6 +121,7 @@
   /* ---------- state ---------- */
   const state = { scanning: false, progress: '', at: get('scanAt', 0), list: get('list', []), error: '', job: null };
   const noted = get('noted', {});                                       // vid -> { kind, at, report }
+  const hidden = new Set(get('hidden', []));                            // villages the player deleted from the list (stay deleted after a new scan)
 
   async function scan() {
     if (state.scanning) return;
@@ -224,14 +225,20 @@
   const view = () => ({
     ok: true, scanning: state.scanning, progress: state.progress, error: state.error, at: state.at, job: state.job,
     offMin: CFG.offMin, defMin: CFG.defMin,
-    list: state.list.map((v) => ({ vid: v.vid, coords: v.coords, player: v.player, kind: v.kind, why: v.why, conf: v.conf, off: v.off, def: v.def, nobles: v.nobles,
+    hiddenCount: state.list.filter((v) => hidden.has(v.vid)).length,
+    list: state.list.filter((v) => !hidden.has(v.vid)).map((v) => ({ vid: v.vid, coords: v.coords, player: v.player, kind: v.kind, why: v.why, conf: v.conf, off: v.off, def: v.def, nobles: v.nobles,
       inside: unitsText(v.inside), away: v.away ? unitsText(v.away) : '', report: v.report, date: v.date, noted: noted[v.vid] || null })),
   });
   document.addEventListener('algzawy-rnotes-cmd', (e) => {
     let d; try { d = JSON.parse(e.detail); } catch (_) { return; }
     if (!d || typeof d.id !== 'string') return;
     let out = view();
-    if (d.cmd === 'scan') { if (!state.scanning) scan(); out = { ...view(), scanning: true }; }
+    if (d.cmd === 'hide' || d.cmd === 'unhide') {
+      if (d.cmd === 'unhide') hidden.clear();
+      else for (const v of (Array.isArray(d.vids) ? d.vids : []).slice(0, 5000)) hidden.add(String(v));
+      set('hidden', [...hidden].slice(-5000));
+      out = view();
+    } else if (d.cmd === 'scan') { if (!state.scanning) scan(); out = { ...view(), scanning: true }; }
     else if (d.cmd === 'apply') {
       if (state.scanning) out = { ok: false, error: 'استنى يخلص الفحص' };
       else if (state.job && state.job.running) out = { ok: false, error: 'في كتابة ملاحظات شغّالة' };
