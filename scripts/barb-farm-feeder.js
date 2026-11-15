@@ -65,7 +65,7 @@
   if (typeof window === 'undefined' || !window.game_data) return;   // not the game page (e.g. unit test)
   const W = window, gd = W.game_data;
   const myPid = String(gd.player && gd.player.id || '');
-  const KEY = 'alg_barbfeeder_' + (gd.world || '') + '_' + myPid;
+  const KEY = 'alg_barbfeeder_cfg';   // fixed key so website-injected settings land here
   const DEF = { maxDist: 30, maxPts: 900, troops: { spy: 1 }, dryRun: true };
   let cfg; try { cfg = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (_) { cfg = Object.assign({}, DEF); }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (_) {} };

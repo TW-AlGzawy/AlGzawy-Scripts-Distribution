@@ -81,7 +81,7 @@
   // The newest supplied v1.2.0 loader's license-first state flow is retained.
   // The source hash pins the exact production engine. Changing the engine
   // requires a deliberate, atomic loader release.
-  const ENGINE_SHA256='3d9389364b2fce433c5ce71beced78461bd0604b70bea14d2c92043592d156c7';
+  const ENGINE_SHA256='17d7adf6d037c5cf12deadd5136869bb0557241c41d81646efc76250a52b2497';
   const POLL_MS=120000,REQUEST_TIMEOUT=6000,RETRY_BASE_MS=5000,RETRY_MAX_MS=60000;
   const STOP_EVENT='__algzawy_stop_'+ID,PAUSE_EVENT='__algzawy_pause_'+ID,
     RESUME_EVENT='__algzawy_resume_'+ID;

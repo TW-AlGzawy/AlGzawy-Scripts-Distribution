@@ -64,7 +64,7 @@
   if (typeof window === 'undefined' || !window.game_data) return;   // not the game page (e.g. unit test)
   const W = window, gd = W.game_data;
   const myXY = (String(gd.village && gd.village.coord || '').match(/(\d{1,3})\|(\d{1,3})/) || []).slice(1).map(Number);
-  const KEY = 'alg_wallbreaker_' + (gd.world || '') + '_' + String(gd.player && gd.player.id || '');
+  const KEY = 'alg_wallbreaker_cfg';   // fixed key so website-injected settings land here
   const DEF = { maxDist: 25, troop: 'axe', margin: 1.1 };
   let cfg; try { cfg = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (_) { cfg = Object.assign({}, DEF); }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (_) {} };
