@@ -61,67 +61,49 @@
     module.exports = { parseVillages, pickBarbTargets, chooseSend, vkey };
   }
 
-  // ---- live engine (page context; v0.1 = discover & PREVIEW only, no real sending yet) -----------
+  // ---- live engine (page context): the runner drives it by events; the website shows the result -----
+  // The website asks the bot to SCAN (read-only), the player reviews the discovered barbarians on the
+  // site, then APPROVES — only then does the runner send to them. The engine itself never sends.
   if (typeof window === 'undefined' || !window.game_data) return;   // not the game page (e.g. unit test)
   const W = window, gd = W.game_data;
   const myPid = String(gd.player && gd.player.id || '');
   const KEY = 'alg_barbfeeder_cfg';   // fixed key so website-injected settings land here
-  const DEF = { maxDist: 30, maxPts: 900, troops: { spy: 1 }, dryRun: true };
-  let cfg; try { cfg = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (_) { cfg = Object.assign({}, DEF); }
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (_) {} };
+  const DEF = { maxDist: 30, maxPts: 900 };
+  const readCfg = () => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (_) { return Object.assign({}, DEF); } };
   const sentKey = KEY + '_sent';
   const loadSent = () => { try { return new Set(JSON.parse(localStorage.getItem(sentKey) || '[]')); } catch (_) { return new Set(); } };
+  const addSent = keys => { try { const s = loadSent(); for (const k of keys) s.add(k); localStorage.setItem(sentKey, JSON.stringify([...s].slice(-20000))); } catch (_) {} };
 
+  const state = { scanning: false, at: 0, picks: [], nMine: 0, error: '' };
   const getTxt = async n => { const r = await fetch('/map/' + n, { cache: 'no-store' }); if (!r.ok) throw new Error(n + ' HTTP ' + r.status); return r.text(); };
-  // villages already in the official Farm Assistant (#plunder_list rows carry data-coords or a coord cell)
+  // villages already in the official Farm Assistant (#plunder_list rows show the target's coords)
   function farmListKeys() {
     const keys = new Set();
-    document.querySelectorAll('#plunder_list tr').forEach(tr => {
-      const m = (tr.textContent || '').match(/(\d{1,3})\|(\d{1,3})/);
-      if (m) keys.add(m[1] + '|' + m[2]);
-    });
+    document.querySelectorAll('#plunder_list tr').forEach(tr => { const m = (tr.textContent || '').match(/(\d{1,3})\|(\d{1,3})/); if (m) keys.add(m[1] + '|' + m[2]); });
     return keys;
   }
-
-  async function scan(preview) {
-    const vt = await getTxt('village.txt');
-    const all = parseVillages(vt);
-    const mine = all.filter(v => String(v.player) === myPid).map(v => ({ x: v.x, y: v.y }));
-    if (!mine.length) throw new Error('ما لقيت قراك ببيانات العالم');
-    const picks = pickBarbTargets(all, mine, cfg, farmListKeys(), loadSent());
-    if (preview) preview(picks, mine.length);
-    return picks;
+  async function scan() {
+    if (state.scanning) return;
+    state.scanning = true; state.error = '';
+    try {
+      const cfg = readCfg();
+      const all = parseVillages(await getTxt('village.txt'));
+      const mine = all.filter(v => String(v.player) === myPid).map(v => ({ x: v.x, y: v.y }));
+      if (!mine.length) throw new Error('ما لقيت قراك ببيانات العالم');
+      state.picks = pickBarbTargets(all, mine, cfg, farmListKeys(), loadSent()).slice(0, 1000);
+      state.nMine = mine.length; state.at = Date.now();
+    } catch (e) { state.error = String(e && e.message || e); }
+    state.scanning = false;
   }
+  const view = () => ({ ok: !state.error, error: state.error || undefined, scanning: state.scanning, at: state.at,
+    nMine: state.nMine, picks: state.picks.map(p => ({ key: p.key, pts: p.pts, dist: p.dist })) });
 
-  // minimal draggable panel on the Farm Assistant screen
-  function panel() {
-    if (document.getElementById('alg-barbfeeder')) return;
-    const box = document.createElement('div');
-    box.id = 'alg-barbfeeder';
-    box.style.cssText = 'position:fixed;top:120px;right:12px;z-index:999990;width:300px;max-width:calc(100vw - 12px);background:#102031;color:#eaf3f8;border:1px solid #2a567a;border-radius:12px;font:12px/1.6 Tahoma,Arial;box-shadow:0 8px 22px #0006;direction:rtl;overflow:hidden';
-    box.innerHTML =
-      '<div style="background:#16405e;padding:7px 9px;font-weight:bold">🌍 مغذّي المزارع <small style="opacity:.7">v0.1 عرض فقط</small></div>' +
-      '<div style="padding:9px;display:grid;gap:7px">' +
-      '<label>أقصى مسافة (مربع)<input id="abf-dist" type="number" min="1" max="60" value="' + cfg.maxDist + '" style="width:100%;background:#07111c;color:#eaf3f8;border:1px solid #2a567a"></label>' +
-      '<label>أقصى نقاط للبربر<input id="abf-pts" type="number" min="0" value="' + cfg.maxPts + '" style="width:100%;background:#07111c;color:#eaf3f8;border:1px solid #2a567a"></label>' +
-      '<div id="abf-stat" style="min-height:18px;color:#9fd8ff"></div>' +
-      '<button id="abf-scan" style="padding:8px;border:0;border-radius:7px;background:#40c1e1;color:#06243a;cursor:pointer;font-weight:bold">🔍 اكتشف البرابرة الجدد</button>' +
-      '<div id="abf-list" style="max-height:200px;overflow:auto;display:grid;gap:3px"></div>' +
-      '<small style="opacity:.7">هاي نسخة أولى: بتكتشف وبتعرض شو رح ينبعت. الإرسال الفعلي بينضاف بعد ما تتأكد من النتيجة.</small>' +
-      '</div>';
-    document.body.appendChild(box);
-    const $ = id => box.querySelector(id);
-    $('#abf-dist').onchange = e => { cfg.maxDist = Math.max(1, +e.target.value || 30); save(); };
-    $('#abf-pts').onchange = e => { cfg.maxPts = Math.max(0, +e.target.value || 0); save(); };
-    $('#abf-scan').onclick = async () => {
-      $('#abf-stat').textContent = '⏳ عم يجيب بيانات العالم…';
-      try {
-        await scan((picks, nMine) => {
-          $('#abf-stat').textContent = '✔ من ' + nMine + ' قرية إلك: ' + picks.length + ' بربر جديد ضمن ' + cfg.maxDist + ' مربع وتحت ' + cfg.maxPts + ' نقطة';
-          $('#abf-list').innerHTML = picks.slice(0, 50).map(p => '<div style="background:#07111c;padding:4px 7px;border-radius:6px" dir="ltr">' + p.key + ' · ' + p.pts + ' نقطة · ' + p.dist + ' مربع</div>').join('') || '<div style="opacity:.6">ما في برابرة جدد — كلهم بالنهب أو أبعد من المسافة</div>';
-        });
-      } catch (e) { $('#abf-stat').textContent = '⚠ ' + e.message; }
-    };
-  }
-  if (/screen=am_farm/.test(location.href)) setTimeout(panel, 800);
+  document.addEventListener('algzawy-barbfeed-cmd', (e) => {
+    let d; try { d = JSON.parse(e.detail); } catch (_) { return; }
+    if (!d || typeof d.id !== 'string') return;
+    const reply = out => document.dispatchEvent(new CustomEvent('algzawy-barbfeed-result', { detail: JSON.stringify({ id: d.id, data: out }) }));
+    if (d.cmd === 'scan') { if (!state.scanning) scan(); reply({ ...view(), scanning: true }); }
+    else if (d.cmd === 'markSent') { addSent((Array.isArray(d.keys) ? d.keys : []).filter(k => /^\d{1,3}\|\d{1,3}$/.test(k)).slice(0, 2000)); reply(view()); }
+    else reply(view());   // 'list'
+  });
 })();
