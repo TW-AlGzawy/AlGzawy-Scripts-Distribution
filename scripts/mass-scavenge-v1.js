@@ -910,7 +910,8 @@ function setupMassPanelControls(panel,header,body){
     // "Without premium": the normal scavenge screen with the Outstanding Organizer.
     // Loads troops, distributes them across the available levels, then starts each one.
     async function executeScavengeCycleFree() {
-        console.log(`[سكربت الغزاوي] وضع بدون عضوية — بدأت دورة الإغارة العادية.`);
+        const L = (m) => console.log('[سكربت الغزاوي] ' + m);
+        L('وضع بدون عضوية — بدأت دورة الإغارة العادية.');
         const waitFor = (sel, t = 12000) => new Promise((res, rej) => {
             const s = Date.now();
             const iv = bgClock.interval(() => {
@@ -924,34 +925,47 @@ function setupMassPanelControls(panel,header,body){
             if (!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection')) return false;
             localStorage.setItem('algzawy_human_verification_pause', '1');
             document.dispatchEvent(new Event('algzawy-human-verification'));
+            L('⚠ ظهر فحص بشري — توقف مؤقت.');
             return true;
         };
+        // how many scavenge levels are unlocked (a locked option shows a lock, an unlocked one has a start button)
+        const unlockedLevels = () => [...document.querySelectorAll('.scavenge-option')]
+            .filter(o => o.id !== 'outstanding_organizer' && o.querySelector("a[class*='free_send_button'], a.btn-default, .scavenge-option__buttons a") && !o.querySelector('.lock, .scavenge-option__locked')).length;
         try {
-            await injectScript(ORGANIZER_URL);
+            try { await injectScript(ORGANIZER_URL); L('تم تحميل المنظّم.'); }
+            catch (e) { L('⚠ فشل تحميل المنظّم من الإنترنت. حدّث الصفحة أو تأكد من السماح للموقع.'); return; }
             if (!isCurrentCycleClaim()) return;
-            await waitFor('#organizer_table');
+            try { await waitFor('#organizer_table'); L('ظهر جدول المنظّم.'); }
+            catch (e) { L('⚠ ما ظهر جدول المنظّم (' + (e && e.message) + ').'); return; }
             await bgClock.sleep(settings.delayUiLoad);
             if (!isCurrentCycleClaim() || humanCheck()) return;
+            const unlocked = unlockedLevels();
+            L('فئات الإغارة المفتوحة: ' + unlocked);
+            if (!unlocked) { L('⚠ ما في فئات مفتوحة — افتح فئة إغارة واحدة على الأقل باللعبة أول.'); return; }
             // load every available troop into the organizer, then compute the distribution
             document.querySelector('.fill-all')?.click();
             await bgClock.sleep(700);
-            document.querySelector("button[name='distribute']")?.click();
+            const dist = document.querySelector("button[name='distribute']");
+            if (!dist) { L('⚠ ما لقيت زر التوزيع (Distribute).'); return; }
+            dist.click(); L('ضغطت التوزيع، عم يحسب…');
             await bgClock.sleep(settings.delayAfterCalc + 900);
             if (!isCurrentCycleClaim() || humanCheck()) return;
             // for each available level: fill its inputs (organizer) then start it (the game's own send)
             const rows = [...document.querySelectorAll('.command-row')].filter(r => !r.classList.contains('grey'));
             const options = [...document.querySelectorAll('.scavenge-option')].filter(o => o.id !== 'outstanding_organizer');
+            let sent = 0;
             for (let i = 0; i < rows.length; i++) {
                 if (!isCurrentCycleClaim() || humanCheck()) return;
                 rows[i].querySelector("button[title='Fill'], .btn")?.click();   // fillScavInputs(i)
                 await bgClock.sleep(450);
-                options[i]?.querySelector("a[class*='free_send_button']")?.click();
+                const send = options[i]?.querySelector("a[class*='free_send_button'], a.btn-default");
+                if (send) { send.click(); sent++; }
                 await bgClock.sleep(Math.max(600, settings.delayBetweenGroups));
             }
+            L('خلصت دورة الإغارة العادية — أرسلت ' + sent + ' فئة.');
             schedulePageReload();   // mark success + schedule the next cycle, same as the premium path
-            console.log('[سكربت الغزاوي] خلصت دورة الإغارة العادية.');
         } catch (e) {
-            console.warn('[AlGzawy] free scavenge cycle:', e && e.message);
+            L('⚠ خطأ بدورة الإغارة العادية: ' + (e && e.message));
         }
     }
 
