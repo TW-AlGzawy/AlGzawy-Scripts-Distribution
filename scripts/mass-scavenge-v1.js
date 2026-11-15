@@ -936,8 +936,28 @@ function setupMassPanelControls(panel,header,body){
             catch (e) { L('⚠ ما ظهر جدول المنظّم (' + (e && e.message) + ').'); return; }
             await bgClock.sleep(settings.delayUiLoad);
             if (!isCurrentCycleClaim() || humanCheck()) return;
-            // load every available troop into the organizer, then compute the distribution
-            document.querySelector('.fill-all')?.click();
+            // fill ONLY the troop types the player enabled (minus what to keep home); knight/paladin and
+            // unticked units stay at 0 — unlike the organizer's own "All troops" which loads everything.
+            const want = (() => { try { return JSON.parse(localStorage.getItem('troopTypeEnabled') || '{}'); } catch (_) { return {}; } })();
+            const keep = (() => { try { return JSON.parse(localStorage.getItem('keepHome') || '{}'); } catch (_) { return {}; } })();
+            const inputs = [...document.querySelectorAll('#organizer_table .unitsInput')];
+            const maxes = [...document.querySelectorAll('#organizer_table .units-entry-all')];
+            let picked = [];
+            inputs.forEach((inp, a) => {
+                const u = inp.name;
+                const maxEl = maxes[a];
+                const max = maxEl ? (parseInt((maxEl.innerHTML.split('(')[1] || '').split(')')[0], 10) || 0) : 0;
+                if (want[u] && u !== 'knight' && u !== 'snob') {
+                    const v = Math.max(0, max - (parseInt(keep[u], 10) || 0));
+                    inp.value = v > 0 ? v : '';
+                    if (v > 0) picked.push(u + ':' + v);
+                } else {
+                    inp.value = '';
+                }
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            L('الوحدات المختارة: ' + (picked.join(' ') || 'لا شيء'));
+            if (!picked.length) { L('⚠ ما في وحدات مختارة متوفّرة للإرسال. راجع «الوحدات يلي بتروح على الإغارة».'); schedulePageReload(); return; }
             await bgClock.sleep(700);
             const dist = document.querySelector("button[name='distribute']");
             if (!dist) { L('⚠ ما لقيت زر التوزيع (Distribute).'); return; }
