@@ -7,6 +7,24 @@
   ],
   "published_candidates": [
     {
+      "id": "barb-farm-feeder",
+      "name": "الغزااوي | مغذّي المزارع",
+      "version": "0.1.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/barb-farm-feeder.user.js",
+      "note": "v0.1: discovery/preview only — scans village.txt for new barbarians in range (distance per village, points cap) that are not already in the Farm Assistant, and previews them. Real sending added after live validation. 🧪 only.",
+      "approved_for_final": false
+    },
+    {
+      "id": "wall-breaker",
+      "name": "الغزااوي | محطّم الحوائط",
+      "version": "0.1.0",
+      "test_status": "needs-live-test",
+      "installer": "https://raw.githubusercontent.com/TW-AlGzawy/AlGzawy-Scripts-Distribution/main/loaders/wall-breaker.user.js",
+      "note": "v0.1: scan-and-preview only — reads scout reports for walled villages within range and previews the rams + escort to flatten each (world-independent table, max-demolition fallback). Real sending added after live validation. 🧪 only.",
+      "approved_for_final": false
+    },
+    {
       "id": "mass-scavenge-v1",
       "name": "الغزااوي | الإغارات الجماعية",
       "version": "1.0.13",
