@@ -928,9 +928,6 @@ function setupMassPanelControls(panel,header,body){
             L('⚠ ظهر فحص بشري — توقف مؤقت.');
             return true;
         };
-        // how many scavenge levels are unlocked (a locked option shows a lock, an unlocked one has a start button)
-        const unlockedLevels = () => [...document.querySelectorAll('.scavenge-option')]
-            .filter(o => o.id !== 'outstanding_organizer' && o.querySelector("a[class*='free_send_button'], a.btn-default, .scavenge-option__buttons a") && !o.querySelector('.lock, .scavenge-option__locked')).length;
         try {
             try { await injectScript(ORGANIZER_URL); L('تم تحميل المنظّم.'); }
             catch (e) { L('⚠ فشل تحميل المنظّم من الإنترنت. حدّث الصفحة أو تأكد من السماح للموقع.'); return; }
@@ -939,9 +936,6 @@ function setupMassPanelControls(panel,header,body){
             catch (e) { L('⚠ ما ظهر جدول المنظّم (' + (e && e.message) + ').'); return; }
             await bgClock.sleep(settings.delayUiLoad);
             if (!isCurrentCycleClaim() || humanCheck()) return;
-            const unlocked = unlockedLevels();
-            L('فئات الإغارة المفتوحة: ' + unlocked);
-            if (!unlocked) { L('⚠ ما في فئات مفتوحة — افتح فئة إغارة واحدة على الأقل باللعبة أول.'); return; }
             // load every available troop into the organizer, then compute the distribution
             document.querySelector('.fill-all')?.click();
             await bgClock.sleep(700);
@@ -950,16 +944,21 @@ function setupMassPanelControls(panel,header,body){
             dist.click(); L('ضغطت التوزيع، عم يحسب…');
             await bgClock.sleep(settings.delayAfterCalc + 900);
             if (!isCurrentCycleClaim() || humanCheck()) return;
+            // the organizer greys the levels that aren't available (locked or already running); the rest are sendable
+            const allRows = [...document.querySelectorAll('.command-row')];
+            const rows = allRows.filter(r => !r.classList.contains('grey'));
+            L('فئات متاحة للإرسال: ' + rows.length + ' من ' + allRows.length);
+            if (!rows.length) { L('⚠ ما في فئة متاحة — كلها مقفّلة أو شغّالة. افتح فئة باللعبة أو استنى ترجع الجيوش.'); schedulePageReload(); return; }
             // for each available level: fill its inputs (organizer) then start it (the game's own send)
-            const rows = [...document.querySelectorAll('.command-row')].filter(r => !r.classList.contains('grey'));
             const options = [...document.querySelectorAll('.scavenge-option')].filter(o => o.id !== 'outstanding_organizer');
             let sent = 0;
-            for (let i = 0; i < rows.length; i++) {
+            for (const row of rows) {
                 if (!isCurrentCycleClaim() || humanCheck()) return;
-                rows[i].querySelector("button[title='Fill'], .btn")?.click();   // fillScavInputs(i)
+                const idx = allRows.indexOf(row);
+                row.querySelector("button[title='Fill'], .btn")?.click();   // fillScavInputs(idx)
                 await bgClock.sleep(450);
-                const send = options[i]?.querySelector("a[class*='free_send_button'], a.btn-default");
-                if (send) { send.click(); sent++; }
+                const send = options[idx]?.querySelector("a[class*='free_send_button'], a.btn-default");
+                if (send) { send.click(); sent++; } else L('⚠ فئة ' + (idx + 1) + ': ما لقيت زر الإرسال.');
                 await bgClock.sleep(Math.max(600, settings.delayBetweenGroups));
             }
             L('خلصت دورة الإغارة العادية — أرسلت ' + sent + ' فئة.');
