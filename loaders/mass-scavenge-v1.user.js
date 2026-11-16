@@ -10,8 +10,6 @@
 // @match        https://*.algzawy-cloud-control.pages.dev/v2/*
 // @run-at       document-end
 // @connect      raw.githubusercontent.com
-// @connect      www.minecraft.as
-// @connect      shinko-to-kuma.com
 // @connect      algzawy-control-api.karm-saleh-usa2.workers.dev
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue

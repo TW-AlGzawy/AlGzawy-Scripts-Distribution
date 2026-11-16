@@ -220,8 +220,6 @@ function setupMassPanelControls(panel,header,body){
     // --- الإعدادات الافتراضية ---
     // ========================================================================
     const SCRIPT_URL = 'https://shinko-to-kuma.com/scripts/massScavenge.js';
-    // "free" (no premium): the Outstanding Organizer runs on the normal scavenge screen.
-    const ORGANIZER_URL = 'https://www.minecraft.as/tw_scripts/outstanding_organizer.js';
     const UPDATE_URL = GM_info.script.updateURL || '';
 
     // --- استرجاع الإعدادات المحفوظة أو استخدام القيم الافتراضية ---
@@ -907,20 +905,60 @@ function setupMassPanelControls(panel,header,body){
         console.log('[AlGzawy] Page loaded: saved scavenge deadline preserved. No immediate dispatch.');
     });
 
-    // "Without premium": the normal scavenge screen with the Outstanding Organizer.
-    // Loads troops, distributes them across the available levels, then starts each one.
+    // ===== "Without premium": the normal scavenge screen, done natively (no external script) =====
+    // FREE-CORE-START (pure helpers, unit-tested)
+    const FREE_CARRY = { spear: 25, sword: 15, axe: 10, archer: 10, light: 80, marcher: 50, heavy: 50, knight: 100 };
+    const FREE_DEFAULTS = [0.10, 0.25, 0.50, 0.75].map(lf => ({ loot_factor: lf, duration_exponent: 0.45, duration_initial_seconds: 1800, duration_factor: 1 }));
+    /** resources per hour of one scavenge level that gets `cap` carry capacity */
+    function freeRph(cap, k) {
+        if (cap <= 0) return 0;
+        const dur = (Math.pow(100 * cap * cap * k.loot_factor * k.loot_factor, k.duration_exponent) + k.duration_initial_seconds) * k.duration_factor;
+        return 3600 * cap * k.loot_factor / dur;
+    }
+    /** which units may go and how many: only ticked types, minus the keep-home count; never knight/snob unless ticked (snob never) */
+    function freeSendable(available, enabled, keepHome) {
+        const out = {};
+        for (const u of Object.keys(FREE_CARRY)) {
+            if (!enabled || !enabled[u]) continue;
+            const n = Math.max(0, (parseInt(available[u], 10) || 0) - (parseInt((keepHome || {})[u], 10) || 0));
+            if (n > 0) out[u] = n;
+        }
+        return out;
+    }
+    /**
+     * Split the troops over the open levels so the total resources/hour is highest (greedy on the marginal gain,
+     * the same idea as the well-known organizer scripts).
+     * @param units  {spear: n, ...} troops that may go
+     * @param levels [{index, k}] open levels with their constants
+     * @returns [{index, units:{...}}] one entry per level that gets troops
+     */
+    function freeDistribute(units, levels) {
+        const total = Object.keys(units).reduce((a, u) => a + units[u] * (FREE_CARRY[u] || 0), 0);
+        if (!total || !levels.length) return [];
+        const caps = levels.map(() => 0), STEPS = 400, chunk = total / STEPS;
+        for (let s = 0; s < STEPS; s++) {
+            let best = 0, gain = -Infinity;
+            for (let i = 0; i < levels.length; i++) {
+                const g = freeRph(caps[i] + chunk, levels[i].k) - freeRph(caps[i], levels[i].k);
+                if (g > gain) { gain = g; best = i; }
+            }
+            caps[best] += chunk;
+        }
+        // turn capacity shares into whole units, type by type; leftovers go to the levels with the biggest share
+        const order = caps.map((c, i) => i).sort((x, y) => caps[y] - caps[x]);
+        const res = levels.map(l => ({ index: l.index, units: {} }));
+        for (const u of Object.keys(units)) {
+            let left = units[u];
+            caps.forEach((c, i) => { const n = Math.floor(units[u] * c / total); if (n > 0) res[i].units[u] = n; left -= n; });
+            for (let j = 0; left > 0; j++, left--) { const i = order[j % order.length]; res[i].units[u] = (res[i].units[u] || 0) + 1; }
+        }
+        return res.filter(r => Object.keys(r.units).length);
+    }
+    // FREE-CORE-END
+
     async function executeScavengeCycleFree() {
         const L = (m) => console.log('[سكربت الغزاوي] ' + m);
         L('وضع بدون عضوية — بدأت دورة الإغارة العادية.');
-        const waitFor = (sel, t = 12000) => new Promise((res, rej) => {
-            const s = Date.now();
-            const iv = bgClock.interval(() => {
-                if (!isCurrentCycleClaim()) { bgClock.clear(iv); return rej(new Error('stopped')); }
-                const el = document.querySelector(sel);
-                if (el) { bgClock.clear(iv); res(el); }
-                else if (Date.now() - s > t) { bgClock.clear(iv); rej(new Error('timeout ' + sel)); }
-            }, 300);
-        });
         const humanCheck = () => {
             if (!document.querySelector('#botprotection_quest,.bot-protection-row,#botprotection')) return false;
             localStorage.setItem('algzawy_human_verification_pause', '1');
@@ -928,58 +966,80 @@ function setupMassPanelControls(panel,header,body){
             L('⚠ ظهر فحص بشري — توقف مؤقت.');
             return true;
         };
+        const readJson = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (_) { return d; } };
+        const page = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
+        const jq = page.jQuery || window.jQuery;
+        // the troop inputs of the game's own form (not any helper table a player may have added)
+        const gameInput = (u) => [...document.querySelectorAll('input.unitsInput[name="' + u + '"]')].find(i => !i.closest('#organizer_table')) || null;
+        const setInput = (u, n) => {
+            const inp = gameInput(u); if (!inp) return false;
+            inp.value = n > 0 ? String(n) : '';
+            if (jq) jq(inp).trigger('input').trigger('keyup').trigger('change');
+            else for (const t of ['input', 'keyup', 'change']) inp.dispatchEvent(new Event(t, { bubbles: true }));
+            return true;
+        };
+        // what is at home right now: the "(12)" links next to the inputs
+        const readAvailable = () => {
+            const out = {};
+            document.querySelectorAll('a.units-entry-all[data-unit], .units-entry-all[data-unit]').forEach(a => {
+                if (a.closest('#organizer_table')) return;
+                out[a.dataset.unit] = parseInt(String(a.textContent || '').replace(/[^\d]/g, ''), 10) || 0;
+            });
+            return out;
+        };
+        // open levels = options whose own start button is there (locked ones show an unlock button, running ones a countdown)
+        const openLevels = () => [...document.querySelectorAll('.scavenge-option')]
+            .filter(o => o.id !== 'outstanding_organizer')
+            .map((o, index) => ({ index, el: o, btn: o.querySelector('a.free_send_button, .free_send_button') }))
+            .filter(x => x.btn && !x.btn.classList.contains('btn-disabled'));
+        // the world's scavenge constants, from the page's own script (falls back to the standard values)
+        const constants = () => {
+            const ks = FREE_DEFAULTS.map(k => ({ ...k }));
+            try {
+                const sc = [...document.scripts].map(x => x.textContent || '').find(t => t.includes('loot_factor') && t.includes('duration_exponent'));
+                if (sc) {
+                    const grab = (name) => [...sc.matchAll(new RegExp('"' + name + '":\\s*([0-9.eE+-]+)', 'g'))].map(m => Number(m[1]));
+                    const lf = grab('loot_factor'), de = grab('duration_exponent'), di = grab('duration_initial_seconds'), df = grab('duration_factor');
+                    for (let i = 0; i < 4; i++) {
+                        if (Number.isFinite(lf[2 * i])) ks[i].loot_factor = lf[2 * i];   // each level lists its own factor, then the premium one
+                        if (Number.isFinite(de[i])) ks[i].duration_exponent = de[i];
+                        if (Number.isFinite(di[i])) ks[i].duration_initial_seconds = di[i];
+                        if (Number.isFinite(df[i])) ks[i].duration_factor = df[i];
+                    }
+                }
+            } catch (_) {}
+            return ks;
+        };
         try {
-            try { await injectScript(ORGANIZER_URL); L('تم تحميل المنظّم.'); }
-            catch (e) { L('⚠ فشل تحميل المنظّم من الإنترنت. حدّث الصفحة أو تأكد من السماح للموقع.'); return; }
-            if (!isCurrentCycleClaim()) return;
-            try { await waitFor('#organizer_table'); L('ظهر جدول المنظّم.'); }
-            catch (e) { L('⚠ ما ظهر جدول المنظّم (' + (e && e.message) + ').'); return; }
             await bgClock.sleep(settings.delayUiLoad);
             if (!isCurrentCycleClaim() || humanCheck()) return;
-            // fill ONLY the troop types the player enabled (minus what to keep home); knight/paladin and
-            // unticked units stay at 0 — unlike the organizer's own "All troops" which loads everything.
-            const want = (() => { try { return JSON.parse(localStorage.getItem('troopTypeEnabled') || '{}'); } catch (_) { return {}; } })();
-            const keep = (() => { try { return JSON.parse(localStorage.getItem('keepHome') || '{}'); } catch (_) { return {}; } })();
-            const inputs = [...document.querySelectorAll('#organizer_table .unitsInput')];
-            const maxes = [...document.querySelectorAll('#organizer_table .units-entry-all')];
-            let picked = [];
-            inputs.forEach((inp, a) => {
-                const u = inp.name;
-                const maxEl = maxes[a];
-                const max = maxEl ? (parseInt((maxEl.innerHTML.split('(')[1] || '').split(')')[0], 10) || 0) : 0;
-                if (want[u] && u !== 'knight' && u !== 'snob') {
-                    const v = Math.max(0, max - (parseInt(keep[u], 10) || 0));
-                    inp.value = v > 0 ? v : '';
-                    if (v > 0) picked.push(u + ':' + v);
-                } else {
-                    inp.value = '';
-                }
-                inp.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-            L('الوحدات المختارة: ' + (picked.join(' ') || 'لا شيء'));
-            if (!picked.length) { L('⚠ ما في وحدات مختارة متوفّرة للإرسال. راجع «الوحدات يلي بتروح على الإغارة».'); schedulePageReload(); return; }
-            await bgClock.sleep(700);
-            const dist = document.querySelector("button[name='distribute']");
-            if (!dist) { L('⚠ ما لقيت زر التوزيع (Distribute).'); return; }
-            dist.click(); L('ضغطت التوزيع، عم يحسب…');
-            await bgClock.sleep(settings.delayAfterCalc + 900);
-            if (!isCurrentCycleClaim() || humanCheck()) return;
-            // the organizer greys the levels that aren't available (locked or already running); the rest are sendable
-            const allRows = [...document.querySelectorAll('.command-row')];
-            const rows = allRows.filter(r => !r.classList.contains('grey'));
-            L('فئات متاحة للإرسال: ' + rows.length + ' من ' + allRows.length);
-            if (!rows.length) { L('⚠ ما في فئة متاحة — كلها مقفّلة أو شغّالة. افتح فئة باللعبة أو استنى ترجع الجيوش.'); schedulePageReload(); return; }
-            // for each available level: fill its inputs (organizer) then start it (the game's own send)
-            const options = [...document.querySelectorAll('.scavenge-option')].filter(o => o.id !== 'outstanding_organizer');
+            const enabled = readJson('troopTypeEnabled', { spear: true, sword: true, axe: true, archer: true, light: true, marcher: true, heavy: true, knight: false });
+            const keepHome = readJson('keepHome', {});
+            const cats = readJson('categoryEnabled', [true, true, true, true]);
+            const total = document.querySelectorAll('.scavenge-option').length;
+            const open = openLevels().filter(x => cats[x.index] !== false);
+            L('فئات مفتوحة وفاضية هلأ: ' + open.length + ' من ' + (total || 4) + (open.length ? ' (' + open.map(x => x.index + 1).join('، ') + ')' : ''));
+            if (!open.length) { L('ما في فئة فاضية هلأ (مقفّلة أو جيشها برّا). بنجرّب بالدورة الجاية.'); schedulePageReload(); return; }
+            const units = freeSendable(readAvailable(), enabled, keepHome);
+            const list = Object.keys(units).map(u => u + ':' + units[u]).join(' ');
+            L('الوحدات يلي رح تتوزّع: ' + (list || 'لا شيء'));
+            if (!list) { L('ما في جنود مسموحين بالقرية هلأ (القائد والوحدات غير المحدّدة ما بينبعتوا). بنجرّب بالدورة الجاية.'); schedulePageReload(); return; }
+            const ks = constants();
+            const plan = freeDistribute(units, open.map(x => ({ index: x.index, k: ks[x.index] || FREE_DEFAULTS[x.index] || FREE_DEFAULTS[0] })));
             let sent = 0;
-            for (const row of rows) {
+            // biggest level first; after every start the game clears the form, so each level is filled on its own
+            for (const p of plan.sort((x, y) => y.index - x.index)) {
                 if (!isCurrentCycleClaim() || humanCheck()) return;
-                const idx = allRows.indexOf(row);
-                row.querySelector("button[title='Fill'], .btn")?.click();   // fillScavInputs(idx)
-                await bgClock.sleep(450);
-                const send = options[idx]?.querySelector("a[class*='free_send_button'], a.btn-default");
-                if (send) { send.click(); sent++; } else L('⚠ فئة ' + (idx + 1) + ': ما لقيت زر الإرسال.');
-                await bgClock.sleep(Math.max(600, settings.delayBetweenGroups));
+                const lvl = openLevels().find(x => x.index === p.index);
+                if (!lvl) { L('⚠ فئة ' + (p.index + 1) + ' ما عادت فاضية، تخطّيتها.'); continue; }
+                for (const u of Object.keys(FREE_CARRY)) setInput(u, 0);          // nothing left over from before (e.g. the paladin)
+                let ok = true;
+                for (const u of Object.keys(p.units)) ok = setInput(u, p.units[u]) && ok;
+                if (!ok) { L('⚠ ما لقيت خانات الجنود بالصفحة.'); break; }
+                await bgClock.sleep(500);
+                lvl.btn.click(); sent++;
+                L('فئة ' + (p.index + 1) + ' ← ' + Object.keys(p.units).map(u => u + ':' + p.units[u]).join(' '));
+                await bgClock.sleep(Math.max(1200, settings.delayBetweenGroups));
             }
             L('خلصت دورة الإغارة العادية — أرسلت ' + sent + ' فئة.');
             schedulePageReload();   // mark success + schedule the next cycle, same as the premium path
