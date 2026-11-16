@@ -68,15 +68,15 @@
   const myPid = String(gd.player && gd.player.id || '');
   const base = '/game.php?village=' + gd.village.id;
   const KEY = 'alg_wallbreaker_cfg';   // fixed key so website-injected settings land here
-  const DEF = { maxDist: 25, troop: 'axe', margin: 1.1, maxReports: 80 };
+  const DEF = { maxDist: 25, troop: 'axe', margin: 1.1, maxReports: 80, scanEvery: 10 };
   const readCfg = () => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (_) { return Object.assign({}, DEF); } };
   const jget = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (_) { return d; } };
   const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
-  const CACHE = KEY + '_reports', SENT = KEY + '_sent';
+  const CACHE = KEY + '_reports', SENT = KEY + '_sent', TOP = KEY + '_top', WALLS = KEY + '_walls';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const DEFV = { spear: 15, sword: 50, axe: 10, archer: 50, spy: 2, light: 30, marcher: 40, heavy: 200, ram: 20, catapult: 100, knight: 250, militia: 15 };
 
-  const state = { scanning: false, at: 0, rows: [], mine: [], error: '', prog: '', queue: [], sending: false, results: {} };
+  const state = { scanning: false, at: 0, rows: [], mine: [], mineAt: 0, error: '', prog: '', queue: [], sending: false, results: {}, newReports: 0 };
 
   async function fetchDoc(url) {
     const r = await fetch(url, { credentials: 'same-origin' });
@@ -104,64 +104,81 @@
     const m = (vl ? vl.textContent : def.textContent).match(/(\d{1,3})\|(\d{1,3})/); if (!m) return null;
     return { k: m[1] + '|' + m[2], w: wall, d: Math.round(defPower(doc)), b: def.querySelector('a[href*="info_player"]') ? 0 : 1 };
   }
-  /** newest report ids from the "all reports" list, every folder */
-  async function reportIds(maxN) {
+  /**
+   * Report ids NEWER than `top` from the "all reports" list (every folder), newest first. Ids grow with time, so
+   * `top` is the watermark of the last finished scan: paging stops at the first report that was already covered.
+   */
+  async function reportIds(maxN, top) {
     const ids = [], seen = new Set();
-    let url = base + '&screen=report&mode=all&group_id=-1', pages = 0;
-    while (url && ids.length < maxN && pages < 40) {
+    let url = base + '&screen=report&mode=all&group_id=-1', pages = 0, reached = false;
+    while (url && !reached && ids.length < maxN && pages < 40) {
       const doc = await fetchDoc(url); pages++;
-      for (const tr of doc.querySelectorAll('#report_list tr, table#report_list tr, .report-list tr')) {
-        const a = tr.querySelector('a[href*="view="]');
-        const id = a && ((a.getAttribute('href').match(/[?&]view=(\d+)/) || [])[1]);
+      const rows = [...doc.querySelectorAll('#report_list tr, table#report_list tr, .report-list tr')].filter(tr => tr.querySelector('a[href*="view="]'));
+      // battle reports carry a coloured dot; trades/support/others don't and can't show a wall
+      const battle = rows.filter(tr => tr.querySelector('img[src*="dots/"]'));
+      for (const tr of rows) {
+        const id = Number((tr.querySelector('a[href*="view="]').getAttribute('href').match(/[?&]view=(\d+)/) || [])[1]);
         if (!id || seen.has(id)) continue;
-        seen.add(id); ids.push(Number(id));
+        seen.add(id);
+        if (id <= top) { reached = true; continue; }
+        if (battle.length && !battle.includes(tr)) continue;
+        ids.push(id);
       }
-      state.prog = 'قائمة التقارير: ' + ids.length;
+      state.prog = 'قائمة التقارير الجديدة: ' + ids.length;
       const cur = Number((url.match(/[?&]from=(\d+)/) || [])[1]) || 0;
       const next = [...doc.querySelectorAll('a.paged-nav-item, .paged-nav-item a')].map(x => x.getAttribute('href') || '')
         .map(h => ({ h, f: Number((h.match(/[?&]from=(\d+)/) || [])[1]) })).filter(x => x.f > cur).sort((x, y) => x.f - y.f)[0];
       url = next ? next.h.replace(/&amp;/g, '&') : null;
       if (url && !/^\/|^http/.test(url)) url = '/' + url;
     }
-    return ids.slice(0, maxN);
+    return { ids: ids.slice(0, maxN), newestSeen: seen.size ? Math.max(...seen) : 0 };
+  }
+  function buildRows(cfg) {
+    const walls = jget(WALLS, {}), sent = jget(SENT, {}), rows = [];
+    for (const k of Object.keys(walls)) {
+      const r = walls[k]; if (!r || r.w <= 0) continue;
+      if (sent[k] && sent[k] >= r.rid) continue;                   // already hit after this report; a newer scout brings it back
+      const [x, y] = k.split('|').map(Number);
+      const d = Math.min(...state.mine.map(v => Math.hypot(v.x - x, v.y - y)));
+      if (cfg.maxDist && d > cfg.maxDist) continue;
+      const plan = planWallBreak(r.w, Infinity, { troop: cfg.troop, margin: cfg.margin, defPower: r.d });
+      rows.push({ key: k, wall: r.w, def: r.d, barb: !!r.b, dist: Math.round(d * 10) / 10, rid: r.rid, ram: plan.rams, escort: plan.escort, troop: plan.troop });
+    }
+    state.rows = rows.sort((p, q) => p.dist - q.dist);
   }
   async function scan() {
     if (state.scanning) return;
     state.scanning = true; state.error = ''; state.prog = 'عم يبدأ…';
     try {
       const cfg = readCfg();
-      const vt = await (await fetch('/map/village.txt', { cache: 'no-store' })).text();
-      const mine = [];
-      for (const line of vt.split('\n')) { const p = line.split(','); if (p.length >= 6 && p[4] === myPid) mine.push({ id: +p[0], x: +p[2], y: +p[3] }); }
-      if (!mine.length) throw new Error('ما لقيت قراك ببيانات العالم');
-      state.mine = mine;
-      const ids = await reportIds(Math.max(10, Math.min(400, Number(cfg.maxReports) || 80)));
-      const cache = jget(CACHE, {});
-      let n = 0;
-      for (const id of ids) {
+      if (!state.mine.length || Date.now() - state.mineAt > 6 * 3600000) {
+        const vt = await (await fetch('/map/village.txt', { cache: 'no-store' })).text();
+        const mine = [];
+        for (const line of vt.split('\n')) { const p = line.split(','); if (p.length >= 6 && p[4] === myPid) mine.push({ id: +p[0], x: +p[2], y: +p[3] }); }
+        if (!mine.length) throw new Error('ما لقيت قراك ببيانات العالم');
+        state.mine = mine; state.mineAt = Date.now();
+      }
+      const top = Number(jget(TOP, 0)) || 0;
+      // the first scan reads up to the configured number of reports; later scans only what arrived since
+      const { ids, newestSeen } = await reportIds(Math.max(10, Math.min(400, Number(cfg.maxReports) || 80)), top);
+      const cache = jget(CACHE, {}), walls = jget(WALLS, {});
+      let n = 0, fresh = 0;
+      for (const id of ids.slice().sort((x, y) => x - y)) {          // oldest first, so a newer scout overrides an older one
         n++;
-        if (cache[id] !== undefined) continue;                       // already read on an earlier scan
-        state.prog = 'عم يقرا التقارير ' + n + '/' + ids.length;
-        let r = null; try { r = readReport(await fetchDoc(base + '&screen=report&view=' + id)); } catch (e) { if (/حماية|429|الجلسة/.test(e.message)) throw e; }
-        cache[id] = r || 0;
+        let r = cache[id];
+        if (r === undefined) {
+          state.prog = 'عم يقرا التقارير الجديدة ' + n + '/' + ids.length;
+          r = null; try { r = readReport(await fetchDoc(base + '&screen=report&view=' + id)); } catch (e) { if (/حماية|429|الجلسة/.test(e.message)) { jset(CACHE, cache); throw e; } }
+          cache[id] = r || 0; fresh++;
+          if (fresh % 10 === 0) jset(CACHE, cache);                  // an interrupted scan resumes where it stopped
+        }
+        if (r && (!walls[r.k] || walls[r.k].rid < id)) walls[r.k] = { w: r.w, d: r.d, b: r.b, rid: id };
       }
-      const keep = {}; for (const id of Object.keys(cache).map(Number).sort((x, y) => y - x).slice(0, 800)) keep[id] = cache[id];
-      jset(CACHE, keep);
-      // newest scouted report per village (ids grow with time)
-      const newest = {};
-      for (const id of ids.slice().sort((x, y) => y - x)) { const r = cache[id]; if (r && !newest[r.k]) newest[r.k] = { ...r, rid: id }; }
-      const sent = jget(SENT, {});
-      const rows = [];
-      for (const k of Object.keys(newest)) {
-        const r = newest[k]; if (r.w <= 0) continue;
-        if (sent[k] && sent[k] >= r.rid) continue;                   // already hit after this report; a newer scout brings it back
-        const [x, y] = k.split('|').map(Number);
-        const d = Math.min(...mine.map(v => Math.hypot(v.x - x, v.y - y)));
-        if (cfg.maxDist && d > cfg.maxDist) continue;
-        const plan = planWallBreak(r.w, Infinity, { troop: cfg.troop, margin: cfg.margin, defPower: r.d });
-        rows.push({ key: k, wall: r.w, def: r.d, barb: !!r.b, dist: Math.round(d * 10) / 10, rid: r.rid, ram: plan.rams, escort: plan.escort, troop: plan.troop });
-      }
-      state.rows = rows.sort((p, q) => p.dist - q.dist);
+      const keys = Object.keys(walls);
+      if (keys.length > 3000) for (const k of keys.sort((p, q) => walls[p].rid - walls[q].rid).slice(0, keys.length - 3000)) delete walls[k];
+      jset(WALLS, walls); jset(TOP, Math.max(top, newestSeen)); jset(CACHE, {});
+      state.newReports = ids.length;
+      buildRows(cfg);
       state.at = Date.now(); state.prog = '';
     } catch (e) { state.error = String(e && e.message || e); }
     state.scanning = false;
@@ -236,7 +253,7 @@
     pump();
   }
 
-  const view = () => ({ ok: !state.error, error: state.error || undefined, scanning: state.scanning, prog: state.prog, at: state.at, v: 2,
+  const view = () => ({ ok: !state.error, error: state.error || undefined, scanning: state.scanning, prog: state.prog, at: state.at, v: 3, newReports: state.newReports, known: Object.keys(jget(WALLS, {})).length,
     sending: state.sending || state.queue.length > 0, left: state.queue.length,
     rows: state.rows.map(r => ({ key: r.key, wall: r.wall, def: r.def, barb: r.barb, dist: r.dist, ram: r.ram, escort: r.escort, troop: r.troop, r: state.results[r.key] || null })) });
 
@@ -247,6 +264,11 @@
     if (d.cmd === 'scan') { if (!state.scanning) scan(); reply({ ...view(), scanning: true }); }
     else if (d.cmd === 'send') { if (!state.mine.length) reply({ ...view(), ok: false, error: 'اعمل فحص أول' }); else { enqueue(d.items); reply(view()); } }
     else if (d.cmd === 'cancel') { for (const q of state.queue) delete state.results[q.key]; state.queue = []; reply(view()); }
+    else if (d.cmd === 'reset') { jset(TOP, 0); jset(WALLS, {}); jset(CACHE, {}); jset(SENT, {}); state.rows = []; state.at = 0; if (!state.scanning) scan(); reply({ ...view(), scanning: true }); }
     else reply(view());   // 'list'
   });
+
+  // scans by itself: once shortly after the page opens, then every few minutes (only the reports that arrived since)
+  setTimeout(() => { if (!state.scanning) scan(); }, 4000);
+  setInterval(() => { if (!state.scanning && !state.sending && !state.queue.length) scan(); }, Math.max(2, Math.min(180, Number(readCfg().scanEvery) || 10)) * 60000);
 })();
