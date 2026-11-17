@@ -68,32 +68,68 @@
   const W = window, gd = W.game_data;
   const myPid = String(gd.player && gd.player.id || '');
   const KEY = 'alg_barbfeeder_cfg';   // fixed key so website-injected settings land here
-  const DEF = { maxDist: 30, maxPts: 900 };
+  const DEF = { maxDist: 30, maxPts: 900, autoScan: true, scanEvery: 6, autoSend: true, autoSpy: 1, autoLight: 0, autoMax: 50 };
   const readCfg = () => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (_) { return Object.assign({}, DEF); } };
   const sentKey = KEY + '_sent';
   const loadSent = () => { try { return new Set(JSON.parse(localStorage.getItem(sentKey) || '[]')); } catch (_) { return new Set(); } };
   const addSent = keys => { try { const s = loadSent(); for (const k of keys) s.add(k); localStorage.setItem(sentKey, JSON.stringify([...s].slice(-20000))); } catch (_) {} };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  const state = { scanning: false, at: 0, picks: [], mine: [], error: '', queue: [], sending: false, results: {} };
+  const state = { scanning: false, at: 0, picks: [], mine: [], error: '', prog: '', known: 0, faPages: 0, queue: [], sending: false, results: {} };
   const getTxt = async n => { const r = await fetch('/map/' + n, { cache: 'no-store' }); if (!r.ok) throw new Error(n + ' HTTP ' + r.status); return r.text(); };
-  // villages already in the official Farm Assistant (#plunder_list rows show the target's coords)
-  function farmListKeys() {
-    const keys = new Set();
-    document.querySelectorAll('#plunder_list tr').forEach(tr => { const m = (tr.textContent || '').match(/(\d{1,3})\|(\d{1,3})/); if (m) keys.add(m[1] + '|' + m[2]); });
+  const coordsIn = (root, sel) => { const out = []; root.querySelectorAll(sel).forEach(el => { const m = (el.textContent || '').match(/(\d{1,3})\|(\d{1,3})/g); if (m) out.push(m[m.length - 1]); }); return out; };
+  const getDoc = async url => { const r = await fetch(url, { credentials: 'same-origin' }); const t = await r.text(); if (/id="bot_check"|bot_protect/i.test(t)) throw new Error('حماية البوت ظهرت، حلّها وجرّب من جديد'); return new DOMParser().parseFromString(t, 'text/html'); };
+  /**
+   * Every village that was already attacked: the whole Farm Assistant list (all its pages — it lists every
+   * village there is a report for) plus the attacks that are on the way right now.
+   */
+  async function attackedBefore() {
+    const keys = new Set(coordsIn(document, '#plunder_list tr'));
+    const base = '/game.php?village=' + gd.village.id;
+    let pages = 0;
+    for (let page = 0; page < 80; page++) {
+      state.prog = 'عم يقرا مساعد النهب (صفحة ' + (page + 1) + ')';
+      let doc; try { doc = await getDoc(base + '&screen=am_farm&order=distance&dir=asc&Farm_page=' + page); } catch (e) { if (/حماية/.test(e.message)) throw e; break; }
+      const found = coordsIn(doc, '#plunder_list tr');
+      const before = keys.size; found.forEach(k => keys.add(k)); pages++;
+      const more = [...doc.querySelectorAll('a.paged-nav-item, .paged-nav-item a')].some(a => Number(((a.getAttribute('href') || '').match(/Farm_page=(\d+)/) || [])[1]) > page);
+      if (!found.length || !more || keys.size === before && page > 0) break;
+    }
+    state.prog = 'عم يقرا الهجمات اللي عالطريق';
+    try {   // premium overview; without premium this page isn't there and is skipped
+      const doc = await getDoc(base + '&screen=overview_villages&mode=commands&type=attack&page=-1');
+      coordsIn(doc, '#commands_table .quickedit-label').forEach(k => keys.add(k));
+    } catch (e) { if (/حماية/.test(e.message)) throw e; }
+    state.known = keys.size; state.faPages = pages;
     return keys;
   }
-  async function scan() {
+  const SNAP = KEY + '_last';   // the last scan survives a page reload, so the site always has the list
+  const saveSnap = () => { try { localStorage.setItem(SNAP, JSON.stringify({ at: state.at, mine: state.mine, picks: state.picks.slice(0, 600), known: state.known })); } catch (_) {} };
+  try { const sn = JSON.parse(localStorage.getItem(SNAP) || 'null'); if (sn && sn.at) { state.at = sn.at; state.mine = sn.mine || []; const done = loadSent(); state.picks = (sn.picks || []).filter(p => !done.has(p.key)); state.known = sn.known || 0; } } catch (_) {}
+  /** @param auto true when the bot started the scan by itself: then it also sends, if the player turned that on */
+  async function scan(auto) {
     if (state.scanning) return;
     state.scanning = true; state.error = '';
     try {
       const cfg = readCfg();
+      state.prog = 'عم يجيب بيانات العالم';
       const all = parseVillages(await getTxt('village.txt'));
       const mine = all.filter(v => String(v.player) === myPid).map(v => ({ id: v.id, x: v.x, y: v.y }));
       if (!mine.length) throw new Error('ما لقيت قراك ببيانات العالم');
-      state.picks = pickBarbTargets(all, mine, cfg, farmListKeys(), loadSent()).slice(0, 1000);
-      state.mine = mine; state.at = Date.now();
-    } catch (e) { state.error = String(e && e.message || e); }
+      const known = await attackedBefore();
+      state.picks = pickBarbTargets(all, mine, cfg, known, loadSent()).slice(0, 1000); state.prog = '';
+      state.mine = mine; state.at = Date.now(); state.auto = !!auto;
+      for (const k of Object.keys(state.results)) if (!state.picks.some(p => p.key === k)) delete state.results[k];
+      saveSnap();
+      if (auto && cfg.autoSend && state.picks.length) {
+        const spy = Math.max(0, Math.floor(+cfg.autoSpy || 0)), light = Math.max(0, Math.floor(+cfg.autoLight || 0));
+        if (spy || light) {
+          const batch = state.picks.slice(0, Math.max(1, Math.min(300, Math.floor(+cfg.autoMax || 50))));
+          console.log('[مغذّي المزارع] فحص تلقائي: ' + state.picks.length + ' بربر جديد، عم يرسل على ' + batch.length);
+          enqueue(batch.map(p => ({ key: p.key, spy, light })));
+        }
+      } else if (auto) console.log('[مغذّي المزارع] فحص تلقائي: ' + state.picks.length + ' بربر جديد');
+    } catch (e) { state.error = String(e && e.message || e); state.prog = ''; }
     state.scanning = false;
   }
 
@@ -165,7 +201,7 @@
     pump();
   }
 
-  const view = () => ({ ok: !state.error, error: state.error || undefined, scanning: state.scanning, at: state.at, v: 2,
+  const view = () => ({ ok: !state.error, error: state.error || undefined, scanning: state.scanning, prog: state.prog, known: state.known, at: state.at, v: 2, auto: !!state.auto,
     nMine: state.mine.length, sending: state.sending || state.queue.length > 0, left: state.queue.length,
     picks: state.picks.map(p => ({ key: p.key, pts: p.pts, dist: p.dist, r: state.results[p.key] || null })) });
 
@@ -173,10 +209,19 @@
     let d; try { d = JSON.parse(e.detail); } catch (_) { return; }
     if (!d || typeof d.id !== 'string') return;
     const reply = out => document.dispatchEvent(new CustomEvent('algzawy-barbfeed-result', { detail: JSON.stringify({ id: d.id, data: out }) }));
-    if (d.cmd === 'scan') { if (!state.scanning) scan(); reply({ ...view(), scanning: true }); }
+    if (d.cmd === 'scan') { if (!state.scanning) scan(false); reply({ ...view(), scanning: true }); }
     else if (d.cmd === 'send') { if (!state.mine.length) reply({ ...view(), ok: false, error: 'اعمل فحص أول' }); else { enqueue(d.items); reply(view()); } }
     else if (d.cmd === 'cancel') { for (const q of state.queue) delete state.results[q.key]; state.queue = []; reply(view()); }
     else if (d.cmd === 'markSent') { addSent((Array.isArray(d.keys) ? d.keys : []).filter(k => /^\d{1,3}\|\d{1,3}$/.test(k)).slice(0, 2000)); reply(view()); }
     else reply(view());   // 'list'
   });
+
+  // works by itself: scans when the page opens (if the last scan is old enough), then every few hours
+  const autoTick = () => {
+    const cfg = readCfg(); if (!cfg.autoScan || state.scanning || state.sending || state.queue.length) return;
+    const every = Math.max(1, Math.min(48, Number(cfg.scanEvery) || 6)) * 3600000;
+    if (Date.now() - (state.at || 0) >= every) scan(true);
+  };
+  setTimeout(autoTick, 6000);
+  setInterval(autoTick, 5 * 60000);
 })();
