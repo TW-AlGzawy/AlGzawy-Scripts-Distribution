@@ -15,5 +15,5 @@ test('report-notes keeps the player own note text and only replaces its own bloc
   assert.match(engine,/re\.test\(old\) \? old\.replace\(re, mine\) : \(old\.trim\(\)/);
 });
 test('report-notes never sends attacks or changes troops',()=>{
-  assert.doesNotMatch(engine,/screen=place|try=confirm|ajaxaction=(?!['"]|\$\{)/);
+  assert.doesNotMatch(engine,/screen=place|try=confirm|ajaxaction=(?!village_note_edit\b|edit_notes\b|['"]|\$\{)/);
 });

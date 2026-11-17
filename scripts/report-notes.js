@@ -174,32 +174,50 @@
       `بالقرية: ${unitsText(v.inside)}`,
       `برا القرية: ${v.away ? unitsText(v.away) : 'غير معروف'}`,
       `هجوم ${fmt(v.off)} سكان · دفاع ${fmt(v.def)} سكان${v.nobles ? ' · نبلاء ' + v.nobles : ''}`,
-      v.code ? v.code : `التقرير: #${v.report} (${v.date || ''})`,
+      (v.code ? v.code + '\n' : '') + `[url=${location.origin}/game.php?screen=report&view=${v.report}]📜 رابط التقرير${v.date ? ' (' + v.date + ')' : ''}[/url]`,
     ].join('\n');
   }
+  /** the village's current note: the raw text of the edit box when the page has it, else what is displayed */
+  function readNote(doc) {
+    const area = doc.querySelector('#village_note textarea, .village-note textarea, textarea[name="note"]');
+    if (area) return area.value || area.textContent || '';
+    const shown = doc.querySelector('.village-note-body, #village_note .village-note-body, #village_note_body');
+    return shown ? (shown.textContent || '').trim() : '';
+  }
+  async function postNote(url, body) {
+    const data = new URLSearchParams(body); data.append('h', gd.csrf);
+    const r = await fetch(url + '&h=' + gd.csrf + '&client_time=' + Math.round(Date.now() / 1000), {
+      method: 'POST', credentials: 'same-origin', body: data,
+      headers: { 'TribalWars-Ajax': '1', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    });
+    const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (_) {}
+    if (j && j.error) throw new Error(Array.isArray(j.error) ? j.error.join(' ') : String(j.error));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return true;
+  }
+  /**
+   * Writes our block into the village's notebook (the same box the «تعديل» button opens) and then re-opens the
+   * village page to make sure the note is really there — the game has two ways to save a note depending on version.
+   */
   async function writeNote(vid, block) {
-    const { doc, html } = await fetchDoc(base + '&screen=info_village&id=' + vid);
-    if (!noteAction) noteAction = (html.match(/ajaxaction[=:'"\s]+([a-z_]*note[a-z_]*)/i) || [])[1] || 'edit_notes';
-    const area = doc.querySelector('textarea[name="note"], textarea#message, #village_note textarea, .village-note textarea, textarea');
-    const old = area ? area.value || area.textContent || '' : '';
+    const { doc } = await fetchDoc(base + '&screen=info_village&id=' + vid);
+    const old = readNote(doc);
     const re = new RegExp(MARK_A + '[\\s\\S]*?' + MARK_B, 'g');
     const mine = MARK_A + '\n' + block + '\n' + MARK_B;
     const note = re.test(old) ? old.replace(re, mine) : (old.trim() ? old.trim() + '\n\n' : '') + mine;
-    const TW = W.TribalWars;
-    if (TW && typeof TW.post === 'function') {
-      return new Promise((ok, bad) => {
-        const to = setTimeout(() => bad(new Error('اللعبة ما ردّت')), 15000);
-        try { TW.post('info_village', { ajaxaction: noteAction, id: vid }, { note }, () => { clearTimeout(to); ok(true); }, (e) => { clearTimeout(to); bad(new Error(String((e && e.error) || e || 'رفض'))); }); }
-        catch (e) { clearTimeout(to); bad(e); }
-      });
+    const ways = [
+      () => postNote(base + '&screen=api&ajaxaction=village_note_edit', { village_id: vid, note }),
+      () => postNote(base + '&screen=info_village&id=' + vid + '&ajaxaction=edit_notes', { note }),
+    ];
+    let lastErr = '';
+    for (const i of (noteAction === 1 ? [1, 0] : [0, 1])) {             // the way that worked last time goes first
+      try { await ways[i](); } catch (e) { lastErr = e.message; continue; }
+      await sleep(400);
+      const check = await fetchDoc(base + '&screen=info_village&id=' + vid);
+      if (check.html.includes('AlG تصنيف')) { noteAction = i; return true; }
+      lastErr = 'اللعبة قبلت الطلب بس الملاحظة ما انحفظت';
     }
-    const r = await fetch(base + '&screen=info_village&id=' + vid + '&ajaxaction=' + noteAction + '&h=' + gd.csrf, {
-      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-      body: 'note=' + encodeURIComponent(note),
-    });
-    const t = await r.text();
-    if (!r.ok || /"error"/.test(t)) throw new Error(t.slice(0, 80));
-    return true;
+    throw new Error(lastErr || 'ما انحفظت الملاحظة');
   }
   async function apply(items) {
     if (state.job && state.job.running) return;
@@ -212,7 +230,7 @@
         state.job.ok++;
       } catch (e) {
         state.job.failed++; state.job.error = state.job.error || e.message;
-        if (!state.job.ok && state.job.failed >= 2) { state.job.error += ' (ملاحظات القرى بتحتاج حساب بريميوم)'; break; }
+        if (!state.job.ok && state.job.failed >= 3) break;
       }
       state.job.done++;
       await pace();
