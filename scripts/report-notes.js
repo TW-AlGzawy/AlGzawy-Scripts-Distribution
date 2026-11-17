@@ -156,9 +156,10 @@
         .sort((a, b) => a.player.localeCompare(b.player) || b.off - a.off);
       state.at = Date.now();
       set('list', state.list); set('scanAt', state.at);
-      const c = (k) => state.list.filter((v) => v.kind === k).length;
+      const fresh = state.list.filter((v) => !hidden.has(v.vid) && !noted[v.vid]);
+      const c = (k) => fresh.filter((v) => v.kind === k).length;
       state.progress = '';
-      log(`خلص الفحص: ${ids.length} تقرير · ${state.list.length} قرية · ⚔️ ${c('off')} · 🛡️ ${c('def')} · ❓ ${c('unknown')}. اعتمدهم من الموقع.`);
+      log(`خلص الفحص: ${ids.length} تقرير · ${fresh.length} قرية جديدة (غير ${state.list.length - fresh.length} مكتوبة أو محذوفة) · ⚔️ ${c('off')} · 🛡️ ${c('def')} · ❓ ${c('unknown')}. اعتمدهم من الموقع.`);
     } catch (e) { state.error = e.message; state.progress = ''; log('⚠ ' + e.message); }
     state.scanning = false;
   }
@@ -257,8 +258,9 @@
   const view = () => ({
     ok: true, scanning: state.scanning, progress: state.progress, error: state.error, at: state.at, job: state.job,
     offMin: CFG.offMin, defMin: CFG.defMin,
-    hiddenCount: state.list.filter((v) => hidden.has(v.vid)).length,
-    list: state.list.filter((v) => !hidden.has(v.vid)).map((v) => ({ vid: v.vid, coords: v.coords, player: v.player, kind: v.kind, why: v.why, conf: v.conf, off: v.off, def: v.def, nobles: v.nobles,
+    // deleted villages and villages that already got their note never come back on a new scan
+    hiddenCount: hidden.size, notedCount: Object.keys(noted).length,
+    list: state.list.filter((v) => !hidden.has(v.vid) && !noted[v.vid]).map((v) => ({ vid: v.vid, coords: v.coords, player: v.player, kind: v.kind, why: v.why, conf: v.conf, off: v.off, def: v.def, nobles: v.nobles,
       inside: unitsText(v.inside), away: v.away ? unitsText(v.away) : '', report: v.report, date: v.date, noted: noted[v.vid] || null })),
   });
   document.addEventListener('algzawy-rnotes-cmd', (e) => {
@@ -266,7 +268,8 @@
     if (!d || typeof d.id !== 'string') return;
     let out = view();
     if (d.cmd === 'hide' || d.cmd === 'unhide') {
-      if (d.cmd === 'unhide') hidden.clear();
+      if (d.cmd === 'unhide' && Array.isArray(d.vids) && d.vids.map(String).includes('0')) { for (const k of Object.keys(noted)) delete noted[k]; set('noted', noted); }   // '0' = bring the noted villages back
+      else if (d.cmd === 'unhide') hidden.clear();
       else for (const v of (Array.isArray(d.vids) ? d.vids : []).slice(0, 5000)) hidden.add(String(v));
       set('hidden', [...hidden].slice(-5000));
       out = view();
