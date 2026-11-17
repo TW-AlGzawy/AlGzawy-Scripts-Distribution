@@ -166,17 +166,31 @@
   /* ---------- village notes ---------- */
   const MARK_A = '═ AlG تصنيف ═', MARK_B = '═ /AlG ═';
   let noteAction = null;
-  function noteBlock(v, kind) {
-    const k = kind === 'off' ? '⚔️ قرية هجومية' : '🛡️ قرية دفاعية';
-    const d = new Date();
-    return [
-      `${k} — اعتمدها ${gd.player.name} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
-      `بالقرية: ${unitsText(v.inside)}`,
-      `برا القرية: ${v.away ? unitsText(v.away) : 'غير معروف'}`,
-      `هجوم ${fmt(v.off)} سكان · دفاع ${fmt(v.def)} سكان${v.nobles ? ' · نبلاء ' + v.nobles : ''}`,
-      (v.code ? v.code + '\n' : '') + `[url=${location.origin}/game.php?screen=report&view=${v.report}]📜 رابط التقرير${v.date ? ' (' + v.date + ')' : ''}[/url]`,
-    ].join('\n');
+  // NOTE-FORMAT-START (pure; unit-tested)
+  const UNIT_ORDER = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult', 'knight', 'snob', 'militia'];
+  /** every troop with the game's own unit icon: "[unit]axe[/unit] 5   [unit]light[/unit] 1" */
+  function unitsBB(u) {
+    const keys = Object.keys(u || {}).filter((k) => u[k] > 0).sort((p, q) => (UNIT_ORDER.indexOf(p) + 99) % 99 - (UNIT_ORDER.indexOf(q) + 99) % 99);
+    return keys.length ? keys.map((k) => `[unit]${k}[/unit] ${Number(u[k]).toLocaleString('en')}`).join('   ') : 'لا يوجد جيش';
   }
+  /** the village note: coloured type (dark red = offensive, dark blue = defensive), full troop list with icons, report link */
+  function noteBB(v, kind, who, origin, now) {
+    const off = kind === 'off', d = now || new Date();
+    const day = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+    const lines = [
+      `[b][color=${off ? '#8b0000' : '#00008b'}]${off ? '⚔️ قرية هجومية' : '🛡️ قرية دفاعية'}[/color][/b]`,
+      `[b]الجيش داخل القرية:[/b]`,
+      unitsBB(v.inside),
+      `[b]الجيش خارج القرية:[/b]`,
+      v.away ? unitsBB(v.away) : 'غير معروف (التقرير ما كشف الجيش الخارجي)',
+    ];
+    if (v.code) lines.push(v.code);
+    lines.push(`[url=${origin}/game.php?screen=report&view=${v.report}]📜 رابط التقرير${v.date ? ' (' + v.date + ')' : ''}[/url]`);
+    lines.push(`[i]اعتمدها ${who} بتاريخ ${day}[/i]`);
+    return lines.join('\n');
+  }
+  // NOTE-FORMAT-END
+  const noteBlock = (v, kind) => noteBB(v, kind, gd.player.name, location.origin);
   /** the village's current note: the raw text of the edit box when the page has it, else what is displayed */
   function readNote(doc) {
     const area = doc.querySelector('#village_note textarea, .village-note textarea, textarea[name="note"]');
