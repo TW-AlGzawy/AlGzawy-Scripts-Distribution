@@ -140,7 +140,12 @@
   }
 
   /** candidate support villages for one noble, best (most defence) first */
-  function supportCandidates({ villages, target, noble, speeds, factor, now, share, allow, exclude }) {
+  /**
+   * prefer 'soon' (default): the village whose send is closest to now goes first — the far villages that only
+   * just make it, so their long walk isn't wasted; nearby villages stay as the last resort.
+   * prefer 'strong': the most defence first. minTroops drops token armies.
+   */
+  function supportCandidates({ villages, target, noble, speeds, factor, now, share, allow, exclude, prefer, minTroops }) {
     const out = [];
     if (!noble.ok) return out;
     for (const v of villages) {
@@ -154,10 +159,12 @@
         if (sendAt < now + MIN_PREP_MS) continue;
         if (!best || f.power > best.power) best = { ...f, travel: t, sendAt };
       }
+      if (best && best.troops < (Number(minTroops) || 1)) best = null;
       if (best) out.push({ kind: 'support', sourceId: String(v.id), sourceName: v.name || '', source: v.x + '|' + v.y, units: best.units,
         troops: best.troops, power: best.power, travel: best.travel, sendAt: best.sendAt, arrival: noble.arrival, dist: Math.round(dist * 10) / 10 });
     }
-    return out.sort((a, b) => b.power - a.power || a.sendAt - b.sendAt);
+    return prefer === 'strong' ? out.sort((a, b) => b.power - a.power || a.sendAt - b.sendAt)
+      : out.sort((a, b) => a.sendAt - b.sendAt || b.power - a.power);
   }
 
   /**
@@ -195,7 +202,7 @@
    * One plan per selected noble. Villages are used once per train (a village can't snipe two nobles of the same
    * train with the same army). Nobles are planned in order, each takes the best still-free village.
    */
-  function planTrain({ train, target, villages, speeds, factor, now, share, allow, choice, kinds, exclude, barbs, used }) {
+  function planTrain({ train, target, villages, speeds, factor, now, share, allow, choice, kinds, exclude, barbs, used, prefer, minTroops }) {
     used = used || new Set();   // shared across trains: one army can't be in two places
     return train.nobles.map(n => {
       const sel = choice ? choice(n) : true;
@@ -208,7 +215,7 @@
         return { key: n.key, selected: true, kind, plan: c[0] || null, alts: c.slice(1),
           why: c.length ? '' : home ? 'ما في برابرة مناسبة قريبة أو فات وقت قنص الإلغاء' : 'ما لقيت جيش القرية المهاجَمة' };
       }
-      const cands = supportCandidates({ villages, target, noble: n, speeds, factor, now, share, allow, exclude });
+      const cands = supportCandidates({ villages, target, noble: n, speeds, factor, now, share, allow, exclude, prefer, minTroops });
       const free = cands.filter(c => !used.has(c.sourceId));
       const pick = free[0] || null;
       if (pick) used.add(pick.sourceId);
@@ -226,7 +233,7 @@
   const W = window, gd = W.game_data, doc = W.document;
   const KEY = 'alg_commander_cfg';
   const DEF = { units: { spear: true, sword: true, archer: true, heavy: true }, share: 100, nobles: 'all', edgeMs: 10, firstLeadMs: 200,
-    scanEvery: 60, cancelSnipe: true, skipThreatened: true };
+    scanEvery: 60, cancelSnipe: true, skipThreatened: true, prefer: 'soon', minTroops: 100 };
   const readCfg = () => { try { const c = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); return c; } catch (_) { return Object.assign({}, DEF); } };
   const jget = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (_) { return d; } };
   const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
@@ -358,7 +365,7 @@
         const own = roster.find(r => r.x === v.target.x && r.y === v.target.y);
         const target = { ...v.target, id: v.target.id || (own && own.id), name: own ? own.name : v.target.str };
         const trains = v.trains.map(tr => {
-          const plans = planTrain({ train: tr, target, villages: roster, speeds: w.speeds, factor: w.factor, now: t, share, allow, exclude, used,
+          const plans = planTrain({ train: tr, target, villages: roster, speeds: w.speeds, factor: w.factor, now: t, share, allow, exclude, used, prefer: cfg.prefer, minTroops: cfg.minTroops,
             barbs: barbs.filter(b => Math.hypot(b.x - target.x, b.y - target.y) <= 25),
             choice: n => (ch[n.key] && typeof ch[n.key].sel === 'boolean') ? ch[n.key].sel : cfg.nobles === 'skipFirst' ? n.index > 1 : true,
             kinds: n => (ch[n.key] && ch[n.key].kind === 'cancel' && cfg.cancelSnipe) ? 'cancel' : 'support' });

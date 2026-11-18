@@ -65,7 +65,7 @@ const target = { id: '1', x: 500, y: 500, str: '500|500' };
 test('support plan: best defence that still reaches the window, villages used once per train', () => {
   const r = [rec(T(3 * 3600000), false, 1), rec(T(3 * 3600000 + 100), true, 2), rec(T(3 * 3600000 + 300), true, 3)];
   const [train] = C.trainsFor(r);
-  const plans = C.planTrain({ train, target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear', 'sword', 'heavy'] });
+  const plans = C.planTrain({ train, target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear', 'sword', 'heavy'], prefer: 'strong' });
   assert.equal(plans[0].plan.sourceId, '3', 'strongest village for the first noble');
   assert.equal(plans[1].plan.sourceId, '2', 'the next free village for the second');
   for (const p of plans) {
@@ -87,7 +87,7 @@ test('a village used for one train is not used again for another train (one army
 test('unselected nobles and impossible timings get no plan, with a reason', () => {
   const r = [rec(T(25000), true, 1), rec(T(25100), true, 2)];
   const [train] = C.trainsFor(r);
-  const plans = C.planTrain({ train, target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear'], choice: n => n.index > 1 });
+  const plans = C.planTrain({ train, target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear'], choice: n => n.index > 1, prefer: 'strong' });
   assert.equal(plans[0].selected, false);
   assert.equal(plans[1].plan, null);
   assert.match(plans[1].why, /بتلحق/);
@@ -126,4 +126,18 @@ test('incomings overview rows → records with noble flag, target village id and
   assert.equal(r[0].target.id, '77'); assert.equal(r[0].target.str, '500|500');
   assert.equal(r[0].at, Date.UTC(2026, 10, 18, 21, 0, 0, 250));
   assert.equal(r[0].origin.str, '510|510');
+});
+
+test('default preference: the far village whose send is soonest goes first, nearby villages are the last resort', () => {
+  const vs = [
+    { id: '2', name: 'Near', x: 502, y: 500, units: { spear: 3000 } },        // 2 fields: leaves in ~19h
+    { id: '5', name: 'Far', x: 560, y: 500, units: { spear: 800 } },          // 60 fields: leaves soon
+    { id: '6', name: 'Too far', x: 700, y: 500, units: { spear: 5000 } },     // can't make it
+    { id: '7', name: 'Token', x: 555, y: 500, units: { spear: 20 } },         // too small
+  ];
+  const arr = NOW + 20 * 3600000;
+  const [train] = C.trainsFor([rec(arr, true, 1)]);
+  const c = C.supportCandidates({ villages: vs, target, noble: train.nobles[0], speeds, factor: 1, now: NOW, share: 1, allow: ['spear'], minTroops: 100 });
+  assert.deepEqual(c.map(x => x.sourceId), ['5', '2']);
+  assert.ok(c[0].sendAt - NOW < 3 * 3600000, 'the far village leaves within a few hours');
 });
