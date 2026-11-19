@@ -98,6 +98,9 @@
         const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
         if (typeof saved.enabled === 'boolean') CONFIG.AUTO_TRAIN = saved.enabled;
         if(Number.isFinite(saved.refreshMinutes))CONFIG.AUTO_REFRESH_MINUTES=Math.max(0,Math.min(1440,Math.floor(saved.refreshMinutes)));
+        // set by the website/runner: resources kept for the next building, and how full the farm may get
+        if (saved.reserve && typeof saved.reserve === 'object') CONFIG.RESERVE = { wood: Math.max(0, Number(saved.reserve.wood) || 0), stone: Math.max(0, Number(saved.reserve.stone) || 0), iron: Math.max(0, Number(saved.reserve.iron) || 0) };
+        if (Number.isFinite(saved.maxPopPct)) CONFIG.MAX_POP_PCT = Math.max(50, Math.min(100, saved.maxPopPct));
         if (saved.units && typeof saved.units === 'object') {
             for (const [id, original] of Object.entries(CONFIG.units)) {
                 const x = saved.units[id]; if (!x) continue;
@@ -111,7 +114,8 @@
     function saveUserSettings() {
         const units = {};
         for (const [id,x] of Object.entries(CONFIG.units)) units[id] = { enabled:x.enabled, targetCount:x.targetCount, priority:x.priority, maxBatch:x.maxBatch||0 };
-        localStorage.setItem(SETTINGS_KEY,JSON.stringify({enabled:CONFIG.AUTO_TRAIN,refreshMinutes:CONFIG.AUTO_REFRESH_MINUTES,units}));
+        let prev={};try{prev=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')||{};}catch(_){}
+        localStorage.setItem(SETTINGS_KEY,JSON.stringify({...prev,enabled:CONFIG.AUTO_TRAIN,refreshMinutes:CONFIG.AUTO_REFRESH_MINUTES,units}));
     }
     let statsCache = null; // كاش للإحصائيات لتقليل عمليات القراءة
 
@@ -369,6 +373,18 @@
   return {owned,queued,total:owned+queued};
 }
 
+    /** How many of this unit fit after the reserve and under the farm limit (null = no limit known). */
+    function affordable(unitId){
+      const v=window.game_data&&game_data.village; if(!v)return null;
+      const R=CONFIG.RESERVE||null, P=CONFIG.MAX_POP_PCT||null;
+      if(!R&&!P)return null;
+      const cost=k=>{const el=document.getElementById(unitId+'_0_cost_'+k);const n=Number(String(el?el.textContent:'').replace(/\D/g,''));return Number.isFinite(n)&&n>0?n:null;};
+      let n=Infinity;
+      if(R)for(const k of ['wood','stone','iron']){const c=cost(k);if(c===null)continue;n=Math.min(n,Math.floor(Math.max(0,(Number(v[k])||0)-(R[k]||0))/c));}
+      if(P){const c=cost('pop');const max=Number(v.pop_max)||0,used=Number(v.pop)||0;if(c&&max)n=Math.min(n,Math.floor(Math.max(0,Math.floor(max*P/100)-used)/c));}
+      return Number.isFinite(n)?n:null;
+    }
+
     function trainUnit(unitId,config){
   if(!CONFIG.AUTO_TRAIN||localStorage.getItem('algzawy_human_verification_pause')==='1')return false;
   const attemptKey='algzawy_qa_training_attempt_'+VILLAGE+'_'+unitId;
@@ -390,7 +406,13 @@
     const maxAvailable=Number.parseInt(String(input.value||''),10);
     if(!Number.isSafeInteger(maxAvailable)||maxAvailable<1)return;
     const remaining=config.targetCount>0?Math.max(0,config.targetCount-totals.total):maxAvailable;
-    const desired=Math.min(maxAvailable,remaining,config.maxBatch>0?config.maxBatch:maxAvailable);
+    let desired=Math.min(maxAvailable,remaining,config.maxBatch>0?config.maxBatch:maxAvailable);
+    // keep the resources of the next building, and never fill the farm above the chosen share
+    const cap=affordable(unitId);
+    if(cap!==null&&cap<desired){
+      if(cap<1){console.info('[AlG Training] waiting: resources kept for building / farm limit',unitId);return;}
+      desired=cap;
+    }
     if(desired<1)return;
     sessionStorage.setItem(attemptKey,String(Date.now()));
     input.value=String(desired);
