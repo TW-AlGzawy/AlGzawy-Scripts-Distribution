@@ -62,53 +62,6 @@ const villages = [
 ];
 const target = { id: '1', x: 500, y: 500, str: '500|500' };
 
-test('support plan: best defence that still reaches the window, villages used once per train', () => {
-  const r = [rec(T(3 * 3600000), false, 1), rec(T(3 * 3600000 + 100), true, 2), rec(T(3 * 3600000 + 300), true, 3)];
-  const [train] = C.trainsFor(r);
-  const plans = C.planTrain({ train, target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear', 'sword', 'heavy'], prefer: 'strong' });
-  assert.equal(plans[0].plan.sourceId, '3', 'strongest village for the first noble');
-  assert.equal(plans[1].plan.sourceId, '2', 'the next free village for the second');
-  for (const p of plans) {
-    assert.equal(p.plan.arrival, train.nobles.find(n => n.key === p.key).arrival);
-    assert.equal(p.plan.sendAt + p.plan.travel, p.plan.arrival);
-    assert.ok(p.plan.sendAt >= NOW + C.MIN_PREP_MS);
-  }
-  assert.ok(!plans.some(p => p.plan.sourceId === '1'), 'never the attacked village itself');
-});
-
-test('a village used for one train is not used again for another train (one army, one place)', () => {
-  const r1 = [rec(T(3 * 3600000), true, 1)], r2 = [rec(T(3 * 3600000 + 50), true, 2)];
-  const used = new Set();
-  const a = C.planTrain({ train: C.trainsFor(r1)[0], target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear', 'sword', 'heavy'], used });
-  const b = C.planTrain({ train: C.trainsFor(r2)[0], target: { id: '9', x: 504, y: 500, str: '504|500' }, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear', 'sword', 'heavy'], used });
-  assert.notEqual(a[0].plan.sourceId, b[0].plan.sourceId);
-});
-
-test('unselected nobles and impossible timings get no plan, with a reason', () => {
-  const r = [rec(T(25000), true, 1), rec(T(25100), true, 2)];
-  const [train] = C.trainsFor(r);
-  const plans = C.planTrain({ train, target, villages, speeds, factor: 1, now: NOW, share: 1, allow: ['spear'], choice: n => n.index > 1, prefer: 'strong' });
-  assert.equal(plans[0].selected, false);
-  assert.equal(plans[1].plan, null);
-  assert.match(plans[1].why, /بتلحق/);
-});
-
-test('cancel snipe: leave at S, cancel at C, home at 2C−S inside the window; real departure fixes the cancel time', () => {
-  const r = [rec(T(2 * 3600000), true, 1), rec(T(2 * 3600000 + 200), true, 2)];
-  const [train] = C.trainsFor(r);
-  const n = train.nobles[1];
-  const barbs = [{ x: 510, y: 500 }, { x: 502, y: 500 }];
-  const c = C.cancelCandidates({ village: villages[0], barbs, noble: n, speeds, factor: 1, now: NOW, share: 1, allow: ['spear'] });
-  assert.ok(c.length);
-  const p = c[0];
-  assert.equal(2 * p.cancelAt - p.sendAt, n.arrival, 'home exactly at the planned landing');
-  assert.ok(p.cancelAt - p.sendAt <= C.CANCEL_LIMIT_MS);
-  assert.ok(p.cancelAt - p.sendAt < p.travel, 'cancelled before it arrives');
-  // the server recorded the departure 37ms late: the cancel moves by half of it and the army still lands on time
-  const dep = p.sendAt + 37, cancelAt = C.cancelAtFor(dep, n.arrival);
-  assert.ok(Math.abs(2 * cancelAt - dep - n.arrival) <= 1);
-});
-
 function fakeRow(cells, imgs = []) {
   const mk = (txt, extra = {}) => ({ textContent: txt, querySelector: (s) => extra[s] || null, querySelectorAll: () => [] });
   const tds = cells.map((t, i) => mk(t, i === 1 ? { 'a[href*="village="]': { getAttribute: () => '/game.php?village=77&screen=overview' } } : {}));
@@ -137,7 +90,117 @@ test('default preference: the far village whose send is soonest goes first, near
   ];
   const arr = NOW + 20 * 3600000;
   const [train] = C.trainsFor([rec(arr, true, 1)]);
-  const c = C.supportCandidates({ villages: vs, target, noble: train.nobles[0], speeds, factor: 1, now: NOW, share: 1, allow: ['spear'], minTroops: 100 });
+  const c = C.supportCandidates({ villages: vs, target, arrival: train.nobles[0].arrival, speeds, factor: 1, now: NOW, minTroops: 100, stockOf: v => v.units });
   assert.deepEqual(c.map(x => x.sourceId), ['5', '2']);
   assert.ok(c[0].sendAt - NOW < 3 * 3600000, 'the far village leaves within a few hours');
+});
+
+// ---- v4 planner ----
+const cfg = { mode: 'pro', units: { spear: true, sword: true, heavy: true }, share: 100, nobles: 'all', prefer: 'soon', minTroops: 100, skipThreatened: true };
+const threatOf = (recs, tgt = target) => ({ target: tgt, recs, trains: C.trainsFor(recs), bigs: C.bigAttacks(recs) });
+const plan = (threats, extra = {}) => C.planAll(Object.assign({ threats, roster: villages, reserved: new Map(), speeds, factor: 1, now: NOW, cfg, choices: {},
+  targetsFor: () => [], jobsFor: () => [] }, extra));
+
+test('planAll: each noble of a train gets its own village; nothing is booked twice', () => {
+  const at = T(3 * 3600000);
+  const out = plan([threatOf([rec(at, true, 1), rec(at + 200, true, 2), rec(at + 400, true, 3)])]);
+  const used = Object.values(out).flatMap(p => p.parts.map(x => x.sourceId));
+  assert.equal(new Set(used).size, used.length);
+  assert.equal(out['1'].parts[0].arrival, C.trainsFor([rec(at, true, 1), rec(at + 200, true, 2)])[0].nobles[0].arrival);
+});
+
+test('planAll: villages held by approved jobs are not planned again', () => {
+  const at = T(3 * 3600000);
+  const reserved = new Map([['3', { spear: 2000, sword: 1000, heavy: 300 }], ['2', { spear: 200, sword: 100 }]]);
+  const out = plan([threatOf([rec(at, true, 1)])], { reserved });
+  assert.ok(!out['1'].parts.some(p => ['2', '3'].includes(p.sourceId)));
+});
+
+test('planAll: an item with a live job shows the job, not a new plan', () => {
+  const at = T(3 * 3600000);
+  const job = { st: 'wait', part: { pid: '1#1', kind: 'support', sourceId: '3', units: { heavy: 300 } } };
+  const out = plan([threatOf([rec(at, true, 1)])], { jobsFor: k => k === '1' ? [job] : [] });
+  assert.equal(out['1'].locked, true);
+  assert.equal(out['1'].parts[0].pid, '1#1');
+});
+
+test('split army: one village gives 1/N, the rest is free for the next noble', () => {
+  const at = T(3 * 3600000);
+  const vs = [{ id: '1', x: 500, y: 500, units: {} }, { id: '9', name: 'Big', x: 504, y: 500, units: { spear: 8000, heavy: 2000 } }];
+  const out = plan([threatOf([rec(at, true, 1), rec(at + 200, true, 2)])], { roster: vs, choices: { '1': { split: 4 }, '2': { split: 4 } } });
+  assert.deepEqual(out['1'].parts[0].units, { spear: 2000, heavy: 500 });
+  assert.deepEqual(out['2'].parts[0].units, { spear: 2000, heavy: 500 });
+  const whole = plan([threatOf([rec(at, true, 1), rec(at + 200, true, 2)])], { roster: vs });
+  assert.equal(whole['2'].parts.length, 0, 'without split the whole army goes to the first noble');
+});
+
+test('multi-village: parts are added until the minimum defence is reached', () => {
+  const at = T(3 * 3600000);
+  const out = plan([threatOf([rec(at, true, 1)])], { cfg: { ...cfg, minPower: 150000, prefer: 'soon' } });
+  assert.ok(out['1'].parts.length >= 2);
+  assert.ok(out['1'].parts.reduce((s, p) => s + p.power, 0) >= 150000 || out['1'].short > 0);
+});
+
+test('simple mode: one part per noble, big attacks ignored', () => {
+  const at = T(3 * 3600000);
+  const r = [rec(at - 60000, false, 7), rec(at, true, 1)]; r[0].size = 'large';
+  const out = plan([threatOf(r)], { cfg: { ...cfg, mode: 'simple', minPower: 999999 } });
+  assert.equal(out['1'].parts.length, 1);
+  assert.ok(!out['atk:7']);
+});
+
+test('big attack: support lands 30s before it, unselected by default', () => {
+  const at = T(3 * 3600000);
+  const r = [rec(at, false, 7)]; r[0].size = 'large';
+  const b = C.bigAttacks(r)[0];
+  assert.equal(b.arrival, at - 30000); assert.equal(b.nobleAfter, false);
+  const out = plan([threatOf(r)]);
+  assert.equal(out['atk:7'].selected, false);
+  const on = plan([threatOf(r)], { choices: { 'atk:7': { sel: true } } });
+  assert.equal(on['atk:7'].parts[0].arrival, at - 30000);
+});
+
+test('cancel attempts: 8/6/4/2/1/½ minutes, own village preferred, walk longer than the half', () => {
+  const arrival = T(3600000);
+  const targets = [{ x: 501, y: 500, type: 'barb' }, { x: 510, y: 500, type: 'own' }, { x: 506, y: 500, type: 'barb' }];
+  const r = C.cancelAttempts({ village: villages[0], units: { spear: 1000 }, targets, arrival, now: NOW, speeds, factor: 1, cancelLimitMs: 600000 });
+  assert.deepEqual(r.attempts.map(a => a.lead), [480, 360, 240, 120, 60, 30]);
+  for (const a of r.attempts) {
+    assert.equal(a.sendAt, arrival - a.lead * 1000);
+    assert.ok(a.travel >= a.lead * 500 + 5000);
+  }
+  assert.equal(r.attempts[0].ttype, 'own'); assert.equal(r.attempts[0].tkind, 'support');
+  // the half must fit in the world's cancel limit
+  const short = C.cancelAttempts({ village: villages[0], units: { spear: 1000 }, targets, arrival, now: NOW, speeds, factor: 1, cancelLimitMs: 150000 });
+  assert.ok(short.attempts.every(a => a.lead * 500 <= 145000));
+  // the departure the server recorded moves the cancel by half of it
+  const dep = arrival - 240000 + 37, c = C.cancelAtFor(dep, arrival);
+  assert.ok(Math.abs(2 * c - dep - arrival) <= 1);
+});
+
+test('cancel attempts: too late or no army → clear reason', () => {
+  const r = C.cancelAttempts({ village: villages[0], units: { spear: 1000 }, targets: [{ x: 510, y: 500, type: 'barb' }], arrival: NOW + 30000, now: NOW, speeds, factor: 1 });
+  assert.equal(r.attempts.length, 0); assert.match(r.why, /النبيل بيوصل/);
+  assert.match(C.cancelAttempts({ village: villages[0], units: {}, targets: [], arrival: NOW + 3600000, now: NOW, speeds, factor: 1 }).why, /ما في جيش/);
+});
+
+test('dodge: out before the hit, back after it; never when nobles follow', () => {
+  const at = T(3600000);
+  const own = villages;
+  const r = C.dodgePlan({ village: villages[0], units: { spear: 1000 }, own, at, now: NOW, speeds, factor: 1, leadMs: 20000, backMs: 3000 });
+  assert.ok(r.plan);
+  assert.equal(r.plan.sendAt, at - 20000);
+  assert.ok(Math.abs(2 * r.plan.cancelAt - r.plan.sendAt - (at + 3000)) <= 1);
+  assert.ok(r.plan.travel > r.plan.cancelAt - r.plan.sendAt);
+  assert.equal(C.dodgePlan({ village: villages[0], units: { spear: 1 }, own, at, now: NOW, speeds, factor: 1, nobleAfter: true }).plan, null);
+});
+
+test('verdict and auto approval timing', () => {
+  assert.equal(C.verdict(1000000, ['large']).v, 'green');
+  assert.equal(C.verdict(400000, ['large']).v, 'yellow');
+  assert.equal(C.verdict(10000, ['large']).v, 'red');
+  assert.equal(C.verdict(10000, ['?']).v, null);
+  assert.equal(C.autoDue({ firstSeen: NOW - 11 * 60000, firstSendAt: NOW + 5 * 3600000, now: NOW, waitMin: 10, withinMin: 60 }), true);
+  assert.equal(C.autoDue({ firstSeen: NOW - 1 * 60000, firstSendAt: NOW + 5 * 3600000, now: NOW, waitMin: 10, withinMin: 60 }), false);
+  assert.equal(C.autoDue({ firstSeen: NOW, firstSendAt: NOW + 30 * 60000, now: NOW, waitMin: 10, withinMin: 60 }), true);
 });
