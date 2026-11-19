@@ -330,7 +330,7 @@
           if (!minPower || got >= minPower) break;
         }
         res.parts = parts;
-        if (!parts.length) res.why = !isNoble || n.ok ? 'ولا قرية بتلحق توصل بالوقت بالجيش المسموح (أو انحجزت لأهداف قبله)' : 'ما في نافذة بين النبلاء';
+        if (!parts.length) res.why = !isNoble || n.ok ? 'ما في قرية بتلحق توصل بالوقت: يا بعيدة، يا جيشها برّا أو محجوز لنبيل قبله' : 'ما في نافذة بين النبلاء';
         if (parts.length && minPower && got < minPower) res.short = minPower - got;
       }
       // how well it holds
@@ -916,6 +916,16 @@
     reply(view());   // 'list'
   });
 
+  // jobs from the previous version (one per noble, keyed by the noble): show them under their noble again
+  for (const [k, j] of Object.entries(jobs)) {
+    if (j.part || !j.plan) continue;
+    delete jobs[k];
+    const pid = k + '#1', old = j.st === 'wait' && j.plan.kind === 'cancel';
+    jobs[pid] = Object.assign({}, j, { part: Object.assign({}, j.plan, { pid }), itemKey: k, arrival: j.plan.arrival, real: j.arrivalReal || j.real,
+      st: old ? 'err' : j.st, msg: old ? 'قنص الإلغاء صار بطريقة جديدة: اعتمده من جديد' : j.msg, upd: j.upd || Date.now() });
+    delete jobs[pid].plan;
+  }
+  saveJobs();
   // jobs approved before a reload: keep the ones that still have time
   for (const [pid, j] of Object.entries(jobs)) {
     if (['prep', 'armed', 'sent'].includes(j.st)) setJob(pid, { st: 'err', msg: 'الصفحة انفتحت من جديد أثناء الإرسال؛ شيّك عالأوامر باللعبة' });
