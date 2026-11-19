@@ -163,7 +163,7 @@
    * Support candidates landing at `arrival`. `stockOf(v)` gives what a village can still give for this part.
    * prefer 'soon' (default): soonest send first (far villages first, nearby last); 'strong': most defence first.
    */
-  function supportCandidates({ villages, target, arrival, speeds, factor, now, exclude, prefer, minTroops, stockOf }) {
+  function supportCandidates({ villages, target, arrival, speeds, factor, now, exclude, prefer, minTroops, stockOf, pacers, pacerStock, paceAfterMs }) {
     const out = [];
     if (!Number.isFinite(arrival)) return out;
     for (const v of villages) {
@@ -178,8 +178,22 @@
         if (!best || f.power > best.power) best = { ...f, travel: t, sendAt };
       }
       if (best && best.troops < (Number(minTroops) || 1)) best = null;
+      // pacing: when this army would leave much later than now, one ram / catapult makes it slower, so it leaves sooner
+      // (the support no longer waits for hours). Only when the slower walk still leaves time to prepare.
+      if (best && pacers && pacers.length && best.sendAt - now > (paceAfterMs || 3600000)) {
+        const have = pacerStock ? pacerStock(v) : {};
+        for (const pu of pacers) {
+          const m = Number(speeds && speeds[pu]);
+          if (!((have[pu] || 0) >= 1) || !(m > best.minutes)) continue;
+          const t = travelMs(dist, m, factor), sendAt = arrival - t;
+          if (t === null || sendAt < now + MIN_PREP_MS + 60000) continue;
+          best = { ...best, units: { ...best.units, [pu]: 1 }, minutes: m, travel: t, sendAt, paced: pu, waitSaved: best.sendAt - sendAt };
+          break;
+        }
+      }
       if (best) out.push({ kind: 'support', sourceId: String(v.id), sourceName: v.name || '', source: v.x + '|' + v.y, units: best.units,
-        troops: best.troops, power: best.power, travel: best.travel, sendAt: best.sendAt, arrival, dist: Math.round(dist * 10) / 10 });
+        troops: best.troops, power: best.power, travel: best.travel, sendAt: best.sendAt, arrival, dist: Math.round(dist * 10) / 10,
+        paced: best.paced || null, waitSaved: best.waitSaved || 0 });
     }
     return prefer === 'strong' ? out.sort((a, b) => b.power - a.power || a.sendAt - b.sendAt)
       : out.sort((a, b) => a.sendAt - b.sendAt || b.power - a.power);
@@ -268,7 +282,10 @@
    */
   function planAll({ threats, roster, reserved, speeds, factor, now, cfg, choices, targetsFor, jobsFor, cancelLimitMs }) {
     const mode = cfg.mode || 'pro', simple = mode === 'simple';
-    const allowSup = UNITS.filter(u => cfg.units && cfg.units[u]);
+    // rams and catapults never go as a whole army: one of them only slows a support down when that helps (pacing)
+    const PACE = ['ram', 'catapult'];
+    const allowSup = UNITS.filter(u => cfg.units && cfg.units[u] && !PACE.includes(u));
+    const pacers = cfg.pace === false ? [] : PACE.filter(u => cfg.units && cfg.units[u]);
     const allowCan = UNITS.filter(u => !cfg.cancelUnits || cfg.cancelUnits[u] !== false);
     const share = Math.max(0.05, Math.min(1, (Number(cfg.share) || 100) / 100));
     const remaining = new Map(roster.map(v => [String(v.id), minus(v.units, reserved.get(String(v.id)) || {})]));
@@ -318,7 +335,8 @@
         const parts = [];
         let got = 0;
         for (let i = 0; i < maxParts; i++) {
-          const cands = supportCandidates({ villages: roster, target: t.target, arrival: n.arrival, speeds, factor, now, exclude, prefer: cfg.prefer, minTroops: cfg.minTroops, stockOf });
+          const cands = supportCandidates({ villages: roster, target: t.target, arrival: n.arrival, speeds, factor, now, exclude, prefer: cfg.prefer, minTroops: cfg.minTroops, stockOf,
+            pacers, pacerStock: v => remaining.get(String(v.id)) || {}, paceAfterMs: (Number(cfg.paceAfterMin) || 60) * 60000 });
           if (!cands.length) break;
           let p = cands[0];
           if (i === 0 && c.src) { const want = cands.find(x => x.sourceId === String(c.src)); if (want) p = want; }
@@ -834,7 +852,7 @@
     const t = now(), cfg = readCfg();
     const pj = (pid) => { const j = jobs[pid]; return j ? { st: j.st, msg: j.msg } : null; };
     const partView = p => ({ pid: p.pid, kind: p.kind, sourceId: p.sourceId, sourceName: p.sourceName, source: p.source, target: p.target || null, units: p.units, troops: p.troops,
-      power: p.power, sendAt: p.sendAt, travel: p.travel, splitOf: p.splitOf || null, backAt: p.backAt || null,
+      power: p.power, sendAt: p.sendAt, travel: p.travel, splitOf: p.splitOf || null, paced: p.paced || null, waitSaved: p.waitSaved || 0, backAt: p.backAt || null,
       attempts: p.attempts ? p.attempts.map(a => ({ lead: a.lead, sendAt: a.sendAt, target: a.target, ttype: a.ttype })) : null, job: pj(p.pid) });
     const itemView = n => { const p = state.plans[n.key] || {}; const c = choices()[n.key] || {};
       // jobs of this item that are not in the plan (retries) show too

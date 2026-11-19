@@ -204,3 +204,24 @@ test('verdict and auto approval timing', () => {
   assert.equal(C.autoDue({ firstSeen: NOW - 1 * 60000, firstSendAt: NOW + 5 * 3600000, now: NOW, waitMin: 10, withinMin: 60 }), false);
   assert.equal(C.autoDue({ firstSeen: NOW, firstSendAt: NOW + 30 * 60000, now: NOW, waitMin: 10, withinMin: 60 }), true);
 });
+
+test('pacing: a support that would wait for hours takes one ram and leaves sooner; never when it is needed soon', () => {
+  const sp = { ...speeds, ram: 30, catapult: 30 };
+  const vs = [{ id: '1', x: 500, y: 500, units: {} }, { id: '8', name: 'Close', x: 506, y: 500, units: { sword: 1000, ram: 40 } }];
+  const at = NOW + 20 * 3600000;
+  const c = { ...cfg, units: { sword: true, ram: true }, paceAfterMin: 60 };
+  const out = plan([threatOf([rec(at, true, 1)])], { roster: vs, speeds: sp, cfg: c });
+  const p = out['1'].parts[0];
+  assert.deepEqual(p.units, { sword: 1000, ram: 1 }, 'only one ram, never the whole ram army');
+  assert.equal(p.paced, 'ram');
+  assert.equal(p.travel, C.travelMs(6, 30, 1));
+  assert.ok(p.waitSaved > 0);
+  // sword alone already leaves soon: no ram
+  const soon = plan([threatOf([rec(NOW + 2 * 3600000 + 20 * 60000, true, 1)])], { roster: vs, speeds: sp, cfg: c });
+  assert.deepEqual(soon['1'].parts[0].units, { sword: 1000 });
+  // the ram would make it too late: no ram
+  const late = plan([threatOf([rec(NOW + 2 * 3600000 + 13 * 60000 + 30 * 60000, true, 1)])], { roster: vs, speeds: sp, cfg: { ...c, paceAfterMin: 10 } });
+  assert.ok(!late['1'].parts[0].units.ram);
+  // pacing off
+  assert.deepEqual(plan([threatOf([rec(at, true, 1)])], { roster: vs, speeds: sp, cfg: { ...c, pace: false } })['1'].parts[0].units, { sword: 1000 });
+});
