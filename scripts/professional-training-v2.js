@@ -92,6 +92,8 @@
 
     // Counts and targets must be per village, not accidentally shared across an entire account.
     const VILLAGE = typeof game_data !== 'undefined' && game_data.village ? String(game_data.village.id) : 'unknown';
+    // Runner feature handshake: this version persists training priority across revisits.
+    window.__algzawyTrainingCursorV1 = true;
     const STATS_KEY = 'tribal_wars_training_stats_' + VILLAGE;
     const SETTINGS_KEY = 'algzawy_training_v22_user_settings_' + VILLAGE;
     try {
