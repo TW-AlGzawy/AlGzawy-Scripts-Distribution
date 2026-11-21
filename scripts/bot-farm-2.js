@@ -190,18 +190,30 @@
         .test(String(cell.textContent||'').trim())))continue;
       const table=row.closest?.('table');
       if(!table||typeof table.querySelectorAll!=='function')continue;
+      // The game often groups heading/label cells with colspan; matching raw
+      // .cells.length wrongly rejects the visible "من هذه القرية" troop row.
+      // Expand only actual HTML table columns, never infer missing unit values.
+      const grid=tr=>{
+        const out=[];
+        for(const cell of Array.from(tr.cells||[])){
+          const span=Math.max(1,Math.min(30,Number(cell.colSpan)||1));
+          for(let i=0;i<span;i++)out.push(cell);
+        }
+        return out;
+      };
+      const values=grid(row);
       const headings=Array.from(table.querySelectorAll('tr')).filter(tr=>tr!==row);
       for(const head of headings){
-        const columns=Array.from(head.cells||[]);
-        if(columns.length!==cells.length)continue;
+        const columns=grid(head);
+        if(columns.length!==values.length)continue;
         const counts={},mapped=new Set();
         for(let i=0;i<columns.length;i++){
-          const el=columns[i].querySelector?.('img[src*="unit_"],[data-unit]');
+          const el=columns[i]?.querySelector?.('img[src*="unit_"],[data-unit]');
           const explicit=el?.getAttribute?.('data-unit');
           const source=el?.getAttribute?.('src')||'';
           const name=explicit||(source.match(/unit_([a-z]+)\.(?:png|webp)/i)||[])[1];
           if(!units.includes(name)||mapped.has(name))continue;
-          const value=String(cells[i].textContent||'').trim();
+          const value=String(values[i]?.textContent||'').trim();
           if(!/^\d{1,7}$/.test(value))continue;
           counts[name]=Number(value);mapped.add(name);
         }
@@ -651,6 +663,9 @@
     }
     observeNativeReports();
     const rawRows=Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
+    // A blank table during AJAX hydration is not an exhausted village.
+    // Waiting avoids endlessly switching/reloading before targets arrive.
+    if(!rawRows.length)return retryLater('قائمة أهداف مساعد النهب لم تُحمّل بعد');
     const troops=readHomeTroops();
     if(cfg().smart){
       if(!troops){
