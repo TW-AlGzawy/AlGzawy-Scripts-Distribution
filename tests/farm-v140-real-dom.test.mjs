@@ -67,9 +67,9 @@ function simulation(previous={},sharedSession=new Map(),extraWindow={}){
  return {run,start,tick,rows,createRow,state,store,sharedSession,q,timers,win};
 }
 
-test('v1.5.0 header and defaults',()=>{
+test('v1.5.1 header and defaults',()=>{
  new vm.Script(script);
- assert.match(script,/^\/\/ @version\s+1\.5\.0$/m);
+ assert.match(script,/^\/\/ @version\s+1\.5\.1$/m);
  const app=simulation();app.run();
  assert.equal(app.q('skip-incoming').checked,true,'skipping duplicate sends is on by default');
  assert.equal(app.q('max-hour').value,0,'hourly cap is off by default');
@@ -188,7 +188,7 @@ test('no new behaviour can bypass human verification',()=>{
  assert.match(script,/pauseForSafety\('تم رصد تحقق بشري/);
 });
 
-test('v1.5.0 normal mode: chosen template at one fixed speed, no skipping, no smart ordering',()=>{
+test('v1.5.1 normal mode: chosen template at one fixed speed, no skipping, no smart ordering',()=>{
  const app=simulation({mode:'normal',template:'B',speed:1500,minDelay:500,maxDelay:9000,
    smart:true,skipIncoming:true,maxPerHour:1,villageTemplates:{11:'C'}});
  app.createRow('busy',{incoming:true,resources:[1,1,1]});
@@ -203,7 +203,7 @@ test('v1.5.0 normal mode: chosen template at one fixed speed, no skipping, no sm
  assert.deepEqual(app.state.clicked.map(c=>c.template),['B','B']); // hourly cap and per-village C ignored
  assert.equal(JSON.parse(app.store.get('algzawy_bot2_settings_v02')).speed,1500);
 });
-test('v1.5.0 normal mode never uses AUTO; pro mode keeps it',()=>{
+test('v1.5.1 normal mode never uses AUTO; pro mode keeps it',()=>{
  const normal=simulation({mode:'normal',template:'AUTO',speed:800});
  normal.createRow('rich',{resources:[2000,2000,2000]});
  normal.start();normal.tick();
@@ -213,7 +213,7 @@ test('v1.5.0 normal mode never uses AUTO; pro mode keeps it',()=>{
  pro.start();pro.tick();
  assert.deepEqual(pro.state.clicked,[{id:'rich',template:'B'}]);
 });
-test('v1.5.0 mode buttons exist and switching is saved',()=>{
+test('v1.5.1 mode buttons exist and switching is saved',()=>{
  assert.match(script,/id="algzawy-bot2-mode-normal">العادي/);
  assert.match(script,/id="algzawy-bot2-mode-pro">الاحترافي/);
  const app=simulation({enabled:false,mode:'pro'});

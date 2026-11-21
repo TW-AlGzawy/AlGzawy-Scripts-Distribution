@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.5.0
+// @version      1.5.1
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -190,18 +190,30 @@
         .test(String(cell.textContent||'').trim())))continue;
       const table=row.closest?.('table');
       if(!table||typeof table.querySelectorAll!=='function')continue;
+      // The game often groups heading/label cells with colspan; matching raw
+      // .cells.length wrongly rejects the visible "من هذه القرية" troop row.
+      // Expand only actual HTML table columns, never infer missing unit values.
+      const grid=tr=>{
+        const out=[];
+        for(const cell of Array.from(tr.cells||[])){
+          const span=Math.max(1,Math.min(30,Number(cell.colSpan)||1));
+          for(let i=0;i<span;i++)out.push(cell);
+        }
+        return out;
+      };
+      const values=grid(row);
       const headings=Array.from(table.querySelectorAll('tr')).filter(tr=>tr!==row);
       for(const head of headings){
-        const columns=Array.from(head.cells||[]);
-        if(columns.length!==cells.length)continue;
+        const columns=grid(head);
+        if(columns.length!==values.length)continue;
         const counts={},mapped=new Set();
         for(let i=0;i<columns.length;i++){
-          const el=columns[i].querySelector?.('img[src*="unit_"],[data-unit]');
+          const el=columns[i]?.querySelector?.('img[src*="unit_"],[data-unit]');
           const explicit=el?.getAttribute?.('data-unit');
           const source=el?.getAttribute?.('src')||'';
           const name=explicit||(source.match(/unit_([a-z]+)\.(?:png|webp)/i)||[])[1];
           if(!units.includes(name)||mapped.has(name))continue;
-          const value=String(cells[i].textContent||'').trim();
+          const value=String(values[i]?.textContent||'').trim();
           if(!/^\d{1,7}$/.test(value))continue;
           counts[name]=Number(value);mapped.add(name);
         }
@@ -602,10 +614,25 @@
   function nextVillage() {
     if (!settings.switchVillages) return retryLater('لا توجد أهداف قابلة للنهب حاليًا');
     const next=document.querySelector('#village_switch_right');
-    const href=next&&(next.getAttribute('href')||next.href);
-    if(href && href!=='#' && (/^https?:/.test(href) || href.startsWith('/'))){
-      status('الانتقال إلى القرية التالية... (يتوقف النهب عند فتحها)');
-      timer=setTimeout(()=>{if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())location.href=href;},Math.max(2000,cfg().minDelay));
+    const link=next?.matches?.('a[href]')?next:
+      next?.closest?.('a[href]')||next?.querySelector?.('a[href]')||next;
+    const href=link?.getAttribute?.('href')||link?.href||'';
+    let destination='';
+    try {
+      const current=new URL(location.href),url=new URL(href,current.href);
+      // Follow only validated same-origin Farm Assistant village links, including
+      // game.php?... and ?village=... links used by the game's switcher.
+      if(!url.searchParams.has('screen')&&url.origin===current.origin&&url.pathname===current.pathname)
+        url.searchParams.set('screen',current.searchParams.get('screen')||'');
+      if(href&&href!=='#'&&url.origin===current.origin&&url.pathname===current.pathname&&
+         url.searchParams.get('screen')==='am_farm'&&
+         /^\d+$/.test(url.searchParams.get('village')||'')&&
+         url.searchParams.get('village')!==current.searchParams.get('village'))
+        destination=url.href;
+    }catch(_){/* Malformed links never trigger navigation. */}
+    if(destination){
+      status('الانتقال إلى القرية التالية... (سيُستأنف النهب بعد فتحها)');
+      timer=setTimeout(()=>{if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())location.href=destination;},Math.max(2000,cfg().minDelay));
     }else retryLater('لا تتوفر قرية تالية الآن');
   }
   function step() {
@@ -636,6 +663,9 @@
     }
     observeNativeReports();
     const rawRows=Array.from(document.querySelectorAll('#plunder_list tr')).slice(1);
+    // A blank table during AJAX hydration is not an exhausted village.
+    // Waiting avoids endlessly switching/reloading before targets arrive.
+    if(!rawRows.length)return retryLater('قائمة أهداف مساعد النهب لم تُحمّل بعد');
     const troops=readHomeTroops();
     if(cfg().smart){
       if(!troops){
