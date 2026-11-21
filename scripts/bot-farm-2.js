@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         الغزااوي | بوت النهب
-// @version      1.5.0
+// @version      1.5.1
 // @description  User-controlled A/B/C farm templates, delays and village navigation
 // @match        https://*/*=am_farm*
 // @grant        none
@@ -602,10 +602,24 @@
   function nextVillage() {
     if (!settings.switchVillages) return retryLater('لا توجد أهداف قابلة للنهب حاليًا');
     const next=document.querySelector('#village_switch_right');
-    const href=next&&(next.getAttribute('href')||next.href);
-    if(href && href!=='#' && (/^https?:/.test(href) || href.startsWith('/'))){
-      status('الانتقال إلى القرية التالية... (يتوقف النهب عند فتحها)');
-      timer=setTimeout(()=>{if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())location.href=href;},Math.max(2000,cfg().minDelay));
+    const link=next?.matches?.('a[href]')?next:
+      next?.closest?.('a[href]')||next?.querySelector?.('a[href]')||next;
+    const href=link?.getAttribute?.('href')||link?.href||'';
+    let destination='';
+    try {
+      const current=new URL(location.href),url=new URL(href,current.href);
+      // Follow only validated same-origin Farm Assistant village links, including
+      // game.php?... and ?village=... links used by the game's switcher.
+      if(href.startsWith('?')&&!url.searchParams.has('screen'))
+        url.searchParams.set('screen',current.searchParams.get('screen')||'');
+      if(href&&url.origin===current.origin&&url.pathname===current.pathname&&
+         url.searchParams.get('screen')==='am_farm'&&
+         /^\d+$/.test(url.searchParams.get('village')||''))
+        destination=url.href;
+    }catch(_){/* Malformed links never trigger navigation. */}
+    if(destination){
+      status('الانتقال إلى القرية التالية... (سيُستأنف النهب بعد فتحها)');
+      timer=setTimeout(()=>{if(settings.enabled&&!policyPaused&&!terminated&&!challengeDetected())location.href=destination;},Math.max(2000,cfg().minDelay));
     }else retryLater('لا تتوفر قرية تالية الآن');
   }
   function step() {
