@@ -608,7 +608,9 @@
     timer=setTimeout(()=>{
       if (!settings.enabled||policyPaused||terminated||challengeDetected()) return;
       attempted.clear();attemptedRows=new WeakSet();
-      if(settings.switchVillages) location.reload(); else step();
+      // Always reload: the A/B buttons, the home troops and the target list only change on a fresh page.
+      // Without it (one village, no switching) troops came home but the buttons stayed grey forever.
+      location.reload();
     },idleWait);
   }
   function nextVillage() {

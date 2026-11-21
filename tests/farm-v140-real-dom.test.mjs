@@ -57,7 +57,7 @@ function simulation(previous={},sharedSession=new Map(),extraWindow={}){
  const localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)};
  const sessionStorage={getItem:k=>sharedSession.get(k)||null,setItem:(k,v)=>sharedSession.set(k,String(v)),removeItem:k=>sharedSession.delete(k)};
  const win={visualViewport:null,innerWidth:1300,innerHeight:900,game_data:{player:{id:7},village:{id:11,coord:'500|500'}},...extraWindow};
- const ctx={document,localStorage,sessionStorage,location:{href:'https://example.com/game.php?screen=am_farm',host:'w1',reload(){}},
+ const ctx={document,localStorage,sessionStorage,location:{href:'https://example.com/game.php?screen=am_farm',host:'w1',reload(){state.reloads=(state.reloads||0)+1;}},
   window:win,innerWidth:1300,innerHeight:900,Event:class Event{constructor(type){this.type=type;}},
   alert:()=>{},setTimeout(fn){const id=++nextTimer;timers.set(id,fn);return id;},clearTimeout(id){timers.delete(id);},Math};
  const run=()=>vm.runInNewContext(script,ctx,{timeout:1500});
@@ -170,13 +170,17 @@ test('engine still runs when jQuery is absent or throws',()=>{
 
 test('idle checks back off 1x,2x,4x and a real attempt resets the streak',()=>{
  const shared=new Map();
- const app=simulation({switchVillages:false},shared);
+ let app=simulation({switchVillages:false},shared);
  app.start();app.tick();                          // no rows -> retryLater
  assert.equal(shared.get('algzawy_bot2_idle_streak_v1'),'1');
- app.tick();
+ app.tick();                                      // the re-check reloads the page, even without village switching
+ assert.equal(app.state.reloads,1,'stale grey buttons/troops only refresh with a new page');
+ app=simulation({switchVillages:false},shared);   // the reloaded page resumes on its own (tab run intent)
+ app.run();app.tick();
  assert.equal(shared.get('algzawy_bot2_idle_streak_v1'),'2');
+ app=simulation({switchVillages:false},shared);   // next reload: a target is clickable now
  app.createRow('late');
- app.tick();                                      // row present now -> click -> reset
+ app.run();app.tick();                            // row present now -> click -> reset
  assert.equal(shared.get('algzawy_bot2_idle_streak_v1'),undefined);
 });
 
