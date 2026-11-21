@@ -610,7 +610,7 @@
       const current=new URL(location.href),url=new URL(href,current.href);
       // Follow only validated same-origin Farm Assistant village links, including
       // game.php?... and ?village=... links used by the game's switcher.
-      if(href.startsWith('?')&&!url.searchParams.has('screen'))
+      if(!url.searchParams.has('screen')&&url.origin===current.origin&&url.pathname===current.pathname)
         url.searchParams.set('screen',current.searchParams.get('screen')||'');
       if(href&&url.origin===current.origin&&url.pathname===current.pathname&&
          url.searchParams.get('screen')==='am_farm'&&
