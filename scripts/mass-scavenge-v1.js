@@ -869,6 +869,12 @@ function setupMassPanelControls(panel,header,body){
       document.dispatchEvent(new CustomEvent('algzawy-engine-capabilities',
         {detail:JSON.stringify({id:'mass-scavenge-v1',pause:true})}));
 
+    // ms the cloud bot holds back each game request of this tab (its bot-speed setting); 0 in a normal browser.
+    function requestGapMs() {
+        const n = Number(window.__algzawyRequestGapMs);
+        return Number.isFinite(n) && n > 0 ? Math.min(150000, n) : 0;
+    }
+
     function waitAndClick(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
@@ -1060,7 +1066,10 @@ function setupMassPanelControls(panel,header,body){
             await bgClock.sleep(settings.delayUiLoad);
             if(!isCurrentCycleClaim())return;
             console.log("[سكربت الغزاوي] البحث عن زر 'حساب المدة'...");
-            await waitAndClick('#sendMass');
+            // The organizer reads every mass-scavenge page before it shows its buttons. On the cloud bot each game
+            // request waits for the bot-speed gap, so give it one gap per page (plus its unit data) on top of 10 s.
+            const pages = 1 + document.querySelectorAll('.paged-nav-item').length;
+            await waitAndClick('#sendMass', Math.min(240000, 10000 + requestGapMs() * (pages + 2)));
 
             await bgClock.sleep(settings.delayAfterCalc);
 
@@ -1118,7 +1127,8 @@ function setupMassPanelControls(panel,header,body){
                     // The external UI removes sendRowN on completion. A click alone
                     // is NOT proof that the game's server accepted the squad requests.
                     let removed = false;
-                    for (let retry = 0; retry < 20; retry++) {
+                    const removalTries = 20 + Math.ceil(requestGapMs() * 1.5 / 250);   // the send itself waits for the bot-speed gap
+                    for (let retry = 0; retry < removalTries; retry++) {
                         await wait(250);
                         if (!isCurrentCycleClaim()) return;
                         if (task.row && !task.row.isConnected) { removed = true; break; }

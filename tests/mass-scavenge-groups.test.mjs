@@ -9,7 +9,7 @@ assert.ok(begin >= 0 && end > begin, 'mass-scavenge group loop not found');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const run = new AsyncFunction(
   'document','GM_getValue','localStorage','settings','schedulePageReload','isCurrentCycleClaim','console','bgClock','Event',
-  source.slice(begin, end) + '\nawait dispatchAvailableGroups();'
+  'const requestGapMs = () => 0;\n' + source.slice(begin, end) + '\nawait dispatchAvailableGroups();'
 );
 
 async function simulate(ids, { remove=true, disabled=[] }={}) {
@@ -62,4 +62,22 @@ test('groups remaining after an earlier run (2..6) are still all sent',async()=>
 });
 test('source has no hard-coded group limit',()=>{
   assert.doesNotMatch(source,/maxGroupCount/);
+});
+
+test('cloud bot speed gap: a send answered after the gap is not mistaken for a stuck group', async () => {
+  const runGap = new AsyncFunction(
+    'document','GM_getValue','localStorage','settings','schedulePageReload','isCurrentCycleClaim','console','bgClock','Event',
+    'const requestGapMs = () => 15000;\n' + source.slice(begin, end) + '\nawait dispatchAvailableGroups();'
+  );
+  let ticks = 0, reload = 0; const calls = [];
+  const rows = [0, 1].map((index) => ({ id: 'sendRow' + index, connected: true, clickedAt: null,
+    get isConnected() { if (this.clickedAt !== null && ticks - this.clickedAt >= 40) this.connected = false; return this.connected; },
+    querySelector() { const row = this; return { disabled: false, getClientRects: () => [1], get isConnected() { return row.isConnected; },
+      click() { calls.push(index); row.clickedAt = ticks; } }; } }));
+  const document = { querySelectorAll: (s) => s === '[id^="sendRow"]' ? rows.filter((r) => r.isConnected) : [], querySelector: () => null, dispatchEvent() {} };
+  // 40 × 250 ms = 10 s until the game answers: longer than the old fixed 5 s, inside 5 s + 1.5 gaps
+  await runGap(document, () => true, { getItem: () => null, setItem() {} }, { delayBetweenGroups: 350 },
+    () => reload++, () => true, { log() {}, warn() {} }, { sleep: async () => { ticks++; } }, class Event {});
+  assert.deepEqual(calls, [0, 1]);
+  assert.equal(reload, 1);
 });

@@ -351,9 +351,10 @@
   }
   if(owned===null)return null;
   const queueWrappers=[...document.querySelectorAll('.trainqueue_wrap')];
-  // When the game hasn't exposed the recruitment queue yet, treat it as
-  // unknown. Never assume 0 and silently exceed the configured troop goal.
-  if(!queueWrappers.length)return null;
+  // The game only draws a queue box while something is being recruited. While the page is still loading the
+  // queue is unknown (never assume 0 and overshoot the goal); once it has loaded, no box means an empty queue.
+  // (Treating a loaded page with an empty queue as "unknown" meant a barracks that ran empty never trained again.)
+  if(!queueWrappers.length)return document.readyState==='complete'?{owned,queued:0,total:owned}:null;
   let queued=0;
   for(const wrap of queueWrappers){
     for(const tr of wrap.querySelectorAll('tr')){
