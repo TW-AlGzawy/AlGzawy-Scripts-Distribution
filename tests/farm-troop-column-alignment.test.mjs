@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../scripts/bot-farm-2.js', import.meta.url), 'utf8');
-const start = source.indexOf('  function nativeFarmTroops() {');
+const start = source.indexOf('  function nativeFarmTroops(){');
 const end = source.indexOf('  function troopFingerprint(', start);
 assert.ok(start >= 0 && end > start, 'native farm troop reader must exist');
 
