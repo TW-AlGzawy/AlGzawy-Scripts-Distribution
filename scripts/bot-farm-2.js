@@ -612,9 +612,10 @@
       // game.php?... and ?village=... links used by the game's switcher.
       if(!url.searchParams.has('screen')&&url.origin===current.origin&&url.pathname===current.pathname)
         url.searchParams.set('screen',current.searchParams.get('screen')||'');
-      if(href&&url.origin===current.origin&&url.pathname===current.pathname&&
+      if(href&&href!=='#'&&url.origin===current.origin&&url.pathname===current.pathname&&
          url.searchParams.get('screen')==='am_farm'&&
-         /^\d+$/.test(url.searchParams.get('village')||''))
+         /^\d+$/.test(url.searchParams.get('village')||'')&&
+         url.searchParams.get('village')!==current.searchParams.get('village'))
         destination=url.href;
     }catch(_){/* Malformed links never trigger navigation. */}
     if(destination){
