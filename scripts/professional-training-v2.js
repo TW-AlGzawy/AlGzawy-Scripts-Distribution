@@ -92,6 +92,8 @@
 
     // Counts and targets must be per village, not accidentally shared across an entire account.
     const VILLAGE = typeof game_data !== 'undefined' && game_data.village ? String(game_data.village.id) : 'unknown';
+    // Runner feature handshake: this version persists training priority across revisits.
+    window.__algzawyTrainingCursorV1 = true;
     const STATS_KEY = 'tribal_wars_training_stats_' + VILLAGE;
     const SETTINGS_KEY = 'algzawy_training_v22_user_settings_' + VILLAGE;
     try {
@@ -446,7 +448,13 @@
             return;
         }
 
-        let currentIndex = 0;
+        // A single-tab Runner revisits this village. Persist the unit cursor
+        // across page reloads/village changes, otherwise only top-priority units
+        // are reached on every visit and low-priority units are starved.
+        const CURSOR_KEY = 'algzawy_training_priority_cursor_v1_' + VILLAGE;
+        const savedCursor = Number(sessionStorage.getItem(CURSOR_KEY));
+        let currentIndex = Number.isSafeInteger(savedCursor) && savedCursor >= 0
+            ? savedCursor % sortedUnits.length : 0;
 
         function trainNext() {
             if (!CONFIG.AUTO_TRAIN || localStorage.getItem('algzawy_human_verification_pause')==='1') return;
@@ -459,6 +467,7 @@
 
             trainUnit(unitId, config);
             currentIndex++;
+            sessionStorage.setItem(CURSOR_KEY, String(currentIndex % sortedUnits.length));
 
             // استخدام setTimeout بدلاً من setInterval لتوفير الذاكرة
             trainingTimeout = setTimeout(trainNext, CONFIG.GLOBAL_INTERVAL_SECONDS * 1000);
